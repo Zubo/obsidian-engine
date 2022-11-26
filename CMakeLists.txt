@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.24)
 project(VkGuide
     LANGUAGES CXX)
 
+set(CMAKE_CXX_STANDARD 20)
 
 add_executable(vkguide
     "src/main.cpp"
@@ -10,4 +11,16 @@ add_executable(vkguide
 
 target_include_directories(vkguide PRIVATE include)
 
-target_link_libraries(vkguide vulkan)
+find_package(SDL2 REQUIRED)
+find_package(Vulkan REQUIRED)
+
+target_link_libraries(vkguide
+    PRIVATE
+        ${VULKAN_LIBRARIES}
+        ${SDL2_LIBRARIES}
+)
+
+target_include_directories(vkguide PRIVATE
+    ${VULKAN_INCLUDE_DIRS}
+    ${SDL2_INCLUDE_DIRS}
+)
