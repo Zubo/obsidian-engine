@@ -7,6 +7,10 @@ set(CMAKE_CXX_STANDARD 20)
 
 add_executable(vkguide
     "src/main.cpp"
+    "src/vk_engine.cpp"
+    "include/vk_init.hpp"
+    "include/vk_engine.hpp"
+    "include/vk_types.hpp"
 )
 
 target_include_directories(vkguide PRIVATE include)
@@ -16,8 +20,8 @@ find_package(Vulkan REQUIRED)
 
 target_link_libraries(vkguide
     PRIVATE
-        ${VULKAN_LIBRARIES}
-        ${SDL2_LIBRARIES}
+    ${VULKAN_LIBRARIES}
+    ${SDL2_LIBRARIES}
 )
 
 target_include_directories(vkguide PRIVATE

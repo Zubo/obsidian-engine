@@ -1,7 +1,11 @@
-#include <iostream>
+#include <vk_engine.hpp>
 
-int main(int const argc, char const**  argv) {
-    std::cout << "Hello world!" << std::endl;
-    
-    return 0;
+int main(int const argc, char const **argv) {
+  VulkanEngine engine;
+
+  engine.init();
+  engine.run();
+  engine.cleanup();
+
+  return 0;
 }
