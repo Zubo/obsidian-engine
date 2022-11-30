@@ -1,6 +1,16 @@
 #include <SDL.h>
 #include <SDL_vulkan.h>
+#include <VkBootstrap.h>
 #include <vk_engine.hpp>
+
+#define VK_CHECK(x)                                                            \
+  do {                                                                         \
+    VkResult err = x;                                                          \
+    if (err) {                                                                 \
+      std::cout << "Detected Vulkan error: " << err << std::endl;              \
+      std::abort();                                                            \
+    }                                                                          \
+  } while (0)
 
 void VulkanEngine::init() {
   SDL_Init(SDL_INIT_VIDEO);

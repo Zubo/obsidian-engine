@@ -18,10 +18,13 @@ target_include_directories(vkguide PRIVATE include)
 find_package(SDL2 REQUIRED)
 find_package(Vulkan REQUIRED)
 
+add_subdirectory(third-party/vk-bootstrap)
+
 target_link_libraries(vkguide
     PRIVATE
     ${VULKAN_LIBRARIES}
     ${SDL2_LIBRARIES}
+    vk-bootstrap
 )
 
 target_include_directories(vkguide PRIVATE
