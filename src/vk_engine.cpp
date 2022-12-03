@@ -19,6 +19,8 @@ void VulkanEngine::init() {
                             SDL_WINDOWPOS_UNDEFINED, WindowExtent.width,
                             WindowExtent.height, windowFlags);
 
+  initVulkan();
+
   IsInitialized = true;
 }
 
@@ -39,3 +41,30 @@ void VulkanEngine::run() {
 void VulkanEngine::cleanup() {}
 
 void VulkanEngine::draw() {}
+
+void VulkanEngine::initVulkan() {
+  vkb::InstanceBuilder builder;
+  auto const builderReturn = builder.set_app_name("VKGuide tutorial")
+                                 .request_validation_layers(true)
+                                 .require_api_version(1, 1, 0)
+                                 .use_default_debug_messenger()
+                                 .build();
+
+  vkb::Instance vkbInstance = builderReturn.value();
+
+  _vkInstance = vkbInstance.instance;
+  _vkDebugMessenger = vkbInstance.debug_messenger;
+
+  SDL_Vulkan_CreateSurface(Window, _vkInstance, &_vkSurface);
+  vkb::PhysicalDeviceSelector vkbSelector{vkbInstance};
+  vkb::PhysicalDevice vkbPhysicalDevice = vkbSelector.set_minimum_version(1, 1)
+                                              .set_surface(_vkSurface)
+                                              .select()
+                                              .value();
+
+  vkb::DeviceBuilder vkbDeviceBuilder{vkbPhysicalDevice};
+  vkb::Device vkbDevice = vkbDeviceBuilder.build().value();
+
+  _vkDevice = vkbDevice.device;
+  _vkPhysicalDevice = vkbPhysicalDevice.physical_device;
+}

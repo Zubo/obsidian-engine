@@ -7,11 +7,21 @@ public:
   bool IsInitialized{false};
   int FrameNumber{0};
   VkExtent2D WindowExtent{1000, 800};
-
   struct SDL_Window *Window{nullptr};
 
+private:
+  VkInstance _vkInstance;
+  VkDebugUtilsMessengerEXT _vkDebugMessenger;
+  VkSurfaceKHR _vkSurface;
+  VkPhysicalDevice _vkPhysicalDevice;
+  VkDevice _vkDevice;
+
+public:
   void init();
   void run();
   void cleanup();
   void draw();
+
+private:
+  void initVulkan();
 };
