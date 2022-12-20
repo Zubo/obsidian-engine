@@ -21,6 +21,8 @@ void VulkanEngine::init() {
 
   initVulkan();
 
+  initSwapchain();
+
   IsInitialized = true;
 }
 
@@ -38,7 +40,23 @@ void VulkanEngine::run() {
   }
 }
 
-void VulkanEngine::cleanup() {}
+void VulkanEngine::cleanup() {
+  if (IsInitialized) {
+    vkDestroySwapchainKHR(_vkDevice, _vkSwapchain, nullptr);
+
+    for (int i = 0; i < _vkSwapchainImageViews.size(); ++i) {
+      vkDestroyImageView(_vkDevice, _vkSwapchainImageViews[i], nullptr);
+    }
+
+    vkDestroyDevice(_vkDevice, nullptr);
+    vkDestroySurfaceKHR(_vkInstance, _vkSurface, nullptr);
+    vkb::destroy_debug_utils_messenger(_vkInstance, _vkDebugMessenger);
+    vkDestroyInstance(_vkInstance, nullptr);
+    SDL_DestroyWindow(Window);
+
+    IsInitialized = false;
+  }
+}
 
 void VulkanEngine::draw() {}
 
@@ -67,4 +85,19 @@ void VulkanEngine::initVulkan() {
 
   _vkDevice = vkbDevice.device;
   _vkPhysicalDevice = vkbPhysicalDevice.physical_device;
+}
+
+void VulkanEngine::initSwapchain() {
+  vkb::SwapchainBuilder swapchainBuilder{_vkPhysicalDevice, _vkDevice,
+                                         _vkSurface};
+
+  vkb::Swapchain vkbSwapchain =
+      swapchainBuilder.use_default_format_selection()
+          .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
+          .set_desired_extent(WindowExtent.width, WindowExtent.height)
+          .build()
+          .value();
+  _vkSwapchain = vkbSwapchain.swapchain;
+  _vkSwapchainImages = vkbSwapchain.get_images().value();
+  _vkSwapchainImageViews = vkbSwapchain.get_image_views().value();
 }

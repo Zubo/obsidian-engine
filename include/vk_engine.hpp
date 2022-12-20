@@ -15,6 +15,10 @@ private:
   VkSurfaceKHR _vkSurface;
   VkPhysicalDevice _vkPhysicalDevice;
   VkDevice _vkDevice;
+  VkSwapchainKHR _vkSwapchain;
+  VkFormat _vkSwapchainImageFormat;
+  std::vector<VkImageView> _vkSwapchainImageViews;
+  std::vector<VkImage> _vkSwapchainImages;
 
 public:
   void init();
@@ -24,4 +28,5 @@ public:
 
 private:
   void initVulkan();
+  void initSwapchain();
 };

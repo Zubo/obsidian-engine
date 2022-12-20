@@ -22,7 +22,7 @@ add_subdirectory(third-party/vk-bootstrap)
 
 target_link_libraries(vkguide
     PRIVATE
-    ${VULKAN_LIBRARIES}
+    ${Vulkan_LIBRARIES}
     ${SDL2_LIBRARIES}
     vk-bootstrap
 )
