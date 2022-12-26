@@ -2,6 +2,8 @@
 
 #include <vk_types.hpp>
 
+#include <cstdint>
+
 class VulkanEngine {
 public:
   bool IsInitialized{false};
@@ -19,6 +21,10 @@ private:
   VkFormat _vkSwapchainImageFormat;
   std::vector<VkImageView> _vkSwapchainImageViews;
   std::vector<VkImage> _vkSwapchainImages;
+  VkQueue _vkGraphicsQueue;
+  std::uint32_t _graphicsQueueFamilyIndex;
+  VkCommandPool _vkCommandPool;
+  VkCommandBuffer _vkCommandBufferMain;
 
 public:
   void init();
@@ -29,4 +35,5 @@ public:
 private:
   void initVulkan();
   void initSwapchain();
+  void initCommands();
 };

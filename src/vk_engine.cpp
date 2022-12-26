@@ -2,6 +2,10 @@
 #include <SDL_vulkan.h>
 #include <VkBootstrap.h>
 #include <vk_engine.hpp>
+#include <vk_initializers.hpp>
+
+#include <cstdint>
+#include <iostream>
 
 #define VK_CHECK(x)                                                            \
   do {                                                                         \
@@ -23,6 +27,8 @@ void VulkanEngine::init() {
 
   initSwapchain();
 
+  initCommands();
+
   IsInitialized = true;
 }
 
@@ -42,6 +48,8 @@ void VulkanEngine::run() {
 
 void VulkanEngine::cleanup() {
   if (IsInitialized) {
+    vkDestroyCommandPool(_vkDevice, _vkCommandPool, nullptr);
+
     vkDestroySwapchainKHR(_vkDevice, _vkSwapchain, nullptr);
 
     for (int i = 0; i < _vkSwapchainImageViews.size(); ++i) {
@@ -85,6 +93,10 @@ void VulkanEngine::initVulkan() {
 
   _vkDevice = vkbDevice.device;
   _vkPhysicalDevice = vkbPhysicalDevice.physical_device;
+
+  _vkGraphicsQueue = vkbDevice.get_queue(vkb::QueueType::graphics).value();
+  _graphicsQueueFamilyIndex =
+      vkbDevice.get_queue_index(vkb::QueueType::graphics).value();
 }
 
 void VulkanEngine::initSwapchain() {
@@ -100,4 +112,21 @@ void VulkanEngine::initSwapchain() {
   _vkSwapchain = vkbSwapchain.swapchain;
   _vkSwapchainImages = vkbSwapchain.get_images().value();
   _vkSwapchainImageViews = vkbSwapchain.get_image_views().value();
+}
+
+void VulkanEngine::initCommands() {
+  VkCommandPoolCreateInfo vkCommandPoolCreateInfo =
+      vkinit::commandPoolCreateInfo(
+          _graphicsQueueFamilyIndex,
+          VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+  VK_CHECK(vkCreateCommandPool(_vkDevice, &vkCommandPoolCreateInfo, nullptr,
+                               &_vkCommandPool));
+
+  constexpr std::uint32_t commandPoolCount = 1;
+  VkCommandBufferAllocateInfo vkCommandBufferAllocateInfo =
+      vkinit::commandBufferAllocateInfo(_vkCommandPool, commandPoolCount,
+                                        VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+
+  VK_CHECK(vkAllocateCommandBuffers(_vkDevice, &vkCommandBufferAllocateInfo,
+                                    &_vkCommandBufferMain));
 }

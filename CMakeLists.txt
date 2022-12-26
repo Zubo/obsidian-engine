@@ -8,9 +8,11 @@ set(CMAKE_CXX_STANDARD 20)
 add_executable(vkguide
     "src/main.cpp"
     "src/vk_engine.cpp"
+    "src/vk_initializers.cpp"
     "include/vk_init.hpp"
     "include/vk_engine.hpp"
     "include/vk_types.hpp"
+    "include/vk_initializers.hpp"
 )
 
 target_include_directories(vkguide PRIVATE include)
