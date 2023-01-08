@@ -25,6 +25,11 @@ private:
   std::uint32_t _graphicsQueueFamilyIndex;
   VkCommandPool _vkCommandPool;
   VkCommandBuffer _vkCommandBufferMain;
+  VkRenderPass _vkRenderPass;
+  std::vector<VkFramebuffer> _vkFramebuffers;
+  VkSemaphore _vkPresentSemaphore, _vkRenderSemaphore;
+  VkFence _vkRenderFence;
+  std::uint32_t _frameNumber = 0;
 
 public:
   void init();
@@ -36,4 +41,7 @@ private:
   void initVulkan();
   void initSwapchain();
   void initCommands();
+  void initDefaultRenderPass();
+  void initFramebuffers();
+  void initSyncStructures();
 };
