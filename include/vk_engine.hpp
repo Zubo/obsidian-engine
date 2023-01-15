@@ -44,4 +44,6 @@ private:
   void initDefaultRenderPass();
   void initFramebuffers();
   void initSyncStructures();
+  bool loadShaderModule(char const *filePath, VkShaderModule *outShaderModule);
+  void initPipelines();
 };

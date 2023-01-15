@@ -5,6 +5,7 @@
 #include <vk_initializers.hpp>
 
 #include <cstdint>
+#include <fstream>
 #include <iostream>
 
 #define VK_CHECK(x)                                                            \
@@ -34,6 +35,8 @@ void VulkanEngine::init() {
   initFramebuffers();
 
   initSyncStructures();
+
+  initPipelines();
 
   IsInitialized = true;
 }
@@ -286,4 +289,56 @@ void VulkanEngine::initSyncStructures() {
                              &_vkRenderSemaphore));
   VK_CHECK(vkCreateSemaphore(_vkDevice, &vkSemaphoreCreateInfo, nullptr,
                              &_vkPresentSemaphore));
+}
+
+bool VulkanEngine::loadShaderModule(char const *filePath,
+                                    VkShaderModule *outShaderModule) {
+  std::ifstream file{filePath, std::ios::ate | std::ios::binary};
+
+  if (!file.is_open()) {
+    return false;
+  }
+
+  std::size_t const fileSize = static_cast<std::size_t>(file.tellg());
+  std::vector<std::uint32_t> buffer((fileSize + sizeof(std::uint32_t) - 1) /
+                                    sizeof(std::uint32_t));
+
+  file.seekg(0);
+
+  file.read(reinterpret_cast<char *>(buffer.data()), fileSize);
+
+  file.close();
+
+  VkShaderModuleCreateInfo shaderModuleCreateInfo = {};
+  shaderModuleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+  shaderModuleCreateInfo.pNext = nullptr;
+  shaderModuleCreateInfo.codeSize = fileSize;
+  shaderModuleCreateInfo.pCode = buffer.data();
+
+  if (vkCreateShaderModule(_vkDevice, &shaderModuleCreateInfo, nullptr,
+                           outShaderModule)) {
+    return false;
+  }
+
+  return true;
+}
+
+void VulkanEngine::initPipelines() {
+  VkShaderModule triangleVertShader;
+
+  if (!loadShaderModule("shaders/triangle.vert.spv", &triangleVertShader)) {
+    std::cout << "Error when building the triangle vertex shader module."
+              << std::endl;
+  } else {
+    std::cout << "Triangle vertex shader successfully loaded." << std::endl;
+  }
+
+  VkShaderModule triangleFragShader;
+
+  if (!loadShaderModule("shaders/triangle.frag.spv", &triangleFragShader)) {
+    std::cout << "Error when building the triangle fragment shader module."
+              << std::endl;
+  } else {
+    std::cout << "Triangle fragment shader successfully loaded." << std::endl;
+  }
 }
