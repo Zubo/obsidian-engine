@@ -115,6 +115,10 @@ void VulkanEngine::draw() {
   vkRenderPassBeginInfo.pClearValues = &clearValue;
 
   vkCmdBeginRenderPass(cmd, &vkRenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+  vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _vkTrianglePipeline);
+  vkCmdDraw(cmd, 3, 1, 0, 0);
+
   vkCmdEndRenderPass(cmd);
   VK_CHECK(vkEndCommandBuffer(cmd));
 
@@ -341,4 +345,92 @@ void VulkanEngine::initPipelines() {
   } else {
     std::cout << "Triangle fragment shader successfully loaded." << std::endl;
   }
+
+  VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo =
+      vkinit::pipelineLayoutCreateInfo();
+  VK_CHECK(vkCreatePipelineLayout(_vkDevice, &vkPipelineLayoutCreateInfo,
+                                  nullptr, &_vkTrianglePipelineLayout));
+
+  PipelineBuilder pipelineBuilder;
+
+  pipelineBuilder._vkShaderStageCreateInfo.push_back(
+      vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT,
+                                            triangleVertShader));
+  pipelineBuilder._vkShaderStageCreateInfo.push_back(
+      vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT,
+                                            triangleFragShader));
+  pipelineBuilder._vkVertexInputInfo = vkinit::vertexInputStateCreateInfo();
+  pipelineBuilder._vkInputAssemblyCreateInfo =
+      vkinit::inputAssemblyCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+
+  pipelineBuilder._vkViewport.x = 0.0f;
+  pipelineBuilder._vkViewport.y = 0.0f;
+  pipelineBuilder._vkViewport.height = WindowExtent.height;
+  pipelineBuilder._vkViewport.width = WindowExtent.width;
+  pipelineBuilder._vkViewport.minDepth = 0.0f;
+  pipelineBuilder._vkViewport.maxDepth = 1.0f;
+
+  pipelineBuilder._vkScissor.offset = {0, 0};
+  pipelineBuilder._vkScissor.extent = WindowExtent;
+
+  pipelineBuilder._vkRasterizationCreateInfo =
+      vkinit::rasterizationCreateInfo(VK_POLYGON_MODE_FILL);
+  pipelineBuilder._vkColorBlendAttachmentState =
+      vkinit::colorBlendAttachmentState();
+  pipelineBuilder._vkMultisampleStateCreateInfo =
+      vkinit::multisampleStateCreateInfo();
+  pipelineBuilder._vkTrianglePipelineLayout = _vkTrianglePipelineLayout;
+
+  _vkTrianglePipeline = pipelineBuilder.buildPipeline(_vkDevice, _vkRenderPass);
+}
+
+VkPipeline PipelineBuilder::buildPipeline(VkDevice device, VkRenderPass pass) {
+  VkPipelineViewportStateCreateInfo viewportStateCreateInfo = {};
+  viewportStateCreateInfo.sType =
+      VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+  viewportStateCreateInfo.pNext = nullptr;
+  viewportStateCreateInfo.viewportCount = 1;
+  viewportStateCreateInfo.pViewports = &_vkViewport;
+  viewportStateCreateInfo.scissorCount = 1;
+  viewportStateCreateInfo.pScissors = &_vkScissor;
+
+  VkPipelineColorBlendStateCreateInfo colorBlendingCreateInfo = {};
+  colorBlendingCreateInfo.sType =
+      VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+  colorBlendingCreateInfo.pNext = nullptr;
+  colorBlendingCreateInfo.logicOpEnable = VK_FALSE;
+  colorBlendingCreateInfo.attachmentCount = 1;
+  colorBlendingCreateInfo.pAttachments = &_vkColorBlendAttachmentState;
+
+  VkGraphicsPipelineCreateInfo graphicsPipelineCreateInfo = {};
+  graphicsPipelineCreateInfo.sType =
+      VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+  graphicsPipelineCreateInfo.pNext = nullptr;
+
+  graphicsPipelineCreateInfo.stageCount = _vkShaderStageCreateInfo.size();
+  graphicsPipelineCreateInfo.pStages = _vkShaderStageCreateInfo.data();
+  graphicsPipelineCreateInfo.pVertexInputState = &_vkVertexInputInfo;
+  graphicsPipelineCreateInfo.pInputAssemblyState = &_vkInputAssemblyCreateInfo;
+  graphicsPipelineCreateInfo.pTessellationState = nullptr;
+  graphicsPipelineCreateInfo.pViewportState = &viewportStateCreateInfo;
+  graphicsPipelineCreateInfo.pRasterizationState = &_vkRasterizationCreateInfo;
+  graphicsPipelineCreateInfo.pMultisampleState = &_vkMultisampleStateCreateInfo;
+  graphicsPipelineCreateInfo.pDepthStencilState = nullptr;
+  graphicsPipelineCreateInfo.pColorBlendState = &colorBlendingCreateInfo;
+  graphicsPipelineCreateInfo.pDynamicState = nullptr;
+  graphicsPipelineCreateInfo.layout = _vkTrianglePipelineLayout;
+  graphicsPipelineCreateInfo.renderPass = pass;
+  graphicsPipelineCreateInfo.subpass = 0;
+  graphicsPipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE;
+
+  VkPipeline newPipeline;
+
+  if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1,
+                                &graphicsPipelineCreateInfo, nullptr,
+                                &newPipeline) != VK_SUCCESS) {
+    std::cout << "Failed to create pipeline" << std::endl;
+    return VK_NULL_HANDLE;
+  }
+
+  return newPipeline;
 }

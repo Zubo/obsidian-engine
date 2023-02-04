@@ -30,6 +30,8 @@ private:
   VkSemaphore _vkPresentSemaphore, _vkRenderSemaphore;
   VkFence _vkRenderFence;
   std::uint32_t _frameNumber = 0;
+  VkPipelineLayout _vkTrianglePipelineLayout;
+  VkPipeline _vkTrianglePipeline;
 
 public:
   void init();
@@ -46,4 +48,19 @@ private:
   void initSyncStructures();
   bool loadShaderModule(char const *filePath, VkShaderModule *outShaderModule);
   void initPipelines();
+};
+
+class PipelineBuilder {
+public:
+  std::vector<VkPipelineShaderStageCreateInfo> _vkShaderStageCreateInfo;
+  VkPipelineVertexInputStateCreateInfo _vkVertexInputInfo;
+  VkPipelineInputAssemblyStateCreateInfo _vkInputAssemblyCreateInfo;
+  VkViewport _vkViewport;
+  VkRect2D _vkScissor;
+  VkPipelineRasterizationStateCreateInfo _vkRasterizationCreateInfo;
+  VkPipelineColorBlendAttachmentState _vkColorBlendAttachmentState;
+  VkPipelineMultisampleStateCreateInfo _vkMultisampleStateCreateInfo;
+  VkPipelineLayout _vkTrianglePipelineLayout;
+
+  VkPipeline buildPipeline(VkDevice device, VkRenderPass pass);
 };
