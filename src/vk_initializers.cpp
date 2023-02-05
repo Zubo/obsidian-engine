@@ -125,4 +125,22 @@ VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo() {
   return info;
 }
 
+VkFenceCreateInfo fenceCreateInfo(VkFenceCreateFlags const flags) {
+  VkFenceCreateInfo info = {};
+  info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+  info.pNext = nullptr;
+  info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+  return info;
+}
+
+VkSemaphoreCreateInfo semaphoreCreateInfo(VkSemaphoreCreateFlags const flags) {
+  VkSemaphoreCreateInfo info = {};
+  info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+  info.pNext = nullptr;
+  info.flags = flags;
+
+  return info;
+}
+
 } // namespace vkinit

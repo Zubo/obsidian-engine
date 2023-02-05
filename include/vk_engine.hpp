@@ -3,6 +3,28 @@
 #include <vk_types.hpp>
 
 #include <cstdint>
+#include <deque>
+#include <functional>
+#include <utility>
+#include <vector>
+
+class DeletionQueue {
+public:
+  template <typename TFunc> void pushFunction(TFunc &&f) {
+    deletionFuncs.emplace_back(std::forward<TFunc>(f));
+  }
+
+  void flush() {
+    for (auto deletionFuncIter = deletionFuncs.crbegin();
+         deletionFuncIter != deletionFuncs.crend(); ++deletionFuncIter)
+      (*deletionFuncIter)();
+
+    deletionFuncs.clear();
+  }
+
+private:
+  std::deque<std::function<void()>> deletionFuncs;
+};
 
 class VulkanEngine {
 public:
@@ -10,6 +32,11 @@ public:
   int FrameNumber{0};
   VkExtent2D WindowExtent{1000, 800};
   struct SDL_Window *Window{nullptr};
+
+  void init();
+  void run();
+  void cleanup();
+  void draw();
 
 private:
   VkInstance _vkInstance;
@@ -32,14 +59,10 @@ private:
   std::uint32_t _frameNumber = 0;
   VkPipelineLayout _vkTrianglePipelineLayout;
   VkPipeline _vkTrianglePipeline;
+  VkPipeline _vkReverseColorTrianglePipeline;
+  int _selectedShader = 0;
+  DeletionQueue _deletionQueue;
 
-public:
-  void init();
-  void run();
-  void cleanup();
-  void draw();
-
-private:
   void initVulkan();
   void initSwapchain();
   void initCommands();

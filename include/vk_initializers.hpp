@@ -32,4 +32,8 @@ VkPipelineColorBlendAttachmentState colorBlendAttachmentState();
 
 VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo();
 
+VkFenceCreateInfo fenceCreateInfo(VkFenceCreateFlags flags);
+
+VkSemaphoreCreateInfo semaphoreCreateInfo(VkSemaphoreCreateFlags flags);
+
 } // namespace vkinit
