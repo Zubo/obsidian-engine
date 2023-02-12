@@ -20,12 +20,16 @@ find_package(SDL2 REQUIRED)
 find_package(Vulkan REQUIRED)
 
 add_subdirectory(third-party/vk-bootstrap)
+add_subdirectory(third-party/vulkan-memory-allocator)
+add_subdirectory(third-party/glm)
 
 target_link_libraries(vkguide
     PRIVATE
     ${Vulkan_LIBRARIES}
     ${SDL2_LIBRARIES}
     vk-bootstrap
+    VulkanMemoryAllocator
+    glm
 )
 
 target_include_directories(vkguide PRIVATE

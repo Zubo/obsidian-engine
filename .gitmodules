@@ -1,3 +1,9 @@
 [submodule "third-party/vk-bootstrap"]
 	path = third-party/vk-bootstrap
 	url = git@github.com:charles-lunarg/vk-bootstrap.git
+[submodule "third-party/vulkan-memory-allocator"]
+	path = third-party/vulkan-memory-allocator
+	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
+[submodule "third-party/glm"]
+	path = third-party/glm
+	url = https://github.com/g-truc/glm.git

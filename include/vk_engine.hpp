@@ -62,6 +62,7 @@ private:
   VkPipeline _vkReverseColorTrianglePipeline;
   int _selectedShader = 0;
   DeletionQueue _deletionQueue;
+  VmaAllocator _vmaAllocator;
 
   void initVulkan();
   void initSwapchain();

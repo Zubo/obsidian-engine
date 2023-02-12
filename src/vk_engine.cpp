@@ -3,6 +3,8 @@
 #include <VkBootstrap.h>
 #include <vk_engine.hpp>
 #include <vk_initializers.hpp>
+#define VMA_IMPLEMENTATION ;
+#include <vk_mem_alloc.h>
 
 #include <cstdint>
 #include <fstream>
@@ -185,6 +187,12 @@ void VulkanEngine::initVulkan() {
   _vkGraphicsQueue = vkbDevice.get_queue(vkb::QueueType::graphics).value();
   _graphicsQueueFamilyIndex =
       vkbDevice.get_queue_index(vkb::QueueType::graphics).value();
+
+  VmaAllocatorCreateInfo allocatorInfo = {};
+  allocatorInfo.physicalDevice = _vkPhysicalDevice;
+  allocatorInfo.device = _vkDevice;
+  allocatorInfo.instance = _vkInstance;
+  vmaCreateAllocator(&allocatorInfo, &_vmaAllocator);
 }
 
 void VulkanEngine::initSwapchain() {
