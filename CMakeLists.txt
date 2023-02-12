@@ -9,9 +9,11 @@ add_executable(vkguide
     "src/main.cpp"
     "src/vk_engine.cpp"
     "src/vk_initializers.cpp"
+    "src/vk_mesh.cpp"
     "include/vk_engine.hpp"
     "include/vk_types.hpp"
     "include/vk_initializers.hpp"
+    "include/vk_mesh.hpp"
 )
 
 target_include_directories(vkguide PRIVATE include)

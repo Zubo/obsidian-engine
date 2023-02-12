@@ -1,5 +1,6 @@
 #pragma once
 
+#include <vk_mesh.hpp>
 #include <vk_types.hpp>
 
 #include <cstdint>
@@ -63,6 +64,8 @@ private:
   int _selectedShader = 0;
   DeletionQueue _deletionQueue;
   VmaAllocator _vmaAllocator;
+  VkPipeline _meshPipeline;
+  Mesh _triangleMesh;
 
   void initVulkan();
   void initSwapchain();
@@ -72,6 +75,8 @@ private:
   void initSyncStructures();
   bool loadShaderModule(char const *filePath, VkShaderModule *outShaderModule);
   void initPipelines();
+  void loadMeshes();
+  void uploadMesh(Mesh const &mesh);
 };
 
 class PipelineBuilder {

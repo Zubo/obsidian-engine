@@ -7,6 +7,7 @@
 #include <vk_mem_alloc.h>
 
 #include <cstdint>
+#include <cstring>
 #include <fstream>
 #include <iostream>
 
@@ -39,6 +40,8 @@ void VulkanEngine::init() {
   initSyncStructures();
 
   initPipelines();
+
+  loadMeshes();
 
   IsInitialized = true;
 }
@@ -501,4 +504,49 @@ VkPipeline PipelineBuilder::buildPipeline(VkDevice device, VkRenderPass pass) {
   }
 
   return newPipeline;
+}
+
+void VulkanEngine::loadMeshes() {
+  _triangleMesh._vertices.resize(3);
+  _triangleMesh._vertices[0].position = {1.0f, 1.0f, 0.0f};
+  _triangleMesh._vertices[1].position = {-1.0f, 1.0f, 0.0f};
+  _triangleMesh._vertices[2].position = {0.0f, -1.0f, 0.0f};
+
+  _triangleMesh._vertices[0].color = {0.0f, 1.0f, 0.0f};
+  _triangleMesh._vertices[1].color = {0.0f, 1.0f, 0.0f};
+  _triangleMesh._vertices[2].color = {0.0f, 0.5f, 0.0f};
+
+  uploadMesh(_triangleMesh);
+}
+
+void VulkanEngine::uploadMesh(Mesh const &mesh) {
+  VkBufferCreateInfo bufferInfo = {};
+  bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+  bufferInfo.pNext = nullptr;
+
+  size_t const bufferSize =
+      mesh._vertices.size() * sizeof(decltype(mesh._vertices)::value_type);
+
+  bufferInfo.size = bufferSize;
+
+  bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+
+  VmaAllocationCreateInfo vmaAllocInfo = {};
+  vmaAllocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+
+  VK_CHECK(vmaCreateBuffer(_vmaAllocator, &bufferInfo, &vmaAllocInfo,
+                           &_triangleMesh._vertexBuffer._buffer,
+                           &_triangleMesh._vertexBuffer._allocation, nullptr));
+
+  _deletionQueue.pushFunction([this] {
+    vmaDestroyBuffer(_vmaAllocator, _triangleMesh._vertexBuffer._buffer,
+                     _triangleMesh._vertexBuffer._allocation);
+  });
+
+  void *data;
+  vmaMapMemory(_vmaAllocator, mesh._vertexBuffer._allocation, &data);
+
+  memcpy(data, mesh._vertices.data(), bufferSize);
+
+  vmaUnmapMemory(_vmaAllocator, mesh._vertexBuffer._allocation);
 }
