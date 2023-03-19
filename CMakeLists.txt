@@ -24,6 +24,7 @@ find_package(Vulkan REQUIRED)
 add_subdirectory(third-party/vk-bootstrap)
 add_subdirectory(third-party/vulkan-memory-allocator)
 add_subdirectory(third-party/glm)
+add_subdirectory(third-party/tinyobjloader)
 
 target_link_libraries(vkguide
     PRIVATE
@@ -32,6 +33,7 @@ target_link_libraries(vkguide
     vk-bootstrap
     VulkanMemoryAllocator
     glm
+    tinyobjloader
 )
 
 target_include_directories(vkguide PRIVATE
