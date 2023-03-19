@@ -120,8 +120,8 @@ void VulkanEngine::draw() {
   vkCmdBeginRenderPass(cmd, &vkRenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
   vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _meshPipeline);
-  VkDeviceSize offset;
-  vkCmdBindVertexBuffers(cmd, 0, 1, &_triangleMesh._vertexBuffer._buffer,
+  VkDeviceSize offset = 0;
+  vkCmdBindVertexBuffers(cmd, 0, 1, &_monkeyMesh._vertexBuffer._buffer,
                          &offset);
 
   glm::vec3 const camPos = {0.0f, 0.0f, -2.0f};
@@ -142,7 +142,7 @@ void VulkanEngine::draw() {
   vkCmdPushConstants(cmd, _vkMeshPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0,
                      sizeof(MeshPushConstants), &constants);
 
-  vkCmdDraw(cmd, 3, 1, 0, 0);
+  vkCmdDraw(cmd, _monkeyMesh._vertices.size(), 1, 0, 0);
 
   vkCmdEndRenderPass(cmd);
   VK_CHECK(vkEndCommandBuffer(cmd));
@@ -599,9 +599,12 @@ void VulkanEngine::loadMeshes() {
   _triangleMesh._vertices[2].color = {0.7f, 0.5f, 0.1f};
 
   uploadMesh(_triangleMesh);
+
+  _monkeyMesh.loadFromObj("assets/monkey_smooth.obj");
+  uploadMesh(_monkeyMesh);
 }
 
-void VulkanEngine::uploadMesh(Mesh const &mesh) {
+void VulkanEngine::uploadMesh(Mesh &mesh) {
   VkBufferCreateInfo bufferInfo = {};
   bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
   bufferInfo.pNext = nullptr;
@@ -617,12 +620,12 @@ void VulkanEngine::uploadMesh(Mesh const &mesh) {
   vmaAllocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
 
   VK_CHECK(vmaCreateBuffer(_vmaAllocator, &bufferInfo, &vmaAllocInfo,
-                           &_triangleMesh._vertexBuffer._buffer,
-                           &_triangleMesh._vertexBuffer._allocation, nullptr));
+                           &mesh._vertexBuffer._buffer,
+                           &mesh._vertexBuffer._allocation, nullptr));
 
-  _deletionQueue.pushFunction([this] {
-    vmaDestroyBuffer(_vmaAllocator, _triangleMesh._vertexBuffer._buffer,
-                     _triangleMesh._vertexBuffer._allocation);
+  _deletionQueue.pushFunction([this, mesh] {
+    vmaDestroyBuffer(_vmaAllocator, mesh._vertexBuffer._buffer,
+                     mesh._vertexBuffer._allocation);
   });
 
   void *data;

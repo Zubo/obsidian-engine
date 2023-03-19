@@ -74,6 +74,7 @@ private:
   VmaAllocator _vmaAllocator;
   VkPipeline _meshPipeline;
   Mesh _triangleMesh;
+  Mesh _monkeyMesh;
 
   void initVulkan();
   void initSwapchain();
@@ -84,7 +85,7 @@ private:
   bool loadShaderModule(char const *filePath, VkShaderModule *outShaderModule);
   void initPipelines();
   void loadMeshes();
-  void uploadMesh(Mesh const &mesh);
+  void uploadMesh(Mesh &mesh);
 };
 
 class PipelineBuilder {

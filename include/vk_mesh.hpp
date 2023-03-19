@@ -4,6 +4,7 @@
 
 #include <glm/vec3.hpp>
 
+#include <string_view>
 #include <vector>
 
 struct VertexInputDescription {
@@ -24,4 +25,6 @@ struct Vertex {
 struct Mesh {
   std::vector<Vertex> _vertices;
   AllocatedBuffer _vertexBuffer;
+
+  bool loadFromObj(char const *filePath);
 };
