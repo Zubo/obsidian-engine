@@ -1,6 +1,8 @@
 #include <SDL.h>
 #include <SDL_vulkan.h>
 #include <VkBootstrap.h>
+#include <glm/glm.hpp>
+#include <glm/gtx/transform.hpp>
 #include <vk_engine.hpp>
 #include <vk_initializers.hpp>
 #define VMA_IMPLEMENTATION ;
@@ -121,6 +123,25 @@ void VulkanEngine::draw() {
   VkDeviceSize offset;
   vkCmdBindVertexBuffers(cmd, 0, 1, &_triangleMesh._vertexBuffer._buffer,
                          &offset);
+
+  glm::vec3 const camPos = {0.0f, 0.0f, -2.0f};
+  glm::mat4 const view = glm::translate(glm::mat4(1.0f), camPos);
+  glm::mat4 projection =
+      glm::perspective(glm::radians(70.0f), 1700.0f / 900.f, 0.1f, 200.0f);
+  projection[1][1] *= -1.0f;
+
+  glm::mat4 model = glm::rotate(
+      glm::mat4(1.0f), glm::radians(_frameNumber * 0.4f), glm::vec3(0, 1, 0));
+
+  glm::mat4 meshMatrix = projection * view * model;
+
+  MeshPushConstants constants;
+
+  constants.renderMatrix = meshMatrix;
+
+  vkCmdPushConstants(cmd, _vkMeshPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0,
+                     sizeof(MeshPushConstants), &constants);
+
   vkCmdDraw(cmd, 3, 1, 0, 0);
 
   vkCmdEndRenderPass(cmd);
@@ -197,6 +218,8 @@ void VulkanEngine::initVulkan() {
   allocatorInfo.device = _vkDevice;
   allocatorInfo.instance = _vkInstance;
   vmaCreateAllocator(&allocatorInfo, &_vmaAllocator);
+
+  _deletionQueue.pushFunction([this] { vmaDestroyAllocator(_vmaAllocator); });
 }
 
 void VulkanEngine::initSwapchain() {
@@ -427,7 +450,7 @@ void VulkanEngine::initPipelines() {
       vkinit::colorBlendAttachmentState();
   pipelineBuilder._vkMultisampleStateCreateInfo =
       vkinit::multisampleStateCreateInfo();
-  pipelineBuilder._vkTrianglePipelineLayout = _vkTrianglePipelineLayout;
+  pipelineBuilder._vkPipelineLayout = _vkTrianglePipelineLayout;
 
   _vkTrianglePipeline = pipelineBuilder.buildPipeline(_vkDevice, _vkRenderPass);
 
@@ -485,6 +508,24 @@ void VulkanEngine::initPipelines() {
       vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT,
                                             triangleFragShader));
 
+  VkPipelineLayoutCreateInfo meshPipelineLayoutInfo =
+      vkinit::pipelineLayoutCreateInfo();
+  VkPushConstantRange pushConstant;
+  pushConstant.offset = 0;
+  pushConstant.size = sizeof(MeshPushConstants);
+  pushConstant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+  meshPipelineLayoutInfo.pushConstantRangeCount = 1;
+  meshPipelineLayoutInfo.pPushConstantRanges = &pushConstant;
+
+  VK_CHECK(vkCreatePipelineLayout(_vkDevice, &meshPipelineLayoutInfo, nullptr,
+                                  &_vkMeshPipelineLayout));
+
+  _deletionQueue.pushFunction([this] {
+    vkDestroyPipelineLayout(_vkDevice, _vkMeshPipelineLayout, nullptr);
+  });
+
+  pipelineBuilder._vkPipelineLayout = _vkMeshPipelineLayout;
   _meshPipeline = pipelineBuilder.buildPipeline(_vkDevice, _vkRenderPass);
 
   vkDestroyShaderModule(_vkDevice, meshVertShader, nullptr);
@@ -530,7 +571,7 @@ VkPipeline PipelineBuilder::buildPipeline(VkDevice device, VkRenderPass pass) {
   graphicsPipelineCreateInfo.pDepthStencilState = nullptr;
   graphicsPipelineCreateInfo.pColorBlendState = &colorBlendingCreateInfo;
   graphicsPipelineCreateInfo.pDynamicState = nullptr;
-  graphicsPipelineCreateInfo.layout = _vkTrianglePipelineLayout;
+  graphicsPipelineCreateInfo.layout = _vkPipelineLayout;
   graphicsPipelineCreateInfo.renderPass = pass;
   graphicsPipelineCreateInfo.subpass = 0;
   graphicsPipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE;

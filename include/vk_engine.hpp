@@ -3,11 +3,18 @@
 #include <vk_mesh.hpp>
 #include <vk_types.hpp>
 
+#include <glm/glm.hpp>
+
 #include <cstdint>
 #include <deque>
 #include <functional>
 #include <utility>
 #include <vector>
+
+struct MeshPushConstants {
+  glm::vec4 data;
+  glm::mat4 renderMatrix;
+};
 
 class DeletionQueue {
 public:
@@ -59,6 +66,7 @@ private:
   VkFence _vkRenderFence;
   std::uint32_t _frameNumber = 0;
   VkPipelineLayout _vkTrianglePipelineLayout;
+  VkPipelineLayout _vkMeshPipelineLayout;
   VkPipeline _vkTrianglePipeline;
   VkPipeline _vkReverseColorTrianglePipeline;
   int _selectedShader = 0;
@@ -89,7 +97,7 @@ public:
   VkPipelineRasterizationStateCreateInfo _vkRasterizationCreateInfo;
   VkPipelineColorBlendAttachmentState _vkColorBlendAttachmentState;
   VkPipelineMultisampleStateCreateInfo _vkMultisampleStateCreateInfo;
-  VkPipelineLayout _vkTrianglePipelineLayout;
+  VkPipelineLayout _vkPipelineLayout;
 
   VkPipeline buildPipeline(VkDevice device, VkRenderPass pass);
 };
