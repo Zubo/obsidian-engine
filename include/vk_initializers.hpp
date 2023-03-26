@@ -36,4 +36,13 @@ VkFenceCreateInfo fenceCreateInfo(VkFenceCreateFlags flags);
 
 VkSemaphoreCreateInfo semaphoreCreateInfo(VkSemaphoreCreateFlags flags);
 
+VkImageCreateInfo imageCreateInfo(VkImageCreateFlags flags, VkExtent3D extent,
+                                  VkFormat format);
+
+VkImageViewCreateInfo imageViewCreateInfo(VkImage image, VkFormat format,
+                                          VkImageAspectFlags imageAspectFlags);
+
+VkPipelineDepthStencilStateCreateInfo
+depthStencilStateCreateInfo(bool depthTestEnable);
+
 } // namespace vkinit

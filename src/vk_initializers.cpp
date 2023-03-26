@@ -143,4 +143,58 @@ VkSemaphoreCreateInfo semaphoreCreateInfo(VkSemaphoreCreateFlags const flags) {
   return info;
 }
 
+VkImageCreateInfo imageCreateInfo(VkImageCreateFlags const flags,
+                                  VkExtent3D const extent,
+                                  VkFormat const format) {
+  VkImageCreateInfo vkImageCreateInfo = {};
+  vkImageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+  vkImageCreateInfo.pNext = nullptr;
+  vkImageCreateInfo.flags = flags;
+  vkImageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+  vkImageCreateInfo.format = format;
+  vkImageCreateInfo.extent = extent;
+  vkImageCreateInfo.mipLevels = 1;
+  vkImageCreateInfo.arrayLayers = 1;
+  vkImageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+  vkImageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+  vkImageCreateInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+
+  return vkImageCreateInfo;
+}
+
+VkImageViewCreateInfo
+imageViewCreateInfo(VkImage const image, VkFormat const format,
+                    VkImageAspectFlags const imageAspectFlags) {
+
+  VkImageViewCreateInfo imageViewCreateInfo = {};
+  imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+  imageViewCreateInfo.pNext = nullptr;
+
+  imageViewCreateInfo.image = image;
+  imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+  imageViewCreateInfo.format = format;
+  imageViewCreateInfo.subresourceRange.aspectMask = imageAspectFlags;
+  imageViewCreateInfo.subresourceRange.baseMipLevel = 0;
+  imageViewCreateInfo.subresourceRange.levelCount = 1;
+  imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
+  imageViewCreateInfo.subresourceRange.layerCount = 1;
+
+  return imageViewCreateInfo;
+}
+
+VkPipelineDepthStencilStateCreateInfo
+depthStencilStateCreateInfo(bool const depthTestEnable) {
+  VkPipelineDepthStencilStateCreateInfo createInfo = {};
+  createInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+  createInfo.pNext = nullptr;
+
+  createInfo.depthTestEnable = depthTestEnable ? VK_TRUE : VK_FALSE;
+  createInfo.depthWriteEnable = depthTestEnable ? VK_TRUE : VK_FALSE;
+  createInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+  createInfo.depthBoundsTestEnable = VK_FALSE;
+  createInfo.stencilTestEnable = VK_FALSE;
+
+  return createInfo;
+}
+
 } // namespace vkinit

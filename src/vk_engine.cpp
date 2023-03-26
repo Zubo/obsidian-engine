@@ -103,9 +103,10 @@ void VulkanEngine::draw() {
 
   VK_CHECK(vkBeginCommandBuffer(cmd, &vkCommandBufferBeginInfo));
 
-  VkClearValue clearValue;
+  VkClearValue clearValues[2];
   float flash = std::abs(std::sin(_frameNumber / 10.0f));
-  clearValue.color = {{0.0f, 0.0f, flash, 1.0f}};
+  clearValues[0].color = {{0.0f, 0.0f, flash, 1.0f}};
+  clearValues[1].depthStencil.depth = 1.0f;
 
   VkRenderPassBeginInfo vkRenderPassBeginInfo = {};
   vkRenderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -114,8 +115,8 @@ void VulkanEngine::draw() {
   vkRenderPassBeginInfo.framebuffer = _vkFramebuffers[swapchainImageIndex];
   vkRenderPassBeginInfo.renderArea.offset = {0, 0};
   vkRenderPassBeginInfo.renderArea.extent = WindowExtent;
-  vkRenderPassBeginInfo.clearValueCount = 1;
-  vkRenderPassBeginInfo.pClearValues = &clearValue;
+  vkRenderPassBeginInfo.clearValueCount = 2;
+  vkRenderPassBeginInfo.pClearValues = clearValues;
 
   vkCmdBeginRenderPass(cmd, &vkRenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
@@ -234,12 +235,58 @@ void VulkanEngine::initSwapchain() {
           .value();
   _vkSwapchain = vkbSwapchain.swapchain;
   _vkSwapchainImages = vkbSwapchain.get_images().value();
-  _vkSwapchainImageViews = vkbSwapchain.get_image_views().value();
+  std::vector<VkImageView> swapchainColorImageViews =
+      vkbSwapchain.get_image_views().value();
+
+  std::size_t const swapchainSize = swapchainColorImageViews.size();
+
+  _vkFramebufferImageViews.resize(swapchainSize);
 
   _vkSwapchainImageFormat = vkbSwapchain.image_format;
 
   _deletionQueue.pushFunction(
       [this]() { vkDestroySwapchainKHR(_vkDevice, _vkSwapchain, nullptr); });
+
+  VkImageCreateFlags depthFlags = 0;
+  VkExtent3D const depthExtent{WindowExtent.width, WindowExtent.height, 1};
+
+  _vkFramebuffers.resize(swapchainSize);
+
+  _depthFormat = VK_FORMAT_D32_SFLOAT;
+  VkImageCreateInfo const depthBufferImageCreateInfo =
+      vkinit::imageCreateInfo(depthFlags, depthExtent, _depthFormat);
+
+  VmaAllocationCreateInfo depthImageAllocInfo = {};
+  depthImageAllocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+  depthImageAllocInfo.requiredFlags =
+      VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+  vmaCreateImage(_vmaAllocator, &depthBufferImageCreateInfo,
+                 &depthImageAllocInfo, &_depthImage.vkImage,
+                 &_depthImage.allocation, nullptr);
+
+  VkImageViewCreateInfo imageViewCreateInfo = vkinit::imageViewCreateInfo(
+      _depthImage.vkImage, _depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+
+  for (int i = 0; i < swapchainSize; ++i) {
+    FramebufferImageViews &swapchainImageViews = _vkFramebufferImageViews.at(i);
+    std::vector<VkImageView> &imageViews = swapchainImageViews.vkImageViews;
+
+    imageViews.push_back(swapchainColorImageViews[i]);
+    VkImageView &depthImageView =
+        swapchainImageViews.vkImageViews.emplace_back();
+
+    VK_CHECK(vkCreateImageView(_vkDevice, &imageViewCreateInfo, nullptr,
+                               &depthImageView));
+
+    _deletionQueue.pushFunction([this, depthImageView]() {
+      vkDestroyImageView(_vkDevice, depthImageView, nullptr);
+    });
+  }
+
+  _deletionQueue.pushFunction([this]() {
+    vmaDestroyImage(_vmaAllocator, _depthImage.vkImage, _depthImage.allocation);
+  });
 }
 
 void VulkanEngine::initCommands() {
@@ -263,7 +310,9 @@ void VulkanEngine::initCommands() {
 }
 
 void VulkanEngine::initDefaultRenderPass() {
-  VkAttachmentDescription vkColorAttachment = {};
+  VkAttachmentDescription vkAttachments[2] = {};
+
+  VkAttachmentDescription &vkColorAttachment = vkAttachments[0];
   vkColorAttachment.format = _vkSwapchainImageFormat;
   vkColorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
   vkColorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
@@ -277,17 +326,33 @@ void VulkanEngine::initDefaultRenderPass() {
   vkColorAttachmentReference.attachment = 0;
   vkColorAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
+  VkAttachmentDescription &vkDepthAttachment = vkAttachments[1];
+  vkDepthAttachment.format = _depthFormat;
+  vkDepthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+  vkDepthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+  vkDepthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+  vkDepthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+  vkDepthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+  vkDepthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+  vkDepthAttachment.finalLayout =
+      VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+  VkAttachmentReference vkDepthAttachmentReference = {};
+  vkDepthAttachmentReference.attachment = 1;
+  vkDepthAttachmentReference.layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+
   VkSubpassDescription vkSubpassDescription = {};
   vkSubpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
   vkSubpassDescription.colorAttachmentCount = 1;
   vkSubpassDescription.pColorAttachments = &vkColorAttachmentReference;
+  vkSubpassDescription.pDepthStencilAttachment = &vkDepthAttachmentReference;
 
   VkRenderPassCreateInfo vkRenderPassCreateInfo = {};
   vkRenderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
   vkRenderPassCreateInfo.pNext = nullptr;
 
-  vkRenderPassCreateInfo.attachmentCount = 1;
-  vkRenderPassCreateInfo.pAttachments = &vkColorAttachment;
+  vkRenderPassCreateInfo.attachmentCount = 2;
+  vkRenderPassCreateInfo.pAttachments = vkAttachments;
 
   vkRenderPassCreateInfo.subpassCount = 1;
   vkRenderPassCreateInfo.pSubpasses = &vkSubpassDescription;
@@ -300,19 +365,22 @@ void VulkanEngine::initDefaultRenderPass() {
 }
 
 void VulkanEngine::initFramebuffers() {
-  std::size_t const swapchainImageCount = _vkSwapchainImageViews.size();
+  std::size_t const swapchainImageCount = _vkFramebufferImageViews.size();
   VkFramebufferCreateInfo vkFramebufferCreateInfo = {};
   vkFramebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
   vkFramebufferCreateInfo.pNext = nullptr;
   vkFramebufferCreateInfo.renderPass = _vkRenderPass;
-  vkFramebufferCreateInfo.attachmentCount = 1;
   vkFramebufferCreateInfo.width = WindowExtent.width;
   vkFramebufferCreateInfo.height = WindowExtent.height;
   vkFramebufferCreateInfo.layers = 1;
 
-  _vkFramebuffers.resize(swapchainImageCount);
   for (int i = 0; i < swapchainImageCount; ++i) {
-    vkFramebufferCreateInfo.pAttachments = &_vkSwapchainImageViews.at(i);
+    FramebufferImageViews &swapchainImageViews = _vkFramebufferImageViews.at(i);
+    vkFramebufferCreateInfo.attachmentCount =
+        swapchainImageViews.vkImageViews.size();
+    vkFramebufferCreateInfo.pAttachments =
+        swapchainImageViews.vkImageViews.data();
+
     VK_CHECK(vkCreateFramebuffer(_vkDevice, &vkFramebufferCreateInfo, nullptr,
                                  &_vkFramebuffers[i]));
 
@@ -433,6 +501,9 @@ void VulkanEngine::initPipelines() {
   pipelineBuilder._vkVertexInputInfo = vkinit::vertexInputStateCreateInfo();
   pipelineBuilder._vkInputAssemblyCreateInfo =
       vkinit::inputAssemblyCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+
+  pipelineBuilder._vkDepthStencilStateCreateInfo =
+      vkinit::depthStencilStateCreateInfo(VK_TRUE);
 
   pipelineBuilder._vkViewport.x = 0.0f;
   pipelineBuilder._vkViewport.y = 0.0f;
@@ -568,7 +639,8 @@ VkPipeline PipelineBuilder::buildPipeline(VkDevice device, VkRenderPass pass) {
   graphicsPipelineCreateInfo.pViewportState = &viewportStateCreateInfo;
   graphicsPipelineCreateInfo.pRasterizationState = &_vkRasterizationCreateInfo;
   graphicsPipelineCreateInfo.pMultisampleState = &_vkMultisampleStateCreateInfo;
-  graphicsPipelineCreateInfo.pDepthStencilState = nullptr;
+  graphicsPipelineCreateInfo.pDepthStencilState =
+      &_vkDepthStencilStateCreateInfo;
   graphicsPipelineCreateInfo.pColorBlendState = &colorBlendingCreateInfo;
   graphicsPipelineCreateInfo.pDynamicState = nullptr;
   graphicsPipelineCreateInfo.layout = _vkPipelineLayout;

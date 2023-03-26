@@ -34,6 +34,15 @@ private:
   std::deque<std::function<void()>> deletionFuncs;
 };
 
+struct FramebufferImageViews {
+  std::vector<VkImageView> vkImageViews;
+};
+
+struct AllocatedImage {
+  VkImage vkImage;
+  VmaAllocation allocation;
+};
+
 class VulkanEngine {
 public:
   bool IsInitialized{false};
@@ -54,8 +63,9 @@ private:
   VkDevice _vkDevice;
   VkSwapchainKHR _vkSwapchain;
   VkFormat _vkSwapchainImageFormat;
-  std::vector<VkImageView> _vkSwapchainImageViews;
+  std::vector<FramebufferImageViews> _vkFramebufferImageViews;
   std::vector<VkImage> _vkSwapchainImages;
+  AllocatedImage _depthImage;
   VkQueue _vkGraphicsQueue;
   std::uint32_t _graphicsQueueFamilyIndex;
   VkCommandPool _vkCommandPool;
@@ -75,6 +85,7 @@ private:
   VkPipeline _meshPipeline;
   Mesh _triangleMesh;
   Mesh _monkeyMesh;
+  VkFormat _depthFormat = VK_FORMAT_D32_SFLOAT;
 
   void initVulkan();
   void initSwapchain();
@@ -93,6 +104,7 @@ public:
   std::vector<VkPipelineShaderStageCreateInfo> _vkShaderStageCreateInfo;
   VkPipelineVertexInputStateCreateInfo _vkVertexInputInfo;
   VkPipelineInputAssemblyStateCreateInfo _vkInputAssemblyCreateInfo;
+  VkPipelineDepthStencilStateCreateInfo _vkDepthStencilStateCreateInfo;
   VkViewport _vkViewport;
   VkRect2D _vkScissor;
   VkPipelineRasterizationStateCreateInfo _vkRasterizationCreateInfo;
