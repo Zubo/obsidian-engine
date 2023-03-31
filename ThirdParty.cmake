@@ -1,0 +1,33 @@
+
+find_package(SDL2 REQUIRED)
+find_package(Vulkan REQUIRED)
+
+include(FetchContent)
+
+FetchContent_Declare(
+    fetch_vk_bootstrap
+    GIT_REPOSITORY https://github.com/charles-lunarg/vk-bootstrap
+    GIT_TAG v0.7
+)
+FetchContent_MakeAvailable(fetch_vk_bootstrap)
+
+FetchContent_Declare(
+    fetch_vulkan_memory_allocator
+    GIT_REPOSITORY https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
+    GIT_TAG v3.0.1
+)
+FetchContent_MakeAvailable(fetch_vulkan_memory_allocator)
+
+FetchContent_Declare(fetch_glm
+
+    GIT_REPOSITORY https://github.com/g-truc/glm.git
+    GIT_TAG 0.9.9.8
+)
+FetchContent_MakeAvailable(fetch_glm)
+
+FetchContent_Declare(fetch_tinyobjloader
+
+    GIT_REPOSITORY https://github.com/tinyobjloader/tinyobjloader.git
+    GIT_TAG v2.0.0rc10
+)
+FetchContent_MakeAvailable(fetch_tinyobjloader)

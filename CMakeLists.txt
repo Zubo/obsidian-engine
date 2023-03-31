@@ -18,19 +18,13 @@ add_executable(vkguide
 
 target_include_directories(vkguide PRIVATE include)
 
-find_package(SDL2 REQUIRED)
-find_package(Vulkan REQUIRED)
-
-add_subdirectory(third-party/vk-bootstrap)
-add_subdirectory(third-party/vulkan-memory-allocator)
-add_subdirectory(third-party/glm)
-add_subdirectory(third-party/tinyobjloader)
+include(ThirdParty.cmake)
 
 target_link_libraries(vkguide
     PRIVATE
     ${Vulkan_LIBRARIES}
     ${SDL2_LIBRARIES}
-    vk-bootstrap
+    vk-bootstrap::vk-bootstrap
     VulkanMemoryAllocator
     glm
     tinyobjloader
