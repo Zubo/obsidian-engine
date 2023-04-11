@@ -4,6 +4,6 @@
 #include <vulkan/vulkan.hpp>
 
 struct AllocatedBuffer {
-  VkBuffer _buffer;
-  VmaAllocation _allocation;
+  VkBuffer buffer;
+  VmaAllocation allocation;
 };

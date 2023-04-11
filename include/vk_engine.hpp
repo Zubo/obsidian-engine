@@ -8,8 +8,20 @@
 #include <cstdint>
 #include <deque>
 #include <functional>
+#include <unordered_map>
 #include <utility>
 #include <vector>
+
+struct Material {
+  VkPipeline vkPipeline;
+  VkPipelineLayout vkPipelineLayout;
+};
+
+struct RenderObject {
+  Mesh *mesh;
+  Material *material;
+  glm::mat4 transformMatrix;
+};
 
 struct MeshPushConstants {
   glm::vec4 data;
@@ -54,6 +66,11 @@ public:
   void run();
   void cleanup();
   void draw();
+  void drawObjects(VkCommandBuffer cmd, RenderObject *first, int count);
+  Material *createMaterial(VkPipeline pipeline, VkPipelineLayout pipelineLayout,
+                           std::string const &name);
+  Material *getMaterial(std::string const &name);
+  Mesh *getMesh(std::string const &name);
 
 private:
   VkInstance _vkInstance;
@@ -82,10 +99,13 @@ private:
   int _selectedShader = 0;
   DeletionQueue _deletionQueue;
   VmaAllocator _vmaAllocator;
-  VkPipeline _meshPipeline;
+  VkPipeline _vkMeshPipeline;
   Mesh _triangleMesh;
   Mesh _monkeyMesh;
   VkFormat _depthFormat = VK_FORMAT_D32_SFLOAT;
+  std::vector<RenderObject> _renderObjects;
+  std::unordered_map<std::string, Material> _materials;
+  std::unordered_map<std::string, Mesh> _meshes;
 
   void initVulkan();
   void initSwapchain();
@@ -95,6 +115,7 @@ private:
   void initSyncStructures();
   bool loadShaderModule(char const *filePath, VkShaderModule *outShaderModule);
   void initPipelines();
+  void initScene();
   void loadMeshes();
   void uploadMesh(Mesh &mesh);
 };
