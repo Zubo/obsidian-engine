@@ -28,6 +28,7 @@ target_link_libraries(vkguide
     VulkanMemoryAllocator
     glm
     tinyobjloader
+    TracyClient
 )
 
 target_include_directories(vkguide PRIVATE

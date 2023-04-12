@@ -31,3 +31,14 @@ FetchContent_Declare(fetch_tinyobjloader
     GIT_TAG v2.0.0rc10
 )
 FetchContent_MakeAvailable(fetch_tinyobjloader)
+
+option(TRACY_ENABLE "" OFF)
+
+FetchContent_Declare(fetch_tracy
+    GIT_REPOSITORY https://github.com/wolfpld/tracy.git
+    GIT_TAG master
+    GIT_SHALLOW TRUE
+    GIT_PROGRESS TRUE
+)
+
+FetchContent_MakeAvailable(fetch_tracy)

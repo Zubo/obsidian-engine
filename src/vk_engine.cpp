@@ -3,6 +3,7 @@
 #include <VkBootstrap.h>
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
+#include <tracy/Tracy.hpp>
 #include <vk_engine.hpp>
 #include <vk_initializers.hpp>
 #define VMA_IMPLEMENTATION ;
@@ -63,6 +64,8 @@ void VulkanEngine::run() {
     }
 
     draw();
+
+    FrameMark;
   }
 }
 
