@@ -125,33 +125,6 @@ void VulkanEngine::draw() {
 
   vkCmdBeginRenderPass(cmd, &vkRenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-  // vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _vkMeshPipeline);
-  // VkDeviceSize offset = 0;
-  // vkCmdBindVertexBuffers(cmd, 0, 1, &_monkeyMesh._vertexBuffer.buffer,
-  // &offset);
-
-  // glm::vec3 const camPos = {0.0f, 0.0f, -2.0f};
-  // glm::mat4 const view = glm::translate(glm::mat4(1.0f), camPos);
-  // glm::mat4 projection =
-  //     glm::perspective(glm::radians(70.0f), 1700.0f / 900.f, 0.1f, 200.0f);
-  // projection[1][1] *= -1.0f;
-
-  // glm::mat4 model = glm::rotate(
-  //     glm::mat4(1.0f), glm::radians(_frameNumber * 0.4f), glm::vec3(0, 1,
-  //     0));
-
-  // glm::mat4 meshMatrix = projection * view * model;
-
-  // MeshPushConstants constants;
-
-  // constants.renderMatrix = meshMatrix;
-
-  // vkCmdPushConstants(cmd, _vkMeshPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
-  // 0,
-  //                    sizeof(MeshPushConstants), &constants);
-
-  // vkCmdDraw(cmd, _monkeyMesh._vertices.size(), 1, 0, 0);
-
   drawObjects(cmd, _renderObjects.data(), _renderObjects.size());
 
   vkCmdEndRenderPass(cmd);
@@ -195,6 +168,7 @@ void VulkanEngine::draw() {
 
 void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject *first,
                                int count) {
+  ZoneScoped;
   glm::vec3 const cameraPos{0.f, -6.f, -10.f};
   glm::mat4 view = glm::translate(glm::mat4{1.f}, cameraPos);
   glm::mat4 projection =
@@ -203,6 +177,7 @@ void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject *first,
   glm::mat4 const viewProjection = projection * view;
 
   for (int i = 0; i < count; ++i) {
+    ZoneScopedN("Draw Object");
     RenderObject const &obj = first[i];
 
     assert(obj.material && "Error: Missing material.");
