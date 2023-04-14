@@ -5,6 +5,7 @@
 
 #include <glm/glm.hpp>
 
+#include <array>
 #include <cstdint>
 #include <deque>
 #include <functional>
@@ -26,6 +27,16 @@ struct RenderObject {
 struct MeshPushConstants {
   glm::vec4 data;
   glm::mat4 renderMatrix;
+};
+
+constexpr unsigned int frameOverlap = 2;
+
+struct FrameData {
+  VkSemaphore vkRenderSemaphore;
+  VkSemaphore vkPresentSemaphore;
+  VkFence vkRenderFence;
+  VkCommandPool vkCommandPool;
+  VkCommandBuffer vkCommandBuffer;
 };
 
 class DeletionQueue {
@@ -85,12 +96,9 @@ private:
   AllocatedImage _depthImage;
   VkQueue _vkGraphicsQueue;
   std::uint32_t _graphicsQueueFamilyIndex;
-  VkCommandPool _vkCommandPool;
-  VkCommandBuffer _vkCommandBufferMain;
   VkRenderPass _vkRenderPass;
   std::vector<VkFramebuffer> _vkFramebuffers;
-  VkSemaphore _vkPresentSemaphore, _vkRenderSemaphore;
-  VkFence _vkRenderFence;
+  std::array<FrameData, 2> _frameDataArray;
   std::uint32_t _frameNumber = 0;
   VkPipelineLayout _vkTrianglePipelineLayout;
   VkPipelineLayout _vkMeshPipelineLayout;
@@ -118,6 +126,7 @@ private:
   void initScene();
   void loadMeshes();
   void uploadMesh(Mesh &mesh);
+  FrameData &getCurrentFrameData();
 };
 
 class PipelineBuilder {

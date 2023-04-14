@@ -24,10 +24,11 @@
   } while (0)
 
 void VulkanEngine::init() {
-  SDL_Init(SDL_INIT_VIDEO);
-  SDL_WindowFlags windowFlags{static_cast<SDL_WindowFlags>(SDL_WINDOW_VULKAN)};
-  Window = SDL_CreateWindow("Vulkan Engine", SDL_WINDOWPOS_UNDEFINED,
-                            SDL_WINDOWPOS_UNDEFINED, WindowExtent.width,
+  SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_WINDOW_MOUSE_CAPTURE);
+  SDL_WindowFlags windowFlags =
+      static_cast<SDL_WindowFlags>(SDL_WINDOW_VULKAN | SDL_WINDOW_SHOWN);
+  Window = SDL_CreateWindow("Vulkan Engine", SDL_WINDOWPOS_CENTERED,
+                            SDL_WINDOWPOS_CENTERED, WindowExtent.width,
                             WindowExtent.height, windowFlags);
 
   initVulkan();
@@ -71,7 +72,9 @@ void VulkanEngine::run() {
 
 void VulkanEngine::cleanup() {
   if (IsInitialized) {
-    vkWaitForFences(_vkDevice, 1, &_vkRenderFence, true, 1000000000);
+    FrameData const &currentFrameData = getCurrentFrameData();
+    vkWaitForFences(_vkDevice, 1, &currentFrameData.vkRenderFence, true,
+                    1000000000);
 
     _deletionQueue.flush();
 
@@ -86,19 +89,27 @@ void VulkanEngine::cleanup() {
 }
 
 void VulkanEngine::draw() {
+  FrameData &currentFrameData = getCurrentFrameData();
+
   constexpr std::uint64_t timeoutNanoseconds = 1000000000;
-  VK_CHECK(
-      vkWaitForFences(_vkDevice, 1, &_vkRenderFence, true, timeoutNanoseconds));
-  VK_CHECK(vkResetFences(_vkDevice, 1, &_vkRenderFence));
+  {
+    ZoneScopedN("Wait For Fences");
+    VK_CHECK(vkWaitForFences(_vkDevice, 1, &currentFrameData.vkRenderFence,
+                             true, timeoutNanoseconds));
+  }
+  VK_CHECK(vkResetFences(_vkDevice, 1, &currentFrameData.vkRenderFence));
 
   uint32_t swapchainImageIndex;
-  VK_CHECK(vkAcquireNextImageKHR(_vkDevice, _vkSwapchain, timeoutNanoseconds,
-                                 _vkPresentSemaphore, VK_NULL_HANDLE,
-                                 &swapchainImageIndex));
+  {
+    ZoneScopedN("Acquire Next Image");
+    VK_CHECK(vkAcquireNextImageKHR(_vkDevice, _vkSwapchain, timeoutNanoseconds,
+                                   currentFrameData.vkPresentSemaphore,
+                                   VK_NULL_HANDLE, &swapchainImageIndex));
+  }
 
-  VK_CHECK(vkResetCommandBuffer(_vkCommandBufferMain, 0));
+  VkCommandBuffer cmd = currentFrameData.vkCommandBuffer;
 
-  VkCommandBuffer cmd = _vkCommandBufferMain;
+  VK_CHECK(vkResetCommandBuffer(cmd, 0));
 
   VkCommandBufferBeginInfo vkCommandBufferBeginInfo = {};
   vkCommandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -139,15 +150,16 @@ void VulkanEngine::draw() {
 
   vkSubmitInfo.pWaitDstStageMask = &vkPipelineStageFlags;
   vkSubmitInfo.waitSemaphoreCount = 1;
-  vkSubmitInfo.pWaitSemaphores = &_vkPresentSemaphore;
+  vkSubmitInfo.pWaitSemaphores = &currentFrameData.vkPresentSemaphore;
 
   vkSubmitInfo.signalSemaphoreCount = 1;
-  vkSubmitInfo.pSignalSemaphores = &_vkRenderSemaphore;
+  vkSubmitInfo.pSignalSemaphores = &currentFrameData.vkRenderSemaphore;
 
   vkSubmitInfo.commandBufferCount = 1;
   vkSubmitInfo.pCommandBuffers = &cmd;
 
-  VK_CHECK(vkQueueSubmit(_vkGraphicsQueue, 1, &vkSubmitInfo, _vkRenderFence));
+  VK_CHECK(vkQueueSubmit(_vkGraphicsQueue, 1, &vkSubmitInfo,
+                         currentFrameData.vkRenderFence));
 
   VkPresentInfoKHR vkPresentInfo = {};
   vkPresentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -157,7 +169,7 @@ void VulkanEngine::draw() {
   vkPresentInfo.swapchainCount = 1;
 
   vkPresentInfo.waitSemaphoreCount = 1;
-  vkPresentInfo.pWaitSemaphores = &_vkRenderSemaphore;
+  vkPresentInfo.pWaitSemaphores = &currentFrameData.vkRenderSemaphore;
 
   vkPresentInfo.pImageIndices = &swapchainImageIndex;
 
@@ -346,19 +358,25 @@ void VulkanEngine::initCommands() {
       vkinit::commandPoolCreateInfo(
           _graphicsQueueFamilyIndex,
           VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
-  VK_CHECK(vkCreateCommandPool(_vkDevice, &vkCommandPoolCreateInfo, nullptr,
-                               &_vkCommandPool));
 
-  _deletionQueue.pushFunction(
-      [this]() { vkDestroyCommandPool(_vkDevice, _vkCommandPool, nullptr); });
+  for (int i = 0; i < _frameDataArray.size(); ++i) {
+    FrameData &frameData = _frameDataArray[i];
+    VK_CHECK(vkCreateCommandPool(_vkDevice, &vkCommandPoolCreateInfo, nullptr,
+                                 &frameData.vkCommandPool));
 
-  constexpr std::uint32_t commandPoolCount = 1;
-  VkCommandBufferAllocateInfo vkCommandBufferAllocateInfo =
-      vkinit::commandBufferAllocateInfo(_vkCommandPool, commandPoolCount,
-                                        VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+    _deletionQueue.pushFunction([this, frameData]() {
+      vkDestroyCommandPool(_vkDevice, frameData.vkCommandPool, nullptr);
+    });
 
-  VK_CHECK(vkAllocateCommandBuffers(_vkDevice, &vkCommandBufferAllocateInfo,
-                                    &_vkCommandBufferMain));
+    constexpr std::uint32_t commandPoolCount = 1;
+    VkCommandBufferAllocateInfo vkCommandBufferAllocateInfo =
+        vkinit::commandBufferAllocateInfo(frameData.vkCommandPool,
+                                          commandPoolCount,
+                                          VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+
+    VK_CHECK(vkAllocateCommandBuffers(_vkDevice, &vkCommandBufferAllocateInfo,
+                                      &frameData.vkCommandBuffer));
+  }
 }
 
 void VulkanEngine::initDefaultRenderPass() {
@@ -446,23 +464,29 @@ void VulkanEngine::initSyncStructures() {
   VkFenceCreateInfo vkFenceCreateInfo =
       vkinit::fenceCreateInfo(VK_FENCE_CREATE_SIGNALED_BIT);
 
-  VK_CHECK(
-      vkCreateFence(_vkDevice, &vkFenceCreateInfo, nullptr, &_vkRenderFence));
+  for (int i = 0; i < _frameDataArray.size(); ++i) {
+    FrameData &frameData = _frameDataArray[i];
 
-  _deletionQueue.pushFunction(
-      [this]() { vkDestroyFence(_vkDevice, _vkRenderFence, nullptr); });
+    VK_CHECK(vkCreateFence(_vkDevice, &vkFenceCreateInfo, nullptr,
+                           &frameData.vkRenderFence));
 
-  VkSemaphoreCreateInfo vkSemaphoreCreateInfo = vkinit::semaphoreCreateInfo(0);
+    _deletionQueue.pushFunction([this, frameData]() {
+      vkDestroyFence(_vkDevice, frameData.vkRenderFence, nullptr);
+    });
 
-  VK_CHECK(vkCreateSemaphore(_vkDevice, &vkSemaphoreCreateInfo, nullptr,
-                             &_vkRenderSemaphore));
-  VK_CHECK(vkCreateSemaphore(_vkDevice, &vkSemaphoreCreateInfo, nullptr,
-                             &_vkPresentSemaphore));
+    VkSemaphoreCreateInfo vkSemaphoreCreateInfo =
+        vkinit::semaphoreCreateInfo(0);
 
-  _deletionQueue.pushFunction([this]() {
-    vkDestroySemaphore(_vkDevice, _vkRenderSemaphore, nullptr);
-    vkDestroySemaphore(_vkDevice, _vkPresentSemaphore, nullptr);
-  });
+    VK_CHECK(vkCreateSemaphore(_vkDevice, &vkSemaphoreCreateInfo, nullptr,
+                               &frameData.vkRenderSemaphore));
+    VK_CHECK(vkCreateSemaphore(_vkDevice, &vkSemaphoreCreateInfo, nullptr,
+                               &frameData.vkPresentSemaphore));
+
+    _deletionQueue.pushFunction([this, frameData]() {
+      vkDestroySemaphore(_vkDevice, frameData.vkRenderSemaphore, nullptr);
+      vkDestroySemaphore(_vkDevice, frameData.vkPresentSemaphore, nullptr);
+    });
+  }
 }
 
 bool VulkanEngine::loadShaderModule(char const *filePath,
@@ -788,4 +812,9 @@ void VulkanEngine::uploadMesh(Mesh &mesh) {
   memcpy(data, mesh._vertices.data(), bufferSize);
 
   vmaUnmapMemory(_vmaAllocator, mesh._vertexBuffer.allocation);
+}
+
+FrameData &VulkanEngine::getCurrentFrameData() {
+  std::size_t const currentFrameDataInd = _frameNumber % frameOverlap;
+  return _frameDataArray[currentFrameDataInd];
 }
