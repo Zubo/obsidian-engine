@@ -19,7 +19,6 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(fetch_vulkan_memory_allocator)
 
 FetchContent_Declare(fetch_glm
-
     GIT_REPOSITORY https://github.com/g-truc/glm.git
     GIT_TAG 0.9.9.8
 )

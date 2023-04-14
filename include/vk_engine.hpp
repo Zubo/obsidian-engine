@@ -76,12 +76,6 @@ public:
   void init();
   void run();
   void cleanup();
-  void draw();
-  void drawObjects(VkCommandBuffer cmd, RenderObject* first, int count);
-  Material* createMaterial(VkPipeline pipeline, VkPipelineLayout pipelineLayout,
-                           std::string const& name);
-  Material* getMaterial(std::string const& name);
-  Mesh* getMesh(std::string const& name);
 
 private:
   VkInstance _vkInstance;
@@ -127,6 +121,12 @@ private:
   void loadMeshes();
   void uploadMesh(Mesh& mesh);
   FrameData& getCurrentFrameData();
+  void draw();
+  void drawObjects(VkCommandBuffer cmd, RenderObject* first, int count);
+  Material* createMaterial(VkPipeline pipeline, VkPipelineLayout pipelineLayout,
+                           std::string const& name);
+  Material* getMaterial(std::string const& name);
+  Mesh* getMesh(std::string const& name);
 };
 
 class PipelineBuilder {

@@ -88,166 +88,6 @@ void VulkanEngine::cleanup() {
   }
 }
 
-void VulkanEngine::draw() {
-  FrameData& currentFrameData = getCurrentFrameData();
-
-  constexpr std::uint64_t timeoutNanoseconds = 1000000000;
-  {
-    ZoneScopedN("Wait For Fences");
-    VK_CHECK(vkWaitForFences(_vkDevice, 1, &currentFrameData.vkRenderFence,
-                             true, timeoutNanoseconds));
-  }
-  VK_CHECK(vkResetFences(_vkDevice, 1, &currentFrameData.vkRenderFence));
-
-  uint32_t swapchainImageIndex;
-  {
-    ZoneScopedN("Acquire Next Image");
-    VK_CHECK(vkAcquireNextImageKHR(_vkDevice, _vkSwapchain, timeoutNanoseconds,
-                                   currentFrameData.vkPresentSemaphore,
-                                   VK_NULL_HANDLE, &swapchainImageIndex));
-  }
-
-  VkCommandBuffer cmd = currentFrameData.vkCommandBuffer;
-
-  VK_CHECK(vkResetCommandBuffer(cmd, 0));
-
-  VkCommandBufferBeginInfo vkCommandBufferBeginInfo = {};
-  vkCommandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-  vkCommandBufferBeginInfo.pNext = nullptr;
-  vkCommandBufferBeginInfo.pInheritanceInfo = nullptr;
-  vkCommandBufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-  VK_CHECK(vkBeginCommandBuffer(cmd, &vkCommandBufferBeginInfo));
-
-  VkClearValue clearValues[2];
-  float flash = std::abs(std::sin(_frameNumber / 10.0f));
-  clearValues[0].color = {{0.0f, 0.0f, flash, 1.0f}};
-  clearValues[1].depthStencil.depth = 1.0f;
-
-  VkRenderPassBeginInfo vkRenderPassBeginInfo = {};
-  vkRenderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-  vkRenderPassBeginInfo.pNext = nullptr;
-  vkRenderPassBeginInfo.renderPass = _vkRenderPass;
-  vkRenderPassBeginInfo.framebuffer = _vkFramebuffers[swapchainImageIndex];
-  vkRenderPassBeginInfo.renderArea.offset = {0, 0};
-  vkRenderPassBeginInfo.renderArea.extent = WindowExtent;
-  vkRenderPassBeginInfo.clearValueCount = 2;
-  vkRenderPassBeginInfo.pClearValues = clearValues;
-
-  vkCmdBeginRenderPass(cmd, &vkRenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-  drawObjects(cmd, _renderObjects.data(), _renderObjects.size());
-
-  vkCmdEndRenderPass(cmd);
-  VK_CHECK(vkEndCommandBuffer(cmd));
-
-  VkSubmitInfo vkSubmitInfo = {};
-  vkSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-  vkSubmitInfo.pNext = nullptr;
-
-  VkPipelineStageFlags const vkPipelineStageFlags =
-      VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-
-  vkSubmitInfo.pWaitDstStageMask = &vkPipelineStageFlags;
-  vkSubmitInfo.waitSemaphoreCount = 1;
-  vkSubmitInfo.pWaitSemaphores = &currentFrameData.vkPresentSemaphore;
-
-  vkSubmitInfo.signalSemaphoreCount = 1;
-  vkSubmitInfo.pSignalSemaphores = &currentFrameData.vkRenderSemaphore;
-
-  vkSubmitInfo.commandBufferCount = 1;
-  vkSubmitInfo.pCommandBuffers = &cmd;
-
-  VK_CHECK(vkQueueSubmit(_vkGraphicsQueue, 1, &vkSubmitInfo,
-                         currentFrameData.vkRenderFence));
-
-  VkPresentInfoKHR vkPresentInfo = {};
-  vkPresentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-  vkPresentInfo.pNext = nullptr;
-
-  vkPresentInfo.pSwapchains = &_vkSwapchain;
-  vkPresentInfo.swapchainCount = 1;
-
-  vkPresentInfo.waitSemaphoreCount = 1;
-  vkPresentInfo.pWaitSemaphores = &currentFrameData.vkRenderSemaphore;
-
-  vkPresentInfo.pImageIndices = &swapchainImageIndex;
-
-  VK_CHECK(vkQueuePresentKHR(_vkGraphicsQueue, &vkPresentInfo));
-
-  ++_frameNumber;
-}
-
-void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject* first,
-                               int count) {
-  ZoneScoped;
-  glm::vec3 const cameraPos{0.f, -6.f, -10.f};
-  glm::mat4 view = glm::translate(glm::mat4{1.f}, cameraPos);
-  glm::mat4 projection =
-      glm::perspective(glm::radians(70.f), 1700.f / 900.f, 0.1f, 200.f);
-  projection[1][1] *= -1;
-  glm::mat4 const viewProjection = projection * view;
-
-  for (int i = 0; i < count; ++i) {
-    ZoneScopedN("Draw Object");
-    RenderObject const& obj = first[i];
-
-    assert(obj.material && "Error: Missing material.");
-    Material const& material = *obj.material;
-
-    assert(obj.material && "Error: Missing mesh");
-    Mesh const& mesh = *obj.mesh;
-
-    constexpr VkPipelineBindPoint pipelineBindPoint =
-        VK_PIPELINE_BIND_POINT_GRAPHICS;
-    vkCmdBindPipeline(cmd, pipelineBindPoint, material.vkPipeline);
-
-    MeshPushConstants constants = {};
-    constants.renderMatrix = viewProjection * obj.transformMatrix;
-    VkShaderStageFlagBits shaderStageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    constexpr std::uint32_t offset = 0;
-    vkCmdPushConstants(cmd, material.vkPipelineLayout, shaderStageFlags, offset,
-                       sizeof(MeshPushConstants), &constants);
-
-    VkDeviceSize const bufferOffset = 0;
-    vkCmdBindVertexBuffers(cmd, 0, 1, &mesh._vertexBuffer.buffer,
-                           &bufferOffset);
-
-    vkCmdDraw(cmd, mesh._vertices.size(), 1, 0, 0);
-  }
-}
-
-Material* VulkanEngine::createMaterial(VkPipeline pipeline,
-                                       VkPipelineLayout pipelineLayout,
-                                       std::string const& name) {
-  Material mat;
-  mat.vkPipeline = pipeline;
-  mat.vkPipelineLayout = pipelineLayout;
-
-  Material& result = (_materials[name] = mat);
-  return &result;
-}
-
-Material* VulkanEngine::getMaterial(std::string const& name) {
-  auto const matIter = _materials.find(name);
-
-  if (matIter == _materials.cend()) {
-    return nullptr;
-  }
-
-  return &matIter->second;
-}
-
-Mesh* VulkanEngine::getMesh(std::string const& name) {
-  auto const meshIter = _meshes.find(name);
-
-  if (meshIter == _meshes.cend()) {
-    return nullptr;
-  }
-
-  return &meshIter->second;
-}
-
 void VulkanEngine::initVulkan() {
   vkb::InstanceBuilder builder;
   auto const builderReturn = builder.set_app_name("VKGuide tutorial")
@@ -817,4 +657,164 @@ void VulkanEngine::uploadMesh(Mesh& mesh) {
 FrameData& VulkanEngine::getCurrentFrameData() {
   std::size_t const currentFrameDataInd = _frameNumber % frameOverlap;
   return _frameDataArray[currentFrameDataInd];
+}
+
+void VulkanEngine::draw() {
+  FrameData& currentFrameData = getCurrentFrameData();
+
+  constexpr std::uint64_t timeoutNanoseconds = 1000000000;
+  {
+    ZoneScopedN("Wait For Fences");
+    VK_CHECK(vkWaitForFences(_vkDevice, 1, &currentFrameData.vkRenderFence,
+                             true, timeoutNanoseconds));
+  }
+  VK_CHECK(vkResetFences(_vkDevice, 1, &currentFrameData.vkRenderFence));
+
+  uint32_t swapchainImageIndex;
+  {
+    ZoneScopedN("Acquire Next Image");
+    VK_CHECK(vkAcquireNextImageKHR(_vkDevice, _vkSwapchain, timeoutNanoseconds,
+                                   currentFrameData.vkPresentSemaphore,
+                                   VK_NULL_HANDLE, &swapchainImageIndex));
+  }
+
+  VkCommandBuffer cmd = currentFrameData.vkCommandBuffer;
+
+  VK_CHECK(vkResetCommandBuffer(cmd, 0));
+
+  VkCommandBufferBeginInfo vkCommandBufferBeginInfo = {};
+  vkCommandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  vkCommandBufferBeginInfo.pNext = nullptr;
+  vkCommandBufferBeginInfo.pInheritanceInfo = nullptr;
+  vkCommandBufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+  VK_CHECK(vkBeginCommandBuffer(cmd, &vkCommandBufferBeginInfo));
+
+  VkClearValue clearValues[2];
+  float flash = std::abs(std::sin(_frameNumber / 10.0f));
+  clearValues[0].color = {{0.0f, 0.0f, flash, 1.0f}};
+  clearValues[1].depthStencil.depth = 1.0f;
+
+  VkRenderPassBeginInfo vkRenderPassBeginInfo = {};
+  vkRenderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+  vkRenderPassBeginInfo.pNext = nullptr;
+  vkRenderPassBeginInfo.renderPass = _vkRenderPass;
+  vkRenderPassBeginInfo.framebuffer = _vkFramebuffers[swapchainImageIndex];
+  vkRenderPassBeginInfo.renderArea.offset = {0, 0};
+  vkRenderPassBeginInfo.renderArea.extent = WindowExtent;
+  vkRenderPassBeginInfo.clearValueCount = 2;
+  vkRenderPassBeginInfo.pClearValues = clearValues;
+
+  vkCmdBeginRenderPass(cmd, &vkRenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+  drawObjects(cmd, _renderObjects.data(), _renderObjects.size());
+
+  vkCmdEndRenderPass(cmd);
+  VK_CHECK(vkEndCommandBuffer(cmd));
+
+  VkSubmitInfo vkSubmitInfo = {};
+  vkSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+  vkSubmitInfo.pNext = nullptr;
+
+  VkPipelineStageFlags const vkPipelineStageFlags =
+      VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+  vkSubmitInfo.pWaitDstStageMask = &vkPipelineStageFlags;
+  vkSubmitInfo.waitSemaphoreCount = 1;
+  vkSubmitInfo.pWaitSemaphores = &currentFrameData.vkPresentSemaphore;
+
+  vkSubmitInfo.signalSemaphoreCount = 1;
+  vkSubmitInfo.pSignalSemaphores = &currentFrameData.vkRenderSemaphore;
+
+  vkSubmitInfo.commandBufferCount = 1;
+  vkSubmitInfo.pCommandBuffers = &cmd;
+
+  VK_CHECK(vkQueueSubmit(_vkGraphicsQueue, 1, &vkSubmitInfo,
+                         currentFrameData.vkRenderFence));
+
+  VkPresentInfoKHR vkPresentInfo = {};
+  vkPresentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+  vkPresentInfo.pNext = nullptr;
+
+  vkPresentInfo.pSwapchains = &_vkSwapchain;
+  vkPresentInfo.swapchainCount = 1;
+
+  vkPresentInfo.waitSemaphoreCount = 1;
+  vkPresentInfo.pWaitSemaphores = &currentFrameData.vkRenderSemaphore;
+
+  vkPresentInfo.pImageIndices = &swapchainImageIndex;
+
+  VK_CHECK(vkQueuePresentKHR(_vkGraphicsQueue, &vkPresentInfo));
+
+  ++_frameNumber;
+}
+
+void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject* first,
+                               int count) {
+  ZoneScoped;
+  glm::vec3 const cameraPos{0.f, -6.f, -10.f};
+  glm::mat4 view = glm::translate(glm::mat4{1.f}, cameraPos);
+  glm::mat4 projection =
+      glm::perspective(glm::radians(70.f), 1700.f / 900.f, 0.1f, 200.f);
+  projection[1][1] *= -1;
+  glm::mat4 const viewProjection = projection * view;
+
+  for (int i = 0; i < count; ++i) {
+    ZoneScopedN("Draw Object");
+    RenderObject const& obj = first[i];
+
+    assert(obj.material && "Error: Missing material.");
+    Material const& material = *obj.material;
+
+    assert(obj.material && "Error: Missing mesh");
+    Mesh const& mesh = *obj.mesh;
+
+    constexpr VkPipelineBindPoint pipelineBindPoint =
+        VK_PIPELINE_BIND_POINT_GRAPHICS;
+    vkCmdBindPipeline(cmd, pipelineBindPoint, material.vkPipeline);
+
+    MeshPushConstants constants = {};
+    constants.renderMatrix = viewProjection * obj.transformMatrix;
+    VkShaderStageFlagBits shaderStageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    constexpr std::uint32_t offset = 0;
+    vkCmdPushConstants(cmd, material.vkPipelineLayout, shaderStageFlags, offset,
+                       sizeof(MeshPushConstants), &constants);
+
+    VkDeviceSize const bufferOffset = 0;
+    vkCmdBindVertexBuffers(cmd, 0, 1, &mesh._vertexBuffer.buffer,
+                           &bufferOffset);
+
+    vkCmdDraw(cmd, mesh._vertices.size(), 1, 0, 0);
+  }
+}
+
+Material* VulkanEngine::createMaterial(VkPipeline pipeline,
+                                       VkPipelineLayout pipelineLayout,
+                                       std::string const& name) {
+  Material mat;
+  mat.vkPipeline = pipeline;
+  mat.vkPipelineLayout = pipelineLayout;
+
+  Material& result = (_materials[name] = mat);
+  return &result;
+}
+
+Material* VulkanEngine::getMaterial(std::string const& name) {
+  auto const matIter = _materials.find(name);
+
+  if (matIter == _materials.cend()) {
+    return nullptr;
+  }
+
+  return &matIter->second;
+}
+
+Mesh* VulkanEngine::getMesh(std::string const& name) {
+  auto const meshIter = _meshes.find(name);
+
+  if (meshIter == _meshes.cend()) {
+    return nullptr;
+  }
+
+  return &meshIter->second;
 }
