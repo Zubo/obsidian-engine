@@ -19,8 +19,8 @@ struct Material {
 };
 
 struct RenderObject {
-  Mesh *mesh;
-  Material *material;
+  Mesh* mesh;
+  Material* material;
   glm::mat4 transformMatrix;
 };
 
@@ -41,7 +41,7 @@ struct FrameData {
 
 class DeletionQueue {
 public:
-  template <typename TFunc> void pushFunction(TFunc &&f) {
+  template <typename TFunc> void pushFunction(TFunc&& f) {
     deletionFuncs.emplace_back(std::forward<TFunc>(f));
   }
 
@@ -71,17 +71,17 @@ public:
   bool IsInitialized{false};
   int FrameNumber{0};
   VkExtent2D WindowExtent{1000, 800};
-  struct SDL_Window *Window{nullptr};
+  struct SDL_Window* Window{nullptr};
 
   void init();
   void run();
   void cleanup();
   void draw();
-  void drawObjects(VkCommandBuffer cmd, RenderObject *first, int count);
-  Material *createMaterial(VkPipeline pipeline, VkPipelineLayout pipelineLayout,
-                           std::string const &name);
-  Material *getMaterial(std::string const &name);
-  Mesh *getMesh(std::string const &name);
+  void drawObjects(VkCommandBuffer cmd, RenderObject* first, int count);
+  Material* createMaterial(VkPipeline pipeline, VkPipelineLayout pipelineLayout,
+                           std::string const& name);
+  Material* getMaterial(std::string const& name);
+  Mesh* getMesh(std::string const& name);
 
 private:
   VkInstance _vkInstance;
@@ -121,12 +121,12 @@ private:
   void initDefaultRenderPass();
   void initFramebuffers();
   void initSyncStructures();
-  bool loadShaderModule(char const *filePath, VkShaderModule *outShaderModule);
+  bool loadShaderModule(char const* filePath, VkShaderModule* outShaderModule);
   void initPipelines();
   void initScene();
   void loadMeshes();
-  void uploadMesh(Mesh &mesh);
-  FrameData &getCurrentFrameData();
+  void uploadMesh(Mesh& mesh);
+  FrameData& getCurrentFrameData();
 };
 
 class PipelineBuilder {

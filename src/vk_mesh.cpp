@@ -43,7 +43,7 @@ VertexInputDescription Vertex::getVertexInputDescription() {
   return description;
 }
 
-bool Mesh::loadFromObj(char const *filePath) {
+bool Mesh::loadFromObj(char const* filePath) {
   tinyobj::attrib_t attrib;
   std::vector<tinyobj::shape_t> shapes;
   std::vector<tinyobj::material_t> materials;
@@ -63,7 +63,7 @@ bool Mesh::loadFromObj(char const *filePath) {
   }
 
   for (std::size_t s = 0; s < shapes.size(); ++s) {
-    tinyobj::shape_t const &shape = shapes[s];
+    tinyobj::shape_t const& shape = shapes[s];
 
     std::size_t faceIndOffset = 0;
 

@@ -72,7 +72,7 @@ void VulkanEngine::run() {
 
 void VulkanEngine::cleanup() {
   if (IsInitialized) {
-    FrameData const &currentFrameData = getCurrentFrameData();
+    FrameData const& currentFrameData = getCurrentFrameData();
     vkWaitForFences(_vkDevice, 1, &currentFrameData.vkRenderFence, true,
                     1000000000);
 
@@ -89,7 +89,7 @@ void VulkanEngine::cleanup() {
 }
 
 void VulkanEngine::draw() {
-  FrameData &currentFrameData = getCurrentFrameData();
+  FrameData& currentFrameData = getCurrentFrameData();
 
   constexpr std::uint64_t timeoutNanoseconds = 1000000000;
   {
@@ -178,7 +178,7 @@ void VulkanEngine::draw() {
   ++_frameNumber;
 }
 
-void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject *first,
+void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject* first,
                                int count) {
   ZoneScoped;
   glm::vec3 const cameraPos{0.f, -6.f, -10.f};
@@ -190,13 +190,13 @@ void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject *first,
 
   for (int i = 0; i < count; ++i) {
     ZoneScopedN("Draw Object");
-    RenderObject const &obj = first[i];
+    RenderObject const& obj = first[i];
 
     assert(obj.material && "Error: Missing material.");
-    Material const &material = *obj.material;
+    Material const& material = *obj.material;
 
     assert(obj.material && "Error: Missing mesh");
-    Mesh const &mesh = *obj.mesh;
+    Mesh const& mesh = *obj.mesh;
 
     constexpr VkPipelineBindPoint pipelineBindPoint =
         VK_PIPELINE_BIND_POINT_GRAPHICS;
@@ -217,18 +217,18 @@ void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject *first,
   }
 }
 
-Material *VulkanEngine::createMaterial(VkPipeline pipeline,
+Material* VulkanEngine::createMaterial(VkPipeline pipeline,
                                        VkPipelineLayout pipelineLayout,
-                                       std::string const &name) {
+                                       std::string const& name) {
   Material mat;
   mat.vkPipeline = pipeline;
   mat.vkPipelineLayout = pipelineLayout;
 
-  Material &result = (_materials[name] = mat);
+  Material& result = (_materials[name] = mat);
   return &result;
 }
 
-Material *VulkanEngine::getMaterial(std::string const &name) {
+Material* VulkanEngine::getMaterial(std::string const& name) {
   auto const matIter = _materials.find(name);
 
   if (matIter == _materials.cend()) {
@@ -238,7 +238,7 @@ Material *VulkanEngine::getMaterial(std::string const &name) {
   return &matIter->second;
 }
 
-Mesh *VulkanEngine::getMesh(std::string const &name) {
+Mesh* VulkanEngine::getMesh(std::string const& name) {
   auto const meshIter = _meshes.find(name);
 
   if (meshIter == _meshes.cend()) {
@@ -333,11 +333,11 @@ void VulkanEngine::initSwapchain() {
       _depthImage.vkImage, _depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
 
   for (int i = 0; i < swapchainSize; ++i) {
-    FramebufferImageViews &swapchainImageViews = _vkFramebufferImageViews.at(i);
-    std::vector<VkImageView> &imageViews = swapchainImageViews.vkImageViews;
+    FramebufferImageViews& swapchainImageViews = _vkFramebufferImageViews.at(i);
+    std::vector<VkImageView>& imageViews = swapchainImageViews.vkImageViews;
 
     imageViews.push_back(swapchainColorImageViews[i]);
-    VkImageView &depthImageView =
+    VkImageView& depthImageView =
         swapchainImageViews.vkImageViews.emplace_back();
 
     VK_CHECK(vkCreateImageView(_vkDevice, &imageViewCreateInfo, nullptr,
@@ -360,7 +360,7 @@ void VulkanEngine::initCommands() {
           VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 
   for (int i = 0; i < _frameDataArray.size(); ++i) {
-    FrameData &frameData = _frameDataArray[i];
+    FrameData& frameData = _frameDataArray[i];
     VK_CHECK(vkCreateCommandPool(_vkDevice, &vkCommandPoolCreateInfo, nullptr,
                                  &frameData.vkCommandPool));
 
@@ -382,7 +382,7 @@ void VulkanEngine::initCommands() {
 void VulkanEngine::initDefaultRenderPass() {
   VkAttachmentDescription vkAttachments[2] = {};
 
-  VkAttachmentDescription &vkColorAttachment = vkAttachments[0];
+  VkAttachmentDescription& vkColorAttachment = vkAttachments[0];
   vkColorAttachment.format = _vkSwapchainImageFormat;
   vkColorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
   vkColorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
@@ -396,7 +396,7 @@ void VulkanEngine::initDefaultRenderPass() {
   vkColorAttachmentReference.attachment = 0;
   vkColorAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-  VkAttachmentDescription &vkDepthAttachment = vkAttachments[1];
+  VkAttachmentDescription& vkDepthAttachment = vkAttachments[1];
   vkDepthAttachment.format = _depthFormat;
   vkDepthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
   vkDepthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
@@ -445,7 +445,7 @@ void VulkanEngine::initFramebuffers() {
   vkFramebufferCreateInfo.layers = 1;
 
   for (int i = 0; i < swapchainImageCount; ++i) {
-    FramebufferImageViews &swapchainImageViews = _vkFramebufferImageViews.at(i);
+    FramebufferImageViews& swapchainImageViews = _vkFramebufferImageViews.at(i);
     vkFramebufferCreateInfo.attachmentCount =
         swapchainImageViews.vkImageViews.size();
     vkFramebufferCreateInfo.pAttachments =
@@ -465,7 +465,7 @@ void VulkanEngine::initSyncStructures() {
       vkinit::fenceCreateInfo(VK_FENCE_CREATE_SIGNALED_BIT);
 
   for (int i = 0; i < _frameDataArray.size(); ++i) {
-    FrameData &frameData = _frameDataArray[i];
+    FrameData& frameData = _frameDataArray[i];
 
     VK_CHECK(vkCreateFence(_vkDevice, &vkFenceCreateInfo, nullptr,
                            &frameData.vkRenderFence));
@@ -489,8 +489,8 @@ void VulkanEngine::initSyncStructures() {
   }
 }
 
-bool VulkanEngine::loadShaderModule(char const *filePath,
-                                    VkShaderModule *outShaderModule) {
+bool VulkanEngine::loadShaderModule(char const* filePath,
+                                    VkShaderModule* outShaderModule) {
   std::ifstream file{filePath, std::ios::ate | std::ios::binary};
 
   if (!file.is_open()) {
@@ -503,7 +503,7 @@ bool VulkanEngine::loadShaderModule(char const *filePath,
 
   file.seekg(0);
 
-  file.read(reinterpret_cast<char *>(buffer.data()), fileSize);
+  file.read(reinterpret_cast<char*>(buffer.data()), fileSize);
 
   file.close();
 
@@ -782,7 +782,7 @@ void VulkanEngine::loadMeshes() {
   _meshes["triangle"] = _triangleMesh;
 }
 
-void VulkanEngine::uploadMesh(Mesh &mesh) {
+void VulkanEngine::uploadMesh(Mesh& mesh) {
   VkBufferCreateInfo bufferInfo = {};
   bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
   bufferInfo.pNext = nullptr;
@@ -806,7 +806,7 @@ void VulkanEngine::uploadMesh(Mesh &mesh) {
                      mesh._vertexBuffer.allocation);
   });
 
-  void *data;
+  void* data;
   vmaMapMemory(_vmaAllocator, mesh._vertexBuffer.allocation, &data);
 
   memcpy(data, mesh._vertices.data(), bufferSize);
@@ -814,7 +814,7 @@ void VulkanEngine::uploadMesh(Mesh &mesh) {
   vmaUnmapMemory(_vmaAllocator, mesh._vertexBuffer.allocation);
 }
 
-FrameData &VulkanEngine::getCurrentFrameData() {
+FrameData& VulkanEngine::getCurrentFrameData() {
   std::size_t const currentFrameDataInd = _frameNumber % frameOverlap;
   return _frameDataArray[currentFrameDataInd];
 }
