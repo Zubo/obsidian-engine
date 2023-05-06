@@ -72,9 +72,7 @@ void VulkanEngine::run() {
 
 void VulkanEngine::cleanup() {
   if (IsInitialized) {
-    FrameData const& currentFrameData = getCurrentFrameData();
-    vkWaitForFences(_vkDevice, 1, &currentFrameData.vkRenderFence, true,
-                    1000000000);
+    vkDeviceWaitIdle(_vkDevice);
 
     _deletionQueue.flush();
 
