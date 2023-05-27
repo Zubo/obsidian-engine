@@ -6,6 +6,7 @@
 #include <tracy/Tracy.hpp>
 #include <vk_engine.hpp>
 #include <vk_initializers.hpp>
+#include <vulkan/vulkan_core.h>
 #define VMA_IMPLEMENTATION ;
 #include <vk_mem_alloc.h>
 
@@ -42,6 +43,8 @@ void VulkanEngine::init() {
   initFramebuffers();
 
   initSyncStructures();
+
+  initDescriptors();
 
   initPipelines();
 
@@ -502,6 +505,8 @@ void VulkanEngine::initPipelines() {
 
   meshPipelineLayoutInfo.pushConstantRangeCount = 1;
   meshPipelineLayoutInfo.pPushConstantRanges = &pushConstant;
+  meshPipelineLayoutInfo.setLayoutCount = 1;
+  meshPipelineLayoutInfo.pSetLayouts = &_vkGlobalDescriptorSetLayout;
 
   VK_CHECK(vkCreatePipelineLayout(_vkDevice, &meshPipelineLayoutInfo, nullptr,
                                   &_vkMeshPipelineLayout));
@@ -757,6 +762,21 @@ void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject* first,
   projection[1][1] *= -1;
   glm::mat4 const viewProjection = projection * view;
 
+  GPUCameraData gpuCameraData;
+  gpuCameraData.view = view;
+  gpuCameraData.proj = projection;
+  gpuCameraData.viewProj = projection * view;
+  void* data = nullptr;
+
+  FrameData& currentFrameData = getCurrentFrameData();
+  VK_CHECK(vmaMapMemory(_vmaAllocator, currentFrameData.cameraBuffer.allocation,
+                        &data));
+
+  std::memcpy(data, &gpuCameraData, sizeof(GPUCameraData));
+
+  vmaUnmapMemory(_vmaAllocator, currentFrameData.cameraBuffer.allocation);
+
+  Material const* lastMaterial;
   for (int i = 0; i < count; ++i) {
     ZoneScopedN("Draw Object");
     RenderObject const& obj = first[i];
@@ -769,10 +789,16 @@ void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject* first,
 
     constexpr VkPipelineBindPoint pipelineBindPoint =
         VK_PIPELINE_BIND_POINT_GRAPHICS;
-    vkCmdBindPipeline(cmd, pipelineBindPoint, material.vkPipeline);
+
+    if (&material != lastMaterial) {
+      vkCmdBindPipeline(cmd, pipelineBindPoint, material.vkPipeline);
+      vkCmdBindDescriptorSets(cmd, pipelineBindPoint, _vkMeshPipelineLayout, 0,
+                              1, &currentFrameData.globalDescriptor, 0,
+                              nullptr);
+    }
 
     MeshPushConstants constants = {};
-    constants.renderMatrix = viewProjection * obj.transformMatrix;
+    constants.renderMatrix = obj.transformMatrix;
     VkShaderStageFlagBits shaderStageFlags = VK_SHADER_STAGE_VERTEX_BIT;
     constexpr std::uint32_t offset = 0;
     vkCmdPushConstants(cmd, material.vkPipelineLayout, shaderStageFlags, offset,
@@ -815,4 +841,111 @@ Mesh* VulkanEngine::getMesh(std::string const& name) {
   }
 
   return &meshIter->second;
+}
+
+AllocatedBuffer VulkanEngine::createBuffer(
+    std::size_t bufferSize, VkBufferUsageFlags usage,
+    VmaMemoryUsage memoryUsage,
+    VmaAllocationCreateFlags allocationCreateFlags) const {
+  VkBufferCreateInfo vkBufferCreateInfo = {};
+  vkBufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+  vkBufferCreateInfo.pNext = nullptr;
+  vkBufferCreateInfo.size = bufferSize;
+  vkBufferCreateInfo.usage = usage;
+
+  VmaAllocationCreateInfo vmaAllocationCreateInfo = {};
+  vmaAllocationCreateInfo.usage = memoryUsage;
+  vmaAllocationCreateInfo.flags = allocationCreateFlags;
+
+  AllocatedBuffer allocatedBuffer;
+  VK_CHECK(vmaCreateBuffer(_vmaAllocator, &vkBufferCreateInfo,
+                           &vmaAllocationCreateInfo, &allocatedBuffer.buffer,
+                           &allocatedBuffer.allocation, nullptr));
+
+  return allocatedBuffer;
+}
+
+void VulkanEngine::initDescriptors() {
+  constexpr std::uint32_t descriptorCount{10};
+
+  VkDescriptorPoolSize descriptorPoolSize = {};
+  descriptorPoolSize.descriptorCount = descriptorCount;
+  descriptorPoolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+
+  VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {};
+  descriptorPoolCreateInfo.sType =
+      VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+  descriptorPoolCreateInfo.pNext = nullptr;
+  descriptorPoolCreateInfo.maxSets = descriptorCount;
+  descriptorPoolCreateInfo.poolSizeCount = 1;
+  descriptorPoolCreateInfo.pPoolSizes = &descriptorPoolSize;
+
+  VK_CHECK(vkCreateDescriptorPool(_vkDevice, &descriptorPoolCreateInfo, nullptr,
+                                  &_vkDescriptorPool));
+
+  _deletionQueue.pushFunction([this]() {
+    vkDestroyDescriptorPool(_vkDevice, _vkDescriptorPool, nullptr);
+  });
+
+  VkDescriptorSetLayoutBinding camBufferBinding = {};
+  camBufferBinding.binding = 0;
+  camBufferBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  camBufferBinding.descriptorCount = 1;
+  camBufferBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+  camBufferBinding.pImmutableSamplers = nullptr;
+
+  VkDescriptorSetLayoutCreateInfo layoutCreateInfo = {};
+  layoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+  layoutCreateInfo.pNext = nullptr;
+  layoutCreateInfo.bindingCount = 1;
+  layoutCreateInfo.pBindings = &camBufferBinding;
+  layoutCreateInfo.flags = 0;
+
+  VK_CHECK(vkCreateDescriptorSetLayout(_vkDevice, &layoutCreateInfo, nullptr,
+                                       &_vkGlobalDescriptorSetLayout));
+
+  _deletionQueue.pushFunction([this]() {
+    vkDestroyDescriptorSetLayout(_vkDevice, _vkGlobalDescriptorSetLayout,
+                                 nullptr);
+  });
+
+  for (int i = 0; i < frameOverlap; ++i) {
+    _frameDataArray[i].cameraBuffer =
+        createBuffer(sizeof(GPUCameraData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                     VMA_MEMORY_USAGE_AUTO,
+                     VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+
+    _deletionQueue.pushFunction([this, i]() {
+      AllocatedBuffer const& buffer = _frameDataArray[i].cameraBuffer;
+      vmaDestroyBuffer(_vmaAllocator, buffer.buffer, buffer.allocation);
+    });
+
+    VkDescriptorSetAllocateInfo descriptorSetAllocateInfo = {};
+    descriptorSetAllocateInfo.sType =
+        VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    descriptorSetAllocateInfo.pNext = nullptr;
+    descriptorSetAllocateInfo.descriptorPool = _vkDescriptorPool;
+    descriptorSetAllocateInfo.descriptorSetCount = 1;
+    descriptorSetAllocateInfo.pSetLayouts = &_vkGlobalDescriptorSetLayout;
+
+    VK_CHECK(vkAllocateDescriptorSets(_vkDevice, &descriptorSetAllocateInfo,
+                                      &_frameDataArray[i].globalDescriptor));
+
+    VkDescriptorBufferInfo descriptorBufferInfo = {};
+    descriptorBufferInfo.buffer = _frameDataArray[i].cameraBuffer.buffer;
+    descriptorBufferInfo.offset = 0;
+    descriptorBufferInfo.range = VK_WHOLE_SIZE;
+
+    VkWriteDescriptorSet writeDescriptorSet = {};
+    writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writeDescriptorSet.pNext = nullptr;
+    writeDescriptorSet.dstSet = _frameDataArray[i].globalDescriptor;
+    writeDescriptorSet.dstBinding = 0;
+    writeDescriptorSet.dstArrayElement = 0;
+    writeDescriptorSet.descriptorCount = 1;
+    writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    writeDescriptorSet.pBufferInfo = &descriptorBufferInfo;
+
+    vkUpdateDescriptorSets(_vkDevice, 1, &writeDescriptorSet, 0, nullptr);
+  }
 }

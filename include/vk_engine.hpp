@@ -31,12 +31,21 @@ struct MeshPushConstants {
 
 constexpr unsigned int frameOverlap = 2;
 
+struct GPUCameraData {
+  glm::mat4 view;
+  glm::mat4 proj;
+  glm::mat4 viewProj;
+};
+
 struct FrameData {
   VkSemaphore vkRenderSemaphore;
   VkSemaphore vkPresentSemaphore;
   VkFence vkRenderFence;
   VkCommandPool vkCommandPool;
   VkCommandBuffer vkCommandBuffer;
+
+  AllocatedBuffer cameraBuffer;
+  VkDescriptorSet globalDescriptor;
 };
 
 class DeletionQueue {
@@ -108,6 +117,8 @@ private:
   std::vector<RenderObject> _renderObjects;
   std::unordered_map<std::string, Material> _materials;
   std::unordered_map<std::string, Mesh> _meshes;
+  VkDescriptorSetLayout _vkGlobalDescriptorSetLayout;
+  VkDescriptorPool _vkDescriptorPool;
 
   void initVulkan();
   void initSwapchain();
@@ -127,6 +138,11 @@ private:
                            std::string const& name);
   Material* getMaterial(std::string const& name);
   Mesh* getMesh(std::string const& name);
+  AllocatedBuffer
+  createBuffer(std::size_t bufferSize, VkBufferUsageFlags usage,
+               VmaMemoryUsage memoryUsage,
+               VmaAllocationCreateFlags allocationCreateFlags) const;
+  void initDescriptors();
 };
 
 class PipelineBuilder {
