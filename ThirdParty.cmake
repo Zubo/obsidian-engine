@@ -14,7 +14,7 @@ FetchContent_MakeAvailable(fetch_vk_bootstrap)
 FetchContent_Declare(
     fetch_vulkan_memory_allocator
     GIT_REPOSITORY https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
-    GIT_TAG v3.0.1
+    GIT_TAG 0e89587db3ebee4d463f191bd296374c5fafc8ea
 )
 FetchContent_MakeAvailable(fetch_vulkan_memory_allocator)
 
