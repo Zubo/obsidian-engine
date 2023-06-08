@@ -3,6 +3,7 @@
 #include <vk_types.hpp>
 
 #include <cstdint>
+#include <vulkan/vulkan_core.h>
 
 namespace vkinit {
 
@@ -44,5 +45,10 @@ VkImageViewCreateInfo imageViewCreateInfo(VkImage image, VkFormat format,
 
 VkPipelineDepthStencilStateCreateInfo
 depthStencilStateCreateInfo(bool depthTestEnable);
+
+VkDescriptorSetLayoutBinding
+descriptorSetLayoutBinding(std::uint32_t binding,
+                           VkDescriptorType descriptorType,
+                           VkShaderStageFlags stageFlags);
 
 } // namespace vkinit

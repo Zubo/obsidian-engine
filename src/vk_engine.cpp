@@ -1,6 +1,8 @@
+#include "vk_types.hpp"
 #include <SDL.h>
 #include <SDL_vulkan.h>
 #include <VkBootstrap.h>
+#include <cmath>
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
 #include <tracy/Tracy.hpp>
@@ -114,6 +116,7 @@ void VulkanEngine::initVulkan() {
 
   _vkDevice = vkbDevice.device;
   _vkPhysicalDevice = vkbPhysicalDevice.physical_device;
+  _vkPhysicalDeviceProperties = vkbPhysicalDevice.properties;
 
   _vkGraphicsQueue = vkbDevice.get_queue(vkb::QueueType::graphics).value();
   _graphicsQueueFamilyIndex =
@@ -381,28 +384,11 @@ void VulkanEngine::initPipelines() {
     std::cout << "Triangle fragment shader successfully loaded." << std::endl;
   }
 
-  VkShaderModule revColorTriangleVertShader;
-
-  if (!loadShaderModule("shaders/triangle_rev.vert.spv",
-                        &revColorTriangleVertShader)) {
-    std::cout << "Error when building the triangle vertex shader module."
-              << std::endl;
-  } else {
-    std::cout << "Triangle vertex shader successfully loaded." << std::endl;
-  }
-
-  VkShaderModule revColorTriangleFragShader;
-
-  if (!loadShaderModule("shaders/triangle_rev.frag.spv",
-                        &revColorTriangleFragShader)) {
-    std::cout << "Error when building the triangle fragment shader module."
-              << std::endl;
-  } else {
-    std::cout << "Triangle fragment shader successfully loaded." << std::endl;
-  }
-
   VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo =
       vkinit::pipelineLayoutCreateInfo();
+
+  vkPipelineLayoutCreateInfo.setLayoutCount = 1;
+  vkPipelineLayoutCreateInfo.pSetLayouts = &_vkGlobalDescriptorSetLayout;
   VK_CHECK(vkCreatePipelineLayout(_vkDevice, &vkPipelineLayoutCreateInfo,
                                   nullptr, &_vkTrianglePipelineLayout));
 
@@ -444,25 +430,8 @@ void VulkanEngine::initPipelines() {
 
   pipelineBuilder._vkShaderStageCreateInfo.clear();
 
-  pipelineBuilder._vkShaderStageCreateInfo.push_back(
-      vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT,
-                                            revColorTriangleVertShader));
-
-  pipelineBuilder._vkShaderStageCreateInfo.push_back(
-      vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT,
-                                            revColorTriangleFragShader));
-
-  _vkReverseColorTrianglePipeline =
-      pipelineBuilder.buildPipeline(_vkDevice, _vkRenderPass);
-
-  vkDestroyShaderModule(_vkDevice, triangleVertShader, nullptr);
-  vkDestroyShaderModule(_vkDevice, revColorTriangleVertShader, nullptr);
-  vkDestroyShaderModule(_vkDevice, revColorTriangleFragShader, nullptr);
-
-  _deletionQueue.pushFunction([this]() {
-    vkDestroyPipeline(_vkDevice, _vkTrianglePipeline, nullptr);
-    vkDestroyPipeline(_vkDevice, _vkReverseColorTrianglePipeline, nullptr);
-  });
+  _deletionQueue.pushFunction(
+      [this]() { vkDestroyPipeline(_vkDevice, _vkTrianglePipeline, nullptr); });
 
   VertexInputDescription vertexDescription =
       Vertex::getVertexInputDescription();
@@ -476,8 +445,6 @@ void VulkanEngine::initPipelines() {
       vertexDescription.bindings.size();
   pipelineBuilder._vkVertexInputInfo.pVertexBindingDescriptions =
       vertexDescription.bindings.data();
-
-  pipelineBuilder._vkShaderStageCreateInfo.clear();
 
   VkShaderModule meshVertShader;
 
@@ -519,6 +486,7 @@ void VulkanEngine::initPipelines() {
   _vkMeshPipeline = pipelineBuilder.buildPipeline(_vkDevice, _vkRenderPass);
   createMaterial(_vkMeshPipeline, _vkMeshPipelineLayout, "defaultmesh");
 
+  vkDestroyShaderModule(_vkDevice, triangleVertShader, nullptr);
   vkDestroyShaderModule(_vkDevice, meshVertShader, nullptr);
   vkDestroyShaderModule(_vkDevice, triangleFragShader, nullptr);
 
@@ -694,7 +662,7 @@ void VulkanEngine::draw() {
   VK_CHECK(vkBeginCommandBuffer(cmd, &vkCommandBufferBeginInfo));
 
   VkClearValue clearValues[2];
-  float flash = std::abs(std::sin(_frameNumber / 10.0f));
+  float flash = 1.0f; // std::abs(std::sin(_frameNumber / 10.0f));
   clearValues[0].color = {{0.0f, 0.0f, flash, 1.0f}};
   clearValues[1].depthStencil.depth = 1.0f;
 
@@ -772,9 +740,22 @@ void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject* first,
   VK_CHECK(vmaMapMemory(_vmaAllocator, currentFrameData.cameraBuffer.allocation,
                         &data));
 
-  std::memcpy(data, &gpuCameraData, sizeof(GPUCameraData));
+  std::memcpy(data, &gpuCameraData, sizeof(gpuCameraData));
 
   vmaUnmapMemory(_vmaAllocator, currentFrameData.cameraBuffer.allocation);
+
+  GPUSceneData gpuSceneData;
+  gpuSceneData.ambientColor = {
+      1.0, 1 - std::abs(std::sin(_frameNumber / 20.0f)), 1.0, 1.0};
+
+  VK_CHECK(vmaMapMemory(_vmaAllocator,
+                        currentFrameData.sceneDatabuffer.allocation, &data));
+
+  std::memcpy(data, &gpuSceneData, sizeof(gpuSceneData));
+
+  vmaUnmapMemory(_vmaAllocator, currentFrameData.sceneDatabuffer.allocation);
+
+  (void)data;
 
   Material const* lastMaterial;
   for (int i = 0; i < count; ++i) {
@@ -784,7 +765,7 @@ void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject* first,
     assert(obj.material && "Error: Missing material.");
     Material const& material = *obj.material;
 
-    assert(obj.material && "Error: Missing mesh");
+    assert(obj.mesh && "Error: Missing mesh");
     Mesh const& mesh = *obj.mesh;
 
     constexpr VkPipelineBindPoint pipelineBindPoint =
@@ -793,7 +774,7 @@ void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject* first,
     if (&material != lastMaterial) {
       vkCmdBindPipeline(cmd, pipelineBindPoint, material.vkPipeline);
       vkCmdBindDescriptorSets(cmd, pipelineBindPoint, _vkMeshPipelineLayout, 0,
-                              1, &currentFrameData.globalDescriptor, 0,
+                              1, &currentFrameData.globalDescriptorSet, 0,
                               nullptr);
     }
 
@@ -887,18 +868,20 @@ void VulkanEngine::initDescriptors() {
     vkDestroyDescriptorPool(_vkDevice, _vkDescriptorPool, nullptr);
   });
 
-  VkDescriptorSetLayoutBinding camBufferBinding = {};
-  camBufferBinding.binding = 0;
-  camBufferBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-  camBufferBinding.descriptorCount = 1;
-  camBufferBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-  camBufferBinding.pImmutableSamplers = nullptr;
+  VkDescriptorSetLayoutBinding bindings[2];
+  VkDescriptorSetLayoutBinding& camBufferBinding = bindings[0];
+  camBufferBinding = vkinit::descriptorSetLayoutBinding(
+      0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
+
+  VkDescriptorSetLayoutBinding& sceneDataBufferBinding = bindings[1];
+  sceneDataBufferBinding = vkinit::descriptorSetLayoutBinding(
+      1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
 
   VkDescriptorSetLayoutCreateInfo layoutCreateInfo = {};
   layoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
   layoutCreateInfo.pNext = nullptr;
-  layoutCreateInfo.bindingCount = 1;
-  layoutCreateInfo.pBindings = &camBufferBinding;
+  layoutCreateInfo.bindingCount = sizeof(bindings) / sizeof(bindings[0]);
+  layoutCreateInfo.pBindings = bindings;
   layoutCreateInfo.flags = 0;
 
   VK_CHECK(vkCreateDescriptorSetLayout(_vkDevice, &layoutCreateInfo, nullptr,
@@ -920,6 +903,16 @@ void VulkanEngine::initDescriptors() {
       vmaDestroyBuffer(_vmaAllocator, buffer.buffer, buffer.allocation);
     });
 
+    _frameDataArray[i].sceneDatabuffer =
+        createBuffer(sizeof(GPUSceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                     VMA_MEMORY_USAGE_AUTO,
+                     VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+
+    _deletionQueue.pushFunction([this, i]() {
+      AllocatedBuffer& buffer = _frameDataArray[i].sceneDatabuffer;
+      vmaDestroyBuffer(_vmaAllocator, buffer.buffer, buffer.allocation);
+    });
+
     VkDescriptorSetAllocateInfo descriptorSetAllocateInfo = {};
     descriptorSetAllocateInfo.sType =
         VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -929,23 +922,42 @@ void VulkanEngine::initDescriptors() {
     descriptorSetAllocateInfo.pSetLayouts = &_vkGlobalDescriptorSetLayout;
 
     VK_CHECK(vkAllocateDescriptorSets(_vkDevice, &descriptorSetAllocateInfo,
-                                      &_frameDataArray[i].globalDescriptor));
+                                      &_frameDataArray[i].globalDescriptorSet));
 
-    VkDescriptorBufferInfo descriptorBufferInfo = {};
-    descriptorBufferInfo.buffer = _frameDataArray[i].cameraBuffer.buffer;
-    descriptorBufferInfo.offset = 0;
-    descriptorBufferInfo.range = VK_WHOLE_SIZE;
+    VkDescriptorBufferInfo descriptorBufferInfos[2] = {};
+    VkDescriptorBufferInfo& cameraDescriptorBufferInfo =
+        descriptorBufferInfos[0];
+    cameraDescriptorBufferInfo.buffer = _frameDataArray[i].cameraBuffer.buffer;
+    cameraDescriptorBufferInfo.offset = 0;
+    cameraDescriptorBufferInfo.range = VK_WHOLE_SIZE;
+
+    VkDescriptorBufferInfo& sceneDescriptorBufferInfo =
+        descriptorBufferInfos[1];
+    sceneDescriptorBufferInfo.buffer =
+        _frameDataArray[i].sceneDatabuffer.buffer;
+    sceneDescriptorBufferInfo.offset = 0;
+    sceneDescriptorBufferInfo.range = VK_WHOLE_SIZE;
 
     VkWriteDescriptorSet writeDescriptorSet = {};
     writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     writeDescriptorSet.pNext = nullptr;
-    writeDescriptorSet.dstSet = _frameDataArray[i].globalDescriptor;
+    writeDescriptorSet.dstSet = _frameDataArray[i].globalDescriptorSet;
     writeDescriptorSet.dstBinding = 0;
     writeDescriptorSet.dstArrayElement = 0;
-    writeDescriptorSet.descriptorCount = 1;
+    writeDescriptorSet.descriptorCount =
+        sizeof(descriptorBufferInfos) / sizeof(descriptorBufferInfos[0]);
     writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    writeDescriptorSet.pBufferInfo = &descriptorBufferInfo;
+    writeDescriptorSet.pBufferInfo = descriptorBufferInfos;
 
     vkUpdateDescriptorSets(_vkDevice, 1, &writeDescriptorSet, 0, nullptr);
   }
+}
+
+std::size_t VulkanEngine::getPaddedBufferSize(std::size_t originalSize) const {
+  std::size_t const minbufferOffset =
+      _vkPhysicalDeviceProperties.limits.minUniformBufferOffsetAlignment;
+  if (!minbufferOffset)
+    return originalSize;
+
+  return (originalSize + minbufferOffset - 1) & (~(minbufferOffset - 1));
 }

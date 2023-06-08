@@ -12,6 +12,7 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <vulkan/vulkan_core.h>
 
 struct Material {
   VkPipeline vkPipeline;
@@ -37,6 +38,14 @@ struct GPUCameraData {
   glm::mat4 viewProj;
 };
 
+struct GPUSceneData {
+  glm::vec4 fogColor;
+  glm::vec4 fogDistance;
+  glm::vec4 ambientColor;
+  glm::vec4 sunlightdirection;
+  glm::vec4 sunlightcolor;
+};
+
 struct FrameData {
   VkSemaphore vkRenderSemaphore;
   VkSemaphore vkPresentSemaphore;
@@ -45,7 +54,8 @@ struct FrameData {
   VkCommandBuffer vkCommandBuffer;
 
   AllocatedBuffer cameraBuffer;
-  VkDescriptorSet globalDescriptor;
+  AllocatedBuffer sceneDatabuffer;
+  VkDescriptorSet globalDescriptorSet;
 };
 
 class DeletionQueue {
@@ -91,6 +101,7 @@ private:
   VkDebugUtilsMessengerEXT _vkDebugMessenger;
   VkSurfaceKHR _vkSurface;
   VkPhysicalDevice _vkPhysicalDevice;
+  VkPhysicalDeviceProperties _vkPhysicalDeviceProperties;
   VkDevice _vkDevice;
   VkSwapchainKHR _vkSwapchain;
   VkFormat _vkSwapchainImageFormat;
@@ -106,7 +117,6 @@ private:
   VkPipelineLayout _vkTrianglePipelineLayout;
   VkPipelineLayout _vkMeshPipelineLayout;
   VkPipeline _vkTrianglePipeline;
-  VkPipeline _vkReverseColorTrianglePipeline;
   int _selectedShader = 0;
   DeletionQueue _deletionQueue;
   VmaAllocator _vmaAllocator;
@@ -143,6 +153,7 @@ private:
                VmaMemoryUsage memoryUsage,
                VmaAllocationCreateFlags allocationCreateFlags) const;
   void initDescriptors();
+  std::size_t getPaddedBufferSize(std::size_t originalSize) const;
 };
 
 class PipelineBuilder {

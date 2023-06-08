@@ -1,4 +1,5 @@
 #include <vk_initializers.hpp>
+#include <vulkan/vulkan_core.h>
 
 namespace vkinit {
 
@@ -195,6 +196,20 @@ depthStencilStateCreateInfo(bool const depthTestEnable) {
   createInfo.stencilTestEnable = VK_FALSE;
 
   return createInfo;
+}
+
+VkDescriptorSetLayoutBinding
+descriptorSetLayoutBinding(std::uint32_t binding,
+                           VkDescriptorType descriptorType,
+                           VkShaderStageFlags stageFlags) {
+  VkDescriptorSetLayoutBinding descriptorSetLayoutBinding = {};
+  descriptorSetLayoutBinding.binding = binding;
+  descriptorSetLayoutBinding.descriptorType = descriptorType;
+  descriptorSetLayoutBinding.descriptorCount = 1;
+  descriptorSetLayoutBinding.stageFlags = stageFlags;
+  descriptorSetLayoutBinding.pImmutableSamplers = nullptr;
+
+  return descriptorSetLayoutBinding;
 }
 
 } // namespace vkinit
