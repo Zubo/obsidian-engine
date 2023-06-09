@@ -372,40 +372,7 @@ bool VulkanEngine::loadShaderModule(char const* filePath,
 }
 
 void VulkanEngine::initPipelines() {
-  VkShaderModule triangleVertShader;
-
-  if (!loadShaderModule("shaders/triangle.vert.spv", &triangleVertShader)) {
-    std::cout << "Error when building the triangle vertex shader module."
-              << std::endl;
-  } else {
-    std::cout << "Triangle vertex shader successfully loaded." << std::endl;
-  }
-
-  VkShaderModule triangleFragShader;
-
-  if (!loadShaderModule("shaders/triangle.frag.spv", &triangleFragShader)) {
-    std::cout << "Error when building the triangle fragment shader module."
-              << std::endl;
-  } else {
-    std::cout << "Triangle fragment shader successfully loaded." << std::endl;
-  }
-
-  VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo =
-      vkinit::pipelineLayoutCreateInfo();
-
-  vkPipelineLayoutCreateInfo.setLayoutCount = 1;
-  vkPipelineLayoutCreateInfo.pSetLayouts = &_vkGlobalDescriptorSetLayout;
-  VK_CHECK(vkCreatePipelineLayout(_vkDevice, &vkPipelineLayoutCreateInfo,
-                                  nullptr, &_vkTrianglePipelineLayout));
-
   PipelineBuilder pipelineBuilder;
-
-  pipelineBuilder._vkShaderStageCreateInfo.push_back(
-      vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT,
-                                            triangleVertShader));
-  pipelineBuilder._vkShaderStageCreateInfo.push_back(
-      vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT,
-                                            triangleFragShader));
 
   pipelineBuilder._vkVertexInputInfo = vkinit::vertexInputStateCreateInfo();
   pipelineBuilder._vkInputAssemblyCreateInfo =
@@ -430,14 +397,6 @@ void VulkanEngine::initPipelines() {
       vkinit::colorBlendAttachmentState();
   pipelineBuilder._vkMultisampleStateCreateInfo =
       vkinit::multisampleStateCreateInfo();
-  pipelineBuilder._vkPipelineLayout = _vkTrianglePipelineLayout;
-
-  _vkTrianglePipeline = pipelineBuilder.buildPipeline(_vkDevice, _vkRenderPass);
-
-  pipelineBuilder._vkShaderStageCreateInfo.clear();
-
-  _deletionQueue.pushFunction(
-      [this]() { vkDestroyPipeline(_vkDevice, _vkTrianglePipeline, nullptr); });
 
   VertexInputDescription vertexDescription =
       Vertex::getVertexInputDescription();
@@ -454,7 +413,16 @@ void VulkanEngine::initPipelines() {
 
   VkShaderModule meshVertShader;
 
-  if (!loadShaderModule("shaders/tri_mesh.vert.spv", &meshVertShader)) {
+  if (!loadShaderModule("shaders/mesh.vert.spv", &meshVertShader)) {
+    std::cout << "Error when building the triangle vertex shader module"
+              << std::endl;
+  } else {
+    std::cout << "Mesh triangle vertex shader successfully loaded" << std::endl;
+  }
+
+  VkShaderModule meshFragShader;
+
+  if (!loadShaderModule("shaders/mesh.frag.spv", &meshFragShader)) {
     std::cout << "Error when building the triangle vertex shader module"
               << std::endl;
   } else {
@@ -467,7 +435,7 @@ void VulkanEngine::initPipelines() {
 
   pipelineBuilder._vkShaderStageCreateInfo.push_back(
       vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT,
-                                            triangleFragShader));
+                                            meshFragShader));
 
   VkPipelineLayoutCreateInfo meshPipelineLayoutInfo =
       vkinit::pipelineLayoutCreateInfo();
@@ -484,21 +452,16 @@ void VulkanEngine::initPipelines() {
   VK_CHECK(vkCreatePipelineLayout(_vkDevice, &meshPipelineLayoutInfo, nullptr,
                                   &_vkMeshPipelineLayout));
 
-  _deletionQueue.pushFunction([this] {
-    vkDestroyPipelineLayout(_vkDevice, _vkMeshPipelineLayout, nullptr);
-  });
-
   pipelineBuilder._vkPipelineLayout = _vkMeshPipelineLayout;
   _vkMeshPipeline = pipelineBuilder.buildPipeline(_vkDevice, _vkRenderPass);
   createMaterial(_vkMeshPipeline, _vkMeshPipelineLayout, "defaultmesh");
 
-  vkDestroyShaderModule(_vkDevice, triangleVertShader, nullptr);
   vkDestroyShaderModule(_vkDevice, meshVertShader, nullptr);
-  vkDestroyShaderModule(_vkDevice, triangleFragShader, nullptr);
+  vkDestroyShaderModule(_vkDevice, meshFragShader, nullptr);
 
   _deletionQueue.pushFunction([this] {
     vkDestroyPipeline(_vkDevice, _vkMeshPipeline, nullptr);
-    vkDestroyPipelineLayout(_vkDevice, _vkTrianglePipelineLayout, nullptr);
+    vkDestroyPipelineLayout(_vkDevice, _vkMeshPipelineLayout, nullptr);
   });
 }
 

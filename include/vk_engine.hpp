@@ -114,13 +114,11 @@ private:
   std::vector<VkFramebuffer> _vkFramebuffers;
   std::array<FrameData, 2> _frameDataArray;
   std::uint32_t _frameNumber = 0;
-  VkPipelineLayout _vkTrianglePipelineLayout;
   VkPipelineLayout _vkMeshPipelineLayout;
-  VkPipeline _vkTrianglePipeline;
+  VkPipeline _vkMeshPipeline;
   int _selectedShader = 0;
   DeletionQueue _deletionQueue;
   VmaAllocator _vmaAllocator;
-  VkPipeline _vkMeshPipeline;
   Mesh _triangleMesh;
   Mesh _monkeyMesh;
   VkFormat _depthFormat = VK_FORMAT_D32_SFLOAT;

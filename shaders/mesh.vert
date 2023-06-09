@@ -22,5 +22,5 @@ PushConstants;
 void main() {
   mat4 transformMatrix = cameraData.viewProj * PushConstants.renderMatrix;
   gl_Position = transformMatrix * vec4(vPosition, 1.0f);
-  outColor = vNormal;
+  outColor = vColor;
 }
