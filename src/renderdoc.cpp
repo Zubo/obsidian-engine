@@ -3,12 +3,12 @@
 #ifdef RENDERDOC_ENABLED
 
 #include <cassert>
+#include <cstddef>
 #include <dlfcn.h>
 
 #include <renderdoc_app.h>
 
 RENDERDOC_API_1_6_0* renderdocApi = nullptr;
-#include <iostream>
 
 void loadRenderdocLibrary() {
   if (void* mod = dlopen(RENDERDOC_PATH, RTLD_NOW | RTLD_LOCAL)) {
@@ -27,8 +27,15 @@ void renderdoc::initRenderdoc() {
 
 void renderdoc::deinitRenderdoc() { renderdocApi->RemoveHooks(); }
 
-void renderdoc::beginCapture() {}
-void renderdoc::endCapture() {}
+void renderdoc::beginCapture() {
+  assert(renderdocApi);
+  renderdocApi->StartFrameCapture(NULL, NULL);
+}
+
+void renderdoc::endCapture() {
+  assert(renderdocApi);
+  renderdocApi->EndFrameCapture(NULL, NULL);
+}
 
 #else
 
