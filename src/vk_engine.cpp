@@ -1,17 +1,19 @@
 #include "vk_types.hpp"
+#include <renderdoc.hpp>
+#include <vk_engine.hpp>
+#include <vk_initializers.hpp>
+
 #include <SDL.h>
 #include <SDL_vulkan.h>
 #include <VkBootstrap.h>
-#include <cmath>
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
 #include <tracy/Tracy.hpp>
-#include <vk_engine.hpp>
-#include <vk_initializers.hpp>
 #include <vulkan/vulkan_core.h>
 #define VMA_IMPLEMENTATION ;
 #include <vk_mem_alloc.h>
 
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <fstream>
@@ -33,6 +35,8 @@ void VulkanEngine::init() {
   Window = SDL_CreateWindow("Vulkan Engine", SDL_WINDOWPOS_CENTERED,
                             SDL_WINDOWPOS_CENTERED, WindowExtent.width,
                             WindowExtent.height, windowFlags);
+
+  renderdoc::initRenderdoc();
 
   initVulkan();
 
@@ -77,6 +81,7 @@ void VulkanEngine::run() {
 
 void VulkanEngine::cleanup() {
   if (IsInitialized) {
+    renderdoc::deinitRenderdoc();
     vkDeviceWaitIdle(_vkDevice);
 
     _deletionQueue.flush();
@@ -84,6 +89,7 @@ void VulkanEngine::cleanup() {
     vkDestroyDevice(_vkDevice, nullptr);
     vkDestroySurfaceKHR(_vkInstance, _vkSurface, nullptr);
     vkb::destroy_debug_utils_messenger(_vkInstance, _vkDebugMessenger);
+
     vkDestroyInstance(_vkInstance, nullptr);
     SDL_DestroyWindow(Window);
 

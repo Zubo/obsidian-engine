@@ -1,0 +1,40 @@
+#include <renderdoc.hpp>
+
+#ifdef RENDERDOC_ENABLED
+
+#include <cassert>
+#include <dlfcn.h>
+
+#include <renderdoc_app.h>
+
+RENDERDOC_API_1_6_0* renderdocApi = nullptr;
+#include <iostream>
+
+void loadRenderdocLibrary() {
+  if (void* mod = dlopen(RENDERDOC_PATH, RTLD_NOW | RTLD_LOCAL)) {
+    pRENDERDOC_GetAPI RENDERDOC_GetAPI =
+        (pRENDERDOC_GetAPI)dlsym(mod, "RENDERDOC_GetAPI");
+    int ret =
+        RENDERDOC_GetAPI(eRENDERDOC_API_Version_1_6_0, (void**)&renderdocApi);
+    assert(ret == 1);
+  };
+}
+
+void renderdoc::initRenderdoc() {
+  loadRenderdocLibrary();
+  renderdocApi->LaunchReplayUI(1, "");
+}
+
+void renderdoc::deinitRenderdoc() { renderdocApi->RemoveHooks(); }
+
+void renderdoc::beginCapture() {}
+void renderdoc::endCapture() {}
+
+#else
+
+void renderdoc::initRenderdoc() {}
+void renderdoc::deinitRenderdoc() {}
+void renderdoc::beginCapture() {}
+void renderdoc::endCapture() {}
+
+#endif

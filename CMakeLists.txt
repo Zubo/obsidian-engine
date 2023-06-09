@@ -5,15 +5,19 @@ project(VkGuide
 
 set(CMAKE_CXX_STANDARD 20)
 
+option (ENABLE_RENDERDOC "Enable renderdoc api for GPU debugging" OFF)
+
 add_executable(vkguide
     "src/main.cpp"
     "src/vk_engine.cpp"
     "src/vk_initializers.cpp"
     "src/vk_mesh.cpp"
+    "src/renderdoc.cpp"
     "include/vk_engine.hpp"
     "include/vk_types.hpp"
     "include/vk_initializers.hpp"
     "include/vk_mesh.hpp"
+    "include/renderdoc.hpp"
 )
 
 target_include_directories(vkguide PRIVATE include)
@@ -30,6 +34,8 @@ target_link_libraries(vkguide
     tinyobjloader
     TracyClient
 )
+
+include (SystemLibs.cmake)
 
 target_include_directories(vkguide PRIVATE
     ${VULKAN_INCLUDE_DIRS}
