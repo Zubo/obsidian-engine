@@ -212,4 +212,22 @@ descriptorSetLayoutBinding(std::uint32_t binding,
   return descriptorSetLayoutBinding;
 }
 
+VkWriteDescriptorSet
+writeDescriptorSet(VkDescriptorSet descriptorSet,
+                   VkDescriptorBufferInfo const* bufferInfos,
+                   std::size_t bufferInfosSize, VkDescriptorType descriptorType,
+                   std::uint32_t binding) {
+  VkWriteDescriptorSet writeDescriptorSet = {};
+  writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+  writeDescriptorSet.pNext = nullptr;
+  writeDescriptorSet.dstSet = descriptorSet;
+  writeDescriptorSet.dstBinding = binding;
+  writeDescriptorSet.dstArrayElement = 0;
+  writeDescriptorSet.descriptorCount = bufferInfosSize;
+  writeDescriptorSet.descriptorType = descriptorType;
+  writeDescriptorSet.pBufferInfo = bufferInfos;
+
+  return writeDescriptorSet;
+}
+
 } // namespace vkinit

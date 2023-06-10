@@ -744,10 +744,12 @@ void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject* first,
         VK_PIPELINE_BIND_POINT_GRAPHICS;
 
     if (&material != lastMaterial) {
+      std::uint32_t const offset =
+          frameInd * getPaddedBufferSize(sizeof(GPUSceneData));
       vkCmdBindPipeline(cmd, pipelineBindPoint, material.vkPipeline);
       vkCmdBindDescriptorSets(cmd, pipelineBindPoint, _vkMeshPipelineLayout, 0,
-                              1, &currentFrameData.globalDescriptorSet, 0,
-                              nullptr);
+                              1, &currentFrameData.globalDescriptorSet, 1,
+                              &offset);
     }
 
     MeshPushConstants constants = {};
@@ -819,19 +821,20 @@ AllocatedBuffer VulkanEngine::createBuffer(
 }
 
 void VulkanEngine::initDescriptors() {
-  constexpr std::uint32_t descriptorCount{10};
+  constexpr std::uint32_t descriptorPoolSize{10};
 
-  VkDescriptorPoolSize descriptorPoolSize = {};
-  descriptorPoolSize.descriptorCount = descriptorCount;
-  descriptorPoolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  std::vector<VkDescriptorPoolSize> descriptorPoolSizes = {
+      {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, descriptorPoolSize},
+      {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, descriptorPoolSize}};
 
   VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {};
   descriptorPoolCreateInfo.sType =
       VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
   descriptorPoolCreateInfo.pNext = nullptr;
-  descriptorPoolCreateInfo.maxSets = descriptorCount;
-  descriptorPoolCreateInfo.poolSizeCount = 1;
-  descriptorPoolCreateInfo.pPoolSizes = &descriptorPoolSize;
+  descriptorPoolCreateInfo.maxSets =
+      descriptorPoolSizes.size() * descriptorPoolSize;
+  descriptorPoolCreateInfo.poolSizeCount = descriptorPoolSizes.size();
+  descriptorPoolCreateInfo.pPoolSizes = descriptorPoolSizes.data();
 
   VK_CHECK(vkCreateDescriptorPool(_vkDevice, &descriptorPoolCreateInfo, nullptr,
                                   &_vkDescriptorPool));
@@ -847,7 +850,8 @@ void VulkanEngine::initDescriptors() {
 
   VkDescriptorSetLayoutBinding& sceneDataBufferBinding = bindings[1];
   sceneDataBufferBinding = vkinit::descriptorSetLayoutBinding(
-      1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
+      1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+      VK_SHADER_STAGE_FRAGMENT_BIT);
 
   VkDescriptorSetLayoutCreateInfo layoutCreateInfo = {};
   layoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -899,31 +903,26 @@ void VulkanEngine::initDescriptors() {
     VK_CHECK(vkAllocateDescriptorSets(_vkDevice, &descriptorSetAllocateInfo,
                                       &_frameDataArray[i].globalDescriptorSet));
 
-    VkDescriptorBufferInfo descriptorBufferInfos[2] = {};
-    VkDescriptorBufferInfo& cameraDescriptorBufferInfo =
-        descriptorBufferInfos[0];
+    VkDescriptorBufferInfo cameraDescriptorBufferInfo;
     cameraDescriptorBufferInfo.buffer = _frameDataArray[i].cameraBuffer.buffer;
     cameraDescriptorBufferInfo.offset = 0;
     cameraDescriptorBufferInfo.range = VK_WHOLE_SIZE;
 
-    VkDescriptorBufferInfo& sceneDescriptorBufferInfo =
-        descriptorBufferInfos[1];
+    VkDescriptorBufferInfo sceneDescriptorBufferInfo;
     sceneDescriptorBufferInfo.buffer = _sceneDataBuffer.buffer;
-    sceneDescriptorBufferInfo.offset = i * paddedSceneDataSize;
-    sceneDescriptorBufferInfo.range = VK_WHOLE_SIZE;
+    sceneDescriptorBufferInfo.offset = 0;
+    sceneDescriptorBufferInfo.range = sizeof(GPUSceneData);
 
-    VkWriteDescriptorSet writeDescriptorSet = {};
-    writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writeDescriptorSet.pNext = nullptr;
-    writeDescriptorSet.dstSet = _frameDataArray[i].globalDescriptorSet;
-    writeDescriptorSet.dstBinding = 0;
-    writeDescriptorSet.dstArrayElement = 0;
-    writeDescriptorSet.descriptorCount =
-        sizeof(descriptorBufferInfos) / sizeof(descriptorBufferInfos[0]);
-    writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    writeDescriptorSet.pBufferInfo = descriptorBufferInfos;
+    std::vector<VkWriteDescriptorSet> descriptorSetWrites = {
+        vkinit::writeDescriptorSet(_frameDataArray[i].globalDescriptorSet,
+                                   &cameraDescriptorBufferInfo, 1,
+                                   VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0),
+        vkinit::writeDescriptorSet(
+            _frameDataArray[i].globalDescriptorSet, &sceneDescriptorBufferInfo,
+            1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1)};
 
-    vkUpdateDescriptorSets(_vkDevice, 1, &writeDescriptorSet, 0, nullptr);
+    vkUpdateDescriptorSets(_vkDevice, descriptorSetWrites.size(),
+                           descriptorSetWrites.data(), 0, nullptr);
   }
 }
 
