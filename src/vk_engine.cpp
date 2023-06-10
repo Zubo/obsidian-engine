@@ -703,11 +703,11 @@ void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject* first,
   gpuCameraData.view = view;
   gpuCameraData.proj = projection;
   gpuCameraData.viewProj = projection * view;
-  void* data = nullptr;
+  char* data = nullptr;
 
   FrameData& currentFrameData = getCurrentFrameData();
   VK_CHECK(vmaMapMemory(_vmaAllocator, currentFrameData.cameraBuffer.allocation,
-                        &data));
+                        reinterpret_cast<void**>(&data)));
 
   std::memcpy(data, &gpuCameraData, sizeof(gpuCameraData));
 
@@ -717,12 +717,15 @@ void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject* first,
   gpuSceneData.ambientColor = {
       1.0, 1 - std::abs(std::sin(_frameNumber / 20.0f)), 1.0, 1.0};
 
-  VK_CHECK(vmaMapMemory(_vmaAllocator,
-                        currentFrameData.sceneDatabuffer.allocation, &data));
+  VK_CHECK(vmaMapMemory(_vmaAllocator, _sceneDataBuffer.allocation,
+                        reinterpret_cast<void**>(&data)));
 
-  std::memcpy(data, &gpuSceneData, sizeof(gpuSceneData));
+  std::size_t const frameInd = _frameNumber % frameOverlap;
+  data += frameInd * getPaddedBufferSize(sizeof(GPUSceneData));
 
-  vmaUnmapMemory(_vmaAllocator, currentFrameData.sceneDatabuffer.allocation);
+  std::memcpy(data, &gpuSceneData, sizeof(GPUSceneData));
+
+  vmaUnmapMemory(_vmaAllocator, _sceneDataBuffer.allocation);
 
   (void)data;
 
@@ -861,6 +864,19 @@ void VulkanEngine::initDescriptors() {
                                  nullptr);
   });
 
+  std::size_t const paddedSceneDataSize =
+      getPaddedBufferSize(sizeof(GPUSceneData));
+  std::size_t const sceneDataBufferSize = frameOverlap * paddedSceneDataSize;
+  _sceneDataBuffer =
+      createBuffer(sceneDataBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                   VMA_MEMORY_USAGE_AUTO,
+                   VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+
+  _deletionQueue.pushFunction([this]() {
+    vmaDestroyBuffer(_vmaAllocator, _sceneDataBuffer.buffer,
+                     _sceneDataBuffer.allocation);
+  });
+
   for (int i = 0; i < frameOverlap; ++i) {
     _frameDataArray[i].cameraBuffer =
         createBuffer(sizeof(GPUCameraData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
@@ -869,16 +885,6 @@ void VulkanEngine::initDescriptors() {
 
     _deletionQueue.pushFunction([this, i]() {
       AllocatedBuffer const& buffer = _frameDataArray[i].cameraBuffer;
-      vmaDestroyBuffer(_vmaAllocator, buffer.buffer, buffer.allocation);
-    });
-
-    _frameDataArray[i].sceneDatabuffer =
-        createBuffer(sizeof(GPUSceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                     VMA_MEMORY_USAGE_AUTO,
-                     VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
-
-    _deletionQueue.pushFunction([this, i]() {
-      AllocatedBuffer& buffer = _frameDataArray[i].sceneDatabuffer;
       vmaDestroyBuffer(_vmaAllocator, buffer.buffer, buffer.allocation);
     });
 
@@ -902,9 +908,8 @@ void VulkanEngine::initDescriptors() {
 
     VkDescriptorBufferInfo& sceneDescriptorBufferInfo =
         descriptorBufferInfos[1];
-    sceneDescriptorBufferInfo.buffer =
-        _frameDataArray[i].sceneDatabuffer.buffer;
-    sceneDescriptorBufferInfo.offset = 0;
+    sceneDescriptorBufferInfo.buffer = _sceneDataBuffer.buffer;
+    sceneDescriptorBufferInfo.offset = i * paddedSceneDataSize;
     sceneDescriptorBufferInfo.range = VK_WHOLE_SIZE;
 
     VkWriteDescriptorSet writeDescriptorSet = {};

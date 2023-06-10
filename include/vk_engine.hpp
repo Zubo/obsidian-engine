@@ -54,7 +54,6 @@ struct FrameData {
   VkCommandBuffer vkCommandBuffer;
 
   AllocatedBuffer cameraBuffer;
-  AllocatedBuffer sceneDatabuffer;
   VkDescriptorSet globalDescriptorSet;
 };
 
@@ -127,6 +126,7 @@ private:
   std::unordered_map<std::string, Mesh> _meshes;
   VkDescriptorSetLayout _vkGlobalDescriptorSetLayout;
   VkDescriptorPool _vkDescriptorPool;
+  AllocatedBuffer _sceneDataBuffer;
 
   void initVulkan();
   void initSwapchain();
