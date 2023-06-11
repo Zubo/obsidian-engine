@@ -31,6 +31,7 @@ struct MeshPushConstants {
 };
 
 constexpr unsigned int frameOverlap = 2;
+constexpr unsigned int maxNumberOfObjects = 10000;
 
 struct GPUCameraData {
   glm::mat4 view;
@@ -46,6 +47,10 @@ struct GPUSceneData {
   glm::vec4 sunlightcolor;
 };
 
+struct GPUObjectData {
+  glm::mat4 modelMat;
+};
+
 struct FrameData {
   VkSemaphore vkRenderSemaphore;
   VkSemaphore vkPresentSemaphore;
@@ -55,6 +60,8 @@ struct FrameData {
 
   AllocatedBuffer cameraBuffer;
   VkDescriptorSet globalDescriptorSet;
+  AllocatedBuffer objectDataBuffer;
+  VkDescriptorSet objectDataDescriptorSet;
 };
 
 class DeletionQueue {
@@ -125,6 +132,7 @@ private:
   std::unordered_map<std::string, Material> _materials;
   std::unordered_map<std::string, Mesh> _meshes;
   VkDescriptorSetLayout _vkGlobalDescriptorSetLayout;
+  VkDescriptorSetLayout _vkObjectDataDescriptorSetLayout;
   VkDescriptorPool _vkDescriptorPool;
   AllocatedBuffer _sceneDataBuffer;
 

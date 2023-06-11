@@ -51,6 +51,15 @@ descriptorSetLayoutBinding(std::uint32_t binding,
                            VkDescriptorType descriptorType,
                            VkShaderStageFlags stageFlags);
 
+VkDescriptorSetLayoutCreateInfo
+descriptorSetLayoutCreateInfo(VkDescriptorSetLayoutBinding const* pBindings,
+                              std::uint32_t bindingCount);
+
+VkDescriptorSetAllocateInfo
+descriptorSetAllocateInfo(VkDescriptorPool descriptorPool,
+                          VkDescriptorSetLayout const* descriptorSetLayouts,
+                          std::uint32_t descriptorSetLayoutCount);
+
 VkWriteDescriptorSet
 writeDescriptorSet(VkDescriptorSet descriptorSet,
                    VkDescriptorBufferInfo const* bufferInfos,

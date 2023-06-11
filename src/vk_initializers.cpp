@@ -212,6 +212,37 @@ descriptorSetLayoutBinding(std::uint32_t binding,
   return descriptorSetLayoutBinding;
 }
 
+VkDescriptorSetLayoutCreateInfo
+descriptorSetLayoutCreateInfo(VkDescriptorSetLayoutBinding const* pBindings,
+                              std::uint32_t bindingCount) {
+
+  VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = {};
+  descriptorSetLayoutCreateInfo.sType =
+      VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+  descriptorSetLayoutCreateInfo.pNext = nullptr;
+
+  descriptorSetLayoutCreateInfo.flags = 0;
+  descriptorSetLayoutCreateInfo.bindingCount = bindingCount;
+  descriptorSetLayoutCreateInfo.pBindings = pBindings;
+
+  return descriptorSetLayoutCreateInfo;
+}
+
+VkDescriptorSetAllocateInfo
+descriptorSetAllocateInfo(VkDescriptorPool descriptorPool,
+                          VkDescriptorSetLayout const* descriptorSetLayouts,
+                          std::uint32_t descriptorSetLayoutCount) {
+  VkDescriptorSetAllocateInfo descriptorSetAllocateInfo = {};
+  descriptorSetAllocateInfo.sType =
+      VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+  descriptorSetAllocateInfo.pNext = nullptr;
+  descriptorSetAllocateInfo.descriptorPool = descriptorPool;
+  descriptorSetAllocateInfo.descriptorSetCount = descriptorSetLayoutCount;
+  descriptorSetAllocateInfo.pSetLayouts = descriptorSetLayouts;
+
+  return descriptorSetAllocateInfo;
+}
+
 VkWriteDescriptorSet
 writeDescriptorSet(VkDescriptorSet descriptorSet,
                    VkDescriptorBufferInfo const* bufferInfos,

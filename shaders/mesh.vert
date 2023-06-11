@@ -1,4 +1,4 @@
-#version 450
+#version 460
 
 layout(location = 0) in vec3 vPosition;
 layout(location = 1) in vec3 vNormal;
@@ -13,14 +13,18 @@ layout(set = 0, binding = 0) uniform CameraBuffer {
 }
 cameraData;
 
-layout(push_constant) uniform constants {
-  vec4 data;
-  mat4 renderMatrix;
+struct ObjectData {
+  mat4 modelMat;
+};
+
+layout(std140, set = 1, binding = 0) buffer ObjectDataBuffer {
+  ObjectData objectData[];
 }
-PushConstants;
+objectDataBuffer;
 
 void main() {
-  mat4 transformMatrix = cameraData.viewProj * PushConstants.renderMatrix;
+  mat4 transformMatrix = cameraData.viewProj *
+                         objectDataBuffer.objectData[gl_BaseInstance].modelMat;
   gl_Position = transformMatrix * vec4(vPosition, 1.0f);
   outColor = vColor;
 }
