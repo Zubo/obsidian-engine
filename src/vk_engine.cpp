@@ -704,14 +704,20 @@ void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject* first,
   gpuCameraData.viewProj = projection * view;
 
   FrameData& currentFrameData = getCurrentFrameData();
+
+  std::size_t const frameInd = _frameNumber % frameOverlap;
+
   void* data = nullptr;
 
-  VK_CHECK(vmaMapMemory(_vmaAllocator, currentFrameData.cameraBuffer.allocation,
-                        &data));
+  VK_CHECK(vmaMapMemory(_vmaAllocator, _cameraBuffer.allocation, &data));
 
-  std::memcpy(data, &gpuCameraData, sizeof(gpuCameraData));
+  char* const dstGPUCameraData =
+      reinterpret_cast<char*>(data) +
+      frameInd * getPaddedBufferSize(sizeof(GPUCameraData));
 
-  vmaUnmapMemory(_vmaAllocator, currentFrameData.cameraBuffer.allocation);
+  std::memcpy(dstGPUCameraData, &gpuCameraData, sizeof(gpuCameraData));
+
+  vmaUnmapMemory(_vmaAllocator, _cameraBuffer.allocation);
 
   GPUSceneData gpuSceneData;
   gpuSceneData.ambientColor = {
@@ -720,7 +726,6 @@ void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject* first,
   VK_CHECK(vmaMapMemory(_vmaAllocator, _sceneDataBuffer.allocation,
                         reinterpret_cast<void**>(&data)));
 
-  std::size_t const frameInd = _frameNumber % frameOverlap;
   char* const dstGPUSceneData =
       reinterpret_cast<char*>(data) +
       frameInd * getPaddedBufferSize(sizeof(GPUSceneData));
@@ -755,15 +760,17 @@ void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject* first,
         VK_PIPELINE_BIND_POINT_GRAPHICS;
 
     if (&material != lastMaterial) {
-      std::uint32_t const offset =
-          frameInd * getPaddedBufferSize(sizeof(GPUSceneData));
+      std::uint32_t const offsets[] = {
+          static_cast<std::uint32_t>(
+              frameInd * getPaddedBufferSize(sizeof(GPUCameraData))),
+          static_cast<std::uint32_t>(
+              frameInd * getPaddedBufferSize(sizeof(GPUSceneData)))};
       vkCmdBindPipeline(cmd, pipelineBindPoint, material.vkPipeline);
 
       VkDescriptorSet const descriptorSets[] = {
-          currentFrameData.globalDescriptorSet,
-          currentFrameData.objectDataDescriptorSet};
+          _globalDescriptorSet, currentFrameData.objectDataDescriptorSet};
       vkCmdBindDescriptorSets(cmd, pipelineBindPoint, _vkMeshPipelineLayout, 0,
-                              2, descriptorSets, 1, &offset);
+                              2, descriptorSets, 1, offsets);
     }
 
     VkDeviceSize const bufferOffset = 0;
@@ -854,7 +861,7 @@ void VulkanEngine::initDescriptors() {
   VkDescriptorSetLayoutBinding bindings[2];
   VkDescriptorSetLayoutBinding& camBufferBinding = bindings[0];
   camBufferBinding = vkinit::descriptorSetLayoutBinding(
-      0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
+      0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT);
 
   VkDescriptorSetLayoutBinding& sceneDataBufferBinding = bindings[1];
   sceneDataBufferBinding = vkinit::descriptorSetLayoutBinding(
@@ -902,46 +909,44 @@ void VulkanEngine::initDescriptors() {
                      _sceneDataBuffer.allocation);
   });
 
+  _cameraBuffer =
+      createBuffer(frameOverlap * getPaddedBufferSize(sizeof(GPUCameraData)),
+                   VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_AUTO,
+                   VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+  _deletionQueue.pushFunction([this]() {
+    AllocatedBuffer const& buffer = _cameraBuffer;
+    vmaDestroyBuffer(_vmaAllocator, buffer.buffer, buffer.allocation);
+  });
+
+  VkDescriptorSetAllocateInfo globalDescriptorSetAllocateInfo =
+      vkinit::descriptorSetAllocateInfo(_vkDescriptorPool,
+                                        &_vkGlobalDescriptorSetLayout, 1);
+
+  VK_CHECK(vkAllocateDescriptorSets(_vkDevice, &globalDescriptorSetAllocateInfo,
+                                    &_globalDescriptorSet));
+
+  VkDescriptorBufferInfo cameraDescriptorBufferInfo;
+  cameraDescriptorBufferInfo.buffer = _cameraBuffer.buffer;
+  cameraDescriptorBufferInfo.offset = 0;
+  cameraDescriptorBufferInfo.range = sizeof(GPUCameraData);
+
+  VkDescriptorBufferInfo sceneDescriptorBufferInfo;
+  sceneDescriptorBufferInfo.buffer = _sceneDataBuffer.buffer;
+  sceneDescriptorBufferInfo.offset = 0;
+  sceneDescriptorBufferInfo.range = sizeof(GPUSceneData);
+
+  std::vector<VkWriteDescriptorSet> descriptorSetWrites = {
+      vkinit::writeDescriptorSet(_globalDescriptorSet,
+                                 &cameraDescriptorBufferInfo, 1,
+                                 VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 0),
+      vkinit::writeDescriptorSet(_globalDescriptorSet,
+                                 &sceneDescriptorBufferInfo, 1,
+                                 VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1)};
+
+  vkUpdateDescriptorSets(_vkDevice, descriptorSetWrites.size(),
+                         descriptorSetWrites.data(), 0, nullptr);
+
   for (int i = 0; i < frameOverlap; ++i) {
-    _frameDataArray[i].cameraBuffer =
-        createBuffer(sizeof(GPUCameraData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                     VMA_MEMORY_USAGE_AUTO,
-                     VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
-
-    _deletionQueue.pushFunction([this, i]() {
-      AllocatedBuffer const& buffer = _frameDataArray[i].cameraBuffer;
-      vmaDestroyBuffer(_vmaAllocator, buffer.buffer, buffer.allocation);
-    });
-
-    VkDescriptorSetAllocateInfo globalDescriptorSetAllocateInfo =
-        vkinit::descriptorSetAllocateInfo(_vkDescriptorPool,
-                                          &_vkGlobalDescriptorSetLayout, 1);
-
-    VK_CHECK(vkAllocateDescriptorSets(_vkDevice,
-                                      &globalDescriptorSetAllocateInfo,
-                                      &_frameDataArray[i].globalDescriptorSet));
-
-    VkDescriptorBufferInfo cameraDescriptorBufferInfo;
-    cameraDescriptorBufferInfo.buffer = _frameDataArray[i].cameraBuffer.buffer;
-    cameraDescriptorBufferInfo.offset = 0;
-    cameraDescriptorBufferInfo.range = VK_WHOLE_SIZE;
-
-    VkDescriptorBufferInfo sceneDescriptorBufferInfo;
-    sceneDescriptorBufferInfo.buffer = _sceneDataBuffer.buffer;
-    sceneDescriptorBufferInfo.offset = 0;
-    sceneDescriptorBufferInfo.range = sizeof(GPUSceneData);
-
-    std::vector<VkWriteDescriptorSet> descriptorSetWrites = {
-        vkinit::writeDescriptorSet(_frameDataArray[i].globalDescriptorSet,
-                                   &cameraDescriptorBufferInfo, 1,
-                                   VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0),
-        vkinit::writeDescriptorSet(
-            _frameDataArray[i].globalDescriptorSet, &sceneDescriptorBufferInfo,
-            1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1)};
-
-    vkUpdateDescriptorSets(_vkDevice, descriptorSetWrites.size(),
-                           descriptorSetWrites.data(), 0, nullptr);
-
     _frameDataArray[i].objectDataBuffer =
         createBuffer(maxNumberOfObjects * sizeof(GPUObjectData),
                      VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_AUTO,

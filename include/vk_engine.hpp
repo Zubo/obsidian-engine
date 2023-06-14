@@ -58,8 +58,6 @@ struct FrameData {
   VkCommandPool vkCommandPool;
   VkCommandBuffer vkCommandBuffer;
 
-  AllocatedBuffer cameraBuffer;
-  VkDescriptorSet globalDescriptorSet;
   AllocatedBuffer objectDataBuffer;
   VkDescriptorSet objectDataDescriptorSet;
 };
@@ -135,6 +133,8 @@ private:
   VkDescriptorSetLayout _vkObjectDataDescriptorSetLayout;
   VkDescriptorPool _vkDescriptorPool;
   AllocatedBuffer _sceneDataBuffer;
+  AllocatedBuffer _cameraBuffer;
+  VkDescriptorSet _globalDescriptorSet;
 
   void initVulkan();
   void initSwapchain();
