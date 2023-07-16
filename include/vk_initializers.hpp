@@ -66,4 +66,10 @@ writeDescriptorSet(VkDescriptorSet descriptorSet,
                    std::size_t bufferInfosSize, VkDescriptorType descriptorType,
                    std::uint32_t binding);
 
+VkCommandBufferBeginInfo commandBufferBeginInfo(
+    VkCommandBufferUsageFlags flags,
+    VkCommandBufferInheritanceInfo const* inheritanceInfo = nullptr);
+
+VkSubmitInfo commandBufferSubmitInfo(VkCommandBuffer const* cmd);
+
 } // namespace vkinit

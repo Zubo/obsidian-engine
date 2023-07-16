@@ -228,6 +228,22 @@ void VulkanEngine::initCommands() {
     VK_CHECK(vkAllocateCommandBuffers(_vkDevice, &vkCommandBufferAllocateInfo,
                                       &frameData.vkCommandBuffer));
   }
+
+  VkCommandPoolCreateInfo uploadCommandPoolCreateInfo =
+      vkinit::commandPoolCreateInfo(_graphicsQueueFamilyIndex);
+
+  VK_CHECK(vkCreateCommandPool(_vkDevice, &uploadCommandPoolCreateInfo, nullptr,
+                               &_uploadContext.vkUploadCommandPool));
+  _deletionQueue.pushFunction([this]() {
+    vkDestroyCommandPool(_vkDevice, _uploadContext.vkUploadCommandPool,
+                         nullptr);
+  });
+
+  VkCommandBufferAllocateInfo const vkCommandBufferAllocateInfo =
+      vkinit::commandBufferAllocateInfo(_uploadContext.vkUploadCommandPool);
+
+  VK_CHECK(vkAllocateCommandBuffers(_vkDevice, &vkCommandBufferAllocateInfo,
+                                    &_uploadContext.vkUploadCommandBuffer));
 }
 
 void VulkanEngine::initDefaultRenderPass() {
@@ -338,6 +354,16 @@ void VulkanEngine::initSyncStructures() {
       vkDestroySemaphore(_vkDevice, frameData.vkPresentSemaphore, nullptr);
     });
   }
+
+  VkFenceCreateInfo uploadContextFenceCreateInfo =
+      vkinit::fenceCreateInfo(VK_FENCE_CREATE_SIGNALED_BIT);
+
+  vkCreateFence(_vkDevice, &uploadContextFenceCreateInfo, nullptr,
+                &_uploadContext.vkUploadFence);
+
+  _deletionQueue.pushFunction([this]() {
+    vkDestroyFence(_vkDevice, _uploadContext.vkUploadFence, nullptr);
+  });
 }
 
 bool VulkanEngine::loadShaderModule(char const* filePath,
@@ -651,9 +677,7 @@ void VulkanEngine::draw() {
   vkCmdEndRenderPass(cmd);
   VK_CHECK(vkEndCommandBuffer(cmd));
 
-  VkSubmitInfo vkSubmitInfo = {};
-  vkSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-  vkSubmitInfo.pNext = nullptr;
+  VkSubmitInfo vkSubmitInfo = vkinit::commandBufferSubmitInfo(&cmd);
 
   VkPipelineStageFlags const vkPipelineStageFlags =
       VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -664,9 +688,6 @@ void VulkanEngine::draw() {
 
   vkSubmitInfo.signalSemaphoreCount = 1;
   vkSubmitInfo.pSignalSemaphores = &currentFrameData.vkRenderSemaphore;
-
-  vkSubmitInfo.commandBufferCount = 1;
-  vkSubmitInfo.pCommandBuffers = &cmd;
 
   VK_CHECK(vkQueueSubmit(_vkGraphicsQueue, 1, &vkSubmitInfo,
                          currentFrameData.vkRenderFence));
@@ -986,4 +1007,26 @@ std::size_t VulkanEngine::getPaddedBufferSize(std::size_t originalSize) const {
     return originalSize;
 
   return (originalSize + minbufferOffset - 1) & (~(minbufferOffset - 1));
+}
+
+void VulkanEngine::immediateSubmit(
+    VkCommandBuffer cmd, std::function<void(VkCommandBuffer cmd)>&& function) {
+  VkCommandBufferBeginInfo commandBufferBeginInfo =
+      vkinit::commandBufferBeginInfo(
+          VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+
+  VK_CHECK(vkBeginCommandBuffer(cmd, &commandBufferBeginInfo));
+
+  function(cmd);
+
+  VK_CHECK(vkEndCommandBuffer(cmd));
+
+  VkSubmitInfo submit = vkinit::commandBufferSubmitInfo(&cmd);
+
+  VK_CHECK(vkQueueSubmit(_vkGraphicsQueue, 1, &submit,
+                         _uploadContext.vkUploadFence));
+  vkWaitForFences(_vkDevice, 1, &_uploadContext.vkUploadFence, VK_TRUE,
+                  9999999999);
+
+  vkResetCommandPool(_vkDevice, _uploadContext.vkUploadCommandPool, 0);
 }

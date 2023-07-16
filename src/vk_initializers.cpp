@@ -130,7 +130,7 @@ VkFenceCreateInfo fenceCreateInfo(VkFenceCreateFlags const flags) {
   VkFenceCreateInfo info = {};
   info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
   info.pNext = nullptr;
-  info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+  info.flags = flags;
 
   return info;
 }
@@ -259,6 +259,39 @@ writeDescriptorSet(VkDescriptorSet descriptorSet,
   writeDescriptorSet.pBufferInfo = bufferInfos;
 
   return writeDescriptorSet;
+}
+
+VkCommandBufferBeginInfo
+commandBufferBeginInfo(VkCommandBufferUsageFlags flags,
+                       VkCommandBufferInheritanceInfo const* inheritanceInfo) {
+  VkCommandBufferBeginInfo commandBufferBeginInfo = {};
+
+  commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  commandBufferBeginInfo.pNext = nullptr;
+
+  commandBufferBeginInfo.flags = flags;
+  commandBufferBeginInfo.pInheritanceInfo = inheritanceInfo;
+
+  return commandBufferBeginInfo;
+}
+
+VkSubmitInfo commandBufferSubmitInfo(VkCommandBuffer const* cmd) {
+  VkSubmitInfo submitInfo = {};
+  submitInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
+  submitInfo.pNext = nullptr;
+
+  submitInfo.waitSemaphoreCount = 0;
+  submitInfo.pWaitSemaphores = nullptr;
+
+  submitInfo.pWaitDstStageMask = nullptr;
+
+  submitInfo.commandBufferCount = 1;
+  submitInfo.pCommandBuffers = cmd;
+
+  submitInfo.signalSemaphoreCount = 0;
+  submitInfo.pSignalSemaphores = nullptr;
+
+  return submitInfo;
 }
 
 } // namespace vkinit

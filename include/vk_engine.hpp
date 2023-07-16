@@ -62,6 +62,12 @@ struct FrameData {
   VkDescriptorSet objectDataDescriptorSet;
 };
 
+struct UploadContext {
+  VkFence vkUploadFence;
+  VkCommandPool vkUploadCommandPool;
+  VkCommandBuffer vkUploadCommandBuffer;
+};
+
 class DeletionQueue {
 public:
   template <typename TFunc> void pushFunction(TFunc&& f) {
@@ -135,6 +141,7 @@ private:
   AllocatedBuffer _sceneDataBuffer;
   AllocatedBuffer _cameraBuffer;
   VkDescriptorSet _globalDescriptorSet;
+  UploadContext _uploadContext;
 
   void initVulkan();
   void initSwapchain();
@@ -160,6 +167,8 @@ private:
                VmaAllocationCreateFlags allocationCreateFlags) const;
   void initDescriptors();
   std::size_t getPaddedBufferSize(std::size_t originalSize) const;
+  void immediateSubmit(VkCommandBuffer cmd,
+                       std::function<void(VkCommandBuffer cmd)>&& function);
 };
 
 class PipelineBuilder {
