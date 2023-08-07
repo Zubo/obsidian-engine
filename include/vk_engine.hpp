@@ -62,7 +62,7 @@ struct FrameData {
   VkDescriptorSet objectDataDescriptorSet;
 };
 
-struct UploadContext {
+struct ImmediateSubmitContext {
   VkFence vkUploadFence;
   VkCommandPool vkUploadCommandPool;
   VkCommandBuffer vkUploadCommandBuffer;
@@ -141,7 +141,7 @@ private:
   AllocatedBuffer _sceneDataBuffer;
   AllocatedBuffer _cameraBuffer;
   VkDescriptorSet _globalDescriptorSet;
-  UploadContext _uploadContext;
+  ImmediateSubmitContext _uploadContext;
 
   void initVulkan();
   void initSwapchain();
@@ -167,7 +167,7 @@ private:
                VmaAllocationCreateFlags allocationCreateFlags) const;
   void initDescriptors();
   std::size_t getPaddedBufferSize(std::size_t originalSize) const;
-  void immediateSubmit(VkCommandBuffer cmd,
+  void immediateSubmit(ImmediateSubmitContext const& ctx,
                        std::function<void(VkCommandBuffer cmd)>&& function);
 };
 

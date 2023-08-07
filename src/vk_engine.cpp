@@ -133,7 +133,7 @@ void VulkanEngine::initVulkan() {
   allocatorInfo.physicalDevice = _vkPhysicalDevice;
   allocatorInfo.device = _vkDevice;
   allocatorInfo.instance = _vkInstance;
-  vmaCreateAllocator(&allocatorInfo, &_vmaAllocator);
+  VK_CHECK(vmaCreateAllocator(&allocatorInfo, &_vmaAllocator));
 
   _deletionQueue.pushFunction([this] { vmaDestroyAllocator(_vmaAllocator); });
 }
@@ -569,14 +569,14 @@ void VulkanEngine::initScene() {
 }
 
 void VulkanEngine::loadMeshes() {
-  _triangleMesh._vertices.resize(3);
-  _triangleMesh._vertices[0].position = {1.0f, 1.0f, 0.0f};
-  _triangleMesh._vertices[1].position = {-1.0f, 1.0f, 0.0f};
-  _triangleMesh._vertices[2].position = {0.0f, -1.0f, 0.0f};
+  _triangleMesh.vertices.resize(3);
+  _triangleMesh.vertices[0].position = {1.0f, 1.0f, 0.0f};
+  _triangleMesh.vertices[1].position = {-1.0f, 1.0f, 0.0f};
+  _triangleMesh.vertices[2].position = {0.0f, -1.0f, 0.0f};
 
-  _triangleMesh._vertices[0].color = {0.0f, 1.0f, 0.0f};
-  _triangleMesh._vertices[1].color = {0.0f, 1.0f, 0.0f};
-  _triangleMesh._vertices[2].color = {0.7f, 0.5f, 0.1f};
+  _triangleMesh.vertices[0].color = {0.0f, 1.0f, 0.0f};
+  _triangleMesh.vertices[1].color = {0.0f, 1.0f, 0.0f};
+  _triangleMesh.vertices[2].color = {0.7f, 0.5f, 0.1f};
 
   uploadMesh(_triangleMesh);
 
@@ -588,35 +588,68 @@ void VulkanEngine::loadMeshes() {
 }
 
 void VulkanEngine::uploadMesh(Mesh& mesh) {
-  VkBufferCreateInfo bufferInfo = {};
-  bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-  bufferInfo.pNext = nullptr;
-
   size_t const bufferSize =
-      mesh._vertices.size() * sizeof(decltype(mesh._vertices)::value_type);
+      mesh.vertices.size() * sizeof(decltype(mesh.vertices)::value_type);
 
-  bufferInfo.size = bufferSize;
+  VkBufferCreateInfo stagingBufferCreateInfo = {};
+  stagingBufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+  stagingBufferCreateInfo.pNext = nullptr;
 
-  bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+  stagingBufferCreateInfo.flags = 0;
+  stagingBufferCreateInfo.size = bufferSize;
+  stagingBufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+  stagingBufferCreateInfo.queueFamilyIndexCount = 1;
+  stagingBufferCreateInfo.pQueueFamilyIndices = &_graphicsQueueFamilyIndex;
 
-  VmaAllocationCreateInfo vmaAllocInfo = {};
-  vmaAllocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+  VmaAllocationCreateInfo vmaStagingBufferAllocCreateInfo = {};
+  vmaStagingBufferAllocCreateInfo.flags =
+      VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
+      VMA_ALLOCATION_CREATE_MAPPED_BIT;
+  vmaStagingBufferAllocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
 
-  VK_CHECK(vmaCreateBuffer(_vmaAllocator, &bufferInfo, &vmaAllocInfo,
-                           &mesh._vertexBuffer.buffer,
-                           &mesh._vertexBuffer.allocation, nullptr));
+  VkBuffer vkStagingBuffer;
+  VmaAllocation vmaStagingBufferAllocation;
+  VmaAllocationInfo vmaStagingBufferAllocInfo;
+  VK_CHECK(vmaCreateBuffer(_vmaAllocator, &stagingBufferCreateInfo,
+                           &vmaStagingBufferAllocCreateInfo, &vkStagingBuffer,
+                           &vmaStagingBufferAllocation,
+                           &vmaStagingBufferAllocInfo));
+
+  std::memcpy(vmaStagingBufferAllocInfo.pMappedData, mesh.vertices.data(),
+              bufferSize);
+
+  VkBufferCreateInfo meshBufferInfo = {};
+  meshBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+  meshBufferInfo.pNext = nullptr;
+
+  meshBufferInfo.size = bufferSize;
+
+  meshBufferInfo.usage =
+      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+  VmaAllocationCreateInfo vmaMeshBufferAllocInfo = {};
+  vmaMeshBufferAllocInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+
+  VK_CHECK(vmaCreateBuffer(_vmaAllocator, &meshBufferInfo,
+                           &vmaMeshBufferAllocInfo, &mesh.vertexBuffer.buffer,
+                           &mesh.vertexBuffer.allocation, nullptr));
 
   _deletionQueue.pushFunction([this, mesh] {
-    vmaDestroyBuffer(_vmaAllocator, mesh._vertexBuffer.buffer,
-                     mesh._vertexBuffer.allocation);
+    vmaDestroyBuffer(_vmaAllocator, mesh.vertexBuffer.buffer,
+                     mesh.vertexBuffer.allocation);
   });
 
-  void* data;
-  vmaMapMemory(_vmaAllocator, mesh._vertexBuffer.allocation, &data);
+  immediateSubmit(_uploadContext, [this, &vkStagingBuffer, &mesh,
+                                   bufferSize](VkCommandBuffer cmd) {
+    VkBufferCopy vkBufferCopy = {};
+    vkBufferCopy.srcOffset = 0;
+    vkBufferCopy.dstOffset = 0;
+    vkBufferCopy.size = bufferSize;
+    vkCmdCopyBuffer(cmd, vkStagingBuffer, mesh.vertexBuffer.buffer, 1,
+                    &vkBufferCopy);
+  });
 
-  memcpy(data, mesh._vertices.data(), bufferSize);
-
-  vmaUnmapMemory(_vmaAllocator, mesh._vertexBuffer.allocation);
+  vmaDestroyBuffer(_vmaAllocator, vkStagingBuffer, vmaStagingBufferAllocation);
 }
 
 FrameData& VulkanEngine::getCurrentFrameData() {
@@ -795,10 +828,9 @@ void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject* first,
     }
 
     VkDeviceSize const bufferOffset = 0;
-    vkCmdBindVertexBuffers(cmd, 0, 1, &mesh._vertexBuffer.buffer,
-                           &bufferOffset);
+    vkCmdBindVertexBuffers(cmd, 0, 1, &mesh.vertexBuffer.buffer, &bufferOffset);
 
-    vkCmdDraw(cmd, mesh._vertices.size(), 1, 0, i);
+    vkCmdDraw(cmd, mesh.vertices.size(), 1, 0, i);
   }
 }
 
@@ -1010,23 +1042,24 @@ std::size_t VulkanEngine::getPaddedBufferSize(std::size_t originalSize) const {
 }
 
 void VulkanEngine::immediateSubmit(
-    VkCommandBuffer cmd, std::function<void(VkCommandBuffer cmd)>&& function) {
+    ImmediateSubmitContext const& ctx,
+    std::function<void(VkCommandBuffer cmd)>&& function) {
   VkCommandBufferBeginInfo commandBufferBeginInfo =
       vkinit::commandBufferBeginInfo(
           VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
-  VK_CHECK(vkBeginCommandBuffer(cmd, &commandBufferBeginInfo));
+  VK_CHECK(
+      vkBeginCommandBuffer(ctx.vkUploadCommandBuffer, &commandBufferBeginInfo));
 
-  function(cmd);
+  function(ctx.vkUploadCommandBuffer);
 
-  VK_CHECK(vkEndCommandBuffer(cmd));
+  VK_CHECK(vkEndCommandBuffer(ctx.vkUploadCommandBuffer));
 
-  VkSubmitInfo submit = vkinit::commandBufferSubmitInfo(&cmd);
+  VkSubmitInfo submit =
+      vkinit::commandBufferSubmitInfo(&ctx.vkUploadCommandBuffer);
 
-  VK_CHECK(vkQueueSubmit(_vkGraphicsQueue, 1, &submit,
-                         _uploadContext.vkUploadFence));
-  vkWaitForFences(_vkDevice, 1, &_uploadContext.vkUploadFence, VK_TRUE,
-                  9999999999);
+  VK_CHECK(vkQueueSubmit(_vkGraphicsQueue, 1, &submit, ctx.vkUploadFence));
+  vkWaitForFences(_vkDevice, 1, &ctx.vkUploadFence, VK_TRUE, 9999999999);
 
-  vkResetCommandPool(_vkDevice, _uploadContext.vkUploadCommandPool, 0);
+  VK_CHECK(vkResetCommandPool(_vkDevice, ctx.vkUploadCommandPool, 0));
 }

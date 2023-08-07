@@ -83,9 +83,9 @@ bool Mesh::loadFromObj(char const* filePath) {
         tinyobj::real_t const normalZ =
             attrib.normals[3 * idx.normal_index + 2];
 
-        _vertices.emplace_back(glm::vec3{posX, posY, posZ},
-                               glm::vec3{normalX, normalY, normalZ},
-                               glm::vec3{normalX, normalY, normalZ});
+        vertices.emplace_back(glm::vec3{posX, posY, posZ},
+                              glm::vec3{normalX, normalY, normalZ},
+                              glm::vec3{normalX, normalY, normalZ});
       }
 
       faceIndOffset += vertexCount;
