@@ -1,13 +1,13 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(VkGuide
+project(ObsidianEngine
     LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 
 option (ENABLE_RENDERDOC "Enable renderdoc api for GPU debugging" OFF)
 
-add_executable(vkguide
+add_executable(ObsidianEngine
     "src/main.cpp"
     "src/vk_engine.cpp"
     "src/vk_initializers.cpp"
@@ -20,11 +20,11 @@ add_executable(vkguide
     "include/renderdoc.hpp"
 )
 
-target_include_directories(vkguide PRIVATE include)
+target_include_directories(ObsidianEngine PRIVATE include)
 
 include(ThirdParty.cmake)
 
-target_link_libraries(vkguide
+target_link_libraries(ObsidianEngine
     PRIVATE
     ${Vulkan_LIBRARIES}
     ${SDL2_LIBRARIES}
@@ -37,7 +37,7 @@ target_link_libraries(vkguide
 
 include (SystemLibs.cmake)
 
-target_include_directories(vkguide PRIVATE
+target_include_directories(ObsidianEngine PRIVATE
     ${VULKAN_INCLUDE_DIRS}
     ${SDL2_INCLUDE_DIRS}
 )

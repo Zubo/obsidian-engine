@@ -100,7 +100,7 @@ void VulkanEngine::cleanup() {
 
 void VulkanEngine::initVulkan() {
   vkb::InstanceBuilder builder;
-  auto const builderReturn = builder.set_app_name("VKGuide tutorial")
+  auto const builderReturn = builder.set_app_name("Obsidian Engine")
                                  .request_validation_layers(true)
                                  .require_api_version(1, 1, 0)
                                  .use_default_debug_messenger()
