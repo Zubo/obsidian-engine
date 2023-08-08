@@ -26,13 +26,13 @@ include(ThirdParty.cmake)
 
 target_link_libraries(ObsidianEngine
     PRIVATE
-    ${Vulkan_LIBRARIES}
-    ${SDL2_LIBRARIES}
-    vk-bootstrap::vk-bootstrap
-    VulkanMemoryAllocator
-    glm
-    tinyobjloader
-    TracyClient
+        ${Vulkan_LIBRARIES}
+        ${SDL2_LIBRARIES}
+        vk-bootstrap::vk-bootstrap
+        VulkanMemoryAllocator
+        glm
+        tinyobjloader
+        TracyClient
 )
 
 include (SystemLibs.cmake)
