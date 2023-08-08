@@ -15,5 +15,5 @@ shader_src_file_names = os.listdir(shader_src_dir)
 
 for shader_src_name in shader_src_file_names:
     shader_src_path = os.path.join(shader_src_dir, shader_src_name)
-    subprocess.check_output(["glslc", "-c", f"{shader_src_path}", "-o", f"{shader_output_dir}/{shader_src_name}.spirv"])
-    subprocess.check_output(["glslc", "-c", f"{shader_src_path}", "-g", "-O0", "-o", f"{shader_output_dir}/{shader_src_name}.dbg.spirv"])
+    subprocess.check_output(["glslc", "-c", f"{shader_src_path}", "-o", f"{shader_output_dir}/{shader_src_name}.spv"])
+    subprocess.check_output(["glslc", "-c", f"{shader_src_path}", "-g", "-O0", "-o", f"{shader_output_dir}/{shader_src_name}.dbg.spv"])
