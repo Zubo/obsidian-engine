@@ -454,10 +454,11 @@ void VulkanEngine::initPipelines() {
   VkShaderModule meshFragShader;
 
   if (!loadShaderModule("shaders/mesh.frag.spv", &meshFragShader)) {
-    std::cout << "Error when building the triangle vertex shader module"
+    std::cout << "Error when building the triangle fragment shader module"
               << std::endl;
   } else {
-    std::cout << "Mesh triangle vertex shader successfully loaded" << std::endl;
+    std::cout << "Mesh triangle fragment shader successfully loaded"
+              << std::endl;
   }
 
   pipelineBuilder._vkShaderStageCreateInfo.push_back(
