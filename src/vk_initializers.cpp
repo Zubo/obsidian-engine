@@ -22,8 +22,8 @@ commandBufferAllocateInfo(VkCommandPool const pool, std::uint32_t const count,
       VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
   vkCommandBufferAllocateInfo.pNext = nullptr;
   vkCommandBufferAllocateInfo.commandPool = pool;
-  vkCommandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-  vkCommandBufferAllocateInfo.commandBufferCount = 1;
+  vkCommandBufferAllocateInfo.level = level;
+  vkCommandBufferAllocateInfo.commandBufferCount = count;
 
   return vkCommandBufferAllocateInfo;
 }
@@ -144,13 +144,12 @@ VkSemaphoreCreateInfo semaphoreCreateInfo(VkSemaphoreCreateFlags const flags) {
   return info;
 }
 
-VkImageCreateInfo imageCreateInfo(VkImageCreateFlags const flags,
+VkImageCreateInfo imageCreateInfo(VkImageUsageFlags const usageFlags,
                                   VkExtent3D const extent,
                                   VkFormat const format) {
   VkImageCreateInfo vkImageCreateInfo = {};
   vkImageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
   vkImageCreateInfo.pNext = nullptr;
-  vkImageCreateInfo.flags = flags;
   vkImageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
   vkImageCreateInfo.format = format;
   vkImageCreateInfo.extent = extent;
@@ -158,7 +157,7 @@ VkImageCreateInfo imageCreateInfo(VkImageCreateFlags const flags,
   vkImageCreateInfo.arrayLayers = 1;
   vkImageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
   vkImageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-  vkImageCreateInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+  vkImageCreateInfo.usage = usageFlags;
 
   return vkImageCreateInfo;
 }

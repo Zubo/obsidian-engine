@@ -33,12 +33,12 @@ VkPipelineColorBlendAttachmentState colorBlendAttachmentState();
 
 VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo();
 
-VkFenceCreateInfo fenceCreateInfo(VkFenceCreateFlags flags);
+VkFenceCreateInfo fenceCreateInfo(VkFenceCreateFlags flags = 0);
 
 VkSemaphoreCreateInfo semaphoreCreateInfo(VkSemaphoreCreateFlags flags);
 
-VkImageCreateInfo imageCreateInfo(VkImageCreateFlags flags, VkExtent3D extent,
-                                  VkFormat format);
+VkImageCreateInfo imageCreateInfo(VkImageUsageFlags usageFlags,
+                                  VkExtent3D extent, VkFormat format);
 
 VkImageViewCreateInfo imageViewCreateInfo(VkImage image, VkFormat format,
                                           VkImageAspectFlags imageAspectFlags);

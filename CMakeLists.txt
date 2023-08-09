@@ -13,6 +13,8 @@ add_executable(ObsidianEngine
     "src/vk_initializers.cpp"
     "src/vk_mesh.cpp"
     "src/renderdoc.cpp"
+    "src/stbi_impl.cpp"
+    "src/vma_impl.cpp"
     "include/vk_engine.hpp"
     "include/vk_types.hpp"
     "include/vk_initializers.hpp"

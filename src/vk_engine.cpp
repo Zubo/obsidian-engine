@@ -8,11 +8,11 @@
 #include <VkBootstrap.h>
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
+#include <stb/stb_image.h>
 #include <tracy/Tracy.hpp>
+#include <vk_mem_alloc.h>
 #include <vulkan/vulkan_core.h>
 #include <vulkan/vulkan_structs.hpp>
-#define VMA_IMPLEMENTATION ;
-#include <vk_mem_alloc.h>
 
 #include <cmath>
 #include <cstdint>
@@ -54,6 +54,8 @@ void VulkanEngine::init() {
   initDescriptors();
 
   initPipelines();
+
+  loadTextures();
 
   loadMeshes();
 
@@ -162,14 +164,15 @@ void VulkanEngine::initSwapchain() {
   _deletionQueue.pushFunction(
       [this]() { vkDestroySwapchainKHR(_vkDevice, _vkSwapchain, nullptr); });
 
-  VkImageCreateFlags depthFlags = 0;
+  VkImageUsageFlags depthUsageFlags =
+      VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
   VkExtent3D const depthExtent{WindowExtent.width, WindowExtent.height, 1};
 
   _vkFramebuffers.resize(swapchainSize);
 
   _depthFormat = VK_FORMAT_D32_SFLOAT;
   VkImageCreateInfo const depthBufferImageCreateInfo =
-      vkinit::imageCreateInfo(depthFlags, depthExtent, _depthFormat);
+      vkinit::imageCreateInfo(depthUsageFlags, depthExtent, _depthFormat);
 
   VmaAllocationCreateInfo depthImageAllocInfo = {};
   depthImageAllocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
@@ -233,17 +236,18 @@ void VulkanEngine::initCommands() {
       vkinit::commandPoolCreateInfo(_graphicsQueueFamilyIndex);
 
   VK_CHECK(vkCreateCommandPool(_vkDevice, &uploadCommandPoolCreateInfo, nullptr,
-                               &_uploadContext.vkUploadCommandPool));
+                               &_immediateSubmitContext.vkCommandPool));
   _deletionQueue.pushFunction([this]() {
-    vkDestroyCommandPool(_vkDevice, _uploadContext.vkUploadCommandPool,
+    vkDestroyCommandPool(_vkDevice, _immediateSubmitContext.vkCommandPool,
                          nullptr);
   });
 
-  VkCommandBufferAllocateInfo const vkCommandBufferAllocateInfo =
-      vkinit::commandBufferAllocateInfo(_uploadContext.vkUploadCommandPool);
+  VkCommandBufferAllocateInfo const vkImmediateSubmitCommandBufferAllocateInfo =
+      vkinit::commandBufferAllocateInfo(_immediateSubmitContext.vkCommandPool);
 
-  VK_CHECK(vkAllocateCommandBuffers(_vkDevice, &vkCommandBufferAllocateInfo,
-                                    &_uploadContext.vkUploadCommandBuffer));
+  VK_CHECK(vkAllocateCommandBuffers(_vkDevice,
+                                    &vkImmediateSubmitCommandBufferAllocateInfo,
+                                    &_immediateSubmitContext.vkCommandBuffer));
 }
 
 void VulkanEngine::initDefaultRenderPass() {
@@ -355,14 +359,14 @@ void VulkanEngine::initSyncStructures() {
     });
   }
 
-  VkFenceCreateInfo uploadContextFenceCreateInfo =
-      vkinit::fenceCreateInfo(VK_FENCE_CREATE_SIGNALED_BIT);
+  VkFenceCreateInfo immediateSubmitContextFenceCreateInfo =
+      vkinit::fenceCreateInfo();
 
-  vkCreateFence(_vkDevice, &uploadContextFenceCreateInfo, nullptr,
-                &_uploadContext.vkUploadFence);
+  vkCreateFence(_vkDevice, &immediateSubmitContextFenceCreateInfo, nullptr,
+                &_immediateSubmitContext.vkFence);
 
   _deletionQueue.pushFunction([this]() {
-    vkDestroyFence(_vkDevice, _uploadContext.vkUploadFence, nullptr);
+    vkDestroyFence(_vkDevice, _immediateSubmitContext.vkFence, nullptr);
   });
 }
 
@@ -568,6 +572,20 @@ void VulkanEngine::initScene() {
   }
 }
 
+void VulkanEngine::loadTextures() {
+  Texture& lostEmpireTexture = _loadedTextures["empire"];
+  bool const lostEmpImageLoaded =
+      loadImage("assets/lost_empire-RGBA.png", lostEmpireTexture.image);
+  assert(lostEmpImageLoaded);
+
+  VkImageViewCreateInfo lostEmpImgViewCreateInfo = vkinit::imageViewCreateInfo(
+      lostEmpireTexture.image.vkImage, VK_FORMAT_R8G8B8A8_SRGB,
+      VK_IMAGE_ASPECT_COLOR_BIT);
+
+  vkCreateImageView(_vkDevice, &lostEmpImgViewCreateInfo, nullptr,
+                    &lostEmpireTexture.imageView);
+}
+
 void VulkanEngine::loadMeshes() {
   _triangleMesh.vertices.resize(3);
   _triangleMesh.vertices[0].position = {1.0f, 1.0f, 0.0f};
@@ -591,65 +609,40 @@ void VulkanEngine::uploadMesh(Mesh& mesh) {
   size_t const bufferSize =
       mesh.vertices.size() * sizeof(decltype(mesh.vertices)::value_type);
 
-  VkBufferCreateInfo stagingBufferCreateInfo = {};
-  stagingBufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-  stagingBufferCreateInfo.pNext = nullptr;
+  AllocatedBuffer stagingBuffer =
+      createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                   VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
+                   VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
 
-  stagingBufferCreateInfo.flags = 0;
-  stagingBufferCreateInfo.size = bufferSize;
-  stagingBufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-  stagingBufferCreateInfo.queueFamilyIndexCount = 1;
-  stagingBufferCreateInfo.pQueueFamilyIndices = &_graphicsQueueFamilyIndex;
+  void* mappedMemory;
+  vmaMapMemory(_vmaAllocator, stagingBuffer.allocation, &mappedMemory);
 
-  VmaAllocationCreateInfo vmaStagingBufferAllocCreateInfo = {};
-  vmaStagingBufferAllocCreateInfo.flags =
-      VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
-      VMA_ALLOCATION_CREATE_MAPPED_BIT;
-  vmaStagingBufferAllocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+  std::memcpy(mappedMemory, mesh.vertices.data(), bufferSize);
 
-  VkBuffer vkStagingBuffer;
-  VmaAllocation vmaStagingBufferAllocation;
-  VmaAllocationInfo vmaStagingBufferAllocInfo;
-  VK_CHECK(vmaCreateBuffer(_vmaAllocator, &stagingBufferCreateInfo,
-                           &vmaStagingBufferAllocCreateInfo, &vkStagingBuffer,
-                           &vmaStagingBufferAllocation,
-                           &vmaStagingBufferAllocInfo));
+  vmaUnmapMemory(_vmaAllocator, stagingBuffer.allocation);
 
-  std::memcpy(vmaStagingBufferAllocInfo.pMappedData, mesh.vertices.data(),
-              bufferSize);
-
-  VkBufferCreateInfo meshBufferInfo = {};
-  meshBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-  meshBufferInfo.pNext = nullptr;
-
-  meshBufferInfo.size = bufferSize;
-
-  meshBufferInfo.usage =
-      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-
-  VmaAllocationCreateInfo vmaMeshBufferAllocInfo = {};
-  vmaMeshBufferAllocInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
-
-  VK_CHECK(vmaCreateBuffer(_vmaAllocator, &meshBufferInfo,
-                           &vmaMeshBufferAllocInfo, &mesh.vertexBuffer.buffer,
-                           &mesh.vertexBuffer.allocation, nullptr));
+  mesh.vertexBuffer = createBuffer(bufferSize,
+                                   VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                                       VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                                   VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0);
 
   _deletionQueue.pushFunction([this, mesh] {
     vmaDestroyBuffer(_vmaAllocator, mesh.vertexBuffer.buffer,
                      mesh.vertexBuffer.allocation);
   });
 
-  immediateSubmit(_uploadContext, [this, &vkStagingBuffer, &mesh,
-                                   bufferSize](VkCommandBuffer cmd) {
-    VkBufferCopy vkBufferCopy = {};
-    vkBufferCopy.srcOffset = 0;
-    vkBufferCopy.dstOffset = 0;
-    vkBufferCopy.size = bufferSize;
-    vkCmdCopyBuffer(cmd, vkStagingBuffer, mesh.vertexBuffer.buffer, 1,
-                    &vkBufferCopy);
-  });
+  immediateSubmit(
+      [this, &stagingBuffer, &mesh, bufferSize](VkCommandBuffer cmd) {
+        VkBufferCopy vkBufferCopy = {};
+        vkBufferCopy.srcOffset = 0;
+        vkBufferCopy.dstOffset = 0;
+        vkBufferCopy.size = bufferSize;
+        vkCmdCopyBuffer(cmd, stagingBuffer.buffer, mesh.vertexBuffer.buffer, 1,
+                        &vkBufferCopy);
+      });
 
-  vmaDestroyBuffer(_vmaAllocator, vkStagingBuffer, vmaStagingBufferAllocation);
+  vmaDestroyBuffer(_vmaAllocator, stagingBuffer.buffer,
+                   stagingBuffer.allocation);
 }
 
 FrameData& VulkanEngine::getCurrentFrameData() {
@@ -865,10 +858,11 @@ Mesh* VulkanEngine::getMesh(std::string const& name) {
   return &meshIter->second;
 }
 
-AllocatedBuffer VulkanEngine::createBuffer(
-    std::size_t bufferSize, VkBufferUsageFlags usage,
-    VmaMemoryUsage memoryUsage,
-    VmaAllocationCreateFlags allocationCreateFlags) const {
+AllocatedBuffer
+VulkanEngine::createBuffer(std::size_t bufferSize, VkBufferUsageFlags usage,
+                           VmaMemoryUsage memoryUsage,
+                           VmaAllocationCreateFlags allocationCreateFlags,
+                           VmaAllocationInfo* outAllocationInfo) const {
   VkBufferCreateInfo vkBufferCreateInfo = {};
   vkBufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
   vkBufferCreateInfo.pNext = nullptr;
@@ -882,7 +876,7 @@ AllocatedBuffer VulkanEngine::createBuffer(
   AllocatedBuffer allocatedBuffer;
   VK_CHECK(vmaCreateBuffer(_vmaAllocator, &vkBufferCreateInfo,
                            &vmaAllocationCreateInfo, &allocatedBuffer.buffer,
-                           &allocatedBuffer.allocation, nullptr));
+                           &allocatedBuffer.allocation, outAllocationInfo));
 
   return allocatedBuffer;
 }
@@ -1042,24 +1036,143 @@ std::size_t VulkanEngine::getPaddedBufferSize(std::size_t originalSize) const {
 }
 
 void VulkanEngine::immediateSubmit(
-    ImmediateSubmitContext const& ctx,
     std::function<void(VkCommandBuffer cmd)>&& function) {
   VkCommandBufferBeginInfo commandBufferBeginInfo =
       vkinit::commandBufferBeginInfo(
           VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
-  VK_CHECK(
-      vkBeginCommandBuffer(ctx.vkUploadCommandBuffer, &commandBufferBeginInfo));
+  VK_CHECK(vkBeginCommandBuffer(_immediateSubmitContext.vkCommandBuffer,
+                                &commandBufferBeginInfo));
 
-  function(ctx.vkUploadCommandBuffer);
+  function(_immediateSubmitContext.vkCommandBuffer);
 
-  VK_CHECK(vkEndCommandBuffer(ctx.vkUploadCommandBuffer));
+  VK_CHECK(vkEndCommandBuffer(_immediateSubmitContext.vkCommandBuffer));
 
   VkSubmitInfo submit =
-      vkinit::commandBufferSubmitInfo(&ctx.vkUploadCommandBuffer);
+      vkinit::commandBufferSubmitInfo(&_immediateSubmitContext.vkCommandBuffer);
 
-  VK_CHECK(vkQueueSubmit(_vkGraphicsQueue, 1, &submit, ctx.vkUploadFence));
-  vkWaitForFences(_vkDevice, 1, &ctx.vkUploadFence, VK_TRUE, 9999999999);
+  VK_CHECK(vkQueueSubmit(_vkGraphicsQueue, 1, &submit,
+                         _immediateSubmitContext.vkFence));
+  vkWaitForFences(_vkDevice, 1, &_immediateSubmitContext.vkFence, VK_TRUE,
+                  9999999999);
+  vkResetFences(_vkDevice, 1, &_immediateSubmitContext.vkFence);
 
-  VK_CHECK(vkResetCommandPool(_vkDevice, ctx.vkUploadCommandPool, 0));
+  VK_CHECK(
+      vkResetCommandPool(_vkDevice, _immediateSubmitContext.vkCommandPool, 0));
+}
+
+bool VulkanEngine::loadImage(char const* filePath,
+                             AllocatedImage& outAllocatedImage) {
+  int width, height, texChannels;
+  stbi_uc* const pixels =
+      stbi_load(filePath, &width, &height, &texChannels, STBI_rgb_alpha);
+
+  if (!pixels) {
+    std::cout << "Failed to load image: " << filePath << std::endl;
+    return false;
+  }
+
+  std::size_t imageOnDeviceSize =
+      texChannels * sizeof(std::uint8_t) * width * height;
+
+  std::cout << pixels[imageOnDeviceSize - 1];
+  AllocatedBuffer stagingBuffer =
+      createBuffer(imageOnDeviceSize, VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+                   VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
+
+                   VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+
+  void* mappedMemory;
+  vmaMapMemory(_vmaAllocator, stagingBuffer.allocation, &mappedMemory);
+
+  std::memcpy(mappedMemory, pixels, imageOnDeviceSize);
+
+  vmaUnmapMemory(_vmaAllocator, stagingBuffer.allocation);
+
+  stbi_image_free(pixels);
+
+  AllocatedImage newImage;
+  VkImageUsageFlags const imageUsageFlags =
+      VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+
+  VkExtent3D extent = {};
+  extent.width = width;
+  extent.height = height;
+  extent.depth = 1;
+  VkFormat const format = VK_FORMAT_R8G8B8A8_SRGB;
+
+  VkImageCreateInfo vkImgCreateInfo =
+      vkinit::imageCreateInfo(imageUsageFlags, extent, format);
+
+  VmaAllocationCreateInfo imgAllocationCreateInfo = {};
+  imgAllocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+
+  vmaCreateImage(_vmaAllocator, &vkImgCreateInfo, &imgAllocationCreateInfo,
+                 &newImage.vkImage, &newImage.allocation, nullptr);
+
+  immediateSubmit([this, &extent, &newImage,
+                   &stagingBuffer](VkCommandBuffer cmd) {
+    VkImageMemoryBarrier vkImgBarrierToTransfer = {};
+    vkImgBarrierToTransfer.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    vkImgBarrierToTransfer.pNext = nullptr;
+
+    vkImgBarrierToTransfer.srcAccessMask = VK_ACCESS_NONE;
+    vkImgBarrierToTransfer.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    vkImgBarrierToTransfer.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    vkImgBarrierToTransfer.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    vkImgBarrierToTransfer.image = newImage.vkImage;
+
+    VkImageSubresourceRange& vkImgSubresourceRangeToTransfer =
+        vkImgBarrierToTransfer.subresourceRange;
+    vkImgSubresourceRangeToTransfer.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    vkImgSubresourceRangeToTransfer.baseMipLevel = 0;
+    vkImgSubresourceRangeToTransfer.levelCount = 1;
+    vkImgSubresourceRangeToTransfer.baseArrayLayer = 0;
+    vkImgSubresourceRangeToTransfer.layerCount = 1;
+
+    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                         VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
+                         nullptr, 1, &vkImgBarrierToTransfer);
+
+    VkBufferImageCopy vkBufferImgCopy = {};
+    vkBufferImgCopy.imageExtent = extent;
+    vkBufferImgCopy.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    vkBufferImgCopy.imageSubresource.layerCount = 1;
+
+    vkCmdCopyBufferToImage(cmd, stagingBuffer.buffer, newImage.vkImage,
+                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1,
+                           &vkBufferImgCopy);
+
+    VkImageMemoryBarrier vkImageBarrierToRead = {};
+    vkImageBarrierToRead.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    vkImageBarrierToRead.pNext = nullptr;
+
+    vkImageBarrierToRead.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    vkImageBarrierToRead.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    vkImageBarrierToRead.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    vkImageBarrierToRead.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    vkImageBarrierToRead.image = newImage.vkImage;
+    vkImageBarrierToRead.srcQueueFamilyIndex = 0;
+    vkImageBarrierToRead.dstQueueFamilyIndex = _graphicsQueueFamilyIndex;
+
+    VkImageSubresourceRange& vkImgSubresourceRangeToRead =
+        vkImageBarrierToRead.subresourceRange;
+    vkImgSubresourceRangeToRead.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    vkImgSubresourceRangeToRead.layerCount = 1;
+    vkImgSubresourceRangeToRead.levelCount = 1;
+
+    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr,
+                         0, nullptr, 1, &vkImageBarrierToRead);
+  });
+
+  outAllocatedImage = newImage;
+  _deletionQueue.pushFunction([this, newImage]() {
+    vmaDestroyImage(_vmaAllocator, newImage.vkImage, newImage.allocation);
+  });
+
+  vmaDestroyBuffer(_vmaAllocator, stagingBuffer.buffer,
+                   stagingBuffer.allocation);
+
+  return true;
 }

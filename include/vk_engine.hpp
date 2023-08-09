@@ -63,9 +63,9 @@ struct FrameData {
 };
 
 struct ImmediateSubmitContext {
-  VkFence vkUploadFence;
-  VkCommandPool vkUploadCommandPool;
-  VkCommandBuffer vkUploadCommandBuffer;
+  VkFence vkFence;
+  VkCommandPool vkCommandPool;
+  VkCommandBuffer vkCommandBuffer;
 };
 
 class DeletionQueue {
@@ -93,6 +93,11 @@ struct FramebufferImageViews {
 struct AllocatedImage {
   VkImage vkImage;
   VmaAllocation allocation;
+};
+
+struct Texture {
+  AllocatedImage image;
+  VkImageView imageView;
 };
 
 class VulkanEngine {
@@ -135,13 +140,14 @@ private:
   std::vector<RenderObject> _renderObjects;
   std::unordered_map<std::string, Material> _materials;
   std::unordered_map<std::string, Mesh> _meshes;
+  std::unordered_map<std::string, Texture> _loadedTextures;
   VkDescriptorSetLayout _vkGlobalDescriptorSetLayout;
   VkDescriptorSetLayout _vkObjectDataDescriptorSetLayout;
   VkDescriptorPool _vkDescriptorPool;
   AllocatedBuffer _sceneDataBuffer;
   AllocatedBuffer _cameraBuffer;
   VkDescriptorSet _globalDescriptorSet;
-  ImmediateSubmitContext _uploadContext;
+  ImmediateSubmitContext _immediateSubmitContext;
 
   void initVulkan();
   void initSwapchain();
@@ -152,6 +158,7 @@ private:
   bool loadShaderModule(char const* filePath, VkShaderModule* outShaderModule);
   void initPipelines();
   void initScene();
+  void loadTextures();
   void loadMeshes();
   void uploadMesh(Mesh& mesh);
   FrameData& getCurrentFrameData();
@@ -164,11 +171,12 @@ private:
   AllocatedBuffer
   createBuffer(std::size_t bufferSize, VkBufferUsageFlags usage,
                VmaMemoryUsage memoryUsage,
-               VmaAllocationCreateFlags allocationCreateFlags) const;
+               VmaAllocationCreateFlags allocationCreateFlags,
+               VmaAllocationInfo* outAllocationInfo = nullptr) const;
   void initDescriptors();
   std::size_t getPaddedBufferSize(std::size_t originalSize) const;
-  void immediateSubmit(ImmediateSubmitContext const& ctx,
-                       std::function<void(VkCommandBuffer cmd)>&& function);
+  void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
+  bool loadImage(char const* filePath, AllocatedImage& outAllocatedImage);
 };
 
 class PipelineBuilder {
