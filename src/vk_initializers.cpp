@@ -276,7 +276,7 @@ commandBufferBeginInfo(VkCommandBufferUsageFlags flags,
 
 VkSubmitInfo commandBufferSubmitInfo(VkCommandBuffer const* cmd) {
   VkSubmitInfo submitInfo = {};
-  submitInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
+  submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
   submitInfo.pNext = nullptr;
 
   submitInfo.waitSemaphoreCount = 0;
