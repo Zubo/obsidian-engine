@@ -83,6 +83,7 @@ rasterizationCreateInfo(VkPolygonMode polygonMode) {
   rasterizationCreateInfo.depthBiasConstantFactor = 0.0f;
   rasterizationCreateInfo.depthBiasClamp = 0.0f;
   rasterizationCreateInfo.depthBiasSlopeFactor = 0.0f;
+  rasterizationCreateInfo.lineWidth = 1.0f;
 
   return rasterizationCreateInfo;
 }
@@ -98,6 +99,7 @@ VkPipelineMultisampleStateCreateInfo multisampleStateCreateInfo() {
   multisampleStateCreateInfo.pSampleMask = nullptr;
   multisampleStateCreateInfo.alphaToCoverageEnable = VK_FALSE;
   multisampleStateCreateInfo.alphaToOneEnable = VK_FALSE;
+  multisampleStateCreateInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
   return multisampleStateCreateInfo;
 }

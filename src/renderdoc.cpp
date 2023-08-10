@@ -25,7 +25,9 @@ void renderdoc::initRenderdoc() {
   renderdocApi->LaunchReplayUI(1, "");
 }
 
-void renderdoc::deinitRenderdoc() { renderdocApi->RemoveHooks(); }
+void renderdoc::deinitRenderdoc() {
+  // RENDERDOC_API_1_6_0::RemoveHooks() is not implemented on linux.
+}
 
 void renderdoc::beginCapture() {
   assert(renderdocApi);

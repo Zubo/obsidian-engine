@@ -102,9 +102,10 @@ void VulkanEngine::cleanup() {
 
 void VulkanEngine::initVulkan() {
   vkb::InstanceBuilder builder;
+
   auto const builderReturn = builder.set_app_name("Obsidian Engine")
                                  .request_validation_layers(true)
-                                 .require_api_version(1, 1, 0)
+                                 .require_api_version(1, 2, 0)
                                  .use_default_debug_messenger()
                                  .build();
 
@@ -115,12 +116,18 @@ void VulkanEngine::initVulkan() {
 
   SDL_Vulkan_CreateSurface(Window, _vkInstance, &_vkSurface);
   vkb::PhysicalDeviceSelector vkbSelector{vkbInstance};
-  vkb::PhysicalDevice vkbPhysicalDevice = vkbSelector.set_minimum_version(1, 1)
+  vkb::PhysicalDevice vkbPhysicalDevice = vkbSelector.set_minimum_version(1, 2)
                                               .set_surface(_vkSurface)
                                               .select()
                                               .value();
 
   vkb::DeviceBuilder vkbDeviceBuilder{vkbPhysicalDevice};
+  VkPhysicalDeviceVulkan11Features vkDeviceFeatures = {};
+  vkDeviceFeatures.sType =
+      VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
+  vkDeviceFeatures.pNext = nullptr;
+  vkDeviceFeatures.shaderDrawParameters = VK_TRUE;
+  vkbDeviceBuilder.add_pNext(&vkDeviceFeatures);
   vkb::Device vkbDevice = vkbDeviceBuilder.build().value();
 
   _vkDevice = vkbDevice.device;
@@ -161,8 +168,13 @@ void VulkanEngine::initSwapchain() {
 
   _vkSwapchainImageFormat = vkbSwapchain.image_format;
 
-  _deletionQueue.pushFunction(
-      [this]() { vkDestroySwapchainKHR(_vkDevice, _vkSwapchain, nullptr); });
+  _deletionQueue.pushFunction([this, swapchainColorImageViews]() {
+    for (VkImageView const& vkSwapchainImgView : swapchainColorImageViews) {
+      vkDestroyImageView(_vkDevice, vkSwapchainImgView, nullptr);
+    }
+
+    vkDestroySwapchainKHR(_vkDevice, _vkSwapchain, nullptr);
+  });
 
   VkImageUsageFlags depthUsageFlags =
       VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
@@ -280,7 +292,8 @@ void VulkanEngine::initDefaultRenderPass() {
 
   VkAttachmentReference vkDepthAttachmentReference = {};
   vkDepthAttachmentReference.attachment = 1;
-  vkDepthAttachmentReference.layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+  vkDepthAttachmentReference.layout =
+      VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
   VkSubpassDescription vkSubpassDescription = {};
   vkSubpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
@@ -585,6 +598,10 @@ void VulkanEngine::loadTextures() {
 
   vkCreateImageView(_vkDevice, &lostEmpImgViewCreateInfo, nullptr,
                     &lostEmpireTexture.imageView);
+
+  _deletionQueue.pushFunction([this, lostEmpireTexture]() {
+    vkDestroyImageView(_vkDevice, lostEmpireTexture.imageView, nullptr);
+  });
 }
 
 void VulkanEngine::loadMeshes() {
@@ -818,7 +835,7 @@ void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject* first,
       VkDescriptorSet const descriptorSets[] = {
           _globalDescriptorSet, currentFrameData.objectDataDescriptorSet};
       vkCmdBindDescriptorSets(cmd, pipelineBindPoint, _vkMeshPipelineLayout, 0,
-                              2, descriptorSets, 1, offsets);
+                              2, descriptorSets, 2, offsets);
     }
 
     VkDeviceSize const bufferOffset = 0;
