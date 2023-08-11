@@ -11,6 +11,7 @@ option (FORCE_VALIDATION_LAYERS "Force validation layers in non-debug builds" OF
 add_executable(ObsidianEngine
     "src/main.cpp"
     "src/vk_engine.cpp"
+    "src/vk_engine_input_handling.cpp"
     "src/vk_initializers.cpp"
     "src/vk_mesh.cpp"
     "src/renderdoc.cpp"

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <SDL_events.h>
 #include <vk_mesh.hpp>
 #include <vk_types.hpp>
 
@@ -104,7 +105,7 @@ class VulkanEngine {
 public:
   bool IsInitialized{false};
   int FrameNumber{0};
-  VkExtent2D WindowExtent{1000, 800};
+  VkExtent2D WindowExtent{1920, 1080};
   struct SDL_Window* Window{nullptr};
 
   void init();
@@ -148,6 +149,8 @@ private:
   AllocatedBuffer _cameraBuffer;
   VkDescriptorSet _globalDescriptorSet;
   ImmediateSubmitContext _immediateSubmitContext;
+  glm::vec3 _cameraPos = {0.f, -6.f, -10.f};
+  glm::vec2 _cameraRotationRad = {0.f, 0.f};
 
   void initVulkan();
   void initSwapchain();
@@ -177,6 +180,8 @@ private:
   std::size_t getPaddedBufferSize(std::size_t originalSize) const;
   void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
   bool loadImage(char const* filePath, AllocatedImage& outAllocatedImage);
+  void handleKeyboardInput(SDL_KeyboardEvent const& e);
+  void handleMoseInput(SDL_MouseMotionEvent const& e);
 };
 
 class PipelineBuilder {

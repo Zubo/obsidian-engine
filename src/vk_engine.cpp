@@ -1,4 +1,7 @@
+#include "glm/ext/matrix_transform.hpp"
+#include "glm/matrix.hpp"
 #include "vk_types.hpp"
+#include <SDL_events.h>
 #include <renderdoc.hpp>
 #include <vk_engine.hpp>
 #include <vk_initializers.hpp>
@@ -70,9 +73,11 @@ void VulkanEngine::run() {
 
   while (!shouldQuit) {
     while (SDL_PollEvent(&e)) {
-      if (e.type == SDL_KEYDOWN)
-        _selectedShader = (_selectedShader + 1) % 2;
-      else if (e.type == SDL_QUIT)
+      if (e.type == SDL_KEYDOWN) {
+        handleKeyboardInput(e.key);
+      } else if (e.type == SDL_MOUSEMOTION) {
+        handleMoseInput(e.motion);
+      } else if (e.type == SDL_QUIT)
         shouldQuit = true;
     }
 
@@ -762,10 +767,14 @@ void VulkanEngine::draw() {
 void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject* first,
                                int count) {
   ZoneScoped;
-  glm::vec3 const cameraPos{0.f, -6.f, -10.f};
-  glm::mat4 view = glm::translate(glm::mat4{1.f}, cameraPos);
-  glm::mat4 projection =
-      glm::perspective(glm::radians(70.f), 1700.f / 900.f, 0.1f, 200.f);
+  glm::mat4 view = glm::mat4{1.f};
+  view = glm::rotate(view, -_cameraRotationRad.x, {1.f, 0.f, 0.f});
+  view = glm::rotate(view, -_cameraRotationRad.y, {0.f, 1.f, 0.f});
+  view = glm::translate(view, -_cameraPos);
+  glm::mat4 projection = glm::perspective(
+      glm::radians(60.f),
+      static_cast<float>(WindowExtent.width) / WindowExtent.height, 0.1f,
+      200.f);
   projection[1][1] *= -1;
   glm::mat4 const viewProjection = projection * view;
 
