@@ -6,6 +6,7 @@ project(ObsidianEngine
 set(CMAKE_CXX_STANDARD 20)
 
 option (ENABLE_RENDERDOC "Enable renderdoc api for GPU debugging" OFF)
+option (FORCE_VALIDATION_LAYERS "Force validation layers in non-debug builds" OFF)
 
 add_executable(ObsidianEngine
     "src/main.cpp"
@@ -23,6 +24,13 @@ add_executable(ObsidianEngine
 )
 
 target_include_directories(ObsidianEngine PRIVATE include)
+
+if (${FORCE_VALIDATION_LAYERS} OR ${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+    target_compile_definitions(ObsidianEngine
+        PRIVATE
+            USE_VULKAN_VALIDATION_LAYERS
+    )
+endif()
 
 include(ThirdParty.cmake)
 
