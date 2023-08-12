@@ -1,73 +1,22 @@
 #pragma once
 
 #include <SDL_events.h>
+#include <string_view>
 #include <vk_mesh.hpp>
 #include <vk_types.hpp>
 
 #include <glm/glm.hpp>
+#include <vulkan/vulkan_core.h>
 
 #include <array>
 #include <cstdint>
 #include <deque>
+#include <filesystem>
 #include <functional>
+#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
-#include <vulkan/vulkan_core.h>
-
-struct Material {
-  VkPipeline vkPipeline;
-  VkPipelineLayout vkPipelineLayout;
-};
-
-struct RenderObject {
-  Mesh* mesh;
-  Material* material;
-  glm::mat4 transformMatrix;
-};
-
-struct MeshPushConstants {
-  glm::vec4 data;
-  glm::mat4 renderMatrix;
-};
-
-constexpr unsigned int frameOverlap = 2;
-constexpr unsigned int maxNumberOfObjects = 10000;
-
-struct GPUCameraData {
-  glm::mat4 view;
-  glm::mat4 proj;
-  glm::mat4 viewProj;
-};
-
-struct GPUSceneData {
-  glm::vec4 fogColor;
-  glm::vec4 fogDistance;
-  glm::vec4 ambientColor;
-  glm::vec4 sunlightdirection;
-  glm::vec4 sunlightcolor;
-};
-
-struct GPUObjectData {
-  glm::mat4 modelMat;
-};
-
-struct FrameData {
-  VkSemaphore vkRenderSemaphore;
-  VkSemaphore vkPresentSemaphore;
-  VkFence vkRenderFence;
-  VkCommandPool vkCommandPool;
-  VkCommandBuffer vkCommandBuffer;
-
-  AllocatedBuffer objectDataBuffer;
-  VkDescriptorSet objectDataDescriptorSet;
-};
-
-struct ImmediateSubmitContext {
-  VkFence vkFence;
-  VkCommandPool vkCommandPool;
-  VkCommandBuffer vkCommandBuffer;
-};
 
 class DeletionQueue {
 public:
@@ -85,20 +34,6 @@ public:
 
 private:
   std::deque<std::function<void()>> deletionFuncs;
-};
-
-struct FramebufferImageViews {
-  std::vector<VkImageView> vkImageViews;
-};
-
-struct AllocatedImage {
-  VkImage vkImage;
-  VmaAllocation allocation;
-};
-
-struct Texture {
-  AllocatedImage image;
-  VkImageView imageView;
 };
 
 class VulkanEngine {
@@ -135,8 +70,6 @@ private:
   int _selectedShader = 0;
   DeletionQueue _deletionQueue;
   VmaAllocator _vmaAllocator;
-  Mesh _triangleMesh;
-  Mesh _monkeyMesh;
   VkFormat _depthFormat = VK_FORMAT_D32_SFLOAT;
   std::vector<RenderObject> _renderObjects;
   std::unordered_map<std::string, Material> _materials;
@@ -149,8 +82,9 @@ private:
   AllocatedBuffer _cameraBuffer;
   VkDescriptorSet _globalDescriptorSet;
   ImmediateSubmitContext _immediateSubmitContext;
-  glm::vec3 _cameraPos = {0.f, -6.f, -10.f};
+  glm::vec3 _cameraPos = {0.f, 10.f, 6.f};
   glm::vec2 _cameraRotationRad = {0.f, 0.f};
+  VkSampler _vkSampler;
 
   void initVulkan();
   void initSwapchain();
@@ -161,6 +95,8 @@ private:
   bool loadShaderModule(char const* filePath, VkShaderModule* outShaderModule);
   void initPipelines();
   void initScene();
+  void loadTexture(std::string_view textureName,
+                   std::filesystem::path const& texturePath);
   void loadTextures();
   void loadMeshes();
   void uploadMesh(Mesh& mesh);

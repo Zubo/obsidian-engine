@@ -60,11 +60,11 @@ descriptorSetAllocateInfo(VkDescriptorPool descriptorPool,
                           VkDescriptorSetLayout const* descriptorSetLayouts,
                           std::uint32_t descriptorSetLayoutCount);
 
-VkWriteDescriptorSet
-writeDescriptorSet(VkDescriptorSet descriptorSet,
-                   VkDescriptorBufferInfo const* bufferInfos,
-                   std::size_t bufferInfosSize, VkDescriptorType descriptorType,
-                   std::uint32_t binding);
+VkWriteDescriptorSet writeDescriptorSet(
+    VkDescriptorSet descriptorSet, VkDescriptorBufferInfo const* bufferInfos,
+    std::size_t bufferInfosSize, VkDescriptorImageInfo const* imageInfos,
+    std::size_t imageInfosSize, VkDescriptorType descriptorType,
+    std::uint32_t binding);
 
 VkCommandBufferBeginInfo commandBufferBeginInfo(
     VkCommandBufferUsageFlags flags,

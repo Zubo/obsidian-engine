@@ -54,11 +54,11 @@ void VulkanEngine::init() {
 
   initSyncStructures();
 
+  loadTextures();
+
   initDescriptors();
 
   initPipelines();
-
-  loadTextures();
 
   loadMeshes();
 
@@ -496,11 +496,10 @@ void VulkanEngine::initPipelines() {
   VkPipelineLayoutCreateInfo meshPipelineLayoutInfo =
       vkinit::pipelineLayoutCreateInfo();
 
-  VkDescriptorSetLayout const descriptorSetLayouts[] = {
+  std::array<VkDescriptorSetLayout, 2> const descriptorSetLayouts = {
       _vkGlobalDescriptorSetLayout, _vkObjectDataDescriptorSetLayout};
 
-  meshPipelineLayoutInfo.setLayoutCount =
-      sizeof(descriptorSetLayouts) / sizeof(descriptorSetLayouts[0]);
+  meshPipelineLayoutInfo.setLayoutCount = descriptorSetLayouts.size();
   meshPipelineLayoutInfo.pSetLayouts = &_vkGlobalDescriptorSetLayout;
 
   VK_CHECK(vkCreatePipelineLayout(_vkDevice, &meshPipelineLayoutInfo, nullptr,
@@ -508,6 +507,7 @@ void VulkanEngine::initPipelines() {
 
   pipelineBuilder._vkPipelineLayout = _vkMeshPipelineLayout;
   _vkMeshPipeline = pipelineBuilder.buildPipeline(_vkDevice, _vkRenderPass);
+
   createMaterial(_vkMeshPipeline, _vkMeshPipelineLayout, "defaultmesh");
 
   vkDestroyShaderModule(_vkDevice, meshVertShader, nullptr);
@@ -572,12 +572,15 @@ VkPipeline PipelineBuilder::buildPipeline(VkDevice device, VkRenderPass pass) {
 }
 
 void VulkanEngine::initScene() {
-  RenderObject monkey;
+  RenderObject& monkey = _renderObjects.emplace_back();
   monkey.mesh = getMesh("monkey");
   monkey.material = getMaterial("defaultmesh");
   monkey.transformMatrix = glm::mat4{1.0f};
 
-  _renderObjects.push_back(monkey);
+  RenderObject& lostEmpire = _renderObjects.emplace_back();
+  lostEmpire.mesh = getMesh("lostEmpire");
+  lostEmpire.material = getMaterial("defaultmesh");
+  lostEmpire.transformMatrix = glm::mat4{1.f};
 
   for (int x = -20; x <= 20; ++x) {
     for (int y = -20; y <= 20; ++y) {
@@ -597,10 +600,11 @@ void VulkanEngine::initScene() {
   }
 }
 
-void VulkanEngine::loadTextures() {
-  Texture& lostEmpireTexture = _loadedTextures["empire"];
+void VulkanEngine::loadTexture(std::string_view textureName,
+                               std::filesystem::path const& texturePath) {
+  Texture& lostEmpireTexture = _loadedTextures[std::string{textureName}];
   bool const lostEmpImageLoaded =
-      loadImage("assets/lost_empire-RGBA.png", lostEmpireTexture.image);
+      loadImage(texturePath.c_str(), lostEmpireTexture.image);
   assert(lostEmpImageLoaded);
 
   VkImageViewCreateInfo lostEmpImgViewCreateInfo = vkinit::imageViewCreateInfo(
@@ -615,23 +619,31 @@ void VulkanEngine::loadTextures() {
   });
 }
 
+void VulkanEngine::loadTextures() {
+  loadTexture("defaultTexture", {"assets/default-texture.png"});
+  loadTexture("lostEmpire", {"assets/lost_empire-RGBA.png"});
+}
+
 void VulkanEngine::loadMeshes() {
-  _triangleMesh.vertices.resize(3);
-  _triangleMesh.vertices[0].position = {1.0f, 1.0f, 0.0f};
-  _triangleMesh.vertices[1].position = {-1.0f, 1.0f, 0.0f};
-  _triangleMesh.vertices[2].position = {0.0f, -1.0f, 0.0f};
+  Mesh& triangleMesh = _meshes["triangle"];
+  triangleMesh.vertices.resize(3);
+  triangleMesh.vertices[0].position = {1.0f, 1.0f, 0.0f};
+  triangleMesh.vertices[1].position = {-1.0f, 1.0f, 0.0f};
+  triangleMesh.vertices[2].position = {0.0f, -1.0f, 0.0f};
 
-  _triangleMesh.vertices[0].color = {0.0f, 1.0f, 0.0f};
-  _triangleMesh.vertices[1].color = {0.0f, 1.0f, 0.0f};
-  _triangleMesh.vertices[2].color = {0.7f, 0.5f, 0.1f};
+  triangleMesh.vertices[0].color = {0.0f, 1.0f, 0.0f};
+  triangleMesh.vertices[1].color = {0.0f, 1.0f, 0.0f};
+  triangleMesh.vertices[2].color = {0.7f, 0.5f, 0.1f};
 
-  uploadMesh(_triangleMesh);
+  uploadMesh(triangleMesh);
 
-  _monkeyMesh.loadFromObj("assets/monkey_smooth.obj");
-  uploadMesh(_monkeyMesh);
+  Mesh& monkeyMesh = _meshes["monkey"];
+  monkeyMesh.loadFromObj("assets/monkey_smooth.obj");
+  uploadMesh(monkeyMesh);
 
-  _meshes["monkey"] = _monkeyMesh;
-  _meshes["triangle"] = _triangleMesh;
+  Mesh& lostEmpire = _meshes["lostEmpire"];
+  lostEmpire.loadFromObj("assets/lost_empire.obj");
+  uploadMesh(lostEmpire);
 }
 
 void VulkanEngine::uploadMesh(Mesh& mesh) {
@@ -801,7 +813,8 @@ void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject* first,
 
   GPUSceneData gpuSceneData;
   gpuSceneData.ambientColor = {
-      1.0, 1 - std::abs(std::sin(_frameNumber / 20.0f)), 1.0, 1.0};
+      // 1.0, 1 - std::abs(std::sin(_frameNumber / 20.0f)), 1.0, 1.0};
+      1.f, 1.f, 1.f, 1.f};
 
   VK_CHECK(vmaMapMemory(_vmaAllocator, _sceneDataBuffer.allocation,
                         reinterpret_cast<void**>(&data)));
@@ -920,7 +933,8 @@ void VulkanEngine::initDescriptors() {
   std::vector<VkDescriptorPoolSize> descriptorPoolSizes = {
       {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, descriptorPoolSize},
       {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, descriptorPoolSize},
-      {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, descriptorPoolSize}};
+      {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, descriptorPoolSize},
+      {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, descriptorPoolSize}};
 
   VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {};
   descriptorPoolCreateInfo.sType =
@@ -960,12 +974,19 @@ void VulkanEngine::initDescriptors() {
                                  nullptr);
   });
 
-  VkDescriptorSetLayoutBinding objectDataBinding =
-      vkinit::descriptorSetLayoutBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-                                         VK_SHADER_STAGE_VERTEX_BIT);
+  std::array<VkDescriptorSetLayoutBinding, 2> perObjectBindings;
+  VkDescriptorSetLayoutBinding& objectDataBinding = perObjectBindings[0];
+  objectDataBinding = vkinit::descriptorSetLayoutBinding(
+      0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
+
+  VkDescriptorSetLayoutBinding& textureBinding = perObjectBindings[1];
+  textureBinding = vkinit::descriptorSetLayoutBinding(
+      1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+      VK_SHADER_STAGE_FRAGMENT_BIT);
 
   VkDescriptorSetLayoutCreateInfo objectLayoutCreateInfo =
-      vkinit::descriptorSetLayoutCreateInfo(&objectDataBinding, 1);
+      vkinit::descriptorSetLayoutCreateInfo(perObjectBindings.data(),
+                                            perObjectBindings.size());
 
   VK_CHECK(vkCreateDescriptorSetLayout(_vkDevice, &objectLayoutCreateInfo,
                                        nullptr,
@@ -1017,14 +1038,32 @@ void VulkanEngine::initDescriptors() {
 
   std::vector<VkWriteDescriptorSet> descriptorSetWrites = {
       vkinit::writeDescriptorSet(_globalDescriptorSet,
-                                 &cameraDescriptorBufferInfo, 1,
+                                 &cameraDescriptorBufferInfo, 1, nullptr, 0,
                                  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 0),
       vkinit::writeDescriptorSet(_globalDescriptorSet,
-                                 &sceneDescriptorBufferInfo, 1,
+                                 &sceneDescriptorBufferInfo, 1, nullptr, 0,
                                  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1)};
 
   vkUpdateDescriptorSets(_vkDevice, descriptorSetWrites.size(),
                          descriptorSetWrites.data(), 0, nullptr);
+
+  VkSamplerCreateInfo vkSamplerCreateInfo = {};
+  vkSamplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+  vkSamplerCreateInfo.pNext = nullptr;
+
+  vkSamplerCreateInfo.magFilter = VK_FILTER_NEAREST;
+  vkSamplerCreateInfo.minFilter = VK_FILTER_NEAREST;
+  vkSamplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+  vkSamplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+  vkSamplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+  vkSamplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+  vkSamplerCreateInfo.anisotropyEnable = VK_FALSE;
+
+  VK_CHECK(
+      vkCreateSampler(_vkDevice, &vkSamplerCreateInfo, nullptr, &_vkSampler));
+
+  _deletionQueue.pushFunction(
+      [this]() { vkDestroySampler(_vkDevice, _vkSampler, nullptr); });
 
   for (int i = 0; i < frameOverlap; ++i) {
     _frameDataArray[i].objectDataBuffer =
@@ -1045,17 +1084,34 @@ void VulkanEngine::initDescriptors() {
         _vkDevice, &objectDataDescriptorSetAllocateInfo,
         &_frameDataArray[i].objectDataDescriptorSet));
 
-    VkDescriptorBufferInfo objectDataDescriptorBufferInfo;
+    std::array<VkWriteDescriptorSet, 2> writeDescriptorSets;
+
+    VkDescriptorBufferInfo objectDataDescriptorBufferInfo = {};
     objectDataDescriptorBufferInfo.buffer =
         _frameDataArray[i].objectDataBuffer.buffer;
     objectDataDescriptorBufferInfo.offset = 0;
     objectDataDescriptorBufferInfo.range = VK_WHOLE_SIZE;
-    VkWriteDescriptorSet writeDescriptorSet =
-        vkinit::writeDescriptorSet(_frameDataArray[i].objectDataDescriptorSet,
-                                   &objectDataDescriptorBufferInfo, 1,
-                                   VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 0);
 
-    vkUpdateDescriptorSets(_vkDevice, 1, &writeDescriptorSet, 0, nullptr);
+    VkWriteDescriptorSet& writeObjectDataDescriptorSet = writeDescriptorSets[0];
+    writeObjectDataDescriptorSet =
+        vkinit::writeDescriptorSet(_frameDataArray[i].objectDataDescriptorSet,
+                                   &objectDataDescriptorBufferInfo, 1, nullptr,
+                                   0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 0);
+
+    VkDescriptorImageInfo textureDescriptorImageInfo = {};
+    textureDescriptorImageInfo.imageLayout =
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    textureDescriptorImageInfo.sampler = _vkSampler;
+    textureDescriptorImageInfo.imageView =
+        _loadedTextures["lostEmpire"].imageView;
+
+    VkWriteDescriptorSet& writeImageDescriptorSet = writeDescriptorSets[1];
+    writeImageDescriptorSet = vkinit::writeDescriptorSet(
+        _frameDataArray[i].objectDataDescriptorSet, nullptr, 0,
+        &textureDescriptorImageInfo, 1,
+        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1);
+    vkUpdateDescriptorSets(_vkDevice, writeDescriptorSets.size(),
+                           writeDescriptorSets.data(), 0, nullptr);
   }
 }
 

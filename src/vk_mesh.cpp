@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
+#include <vulkan/vulkan_core.h>
 
 VertexInputDescription Vertex::getVertexInputDescription() {
   VertexInputDescription description;
@@ -39,6 +40,14 @@ VertexInputDescription Vertex::getVertexInputDescription() {
   colorAttribute.offset = offsetof(Vertex, color);
 
   description.attributes.push_back(colorAttribute);
+
+  VkVertexInputAttributeDescription uvAttribute = {};
+  uvAttribute.location = 3;
+  uvAttribute.binding = 0;
+  uvAttribute.format = VK_FORMAT_R32G32_SFLOAT;
+  uvAttribute.offset = offsetof(Vertex, uv);
+
+  description.attributes.push_back(uvAttribute);
 
   return description;
 }
@@ -76,6 +85,7 @@ bool Mesh::loadFromObj(char const* filePath) {
         tinyobj::real_t const posX = attrib.vertices[3 * idx.vertex_index + 0];
         tinyobj::real_t const posY = attrib.vertices[3 * idx.vertex_index + 1];
         tinyobj::real_t const posZ = attrib.vertices[3 * idx.vertex_index + 2];
+
         tinyobj::real_t const normalX =
             attrib.normals[3 * idx.normal_index + 0];
         tinyobj::real_t const normalY =
@@ -83,9 +93,18 @@ bool Mesh::loadFromObj(char const* filePath) {
         tinyobj::real_t const normalZ =
             attrib.normals[3 * idx.normal_index + 2];
 
-        vertices.emplace_back(glm::vec3{posX, posY, posZ},
-                              glm::vec3{normalX, normalY, normalZ},
-                              glm::vec3{normalX, normalY, normalZ});
+        tinyobj::real_t const colorR = attrib.colors[3 * idx.vertex_index + 0];
+        tinyobj::real_t const colorG = attrib.colors[3 * idx.vertex_index + 1];
+        tinyobj::real_t const colorB = attrib.colors[3 * idx.vertex_index + 2];
+
+        tinyobj::real_t const texCoordU =
+            attrib.texcoords[2 * idx.texcoord_index + 0];
+        tinyobj::real_t const texCoordV =
+            1.f - attrib.texcoords[2 * idx.texcoord_index + 1];
+
+        vertices.emplace_back(
+            glm::vec3{posX, posY, posZ}, glm::vec3{normalX, normalY, normalZ},
+            glm::vec3{colorR, colorG, colorB}, glm::vec2{texCoordU, texCoordV});
       }
 
       faceIndOffset += vertexCount;

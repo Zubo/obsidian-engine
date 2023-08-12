@@ -1,3 +1,4 @@
+#include <cassert>
 #include <vk_initializers.hpp>
 #include <vulkan/vulkan_core.h>
 
@@ -244,20 +245,23 @@ descriptorSetAllocateInfo(VkDescriptorPool descriptorPool,
   return descriptorSetAllocateInfo;
 }
 
-VkWriteDescriptorSet
-writeDescriptorSet(VkDescriptorSet descriptorSet,
-                   VkDescriptorBufferInfo const* bufferInfos,
-                   std::size_t bufferInfosSize, VkDescriptorType descriptorType,
-                   std::uint32_t binding) {
+VkWriteDescriptorSet writeDescriptorSet(
+    VkDescriptorSet descriptorSet, VkDescriptorBufferInfo const* bufferInfos,
+    std::size_t bufferInfosSize, VkDescriptorImageInfo const* imageInfos,
+    std::size_t imageInfosSize, VkDescriptorType descriptorType,
+    std::uint32_t binding) {
+  assert((!bufferInfosSize || !imageInfosSize) &&
+         "Use only for one type of descriptor");
   VkWriteDescriptorSet writeDescriptorSet = {};
   writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
   writeDescriptorSet.pNext = nullptr;
   writeDescriptorSet.dstSet = descriptorSet;
   writeDescriptorSet.dstBinding = binding;
   writeDescriptorSet.dstArrayElement = 0;
-  writeDescriptorSet.descriptorCount = bufferInfosSize;
+  writeDescriptorSet.descriptorCount = bufferInfosSize + imageInfosSize;
   writeDescriptorSet.descriptorType = descriptorType;
   writeDescriptorSet.pBufferInfo = bufferInfos;
+  writeDescriptorSet.pImageInfo = imageInfos;
 
   return writeDescriptorSet;
 }
