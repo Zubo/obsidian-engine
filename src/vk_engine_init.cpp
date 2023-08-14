@@ -27,6 +27,8 @@ void VulkanEngine::init() {
 
   initDefaultRenderPass();
 
+  initShadowRenderPass();
+
   initFramebuffers();
 
   initSyncStructures();
@@ -266,6 +268,50 @@ void VulkanEngine::initDefaultRenderPass() {
 
   _deletionQueue.pushFunction(
       [this]() { vkDestroyRenderPass(_vkDevice, _vkRenderPass, nullptr); });
+}
+
+void VulkanEngine::initShadowRenderPass() {
+  VkRenderPassCreateInfo vkRenderPassCreateInfo = {};
+  vkRenderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+  vkRenderPassCreateInfo.pNext = nullptr;
+
+  VkAttachmentDescription vkAttachmentDescription = {};
+  vkAttachmentDescription.format = _depthFormat;
+  vkAttachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
+  vkAttachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+  vkAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+  vkAttachmentDescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+  vkAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+  vkAttachmentDescription.initialLayout =
+      VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+  vkAttachmentDescription.finalLayout =
+      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+  vkRenderPassCreateInfo.pAttachments = &vkAttachmentDescription;
+  vkRenderPassCreateInfo.attachmentCount = 1;
+
+  VkSubpassDescription vkSubpassDescription = {};
+  vkSubpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+  vkSubpassDescription.inputAttachmentCount = 0;
+  vkSubpassDescription.colorAttachmentCount = 0;
+
+  VkAttachmentReference vkDepthStencilAttachmentReference = {};
+  vkDepthStencilAttachmentReference.attachment = 0;
+  vkDepthStencilAttachmentReference.layout =
+      VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+  vkSubpassDescription.pDepthStencilAttachment =
+      &vkDepthStencilAttachmentReference;
+
+  vkRenderPassCreateInfo.subpassCount = 1;
+  vkRenderPassCreateInfo.pSubpasses = &vkSubpassDescription;
+
+  VK_CHECK(vkCreateRenderPass(_vkDevice, &vkRenderPassCreateInfo, nullptr,
+                              &_vkShadowRenderPass));
+
+  _deletionQueue.pushFunction([this]() {
+    vkDestroyRenderPass(_vkDevice, _vkShadowRenderPass, nullptr);
+  });
 }
 
 void VulkanEngine::initFramebuffers() {

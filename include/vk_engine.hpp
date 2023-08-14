@@ -51,6 +51,7 @@ private:
   VkQueue _vkGraphicsQueue;
   std::uint32_t _graphicsQueueFamilyIndex;
   VkRenderPass _vkRenderPass;
+  VkRenderPass _vkShadowRenderPass;
   std::vector<VkFramebuffer> _vkFramebuffers;
   std::array<FrameData, 2> _frameDataArray;
   std::uint32_t _frameNumber = 0;
@@ -79,6 +80,7 @@ private:
   void initSwapchain();
   void initCommands();
   void initDefaultRenderPass();
+  void initShadowRenderPass();
   void initFramebuffers();
   void initSyncStructures();
   bool loadShaderModule(char const* filePath, VkShaderModule* outShaderModule);
