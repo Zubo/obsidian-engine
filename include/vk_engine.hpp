@@ -7,7 +7,7 @@
 #include <vk_types.hpp>
 
 #include <glm/glm.hpp>
-#include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan.hpp>
 
 #include <array>
 #include <cstdint>
@@ -25,6 +25,8 @@ struct SDL_Window;
 class VulkanEngine {
   static unsigned int const frameOverlap = 2;
   static unsigned int const maxNumberOfObjects = 10000;
+  static unsigned int const shadowPassAttachmentWidth = 1000;
+  static unsigned int const shadowPassAttachmentHeight = 1000;
 
 public:
   bool IsInitialized{false};
@@ -56,8 +58,10 @@ private:
   std::array<FrameData, 2> _frameDataArray;
   std::uint32_t _frameNumber = 0;
   VkPipelineLayout _vkMeshPipelineLayout;
+  VkPipelineLayout _vkShadowPassPipelineLayout;
   VkPipeline _vkMeshPipeline;
   VkPipeline _vkLitMeshPipeline;
+  VkPipeline _vkShadowPassPipeline;
   DeletionQueue _deletionQueue;
   VmaAllocator _vmaAllocator;
   VkFormat _depthFormat = VK_FORMAT_D32_SFLOAT;
@@ -82,6 +86,7 @@ private:
   void initDefaultRenderPass();
   void initShadowRenderPass();
   void initFramebuffers();
+  void initShadowPassFramebuffers();
   void initSyncStructures();
   bool loadShaderModule(char const* filePath, VkShaderModule* outShaderModule);
   void initPipelines();

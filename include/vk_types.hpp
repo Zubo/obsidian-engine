@@ -60,6 +60,8 @@ struct FrameData {
 
   AllocatedBuffer objectDataBuffer;
   VkDescriptorSet objectDataDescriptorSet;
+
+  VkFramebuffer shadowFrameBuffer;
 };
 
 struct ImmediateSubmitContext {

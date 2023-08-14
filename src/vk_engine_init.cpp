@@ -1,3 +1,4 @@
+#include "vk_types.hpp"
 #include <renderdoc.hpp>
 #include <vk_check.hpp>
 #include <vk_engine.hpp>
@@ -8,6 +9,8 @@
 #include <VkBootstrap.h>
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
+#include <vk_mem_alloc.h>
+#include <vulkan/vulkan.hpp>
 
 void VulkanEngine::init() {
   SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_WINDOW_MOUSE_CAPTURE);
@@ -337,6 +340,70 @@ void VulkanEngine::initFramebuffers() {
     _deletionQueue.pushFunction([this, i]() {
       vkDestroyFramebuffer(_vkDevice, _vkFramebuffers[i], nullptr);
     });
+  }
+}
+
+void VulkanEngine::initShadowPassFramebuffers() {
+  for (std::size_t i = 0; i < _frameDataArray.size(); ++i) {
+
+    AllocatedImage imageShadowPassAttachment;
+
+    VkExtent3D vkShadowPassAttachmentExtent = {shadowPassAttachmentWidth,
+                                               shadowPassAttachmentHeight, 1};
+    VkImageCreateInfo const vkImageShadowPassAttachmentCreateInfo =
+        vkinit::imageCreateInfo(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+                                vkShadowPassAttachmentExtent, _depthFormat);
+
+    VmaAllocationCreateInfo allocationCreateInfo = {};
+    allocationCreateInfo.flags = 0;
+    allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+    VK_CHECK(vmaCreateImage(
+        _vmaAllocator, &vkImageShadowPassAttachmentCreateInfo,
+        &allocationCreateInfo, &imageShadowPassAttachment.vkImage,
+        &imageShadowPassAttachment.allocation, nullptr));
+
+    _deletionQueue.pushFunction([this, imageShadowPassAttachment]() {
+      vmaDestroyImage(_vmaAllocator, imageShadowPassAttachment.vkImage,
+                      imageShadowPassAttachment.allocation);
+    });
+
+    VkImageView vkShadowPassAttachmentImgView;
+
+    VkImageViewCreateInfo vkImageViewCreateInfo = {};
+    vkImageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    vkImageViewCreateInfo.pNext = nullptr;
+
+    vkImageViewCreateInfo.image = imageShadowPassAttachment.vkImage;
+    vkImageViewCreateInfo =
+        vkinit::imageViewCreateInfo(imageShadowPassAttachment.vkImage,
+                                    _depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+
+    VK_CHECK(vkCreateImageView(_vkDevice, &vkImageViewCreateInfo, nullptr,
+                               &vkShadowPassAttachmentImgView));
+
+    _deletionQueue.pushFunction([this, vkShadowPassAttachmentImgView]() {
+      vkDestroyImageView(_vkDevice, vkShadowPassAttachmentImgView, nullptr);
+    });
+
+    VkFramebufferCreateInfo vkFramebufferCreateInfo = {};
+
+    vkFramebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    vkFramebufferCreateInfo.pNext = nullptr;
+
+    vkFramebufferCreateInfo.renderPass = _vkShadowRenderPass;
+    vkFramebufferCreateInfo.attachmentCount = 1;
+    vkFramebufferCreateInfo.pAttachments = &vkShadowPassAttachmentImgView;
+    vkFramebufferCreateInfo.width = shadowPassAttachmentWidth;
+    vkFramebufferCreateInfo.height = shadowPassAttachmentHeight;
+    vkFramebufferCreateInfo.layers = 1;
+
+    VK_CHECK(vkCreateFramebuffer(_vkDevice, &vkFramebufferCreateInfo, nullptr,
+                                 &_frameDataArray[i].shadowFrameBuffer));
+
+    _deletionQueue.pushFunction(
+        [this, fb = _frameDataArray[i].shadowFrameBuffer]() {
+          vkDestroyFramebuffer(_vkDevice, fb, nullptr);
+        });
   }
 }
 
