@@ -56,6 +56,7 @@ private:
   std::uint32_t _frameNumber = 0;
   VkPipelineLayout _vkMeshPipelineLayout;
   VkPipeline _vkMeshPipeline;
+  VkPipeline _vkLitMeshPipeline;
   DeletionQueue _deletionQueue;
   VmaAllocator _vmaAllocator;
   VkFormat _depthFormat = VK_FORMAT_D32_SFLOAT;

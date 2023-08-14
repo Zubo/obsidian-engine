@@ -1,3 +1,5 @@
+#include "glm/ext/vector_float3.hpp"
+#include "glm/geometric.hpp"
 #include <vk_check.hpp>
 #include <vk_engine.hpp>
 #include <vk_initializers.hpp>
@@ -128,9 +130,11 @@ void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject* first,
   vmaUnmapMemory(_vmaAllocator, _cameraBuffer.allocation);
 
   GPUSceneData gpuSceneData;
-  gpuSceneData.ambientColor = {
-      // 1.0, 1 - std::abs(std::sin(_frameNumber / 20.0f)), 1.0, 1.0};
-      1.f, 1.f, 1.f, 1.f};
+  gpuSceneData.ambientColor = {0.05f, 0.05f, 0.05f, 1.f};
+  gpuSceneData.sunlightDirection = {glm::normalize(glm::vec3{0.3f, -1.f, 0.3f}),
+                                    1.f};
+
+  gpuSceneData.sunlightColor = glm::vec4(1.5f, 1.5f, 1.5f, 1.0f);
 
   VK_CHECK(vmaMapMemory(_vmaAllocator, _sceneDataBuffer.allocation,
                         reinterpret_cast<void**>(&data)));

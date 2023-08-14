@@ -376,20 +376,19 @@ void VulkanEngine::initPipelines() {
   VkShaderModule meshVertShader;
 
   if (!loadShaderModule("shaders/mesh.vert.spv", &meshVertShader)) {
-    std::cout << "Error when building the triangle vertex shader module"
+    std::cout << "Error when building the mesh vertex shader module"
               << std::endl;
   } else {
-    std::cout << "Mesh triangle vertex shader successfully loaded" << std::endl;
+    std::cout << "Mesh vertex shader successfully loaded" << std::endl;
   }
 
   VkShaderModule meshFragShader;
 
   if (!loadShaderModule("shaders/mesh.frag.spv", &meshFragShader)) {
-    std::cout << "Error when building the triangle fragment shader module"
+    std::cout << "Error when building the mesh fragment shader module"
               << std::endl;
   } else {
-    std::cout << "Mesh triangle fragment shader successfully loaded"
-              << std::endl;
+    std::cout << "Mesh fragment shader successfully loaded" << std::endl;
   }
 
   pipelineBuilder._vkShaderStageCreateInfo.push_back(
@@ -420,8 +419,50 @@ void VulkanEngine::initPipelines() {
   vkDestroyShaderModule(_vkDevice, meshVertShader, nullptr);
   vkDestroyShaderModule(_vkDevice, meshFragShader, nullptr);
 
+  _deletionQueue.pushFunction(
+      [this] { vkDestroyPipeline(_vkDevice, _vkMeshPipeline, nullptr); });
+
+  pipelineBuilder._vkShaderStageCreateInfo.clear();
+
+  // Lit mesh pipeline
+
+  VkShaderModule litMeshVertShader;
+
+  if (!loadShaderModule("shaders/mesh-light.vert.spv", &litMeshVertShader)) {
+    std::cout << "Error when building the lit mesh vertex shader module"
+              << std::endl;
+  } else {
+    std::cout << "Lit mesh vertex shader successfully loaded" << std::endl;
+  }
+
+  VkShaderModule litMeshFragShader;
+
+  if (!loadShaderModule("shaders/mesh-light.frag.spv", &litMeshFragShader)) {
+    std::cout << "Error when building the lit mesh fragment shader module"
+              << std::endl;
+  } else {
+    std::cout << "Lit mesh fragment shader successfully loaded" << std::endl;
+  }
+
+  pipelineBuilder._vkShaderStageCreateInfo.push_back(
+      vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT,
+                                            litMeshVertShader));
+
+  pipelineBuilder._vkShaderStageCreateInfo.push_back(
+      vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT,
+                                            litMeshFragShader));
+
+  _vkLitMeshPipeline = pipelineBuilder.buildPipeline(_vkDevice, _vkRenderPass);
+
+  createMaterial(_vkLitMeshPipeline, _vkMeshPipelineLayout, "litmesh");
+
+  vkDestroyShaderModule(_vkDevice, litMeshVertShader, nullptr);
+  vkDestroyShaderModule(_vkDevice, litMeshFragShader, nullptr);
+
+  _deletionQueue.pushFunction(
+      [this] { vkDestroyPipeline(_vkDevice, _vkLitMeshPipeline, nullptr); });
+
   _deletionQueue.pushFunction([this] {
-    vkDestroyPipeline(_vkDevice, _vkMeshPipeline, nullptr);
     vkDestroyPipelineLayout(_vkDevice, _vkMeshPipelineLayout, nullptr);
   });
 }
@@ -434,7 +475,7 @@ void VulkanEngine::initScene() {
 
   RenderObject& lostEmpire = _renderObjects.emplace_back();
   lostEmpire.mesh = getMesh("lostEmpire");
-  lostEmpire.material = getMaterial("defaultmesh");
+  lostEmpire.material = getMaterial("litmesh");
   lostEmpire.transformMatrix = glm::mat4{1.f};
 
   for (int x = -20; x <= 20; ++x) {
