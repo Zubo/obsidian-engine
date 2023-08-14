@@ -2,8 +2,9 @@
 
 #include <vk_types.hpp>
 
+#include <vulkan/vulkan.hpp>
+
 #include <cstdint>
-#include <vulkan/vulkan_core.h>
 
 namespace vkinit {
 

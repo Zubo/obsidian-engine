@@ -1,6 +1,5 @@
 #include <cassert>
 #include <vk_initializers.hpp>
-#include <vulkan/vulkan_core.h>
 
 namespace vkinit {
 

@@ -12,16 +12,23 @@ add_executable(ObsidianEngine
     "src/main.cpp"
     "src/vk_engine.cpp"
     "src/vk_engine_input_handling.cpp"
+    "src/vk_engine_draw.cpp"
+    "src/vk_engine_init.cpp"
+    "src/vk_engine_cleanup.cpp"
     "src/vk_initializers.cpp"
+    "src/vk_pipeline_builder.cpp"
     "src/vk_mesh.cpp"
     "src/renderdoc.cpp"
     "src/stbi_impl.cpp"
     "src/vma_impl.cpp"
     "include/vk_engine.hpp"
+    "include/vk_check.hpp"
     "include/vk_types.hpp"
     "include/vk_initializers.hpp"
     "include/vk_mesh.hpp"
     "include/renderdoc.hpp"
+    "include/vk_pipeline_builder.hpp"
+    "include/vk_deletion_queue.hpp"
 )
 
 target_include_directories(ObsidianEngine PRIVATE include)

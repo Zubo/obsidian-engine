@@ -1,11 +1,11 @@
 #include <vk_mesh.hpp>
 
 #include <tiny_obj_loader.h>
+#include <vulkan/vulkan.hpp>
 
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
-#include <vulkan/vulkan_core.h>
 
 VertexInputDescription Vertex::getVertexInputDescription() {
   VertexInputDescription description;
@@ -60,7 +60,7 @@ bool Mesh::loadFromObj(char const* filePath) {
   std::string warning, error;
 
   tinyobj::LoadObj(&attrib, &shapes, &materials, &warning, &error, filePath,
-                   nullptr);
+                   "assets");
 
   if (!warning.empty()) {
     std::cout << "tinyobj warning: " << warning << std::endl;

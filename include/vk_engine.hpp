@@ -1,8 +1,9 @@
 #pragma once
 
-#include <SDL_events.h>
 #include <string_view>
+#include <vk_deletion_queue.hpp>
 #include <vk_mesh.hpp>
+#include <vk_pipeline_builder.hpp>
 #include <vk_types.hpp>
 
 #include <glm/glm.hpp>
@@ -10,7 +11,6 @@
 
 #include <array>
 #include <cstdint>
-#include <deque>
 #include <filesystem>
 #include <functional>
 #include <string_view>
@@ -18,25 +18,14 @@
 #include <utility>
 #include <vector>
 
-class DeletionQueue {
-public:
-  template <typename TFunc> void pushFunction(TFunc&& f) {
-    deletionFuncs.emplace_back(std::forward<TFunc>(f));
-  }
-
-  void flush() {
-    for (auto deletionFuncIter = deletionFuncs.crbegin();
-         deletionFuncIter != deletionFuncs.crend(); ++deletionFuncIter)
-      (*deletionFuncIter)();
-
-    deletionFuncs.clear();
-  }
-
-private:
-  std::deque<std::function<void()>> deletionFuncs;
-};
+struct SDL_KeyboardEvent;
+struct SDL_MouseMotionEvent;
+struct SDL_Window;
 
 class VulkanEngine {
+  static unsigned int const frameOverlap = 2;
+  static unsigned int const maxNumberOfObjects = 10000;
+
 public:
   bool IsInitialized{false};
   int FrameNumber{0};
@@ -67,7 +56,6 @@ private:
   std::uint32_t _frameNumber = 0;
   VkPipelineLayout _vkMeshPipelineLayout;
   VkPipeline _vkMeshPipeline;
-  int _selectedShader = 0;
   DeletionQueue _deletionQueue;
   VmaAllocator _vmaAllocator;
   VkFormat _depthFormat = VK_FORMAT_D32_SFLOAT;
@@ -118,20 +106,4 @@ private:
   bool loadImage(char const* filePath, AllocatedImage& outAllocatedImage);
   void handleKeyboardInput(SDL_KeyboardEvent const& e);
   void handleMoseInput(SDL_MouseMotionEvent const& e);
-};
-
-class PipelineBuilder {
-public:
-  std::vector<VkPipelineShaderStageCreateInfo> _vkShaderStageCreateInfo;
-  VkPipelineVertexInputStateCreateInfo _vkVertexInputInfo;
-  VkPipelineInputAssemblyStateCreateInfo _vkInputAssemblyCreateInfo;
-  VkPipelineDepthStencilStateCreateInfo _vkDepthStencilStateCreateInfo;
-  VkViewport _vkViewport;
-  VkRect2D _vkScissor;
-  VkPipelineRasterizationStateCreateInfo _vkRasterizationCreateInfo;
-  VkPipelineColorBlendAttachmentState _vkColorBlendAttachmentState;
-  VkPipelineMultisampleStateCreateInfo _vkMultisampleStateCreateInfo;
-  VkPipelineLayout _vkPipelineLayout;
-
-  VkPipeline buildPipeline(VkDevice device, VkRenderPass pass);
 };

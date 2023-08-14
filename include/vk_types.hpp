@@ -1,11 +1,13 @@
 #pragma once
 
-#include <glm/ext/matrix_float4x4.hpp>
+#include <glm/matrix.hpp>
 #include <glm/vec4.hpp>
 
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.hpp>
 #include <vulkan/vulkan_core.h>
+
+#include <vector>
 
 struct AllocatedBuffer {
   VkBuffer buffer;
@@ -30,9 +32,6 @@ struct MeshPushConstants {
   glm::vec4 data;
   glm::mat4 renderMatrix;
 };
-
-constexpr unsigned int frameOverlap = 2;
-constexpr unsigned int maxNumberOfObjects = 10000;
 
 struct GPUCameraData {
   glm::mat4 view;
