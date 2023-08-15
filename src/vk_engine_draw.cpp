@@ -223,8 +223,8 @@ void VulkanEngine::drawShadowPass(VkCommandBuffer cmd, RenderObject* first,
                                   int count) {
   ZoneScoped;
 
-  glm::mat4 const view = glm::lookAt(
-      -300.f * glm::normalize(_sunlightDirection), {}, {0.f, 1.f, 0.f});
+  glm::mat4 const view =
+      glm::lookAt({}, -glm::normalize(_sunlightDirection), {0.f, 1.f, 0.f});
   glm::mat4 proj = glm::ortho(-300.f, 300.f, -300.f, 300.f, -300.f, 300.f);
   proj[1][1] *= -1;
   GPUCameraData gpuCameraData;
