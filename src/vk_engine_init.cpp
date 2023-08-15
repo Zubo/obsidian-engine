@@ -1,3 +1,4 @@
+#include "vk_mesh.hpp"
 #include "vk_types.hpp"
 #include <renderdoc.hpp>
 #include <vk_check.hpp>
@@ -598,6 +599,19 @@ void VulkanEngine::initPipelines() {
   pipelineBuilder._vkScissor.extent = {shadowPassAttachmentWidth,
                                        shadowPassAttachmentHeight};
 
+  VertexInputDescription shadowPassVertexInputDescription =
+      Vertex::getVertexInputDescription(true, false, false, false);
+
+  pipelineBuilder._vkVertexInputInfo.vertexBindingDescriptionCount =
+      shadowPassVertexInputDescription.bindings.size();
+  pipelineBuilder._vkVertexInputInfo.pVertexBindingDescriptions =
+      shadowPassVertexInputDescription.bindings.data();
+
+  pipelineBuilder._vkVertexInputInfo.vertexAttributeDescriptionCount =
+      shadowPassVertexInputDescription.attributes.size();
+  pipelineBuilder._vkVertexInputInfo.pVertexAttributeDescriptions =
+      shadowPassVertexInputDescription.attributes.data();
+
   VkShaderModule shadowPassVertShader;
 
   if (!loadShaderModule("shaders/shadow-pass.vert.spv",
@@ -780,6 +794,16 @@ void VulkanEngine::initDescriptors() {
     vmaDestroyBuffer(_vmaAllocator, buffer.buffer, buffer.allocation);
   });
 
+  _shadowPassCameraBuffer =
+      createBuffer(frameOverlap * getPaddedBufferSize(sizeof(GPUCameraData)),
+                   VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_AUTO,
+                   VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+
+  _deletionQueue.pushFunction([this]() {
+    vmaDestroyBuffer(_vmaAllocator, _shadowPassCameraBuffer.buffer,
+                     _shadowPassCameraBuffer.allocation);
+  });
+
   VkDescriptorSetAllocateInfo globalDescriptorSetAllocateInfo =
       vkinit::descriptorSetAllocateInfo(_vkDescriptorPool,
                                         &_vkGlobalDescriptorSetLayout, 1);
@@ -904,9 +928,9 @@ void VulkanEngine::initShadowPassDescriptors() {
                                     &_vkShadowPassGlobalDescriptorSet));
 
   VkDescriptorBufferInfo vkCameraDatabufferInfo = {};
-  vkCameraDatabufferInfo.buffer = _cameraBuffer.buffer;
+  vkCameraDatabufferInfo.buffer = _shadowPassCameraBuffer.buffer;
   vkCameraDatabufferInfo.offset = 0;
-  vkCameraDatabufferInfo.range = VK_WHOLE_SIZE;
+  vkCameraDatabufferInfo.range = sizeof(GPUCameraData);
   VkWriteDescriptorSet vkShadowPassGlobalWriteDescriptorSet =
       vkinit::writeDescriptorSet(_vkShadowPassGlobalDescriptorSet,
                                  &vkCameraDatabufferInfo, 1, nullptr, 0,

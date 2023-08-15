@@ -22,7 +22,9 @@ struct Vertex {
   glm::vec3 color;
   glm::vec2 uv;
 
-  static VertexInputDescription getVertexInputDescription();
+  static VertexInputDescription
+  getVertexInputDescription(bool bindPosition = true, bool bindNormals = true,
+                            bool bindColors = true, bool bindUV = true);
 };
 
 struct Mesh {

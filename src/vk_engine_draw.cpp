@@ -1,5 +1,10 @@
+#include "glm/ext/matrix_clip_space.hpp"
+#include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/geometric.hpp"
+#include "vk_mem_alloc.h"
+#include "vk_types.hpp"
+#include <cstring>
 #include <vk_check.hpp>
 #include <vk_engine.hpp>
 #include <vk_initializers.hpp>
@@ -28,6 +33,18 @@ void VulkanEngine::draw() {
                                    currentFrameData.vkPresentSemaphore,
                                    VK_NULL_HANDLE, &swapchainImageIndex));
   }
+
+  void* data;
+  vmaMapMemory(_vmaAllocator, currentFrameData.objectDataBuffer.allocation,
+               &data);
+
+  GPUObjectData* objectData = reinterpret_cast<GPUObjectData*>(data);
+
+  for (int i = 0; i < _renderObjects.size(); ++i) {
+    objectData[i].modelMat = _renderObjects[i].transformMatrix;
+  }
+
+  vmaUnmapMemory(_vmaAllocator, currentFrameData.objectDataBuffer.allocation);
 
   VkCommandBuffer cmd = currentFrameData.vkCommandBuffer;
 
@@ -62,6 +79,8 @@ void VulkanEngine::draw() {
 
   vkCmdBeginRenderPass(cmd, &vkShadowRenderPassBeginInfo,
                        VK_SUBPASS_CONTENTS_INLINE);
+
+  drawShadowPass(cmd, _renderObjects.data(), _renderObjects.size());
 
   vkCmdEndRenderPass(cmd);
 
@@ -133,8 +152,6 @@ void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject* first,
   gpuCameraData.proj = projection;
   gpuCameraData.viewProj = projection * view;
 
-  FrameData& currentFrameData = getCurrentFrameData();
-
   std::size_t const frameInd = _frameNumber % frameOverlap;
 
   void* data = nullptr;
@@ -151,9 +168,7 @@ void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject* first,
 
   GPUSceneData gpuSceneData;
   gpuSceneData.ambientColor = {0.05f, 0.05f, 0.05f, 1.f};
-  gpuSceneData.sunlightDirection = {glm::normalize(glm::vec3{0.3f, -1.f, 0.3f}),
-                                    1.f};
-
+  gpuSceneData.sunlightDirection = {glm::normalize(_sunlightDirection), 1.f};
   gpuSceneData.sunlightColor = glm::vec4(1.5f, 1.5f, 1.5f, 1.0f);
 
   VK_CHECK(vmaMapMemory(_vmaAllocator, _sceneDataBuffer.allocation,
@@ -167,16 +182,7 @@ void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject* first,
 
   vmaUnmapMemory(_vmaAllocator, _sceneDataBuffer.allocation);
 
-  vmaMapMemory(_vmaAllocator, currentFrameData.objectDataBuffer.allocation,
-               &data);
-
-  GPUObjectData* objectData = reinterpret_cast<GPUObjectData*>(data);
-
-  for (int i = 0; i < _renderObjects.size(); ++i) {
-    objectData[i].modelMat = _renderObjects[i].transformMatrix;
-  }
-
-  vmaUnmapMemory(_vmaAllocator, currentFrameData.objectDataBuffer.allocation);
+  FrameData& currentFrameData = getCurrentFrameData();
 
   Material const* lastMaterial;
   for (int i = 0; i < count; ++i) {
@@ -210,5 +216,63 @@ void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject* first,
     vkCmdBindVertexBuffers(cmd, 0, 1, &mesh.vertexBuffer.buffer, &bufferOffset);
 
     vkCmdDraw(cmd, mesh.vertices.size(), 1, 0, i);
+  }
+}
+
+void VulkanEngine::drawShadowPass(VkCommandBuffer cmd, RenderObject* first,
+                                  int count) {
+  ZoneScoped;
+
+  glm::mat4 const view = glm::lookAt(
+      -300.f * glm::normalize(_sunlightDirection), {}, {0.f, 1.f, 0.f});
+  glm::mat4 proj = glm::ortho(-300.f, 300.f, -300.f, 300.f, -300.f, 300.f);
+  proj[1][1] *= -1;
+  GPUCameraData gpuCameraData;
+  gpuCameraData.view = view;
+  gpuCameraData.proj = proj;
+  gpuCameraData.viewProj = proj * view;
+
+  void* data;
+  VK_CHECK(
+      vmaMapMemory(_vmaAllocator, _shadowPassCameraBuffer.allocation, &data));
+
+  assert(data);
+
+  std::size_t const frameInd = _frameNumber % frameOverlap;
+
+  std::uint32_t const gpuCameraDataDynamicOffset =
+      frameInd * getPaddedBufferSize(sizeof(GPUCameraData));
+  char* const shadowPassGpuCameraDataBegin =
+      static_cast<char*>(data) + gpuCameraDataDynamicOffset;
+
+  std::memcpy(shadowPassGpuCameraDataBegin, &gpuCameraData,
+              sizeof(gpuCameraData));
+
+  vmaUnmapMemory(_vmaAllocator, _shadowPassCameraBuffer.allocation);
+
+  vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                    _vkShadowPassPipeline);
+
+  FrameData& currentFrameData = getCurrentFrameData();
+
+  std::array<VkDescriptorSet, 2> shadowPassDescriptorSets = {
+      _vkShadowPassGlobalDescriptorSet,
+      currentFrameData.objectDataDescriptorSet};
+
+  vkCmdBindDescriptorSets(
+      cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _vkShadowPassPipelineLayout, 0,
+      shadowPassDescriptorSets.size(), shadowPassDescriptorSets.data(), 1,
+      &gpuCameraDataDynamicOffset);
+
+  for (std::size_t i = 0; i < count; ++i) {
+    RenderObject& renderObject = first[i];
+    assert(renderObject.mesh && "Error: Missing mesh");
+
+    Mesh& mesh = *renderObject.mesh;
+
+    VkDeviceSize const bufferOffset = 0;
+    vkCmdBindVertexBuffers(cmd, 0, 1, &mesh.vertexBuffer.buffer, &bufferOffset);
+
+    vkCmdDraw(cmd, mesh.vertices.size(), 1u, 0u, i);
   }
 }

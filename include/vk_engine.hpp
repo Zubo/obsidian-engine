@@ -75,12 +75,14 @@ private:
   VkDescriptorPool _vkDescriptorPool;
   AllocatedBuffer _sceneDataBuffer;
   AllocatedBuffer _cameraBuffer;
+  AllocatedBuffer _shadowPassCameraBuffer;
   VkDescriptorSet _vkGlobalDescriptorSet;
   VkDescriptorSet _vkShadowPassGlobalDescriptorSet;
   ImmediateSubmitContext _immediateSubmitContext;
   glm::vec3 _cameraPos = {0.f, 10.f, 6.f};
   glm::vec2 _cameraRotationRad = {0.f, 0.f};
   VkSampler _vkSampler;
+  glm::vec3 _sunlightDirection = {-1.f, -1.f, -1.f};
 
   void initVulkan();
   void initSwapchain();
@@ -103,6 +105,7 @@ private:
   FrameData& getCurrentFrameData();
   void draw();
   void drawObjects(VkCommandBuffer cmd, RenderObject* first, int count);
+  void drawShadowPass(VkCommandBuffer, RenderObject* first, int count);
   Material* createMaterial(VkPipeline pipeline, VkPipelineLayout pipelineLayout,
                            std::string const& name);
   Material* getMaterial(std::string const& name);

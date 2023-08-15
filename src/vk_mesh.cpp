@@ -7,7 +7,10 @@
 #include <cstdint>
 #include <iostream>
 
-VertexInputDescription Vertex::getVertexInputDescription() {
+VertexInputDescription Vertex::getVertexInputDescription(bool bindPosition,
+                                                         bool bindNormals,
+                                                         bool bindColors,
+                                                         bool bindUV) {
   VertexInputDescription description;
 
   VkVertexInputBindingDescription mainBinding = {};
@@ -17,37 +20,45 @@ VertexInputDescription Vertex::getVertexInputDescription() {
 
   description.bindings.push_back(mainBinding);
 
-  VkVertexInputAttributeDescription positionAttribute = {};
-  positionAttribute.binding = 0;
-  positionAttribute.location = 0;
-  positionAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
-  positionAttribute.offset = offsetof(Vertex, position);
+  if (bindPosition) {
+    VkVertexInputAttributeDescription positionAttribute = {};
+    positionAttribute.binding = 0;
+    positionAttribute.location = 0;
+    positionAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
+    positionAttribute.offset = offsetof(Vertex, position);
 
-  description.attributes.push_back(positionAttribute);
+    description.attributes.push_back(positionAttribute);
+  }
 
-  VkVertexInputAttributeDescription normalAttribute = {};
-  normalAttribute.binding = 0;
-  normalAttribute.location = 1;
-  normalAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
-  normalAttribute.offset = offsetof(Vertex, normal);
+  if (bindNormals) {
+    VkVertexInputAttributeDescription normalAttribute = {};
+    normalAttribute.binding = 0;
+    normalAttribute.location = 1;
+    normalAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
+    normalAttribute.offset = offsetof(Vertex, normal);
 
-  description.attributes.push_back(normalAttribute);
+    description.attributes.push_back(normalAttribute);
+  }
 
-  VkVertexInputAttributeDescription colorAttribute = {};
-  colorAttribute.binding = 0;
-  colorAttribute.location = 2;
-  colorAttribute.format = VK_FORMAT_R32G32_SFLOAT;
-  colorAttribute.offset = offsetof(Vertex, color);
+  if (bindColors) {
+    VkVertexInputAttributeDescription colorAttribute = {};
+    colorAttribute.binding = 0;
+    colorAttribute.location = 2;
+    colorAttribute.format = VK_FORMAT_R32G32_SFLOAT;
+    colorAttribute.offset = offsetof(Vertex, color);
 
-  description.attributes.push_back(colorAttribute);
+    description.attributes.push_back(colorAttribute);
+  }
 
-  VkVertexInputAttributeDescription uvAttribute = {};
-  uvAttribute.location = 3;
-  uvAttribute.binding = 0;
-  uvAttribute.format = VK_FORMAT_R32G32_SFLOAT;
-  uvAttribute.offset = offsetof(Vertex, uv);
+  if (bindUV) {
+    VkVertexInputAttributeDescription uvAttribute = {};
+    uvAttribute.location = 3;
+    uvAttribute.binding = 0;
+    uvAttribute.format = VK_FORMAT_R32G32_SFLOAT;
+    uvAttribute.offset = offsetof(Vertex, uv);
 
-  description.attributes.push_back(uvAttribute);
+    description.attributes.push_back(uvAttribute);
+  }
 
   return description;
 }
@@ -102,9 +113,10 @@ bool Mesh::loadFromObj(char const* filePath) {
         tinyobj::real_t const texCoordV =
             1.f - attrib.texcoords[2 * idx.texcoord_index + 1];
 
-        vertices.emplace_back(
-            glm::vec3{posX, posY, posZ}, glm::vec3{normalX, normalY, normalZ},
-            glm::vec3{colorR, colorG, colorB}, glm::vec2{texCoordU, texCoordV});
+        vertices.push_back({glm::vec3{posX, posY, posZ},
+                            glm::vec3{normalX, normalY, normalZ},
+                            glm::vec3{colorR, colorG, colorB},
+                            glm::vec2{texCoordU, texCoordV}});
       }
 
       faceIndOffset += vertexCount;
