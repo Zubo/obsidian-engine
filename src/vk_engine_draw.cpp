@@ -8,6 +8,7 @@
 #include <glm/gtx/transform.hpp>
 #include <tracy/Tracy.hpp>
 #include <vulkan/vulkan.hpp>
+#include <vulkan/vulkan_core.h>
 
 void VulkanEngine::draw() {
   FrameData& currentFrameData = getCurrentFrameData();
@@ -40,10 +41,29 @@ void VulkanEngine::draw() {
 
   VK_CHECK(vkBeginCommandBuffer(cmd, &vkCommandBufferBeginInfo));
 
-  VkClearValue clearValues[2];
+  std::array<VkClearValue, 2> clearValues;
   float flash = 1.0f; // std::abs(std::sin(_frameNumber / 10.0f));
   clearValues[0].color = {{0.0f, 0.0f, flash, 1.0f}};
   clearValues[1].depthStencil.depth = 1.0f;
+
+  VkRenderPassBeginInfo vkShadowRenderPassBeginInfo = {};
+  vkShadowRenderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+  vkShadowRenderPassBeginInfo.pNext = nullptr;
+  vkShadowRenderPassBeginInfo.renderPass = _vkShadowRenderPass;
+  vkShadowRenderPassBeginInfo.framebuffer = currentFrameData.shadowFrameBuffer;
+  vkShadowRenderPassBeginInfo.renderArea.offset = {0, 0};
+  vkShadowRenderPassBeginInfo.renderArea.extent = {shadowPassAttachmentWidth,
+                                                   shadowPassAttachmentHeight};
+  VkClearValue depthClearValue;
+  depthClearValue.depthStencil.depth = 1.0f;
+
+  vkShadowRenderPassBeginInfo.clearValueCount = 1;
+  vkShadowRenderPassBeginInfo.pClearValues = &depthClearValue;
+
+  vkCmdBeginRenderPass(cmd, &vkShadowRenderPassBeginInfo,
+                       VK_SUBPASS_CONTENTS_INLINE);
+
+  vkCmdEndRenderPass(cmd);
 
   VkRenderPassBeginInfo vkRenderPassBeginInfo = {};
   vkRenderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -52,8 +72,8 @@ void VulkanEngine::draw() {
   vkRenderPassBeginInfo.framebuffer = _vkFramebuffers[swapchainImageIndex];
   vkRenderPassBeginInfo.renderArea.offset = {0, 0};
   vkRenderPassBeginInfo.renderArea.extent = WindowExtent;
-  vkRenderPassBeginInfo.clearValueCount = 2;
-  vkRenderPassBeginInfo.pClearValues = clearValues;
+  vkRenderPassBeginInfo.clearValueCount = clearValues.size();
+  vkRenderPassBeginInfo.pClearValues = clearValues.data();
 
   vkCmdBeginRenderPass(cmd, &vkRenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
@@ -181,7 +201,7 @@ void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject* first,
       vkCmdBindPipeline(cmd, pipelineBindPoint, material.vkPipeline);
 
       VkDescriptorSet const descriptorSets[] = {
-          _globalDescriptorSet, currentFrameData.objectDataDescriptorSet};
+          _vkGlobalDescriptorSet, currentFrameData.objectDataDescriptorSet};
       vkCmdBindDescriptorSets(cmd, pipelineBindPoint, _vkMeshPipelineLayout, 0,
                               2, descriptorSets, 2, offsets);
     }

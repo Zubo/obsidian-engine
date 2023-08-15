@@ -71,10 +71,12 @@ private:
   std::unordered_map<std::string, Texture> _loadedTextures;
   VkDescriptorSetLayout _vkGlobalDescriptorSetLayout;
   VkDescriptorSetLayout _vkObjectDataDescriptorSetLayout;
+  VkDescriptorSetLayout _vkShadowPassGlobalDescriptorSetLayout;
   VkDescriptorPool _vkDescriptorPool;
   AllocatedBuffer _sceneDataBuffer;
   AllocatedBuffer _cameraBuffer;
-  VkDescriptorSet _globalDescriptorSet;
+  VkDescriptorSet _vkGlobalDescriptorSet;
+  VkDescriptorSet _vkShadowPassGlobalDescriptorSet;
   ImmediateSubmitContext _immediateSubmitContext;
   glm::vec3 _cameraPos = {0.f, 10.f, 6.f};
   glm::vec2 _cameraRotationRad = {0.f, 0.f};
@@ -91,6 +93,8 @@ private:
   bool loadShaderModule(char const* filePath, VkShaderModule* outShaderModule);
   void initPipelines();
   void initScene();
+  void initDescriptors();
+  void initShadowPassDescriptors();
   void loadTexture(std::string_view textureName,
                    std::filesystem::path const& texturePath);
   void loadTextures();
@@ -108,7 +112,6 @@ private:
                VmaMemoryUsage memoryUsage,
                VmaAllocationCreateFlags allocationCreateFlags,
                VmaAllocationInfo* outAllocationInfo = nullptr) const;
-  void initDescriptors();
   std::size_t getPaddedBufferSize(std::size_t originalSize) const;
   void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
   bool loadImage(char const* filePath, AllocatedImage& outAllocatedImage);

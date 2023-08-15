@@ -11,6 +11,7 @@
 #include <glm/gtx/transform.hpp>
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.hpp>
+#include <vulkan/vulkan_core.h>
 
 void VulkanEngine::init() {
   SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_WINDOW_MOUSE_CAPTURE);
@@ -34,11 +35,15 @@ void VulkanEngine::init() {
 
   initFramebuffers();
 
+  initShadowPassFramebuffers();
+
   initSyncStructures();
 
   loadTextures();
 
   initDescriptors();
+
+  initShadowPassDescriptors();
 
   initPipelines();
 
@@ -285,10 +290,9 @@ void VulkanEngine::initShadowRenderPass() {
   vkAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
   vkAttachmentDescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
   vkAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-  vkAttachmentDescription.initialLayout =
-      VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+  vkAttachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
   vkAttachmentDescription.finalLayout =
-      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+      VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
   vkRenderPassCreateInfo.pAttachments = &vkAttachmentDescription;
   vkRenderPassCreateInfo.attachmentCount = 1;
@@ -578,6 +582,81 @@ void VulkanEngine::initPipelines() {
   _deletionQueue.pushFunction([this] {
     vkDestroyPipelineLayout(_vkDevice, _vkMeshPipelineLayout, nullptr);
   });
+
+  pipelineBuilder._vkShaderStageCreateInfo.clear();
+
+  // Shadow pass pipeline
+
+  pipelineBuilder._vkViewport.x = 0.f;
+  pipelineBuilder._vkViewport.y = 0.f;
+  pipelineBuilder._vkViewport.width = shadowPassAttachmentWidth;
+  pipelineBuilder._vkViewport.height = shadowPassAttachmentHeight;
+  pipelineBuilder._vkViewport.minDepth = 0.0f;
+  pipelineBuilder._vkViewport.maxDepth = 1.0f;
+
+  pipelineBuilder._vkScissor.offset = {0, 0};
+  pipelineBuilder._vkScissor.extent = {shadowPassAttachmentWidth,
+                                       shadowPassAttachmentHeight};
+
+  VkShaderModule shadowPassVertShader;
+
+  if (!loadShaderModule("shaders/shadow-pass.vert.spv",
+                        &shadowPassVertShader)) {
+    std::cout << "Error when building the shadow pass vertex shader module"
+              << std::endl;
+  } else {
+    std::cout << "Shadow pass vertex shader successfully loaded" << std::endl;
+  }
+
+  VkShaderModule shadowPassFragShader;
+
+  if (!loadShaderModule("shaders/empty.frag.spv", &shadowPassFragShader)) {
+    std::cout << "Error when building the empty fragment shader module"
+              << std::endl;
+  } else {
+    std::cout << "Empty fragment shader successfully loaded" << std::endl;
+  }
+
+  pipelineBuilder._vkShaderStageCreateInfo.push_back(
+      vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT,
+                                            shadowPassVertShader));
+
+  pipelineBuilder._vkShaderStageCreateInfo.push_back(
+      vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT,
+                                            shadowPassFragShader));
+
+  VkPipelineLayoutCreateInfo vkShadowPassPipelineLayoutCreateInfo = {};
+  vkShadowPassPipelineLayoutCreateInfo.sType =
+      VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+  vkShadowPassPipelineLayoutCreateInfo.pNext = nullptr;
+
+  std::array<VkDescriptorSetLayout, 2> vkShadowPassDescriptorSetLayouts = {
+      _vkShadowPassGlobalDescriptorSetLayout, _vkObjectDataDescriptorSetLayout};
+
+  vkShadowPassPipelineLayoutCreateInfo.setLayoutCount =
+      vkShadowPassDescriptorSetLayouts.size();
+  vkShadowPassPipelineLayoutCreateInfo.pSetLayouts =
+      vkShadowPassDescriptorSetLayouts.data();
+
+  VK_CHECK(vkCreatePipelineLayout(_vkDevice,
+                                  &vkShadowPassPipelineLayoutCreateInfo,
+                                  nullptr, &_vkShadowPassPipelineLayout));
+
+  _deletionQueue.pushFunction([this]() {
+    vkDestroyPipelineLayout(_vkDevice, _vkShadowPassPipelineLayout, nullptr);
+  });
+
+  pipelineBuilder._vkPipelineLayout = _vkShadowPassPipelineLayout;
+
+  _vkShadowPassPipeline =
+      pipelineBuilder.buildPipeline(_vkDevice, _vkShadowRenderPass);
+
+  _deletionQueue.pushFunction([this]() {
+    vkDestroyPipeline(_vkDevice, _vkShadowPassPipeline, nullptr);
+  });
+
+  vkDestroyShaderModule(_vkDevice, shadowPassVertShader, nullptr);
+  vkDestroyShaderModule(_vkDevice, shadowPassFragShader, nullptr);
 }
 
 void VulkanEngine::initScene() {
@@ -706,7 +785,7 @@ void VulkanEngine::initDescriptors() {
                                         &_vkGlobalDescriptorSetLayout, 1);
 
   VK_CHECK(vkAllocateDescriptorSets(_vkDevice, &globalDescriptorSetAllocateInfo,
-                                    &_globalDescriptorSet));
+                                    &_vkGlobalDescriptorSet));
 
   VkDescriptorBufferInfo cameraDescriptorBufferInfo;
   cameraDescriptorBufferInfo.buffer = _cameraBuffer.buffer;
@@ -719,10 +798,10 @@ void VulkanEngine::initDescriptors() {
   sceneDescriptorBufferInfo.range = sizeof(GPUSceneData);
 
   std::vector<VkWriteDescriptorSet> descriptorSetWrites = {
-      vkinit::writeDescriptorSet(_globalDescriptorSet,
+      vkinit::writeDescriptorSet(_vkGlobalDescriptorSet,
                                  &cameraDescriptorBufferInfo, 1, nullptr, 0,
                                  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 0),
-      vkinit::writeDescriptorSet(_globalDescriptorSet,
+      vkinit::writeDescriptorSet(_vkGlobalDescriptorSet,
                                  &sceneDescriptorBufferInfo, 1, nullptr, 0,
                                  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1)};
 
@@ -796,4 +875,43 @@ void VulkanEngine::initDescriptors() {
     vkUpdateDescriptorSets(_vkDevice, writeDescriptorSets.size(),
                            writeDescriptorSets.data(), 0, nullptr);
   }
+}
+
+void VulkanEngine::initShadowPassDescriptors() {
+  VkDescriptorSetLayoutBinding vkGlobalDescriptorSetLayoutBidning =
+      vkinit::descriptorSetLayoutBinding(
+          0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+          VK_SHADER_STAGE_VERTEX_BIT);
+
+  VkDescriptorSetLayoutCreateInfo vkGlobalDescriptorSetLayoutCreateInfo =
+      vkinit::descriptorSetLayoutCreateInfo(&vkGlobalDescriptorSetLayoutBidning,
+                                            1);
+
+  VK_CHECK(vkCreateDescriptorSetLayout(
+      _vkDevice, &vkGlobalDescriptorSetLayoutCreateInfo, nullptr,
+      &_vkShadowPassGlobalDescriptorSetLayout));
+
+  _deletionQueue.pushFunction([this]() {
+    vkDestroyDescriptorSetLayout(
+        _vkDevice, _vkShadowPassGlobalDescriptorSetLayout, nullptr);
+  });
+
+  VkDescriptorSetAllocateInfo vkDescriptorSetAllocateInfo =
+      vkinit::descriptorSetAllocateInfo(
+          _vkDescriptorPool, &_vkShadowPassGlobalDescriptorSetLayout, 1);
+
+  VK_CHECK(vkAllocateDescriptorSets(_vkDevice, &vkDescriptorSetAllocateInfo,
+                                    &_vkShadowPassGlobalDescriptorSet));
+
+  VkDescriptorBufferInfo vkCameraDatabufferInfo = {};
+  vkCameraDatabufferInfo.buffer = _cameraBuffer.buffer;
+  vkCameraDatabufferInfo.offset = 0;
+  vkCameraDatabufferInfo.range = VK_WHOLE_SIZE;
+  VkWriteDescriptorSet vkShadowPassGlobalWriteDescriptorSet =
+      vkinit::writeDescriptorSet(_vkShadowPassGlobalDescriptorSet,
+                                 &vkCameraDatabufferInfo, 1, nullptr, 0,
+                                 VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 0);
+
+  vkUpdateDescriptorSets(_vkDevice, 1, &vkShadowPassGlobalWriteDescriptorSet, 0,
+                         nullptr);
 }
