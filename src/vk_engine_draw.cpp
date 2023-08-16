@@ -84,6 +84,25 @@ void VulkanEngine::draw() {
 
   vkCmdEndRenderPass(cmd);
 
+  VkImageMemoryBarrier vkShadowMapImageMemoryBarrier = {};
+  vkShadowMapImageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+  vkShadowMapImageMemoryBarrier.pNext = nullptr;
+  vkShadowMapImageMemoryBarrier.oldLayout =
+      VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+  vkShadowMapImageMemoryBarrier.newLayout =
+      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  vkShadowMapImageMemoryBarrier.image = currentFrameData.shadowMapImage.vkImage;
+  vkShadowMapImageMemoryBarrier.subresourceRange.aspectMask =
+      VK_IMAGE_ASPECT_DEPTH_BIT;
+  vkShadowMapImageMemoryBarrier.subresourceRange.baseMipLevel = 0;
+  vkShadowMapImageMemoryBarrier.subresourceRange.levelCount = 1;
+  vkShadowMapImageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
+  vkShadowMapImageMemoryBarrier.subresourceRange.layerCount = 1;
+
+  vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                       VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0,
+                       nullptr, 1, &vkShadowMapImageMemoryBarrier);
+
   VkRenderPassBeginInfo vkRenderPassBeginInfo = {};
   vkRenderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
   vkRenderPassBeginInfo.pNext = nullptr;

@@ -350,13 +350,14 @@ void VulkanEngine::initFramebuffers() {
 
 void VulkanEngine::initShadowPassFramebuffers() {
   for (std::size_t i = 0; i < _frameDataArray.size(); ++i) {
-
-    AllocatedImage imageShadowPassAttachment;
+    AllocatedImage& imageShadowPassAttachment =
+        _frameDataArray[i].shadowMapImage;
 
     VkExtent3D vkShadowPassAttachmentExtent = {shadowPassAttachmentWidth,
                                                shadowPassAttachmentHeight, 1};
     VkImageCreateInfo const vkImageShadowPassAttachmentCreateInfo =
-        vkinit::imageCreateInfo(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+        vkinit::imageCreateInfo(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
+                                    VK_IMAGE_USAGE_SAMPLED_BIT,
                                 vkShadowPassAttachmentExtent, _depthFormat);
 
     VmaAllocationCreateInfo allocationCreateInfo = {};

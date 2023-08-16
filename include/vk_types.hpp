@@ -51,19 +51,6 @@ struct GPUObjectData {
   glm::mat4 modelMat;
 };
 
-struct FrameData {
-  VkSemaphore vkRenderSemaphore;
-  VkSemaphore vkPresentSemaphore;
-  VkFence vkRenderFence;
-  VkCommandPool vkCommandPool;
-  VkCommandBuffer vkCommandBuffer;
-
-  AllocatedBuffer objectDataBuffer;
-  VkDescriptorSet objectDataDescriptorSet;
-
-  VkFramebuffer shadowFrameBuffer;
-};
-
 struct ImmediateSubmitContext {
   VkFence vkFence;
   VkCommandPool vkCommandPool;
@@ -82,4 +69,18 @@ struct AllocatedImage {
 struct Texture {
   AllocatedImage image;
   VkImageView imageView;
+};
+
+struct FrameData {
+  VkSemaphore vkRenderSemaphore;
+  VkSemaphore vkPresentSemaphore;
+  VkFence vkRenderFence;
+  VkCommandPool vkCommandPool;
+  VkCommandBuffer vkCommandBuffer;
+
+  AllocatedBuffer objectDataBuffer;
+  VkDescriptorSet objectDataDescriptorSet;
+
+  VkFramebuffer shadowFrameBuffer;
+  AllocatedImage shadowMapImage;
 };
