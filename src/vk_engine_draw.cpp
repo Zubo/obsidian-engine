@@ -35,7 +35,7 @@ void VulkanEngine::draw() {
   }
 
   void* data;
-  vmaMapMemory(_vmaAllocator, currentFrameData.objectDataBuffer.allocation,
+  vmaMapMemory(_vmaAllocator, currentFrameData.vkObjectDataBuffer.allocation,
                &data);
 
   GPUObjectData* objectData = reinterpret_cast<GPUObjectData*>(data);
@@ -44,7 +44,7 @@ void VulkanEngine::draw() {
     objectData[i].modelMat = _renderObjects[i].transformMatrix;
   }
 
-  vmaUnmapMemory(_vmaAllocator, currentFrameData.objectDataBuffer.allocation);
+  vmaUnmapMemory(_vmaAllocator, currentFrameData.vkObjectDataBuffer.allocation);
 
   VkCommandBuffer cmd = currentFrameData.vkCommandBuffer;
 
@@ -163,7 +163,6 @@ void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject* first,
                                     static_cast<float>(WindowExtent.width) /
                                         WindowExtent.height,
                                     0.1f, 100.f);
-
   proj[1][1] *= -1;
 
   // Map NDC from [-1, 1] to [0, 1]
@@ -223,17 +222,21 @@ void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject* first,
         VK_PIPELINE_BIND_POINT_GRAPHICS;
 
     if (&material != lastMaterial) {
-      std::uint32_t const offsets[] = {
+      std::array<std::uint32_t, 3> const offsets{
           static_cast<std::uint32_t>(
               frameInd * getPaddedBufferSize(sizeof(GPUCameraData))),
+          static_cast<std::uint32_t>(frameInd *
+                                     getPaddedBufferSize(sizeof(GPUSceneData))),
           static_cast<std::uint32_t>(
-              frameInd * getPaddedBufferSize(sizeof(GPUSceneData)))};
-      vkCmdBindPipeline(cmd, pipelineBindPoint, material.vkPipeline);
+              frameInd * getPaddedBufferSize(sizeof(GPUCameraData)))};
+      vkCmdBindPipeline(cmd, pipelineBindPoint, _vkLitMeshPipeline);
 
-      VkDescriptorSet const descriptorSets[] = {
-          _vkGlobalDescriptorSet, currentFrameData.objectDataDescriptorSet};
-      vkCmdBindDescriptorSets(cmd, pipelineBindPoint, _vkMeshPipelineLayout, 0,
-                              2, descriptorSets, 2, offsets);
+      std::array<VkDescriptorSet, 3> const descriptorSets{
+          _vkGlobalDescriptorSet, currentFrameData.vkObjectDataDescriptorSet,
+          currentFrameData.vkDefaultRenderPassDescriptorSet};
+      vkCmdBindDescriptorSets(cmd, pipelineBindPoint, _vkLitMeshPipelineLayout,
+                              0, descriptorSets.size(), descriptorSets.data(),
+                              offsets.size(), offsets.data());
     }
 
     VkDeviceSize const bufferOffset = 0;
@@ -248,8 +251,8 @@ void VulkanEngine::drawShadowPass(VkCommandBuffer cmd, RenderObject* first,
   ZoneScoped;
 
   glm::mat4 const view =
-      glm::lookAt({}, -glm::normalize(_sunlightDirection), {0.f, 1.f, 0.f});
-  glm::mat4 proj = glm::ortho(-300.f, 300.f, -300.f, 300.f, -300.f, 300.f);
+      glm::lookAt({}, glm::normalize(_sunlightDirection), {0.f, 1.f, 0.f});
+  glm::mat4 proj = glm::ortho(-200.f, 200.f, -200.f, 200.f, -200.f, 200.f);
   proj[1][1] *= -1;
 
   // Map NDC from [-1, 1] to [0, 1]
@@ -286,7 +289,7 @@ void VulkanEngine::drawShadowPass(VkCommandBuffer cmd, RenderObject* first,
 
   std::array<VkDescriptorSet, 2> shadowPassDescriptorSets = {
       _vkShadowPassGlobalDescriptorSet,
-      currentFrameData.objectDataDescriptorSet};
+      currentFrameData.vkObjectDataDescriptorSet};
 
   vkCmdBindDescriptorSets(
       cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _vkShadowPassPipelineLayout, 0,

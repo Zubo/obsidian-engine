@@ -289,8 +289,8 @@ void VulkanEngine::initShadowRenderPass() {
   vkAttachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
   vkAttachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
   vkAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-  vkAttachmentDescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-  vkAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+  vkAttachmentDescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+  vkAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
   vkAttachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
   vkAttachmentDescription.finalLayout =
       VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
@@ -372,6 +372,18 @@ void VulkanEngine::initShadowPassFramebuffers() {
       vmaDestroyImage(_vmaAllocator, imageShadowPassAttachment.vkImage,
                       imageShadowPassAttachment.allocation);
     });
+
+    VkImageViewCreateInfo shadowMapImageViewCreateInfo =
+        vkinit::imageViewCreateInfo(imageShadowPassAttachment.vkImage,
+                                    _depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+    VK_CHECK(vkCreateImageView(_vkDevice, &shadowMapImageViewCreateInfo,
+                               nullptr,
+                               &_frameDataArray[i].shadowMapImageView));
+
+    _deletionQueue.pushFunction(
+        [this, view = _frameDataArray[i].shadowMapImageView]() {
+          vkDestroyImageView(_vkDevice, view, nullptr);
+        });
 
     VkImageView vkShadowPassAttachmentImgView;
 
@@ -543,11 +555,16 @@ void VulkanEngine::initPipelines() {
 
   pipelineBuilder._vkShaderStageCreateInfo.clear();
 
+  _deletionQueue.pushFunction([this] {
+    vkDestroyPipelineLayout(_vkDevice, _vkMeshPipelineLayout, nullptr);
+  });
+
   // Lit mesh pipeline
 
   VkShaderModule litMeshVertShader;
 
-  if (!loadShaderModule("shaders/mesh-light.vert.spv", &litMeshVertShader)) {
+  if (!loadShaderModule("shaders/mesh-light.vert.dbg.spv",
+                        &litMeshVertShader)) {
     std::cout << "Error when building the lit mesh vertex shader module"
               << std::endl;
   } else {
@@ -556,7 +573,8 @@ void VulkanEngine::initPipelines() {
 
   VkShaderModule litMeshFragShader;
 
-  if (!loadShaderModule("shaders/mesh-light.frag.spv", &litMeshFragShader)) {
+  if (!loadShaderModule("shaders/mesh-light.frag.dbg.spv",
+                        &litMeshFragShader)) {
     std::cout << "Error when building the lit mesh fragment shader module"
               << std::endl;
   } else {
@@ -571,6 +589,27 @@ void VulkanEngine::initPipelines() {
       vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT,
                                             litMeshFragShader));
 
+  VkPipelineLayoutCreateInfo vkLitMeshPipelineLayoutCreateInfo =
+      vkinit::pipelineLayoutCreateInfo();
+
+  std::array<VkDescriptorSetLayout, 3> vkLitMeshPipelineLayouts = {
+      _vkGlobalDescriptorSetLayout, _vkObjectDataDescriptorSetLayout,
+      _vkDefaultRenderPassDescriptorSetLayout};
+
+  vkLitMeshPipelineLayoutCreateInfo.pSetLayouts =
+      vkLitMeshPipelineLayouts.data();
+  vkLitMeshPipelineLayoutCreateInfo.setLayoutCount =
+      vkLitMeshPipelineLayouts.size();
+
+  VK_CHECK(vkCreatePipelineLayout(_vkDevice, &vkLitMeshPipelineLayoutCreateInfo,
+                                  nullptr, &_vkLitMeshPipelineLayout));
+
+  _deletionQueue.pushFunction([this]() {
+    vkDestroyPipelineLayout(_vkDevice, _vkLitMeshPipelineLayout, nullptr);
+  });
+
+  pipelineBuilder._vkPipelineLayout = _vkLitMeshPipelineLayout;
+
   _vkLitMeshPipeline = pipelineBuilder.buildPipeline(_vkDevice, _vkRenderPass);
 
   createMaterial(_vkLitMeshPipeline, _vkMeshPipelineLayout, "litmesh");
@@ -580,10 +619,6 @@ void VulkanEngine::initPipelines() {
 
   _deletionQueue.pushFunction(
       [this] { vkDestroyPipeline(_vkDevice, _vkLitMeshPipeline, nullptr); });
-
-  _deletionQueue.pushFunction([this] {
-    vkDestroyPipelineLayout(_vkDevice, _vkMeshPipelineLayout, nullptr);
-  });
 
   pipelineBuilder._vkShaderStageCreateInfo.clear();
 
@@ -833,18 +868,9 @@ void VulkanEngine::initDescriptors() {
   vkUpdateDescriptorSets(_vkDevice, descriptorSetWrites.size(),
                          descriptorSetWrites.data(), 0, nullptr);
 
-  VkSamplerCreateInfo vkSamplerCreateInfo = {};
-  vkSamplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-  vkSamplerCreateInfo.pNext = nullptr;
-
-  vkSamplerCreateInfo.magFilter = VK_FILTER_LINEAR;
-  vkSamplerCreateInfo.minFilter = VK_FILTER_LINEAR;
-  vkSamplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
-  vkSamplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-  vkSamplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-  vkSamplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-  vkSamplerCreateInfo.anisotropyEnable = VK_FALSE;
-  vkSamplerCreateInfo.maxAnisotropy = 8.f;
+  VkSamplerCreateInfo vkSamplerCreateInfo = vkinit::samplerCreateInfo(
+      VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_NEAREST,
+      VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
 
   VK_CHECK(
       vkCreateSampler(_vkDevice, &vkSamplerCreateInfo, nullptr, &_vkSampler));
@@ -852,14 +878,92 @@ void VulkanEngine::initDescriptors() {
   _deletionQueue.pushFunction(
       [this]() { vkDestroySampler(_vkDevice, _vkSampler, nullptr); });
 
+  std::array<VkDescriptorSetLayoutBinding, 2> defaultRenderPassBindings;
+
+  VkDescriptorSetLayoutBinding& vkShadowMapDescriptorSetLayoutBinding =
+      defaultRenderPassBindings[0];
+  vkShadowMapDescriptorSetLayoutBinding = vkinit::descriptorSetLayoutBinding(
+      0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+      VK_SHADER_STAGE_FRAGMENT_BIT);
+
+  VkDescriptorSetLayoutBinding& vkLightCameraDataDescriptorSetLayoutBinding =
+      defaultRenderPassBindings[1];
+  vkLightCameraDataDescriptorSetLayoutBinding =
+      vkinit::descriptorSetLayoutBinding(
+          1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+          VK_SHADER_STAGE_FRAGMENT_BIT);
+
+  VkDescriptorSetLayoutCreateInfo
+      vkDefaultRenderPassDescriptorSetLayoutCreateInfo =
+          vkinit::descriptorSetLayoutCreateInfo(
+              defaultRenderPassBindings.data(),
+              defaultRenderPassBindings.size());
+
+  VK_CHECK(vkCreateDescriptorSetLayout(
+      _vkDevice, &vkDefaultRenderPassDescriptorSetLayoutCreateInfo, nullptr,
+      &_vkDefaultRenderPassDescriptorSetLayout));
+
+  _deletionQueue.pushFunction([this]() {
+    vkDestroyDescriptorSetLayout(
+        _vkDevice, _vkDefaultRenderPassDescriptorSetLayout, nullptr);
+  });
+
   for (int i = 0; i < frameOverlap; ++i) {
-    _frameDataArray[i].objectDataBuffer =
+    FrameData& frameData = _frameDataArray[i];
+
+    VkDescriptorSetAllocateInfo vkDefaultRenderPassDescriptorSetAllocateInfo =
+        vkinit::descriptorSetAllocateInfo(
+            _vkDescriptorPool, &_vkDefaultRenderPassDescriptorSetLayout, 1);
+
+    VK_CHECK(vkAllocateDescriptorSets(
+        _vkDevice, &vkDefaultRenderPassDescriptorSetAllocateInfo,
+        &frameData.vkDefaultRenderPassDescriptorSet));
+
+    VkSamplerCreateInfo const vkShadowMapSamplerCreateInfo =
+        vkinit::samplerCreateInfo(VK_FILTER_NEAREST,
+                                  VK_SAMPLER_MIPMAP_MODE_NEAREST,
+                                  VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
+
+    VK_CHECK(vkCreateSampler(_vkDevice, &vkShadowMapSamplerCreateInfo, nullptr,
+                             &frameData.shadowMapSampler));
+
+    _deletionQueue.pushFunction([this, frameData]() {
+      vkDestroySampler(_vkDevice, frameData.shadowMapSampler, nullptr);
+    });
+
+    VkDescriptorImageInfo vkShadowMapDescriptorImageInfo = {};
+    vkShadowMapDescriptorImageInfo.imageLayout =
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    vkShadowMapDescriptorImageInfo.imageView = frameData.shadowMapImageView;
+    vkShadowMapDescriptorImageInfo.sampler = frameData.shadowMapSampler;
+
+    std::array<VkWriteDescriptorSet, 2> vkWriteDefaultRenderPassDescriptorSet;
+    vkWriteDefaultRenderPassDescriptorSet[0] = vkinit::writeDescriptorSet(
+        frameData.vkDefaultRenderPassDescriptorSet, nullptr, 0,
+        &vkShadowMapDescriptorImageInfo, 1,
+        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0);
+
+    VkDescriptorBufferInfo vkShadowCameraDataBufferInfo = {};
+    vkShadowCameraDataBufferInfo.buffer = _shadowPassCameraBuffer.buffer;
+    vkShadowCameraDataBufferInfo.offset = 0;
+    vkShadowCameraDataBufferInfo.range =
+        getPaddedBufferSize(sizeof(GPUCameraData));
+
+    vkWriteDefaultRenderPassDescriptorSet[1] = vkinit::writeDescriptorSet(
+        frameData.vkDefaultRenderPassDescriptorSet,
+        &vkShadowCameraDataBufferInfo, 1, nullptr, 0,
+        VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1);
+    vkUpdateDescriptorSets(
+        _vkDevice, vkWriteDefaultRenderPassDescriptorSet.size(),
+        vkWriteDefaultRenderPassDescriptorSet.data(), 0, nullptr);
+
+    frameData.vkObjectDataBuffer =
         createBuffer(maxNumberOfObjects * sizeof(GPUObjectData),
                      VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_AUTO,
                      VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
 
-    _deletionQueue.pushFunction([this, i]() {
-      AllocatedBuffer& buffer = _frameDataArray[i].objectDataBuffer;
+    _deletionQueue.pushFunction([this, frameData]() {
+      AllocatedBuffer const& buffer = frameData.vkObjectDataBuffer;
       vmaDestroyBuffer(_vmaAllocator, buffer.buffer, buffer.allocation);
     });
 
@@ -867,23 +971,21 @@ void VulkanEngine::initDescriptors() {
         vkinit::descriptorSetAllocateInfo(_vkDescriptorPool,
                                           &_vkObjectDataDescriptorSetLayout, 1);
 
-    VK_CHECK(vkAllocateDescriptorSets(
-        _vkDevice, &objectDataDescriptorSetAllocateInfo,
-        &_frameDataArray[i].objectDataDescriptorSet));
+    VK_CHECK(vkAllocateDescriptorSets(_vkDevice,
+                                      &objectDataDescriptorSetAllocateInfo,
+                                      &frameData.vkObjectDataDescriptorSet));
 
     std::array<VkWriteDescriptorSet, 2> writeDescriptorSets;
 
     VkDescriptorBufferInfo objectDataDescriptorBufferInfo = {};
-    objectDataDescriptorBufferInfo.buffer =
-        _frameDataArray[i].objectDataBuffer.buffer;
+    objectDataDescriptorBufferInfo.buffer = frameData.vkObjectDataBuffer.buffer;
     objectDataDescriptorBufferInfo.offset = 0;
     objectDataDescriptorBufferInfo.range = VK_WHOLE_SIZE;
 
     VkWriteDescriptorSet& writeObjectDataDescriptorSet = writeDescriptorSets[0];
-    writeObjectDataDescriptorSet =
-        vkinit::writeDescriptorSet(_frameDataArray[i].objectDataDescriptorSet,
-                                   &objectDataDescriptorBufferInfo, 1, nullptr,
-                                   0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 0);
+    writeObjectDataDescriptorSet = vkinit::writeDescriptorSet(
+        frameData.vkObjectDataDescriptorSet, &objectDataDescriptorBufferInfo, 1,
+        nullptr, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 0);
 
     VkDescriptorImageInfo textureDescriptorImageInfo = {};
     textureDescriptorImageInfo.imageLayout =
@@ -894,7 +996,7 @@ void VulkanEngine::initDescriptors() {
 
     VkWriteDescriptorSet& writeImageDescriptorSet = writeDescriptorSets[1];
     writeImageDescriptorSet = vkinit::writeDescriptorSet(
-        _frameDataArray[i].objectDataDescriptorSet, nullptr, 0,
+        frameData.vkObjectDataDescriptorSet, nullptr, 0,
         &textureDescriptorImageInfo, 1,
         VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1);
     vkUpdateDescriptorSets(_vkDevice, writeDescriptorSets.size(),

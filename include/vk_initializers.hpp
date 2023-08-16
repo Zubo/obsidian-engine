@@ -5,6 +5,8 @@
 #include <vulkan/vulkan.hpp>
 
 #include <cstdint>
+#include <optional>
+#include <vulkan/vulkan_core.h>
 
 namespace vkinit {
 
@@ -72,5 +74,10 @@ VkCommandBufferBeginInfo commandBufferBeginInfo(
     VkCommandBufferInheritanceInfo const* inheritanceInfo = nullptr);
 
 VkSubmitInfo commandBufferSubmitInfo(VkCommandBuffer const* cmd);
+
+VkSamplerCreateInfo
+samplerCreateInfo(VkFilter filter, VkSamplerMipmapMode mipmapMode,
+                  VkSamplerAddressMode addressMode,
+                  std::optional<float> maxAnisotropy = std::nullopt);
 
 } // namespace vkinit

@@ -25,8 +25,8 @@ struct SDL_Window;
 class VulkanEngine {
   static unsigned int const frameOverlap = 2;
   static unsigned int const maxNumberOfObjects = 10000;
-  static unsigned int const shadowPassAttachmentWidth = 1000;
-  static unsigned int const shadowPassAttachmentHeight = 1000;
+  static unsigned int const shadowPassAttachmentWidth = 2000;
+  static unsigned int const shadowPassAttachmentHeight = 2000;
 
 public:
   bool IsInitialized{false};
@@ -58,6 +58,7 @@ private:
   std::array<FrameData, 2> _frameDataArray;
   std::uint32_t _frameNumber = 0;
   VkPipelineLayout _vkMeshPipelineLayout;
+  VkPipelineLayout _vkLitMeshPipelineLayout;
   VkPipelineLayout _vkShadowPassPipelineLayout;
   VkPipeline _vkMeshPipeline;
   VkPipeline _vkLitMeshPipeline;
@@ -72,6 +73,7 @@ private:
   VkDescriptorSetLayout _vkGlobalDescriptorSetLayout;
   VkDescriptorSetLayout _vkObjectDataDescriptorSetLayout;
   VkDescriptorSetLayout _vkShadowPassGlobalDescriptorSetLayout;
+  VkDescriptorSetLayout _vkDefaultRenderPassDescriptorSetLayout;
   VkDescriptorPool _vkDescriptorPool;
   AllocatedBuffer _sceneDataBuffer;
   AllocatedBuffer _cameraBuffer;

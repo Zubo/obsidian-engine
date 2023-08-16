@@ -298,4 +298,27 @@ VkSubmitInfo commandBufferSubmitInfo(VkCommandBuffer const* cmd) {
   return submitInfo;
 }
 
+VkSamplerCreateInfo samplerCreateInfo(VkFilter filter,
+                                      VkSamplerMipmapMode mipmapMode,
+                                      VkSamplerAddressMode addressMode,
+                                      std::optional<float> maxAnisotropy) {
+  VkSamplerCreateInfo vkSamplerCreateInfo = {};
+  vkSamplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+  vkSamplerCreateInfo.pNext = nullptr;
+
+  vkSamplerCreateInfo.magFilter = filter;
+  vkSamplerCreateInfo.minFilter = filter;
+  vkSamplerCreateInfo.mipmapMode = mipmapMode;
+  vkSamplerCreateInfo.addressModeU = addressMode;
+  vkSamplerCreateInfo.addressModeV = addressMode;
+  vkSamplerCreateInfo.addressModeW = addressMode;
+  vkSamplerCreateInfo.anisotropyEnable = maxAnisotropy.has_value();
+
+  if (maxAnisotropy) {
+    vkSamplerCreateInfo.maxAnisotropy = *maxAnisotropy;
+  }
+
+  return vkSamplerCreateInfo;
+}
+
 } // namespace vkinit

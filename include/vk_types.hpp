@@ -78,9 +78,12 @@ struct FrameData {
   VkCommandPool vkCommandPool;
   VkCommandBuffer vkCommandBuffer;
 
-  AllocatedBuffer objectDataBuffer;
-  VkDescriptorSet objectDataDescriptorSet;
+  AllocatedBuffer vkObjectDataBuffer;
+  VkDescriptorSet vkObjectDataDescriptorSet;
+  VkDescriptorSet vkDefaultRenderPassDescriptorSet;
 
   VkFramebuffer shadowFrameBuffer;
   AllocatedImage shadowMapImage;
+  VkImageView shadowMapImageView;
+  VkSampler shadowMapSampler;
 };
