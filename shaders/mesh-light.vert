@@ -29,6 +29,7 @@ void main() {
   mat4 modelMat = objectDataBuffer.objectData[gl_BaseInstance].modelMat;
   mat4 transformMatrix = cameraData.viewProj * modelMat;
   gl_Position = transformMatrix * vec4(vPosition, 1.0f);
+
   outColor = vColor;
   outNormals = (transpose(inverse(modelMat)) * vec4(vNormal, 1.0f)).xyz;
   outUV = vUV;

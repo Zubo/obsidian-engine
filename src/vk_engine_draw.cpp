@@ -140,17 +140,22 @@ void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject* first,
   view = glm::rotate(view, -_cameraRotationRad.x, {1.f, 0.f, 0.f});
   view = glm::rotate(view, -_cameraRotationRad.y, {0.f, 1.f, 0.f});
   view = glm::translate(view, -_cameraPos);
-  glm::mat4 projection = glm::perspective(
-      glm::radians(60.f),
-      static_cast<float>(WindowExtent.width) / WindowExtent.height, 0.1f,
-      200.f);
-  projection[1][1] *= -1;
-  glm::mat4 const viewProjection = projection * view;
+  glm::mat4 proj = glm::perspective(glm::radians(60.f),
+                                    static_cast<float>(WindowExtent.width) /
+                                        WindowExtent.height,
+                                    0.1f, 100.f);
+
+  proj[1][1] *= -1;
+
+  // Map NDC from [-1, 1] to [0, 1]
+  proj = glm::scale(glm::vec3{1.f, 1.f, 0.5f}) *
+         glm::translate(glm::vec3{0.f, 0.f, 1.f}) * proj;
+  glm::mat4 const viewProjection = proj * view;
 
   GPUCameraData gpuCameraData;
   gpuCameraData.view = view;
-  gpuCameraData.proj = projection;
-  gpuCameraData.viewProj = projection * view;
+  gpuCameraData.proj = proj;
+  gpuCameraData.viewProj = proj * view;
 
   std::size_t const frameInd = _frameNumber % frameOverlap;
 
@@ -227,6 +232,11 @@ void VulkanEngine::drawShadowPass(VkCommandBuffer cmd, RenderObject* first,
       glm::lookAt({}, -glm::normalize(_sunlightDirection), {0.f, 1.f, 0.f});
   glm::mat4 proj = glm::ortho(-300.f, 300.f, -300.f, 300.f, -300.f, 300.f);
   proj[1][1] *= -1;
+
+  // Map NDC from [-1, 1] to [0, 1]
+  proj = glm::scale(glm::vec3{1.f, 1.f, 0.5f}) *
+         glm::translate(glm::vec3{0.f, 0.f, 1.f}) * proj;
+
   GPUCameraData gpuCameraData;
   gpuCameraData.view = view;
   gpuCameraData.proj = proj;
