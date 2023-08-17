@@ -231,9 +231,10 @@ void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject* first,
               frameInd * getPaddedBufferSize(sizeof(GPUCameraData)))};
       vkCmdBindPipeline(cmd, pipelineBindPoint, _vkLitMeshPipeline);
 
-      std::array<VkDescriptorSet, 3> const descriptorSets{
-          _vkGlobalDescriptorSet, currentFrameData.vkObjectDataDescriptorSet,
-          currentFrameData.vkDefaultRenderPassDescriptorSet};
+      std::array<VkDescriptorSet, 4> const descriptorSets{
+          _vkGlobalDescriptorSet,
+          currentFrameData.vkDefaultRenderPassDescriptorSet,
+          material.vkDescriptorSet, currentFrameData.vkObjectDataDescriptorSet};
       vkCmdBindDescriptorSets(cmd, pipelineBindPoint, _vkLitMeshPipelineLayout,
                               0, descriptorSets.size(), descriptorSets.data(),
                               offsets.size(), offsets.data());
@@ -287,9 +288,9 @@ void VulkanEngine::drawShadowPass(VkCommandBuffer cmd, RenderObject* first,
 
   FrameData& currentFrameData = getCurrentFrameData();
 
-  std::array<VkDescriptorSet, 2> shadowPassDescriptorSets = {
-      _vkShadowPassGlobalDescriptorSet,
-      currentFrameData.vkObjectDataDescriptorSet};
+  std::array<VkDescriptorSet, 4> shadowPassDescriptorSets = {
+      _vkShadowPassGlobalDescriptorSet, _emptyDescriptorSet,
+      _emptyDescriptorSet, currentFrameData.vkObjectDataDescriptorSet};
 
   vkCmdBindDescriptorSets(
       cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _vkShadowPassPipelineLayout, 0,

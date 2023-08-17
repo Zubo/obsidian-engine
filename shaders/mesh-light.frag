@@ -15,16 +15,16 @@ layout(set = 0, binding = 1) uniform SceneData {
 }
 sceneData;
 
-layout(set = 2, binding = 0) uniform sampler2D shadowMap;
+layout(set = 1, binding = 0) uniform sampler2D shadowMap;
 
-layout(set = 2, binding = 1) uniform CameraData {
+layout(set = 1, binding = 1) uniform LightCameraData {
   mat4 view;
   mat4 proj;
   mat4 viewProj;
 }
 lightCameraData;
 
-layout(set = 1, binding = 1) uniform sampler2D tex1;
+layout(set = 3, binding = 1) uniform sampler2D tex1;
 
 void main() {
   float lightIntensity = clamp(

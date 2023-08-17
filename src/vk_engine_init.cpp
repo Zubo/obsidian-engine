@@ -533,11 +533,12 @@ void VulkanEngine::initPipelines() {
   VkPipelineLayoutCreateInfo meshPipelineLayoutInfo =
       vkinit::pipelineLayoutCreateInfo();
 
-  std::array<VkDescriptorSetLayout, 2> const descriptorSetLayouts = {
-      _vkGlobalDescriptorSetLayout, _vkObjectDataDescriptorSetLayout};
+  std::array<VkDescriptorSetLayout, 4> const meshDescriptorSetLayouts = {
+      _vkGlobalDescriptorSetLayout, _emptyDescriptorSetLayout,
+      _emptyDescriptorSetLayout, _vkObjectDataDescriptorSetLayout};
 
-  meshPipelineLayoutInfo.setLayoutCount = descriptorSetLayouts.size();
-  meshPipelineLayoutInfo.pSetLayouts = &_vkGlobalDescriptorSetLayout;
+  meshPipelineLayoutInfo.setLayoutCount = meshDescriptorSetLayouts.size();
+  meshPipelineLayoutInfo.pSetLayouts = meshDescriptorSetLayouts.data();
 
   VK_CHECK(vkCreatePipelineLayout(_vkDevice, &meshPipelineLayoutInfo, nullptr,
                                   &_vkMeshPipelineLayout));
@@ -589,19 +590,21 @@ void VulkanEngine::initPipelines() {
       vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT,
                                             litMeshFragShader));
 
-  VkPipelineLayoutCreateInfo vkLitMeshPipelineLayoutCreateInfo =
+  VkPipelineLayoutCreateInfo litMeshPipelineLayoutCreateInfo =
       vkinit::pipelineLayoutCreateInfo();
 
-  std::array<VkDescriptorSetLayout, 3> vkLitMeshPipelineLayouts = {
-      _vkGlobalDescriptorSetLayout, _vkObjectDataDescriptorSetLayout,
-      _vkDefaultRenderPassDescriptorSetLayout};
+  std::array<VkDescriptorSetLayout, 4> vkLitMeshPipelineLayouts = {
+      _vkGlobalDescriptorSetLayout,
+      _vkDefaultRenderPassDescriptorSetLayout,
+      _emptyDescriptorSetLayout,
+      _vkObjectDataDescriptorSetLayout,
+  };
 
-  vkLitMeshPipelineLayoutCreateInfo.pSetLayouts =
-      vkLitMeshPipelineLayouts.data();
-  vkLitMeshPipelineLayoutCreateInfo.setLayoutCount =
+  litMeshPipelineLayoutCreateInfo.pSetLayouts = vkLitMeshPipelineLayouts.data();
+  litMeshPipelineLayoutCreateInfo.setLayoutCount =
       vkLitMeshPipelineLayouts.size();
 
-  VK_CHECK(vkCreatePipelineLayout(_vkDevice, &vkLitMeshPipelineLayoutCreateInfo,
+  VK_CHECK(vkCreatePipelineLayout(_vkDevice, &litMeshPipelineLayoutCreateInfo,
                                   nullptr, &_vkLitMeshPipelineLayout));
 
   _deletionQueue.pushFunction([this]() {
@@ -682,13 +685,14 @@ void VulkanEngine::initPipelines() {
       VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
   vkShadowPassPipelineLayoutCreateInfo.pNext = nullptr;
 
-  std::array<VkDescriptorSetLayout, 2> vkShadowPassDescriptorSetLayouts = {
-      _vkShadowPassGlobalDescriptorSetLayout, _vkObjectDataDescriptorSetLayout};
+  std::array<VkDescriptorSetLayout, 4> shadowPassDescriptorSetLayouts = {
+      _vkShadowPassGlobalDescriptorSetLayout, _emptyDescriptorSetLayout,
+      _emptyDescriptorSetLayout, _vkObjectDataDescriptorSetLayout};
 
   vkShadowPassPipelineLayoutCreateInfo.setLayoutCount =
-      vkShadowPassDescriptorSetLayouts.size();
+      shadowPassDescriptorSetLayouts.size();
   vkShadowPassPipelineLayoutCreateInfo.pSetLayouts =
-      vkShadowPassDescriptorSetLayouts.data();
+      shadowPassDescriptorSetLayouts.data();
 
   VK_CHECK(vkCreatePipelineLayout(_vkDevice,
                                   &vkShadowPassPipelineLayoutCreateInfo,
@@ -764,6 +768,23 @@ void VulkanEngine::initDescriptors() {
   _deletionQueue.pushFunction([this]() {
     vkDestroyDescriptorPool(_vkDevice, _vkDescriptorPool, nullptr);
   });
+
+  VkDescriptorSetLayoutCreateInfo vkEmptyDescriptorSetLayoutCreateInfo =
+      vkinit::descriptorSetLayoutCreateInfo(nullptr, 0);
+  VK_CHECK(vkCreateDescriptorSetLayout(_vkDevice,
+                                       &vkEmptyDescriptorSetLayoutCreateInfo,
+                                       nullptr, &_emptyDescriptorSetLayout));
+
+  _deletionQueue.pushFunction([this]() {
+    vkDestroyDescriptorSetLayout(_vkDevice, _emptyDescriptorSetLayout, nullptr);
+  });
+
+  VkDescriptorSetAllocateInfo vkEmptyDescriptorSetAllocateInfo =
+      vkinit::descriptorSetAllocateInfo(_vkDescriptorPool,
+                                        &_emptyDescriptorSetLayout, 1);
+
+  VK_CHECK(vkAllocateDescriptorSets(
+      _vkDevice, &vkEmptyDescriptorSetAllocateInfo, &_emptyDescriptorSet));
 
   VkDescriptorSetLayoutBinding bindings[2];
   VkDescriptorSetLayoutBinding& camBufferBinding = bindings[0];

@@ -163,6 +163,7 @@ Material* VulkanEngine::createMaterial(VkPipeline pipeline,
   Material mat;
   mat.vkPipeline = pipeline;
   mat.vkPipelineLayout = pipelineLayout;
+  mat.vkDescriptorSet = _emptyDescriptorSet;
 
   Material& result = (_materials[name] = mat);
   return &result;

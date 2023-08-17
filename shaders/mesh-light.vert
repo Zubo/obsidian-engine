@@ -21,7 +21,7 @@ struct ObjectData {
   mat4 modelMat;
 };
 
-layout(std140, set = 1, binding = 0) buffer ObjectDataBuffer {
+layout(std140, set = 3, binding = 0) buffer ObjectDataBuffer {
   ObjectData objectData[];
 }
 objectDataBuffer;
