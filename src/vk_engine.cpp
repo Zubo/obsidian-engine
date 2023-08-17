@@ -86,8 +86,8 @@ void VulkanEngine::loadTexture(std::string_view textureName,
 }
 
 void VulkanEngine::loadTextures() {
-  loadTexture("defaultTexture", {"assets/default-texture.png"});
-  loadTexture("lostEmpire", {"assets/lost_empire-RGBA.png"});
+  loadTexture("default", {"assets/default-texture.png"});
+  loadTexture("lost-empire", {"assets/lost_empire-RGBA.png"});
 }
 
 void VulkanEngine::loadMeshes() {
@@ -107,7 +107,7 @@ void VulkanEngine::loadMeshes() {
   monkeyMesh.loadFromObj("assets/monkey_smooth.obj");
   uploadMesh(monkeyMesh);
 
-  Mesh& lostEmpire = _meshes["lostEmpire"];
+  Mesh& lostEmpire = _meshes["lost-empire"];
   lostEmpire.loadFromObj("assets/lost_empire.obj");
   uploadMesh(lostEmpire);
 }
@@ -159,11 +159,33 @@ FrameData& VulkanEngine::getCurrentFrameData() {
 
 Material* VulkanEngine::createMaterial(VkPipeline pipeline,
                                        VkPipelineLayout pipelineLayout,
-                                       std::string const& name) {
+                                       std::string const& name,
+                                       std::string const& albedoTexName) {
   Material mat;
   mat.vkPipeline = pipeline;
   mat.vkPipelineLayout = pipelineLayout;
-  mat.vkDescriptorSet = _emptyDescriptorSet;
+
+  auto const albedoTexIter = _loadedTextures.find(albedoTexName);
+
+  assert(albedoTexIter != _loadedTextures.cend() && "Error: Missing texture");
+
+  VkDescriptorSetAllocateInfo allocateTexturedMatDescriptorSet =
+      vkinit::descriptorSetAllocateInfo(
+          _vkDescriptorPool, &_vkTexturedMaterialDescriptorSetLayout, 1);
+
+  VK_CHECK(vkAllocateDescriptorSets(
+      _vkDevice, &allocateTexturedMatDescriptorSet, &mat.vkDescriptorSet));
+
+  VkDescriptorImageInfo albedoTexDescriptorImgInfo = {};
+  albedoTexDescriptorImgInfo.imageLayout =
+      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  albedoTexDescriptorImgInfo.imageView = albedoTexIter->second.imageView;
+  albedoTexDescriptorImgInfo.sampler = _vkSampler;
+  VkWriteDescriptorSet updateTextureDescriptorSet = vkinit::writeDescriptorSet(
+      mat.vkDescriptorSet, nullptr, 0, &albedoTexDescriptorImgInfo, 1,
+      VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0);
+
+  vkUpdateDescriptorSets(_vkDevice, 1, &updateTextureDescriptorSet, 0, nullptr);
 
   Material& result = (_materials[name] = mat);
   return &result;

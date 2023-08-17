@@ -24,13 +24,13 @@ layout(set = 1, binding = 1) uniform LightCameraData {
 }
 lightCameraData;
 
-layout(set = 3, binding = 1) uniform sampler2D tex1;
+layout(set = 2, binding = 0) uniform sampler2D albedoTex;
 
 void main() {
   float lightIntensity = clamp(
       dot(normalize(-sceneData.sunlightDirection.xyz), normalize(inNormals)),
       0.0f, 1.0f);
-  vec3 sampledColor = texture(tex1, inUV).xyz;
+  vec3 sampledColor = texture(albedoTex, inUV).xyz;
 
   vec4 depthSpacePos = lightCameraData.viewProj * vec4(inWorldPos, 1.0f);
 

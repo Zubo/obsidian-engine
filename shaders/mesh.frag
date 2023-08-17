@@ -13,6 +13,6 @@ layout(set = 0, binding = 1) uniform SceneData {
 }
 sceneData;
 
-layout(set = 3, binding = 1) uniform sampler2D tex1;
+layout(set = 2, binding = 0) uniform sampler2D albedoTex;
 
-void main() { outFragColor = vec4(texture(tex1, inUV).xyz, 1.0f); }
+void main() { outFragColor = vec4(texture(albedoTex, inUV).xyz, 1.0f); }

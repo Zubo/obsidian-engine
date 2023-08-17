@@ -534,8 +534,8 @@ void VulkanEngine::initPipelines() {
       vkinit::pipelineLayoutCreateInfo();
 
   std::array<VkDescriptorSetLayout, 4> const meshDescriptorSetLayouts = {
-      _vkGlobalDescriptorSetLayout, _emptyDescriptorSetLayout,
-      _emptyDescriptorSetLayout, _vkObjectDataDescriptorSetLayout};
+      _vkGlobalDescriptorSetLayout, _vkLitMeshrenderPassDescriptorSetLayout,
+      _vkTexturedMaterialDescriptorSetLayout, _vkObjectDataDescriptorSetLayout};
 
   meshPipelineLayoutInfo.setLayoutCount = meshDescriptorSetLayouts.size();
   meshPipelineLayoutInfo.pSetLayouts = meshDescriptorSetLayouts.data();
@@ -595,8 +595,8 @@ void VulkanEngine::initPipelines() {
 
   std::array<VkDescriptorSetLayout, 4> vkLitMeshPipelineLayouts = {
       _vkGlobalDescriptorSetLayout,
-      _vkDefaultRenderPassDescriptorSetLayout,
-      _emptyDescriptorSetLayout,
+      _vkLitMeshrenderPassDescriptorSetLayout,
+      _vkTexturedMaterialDescriptorSetLayout,
       _vkObjectDataDescriptorSetLayout,
   };
 
@@ -615,7 +615,8 @@ void VulkanEngine::initPipelines() {
 
   _vkLitMeshPipeline = pipelineBuilder.buildPipeline(_vkDevice, _vkRenderPass);
 
-  createMaterial(_vkLitMeshPipeline, _vkMeshPipelineLayout, "litmesh");
+  createMaterial(_vkLitMeshPipeline, _vkMeshPipelineLayout, "lit-mesh",
+                 "lost-empire");
 
   vkDestroyShaderModule(_vkDevice, litMeshVertShader, nullptr);
   vkDestroyShaderModule(_vkDevice, litMeshFragShader, nullptr);
@@ -686,8 +687,8 @@ void VulkanEngine::initPipelines() {
   vkShadowPassPipelineLayoutCreateInfo.pNext = nullptr;
 
   std::array<VkDescriptorSetLayout, 4> shadowPassDescriptorSetLayouts = {
-      _vkShadowPassGlobalDescriptorSetLayout, _emptyDescriptorSetLayout,
-      _emptyDescriptorSetLayout, _vkObjectDataDescriptorSetLayout};
+      _vkShadowPassGlobalDescriptorSetLayout, _vkEmptyDescriptorSetLayout,
+      _vkEmptyDescriptorSetLayout, _vkObjectDataDescriptorSetLayout};
 
   vkShadowPassPipelineLayoutCreateInfo.setLayoutCount =
       shadowPassDescriptorSetLayouts.size();
@@ -722,8 +723,8 @@ void VulkanEngine::initScene() {
   monkey.transformMatrix = glm::mat4{1.0f};
 
   RenderObject& lostEmpire = _renderObjects.emplace_back();
-  lostEmpire.mesh = getMesh("lostEmpire");
-  lostEmpire.material = getMaterial("litmesh");
+  lostEmpire.mesh = getMesh("lost-empire");
+  lostEmpire.material = getMaterial("lit-mesh");
   lostEmpire.transformMatrix = glm::mat4{1.f};
 
   for (int x = -20; x <= 20; ++x) {
@@ -773,15 +774,16 @@ void VulkanEngine::initDescriptors() {
       vkinit::descriptorSetLayoutCreateInfo(nullptr, 0);
   VK_CHECK(vkCreateDescriptorSetLayout(_vkDevice,
                                        &vkEmptyDescriptorSetLayoutCreateInfo,
-                                       nullptr, &_emptyDescriptorSetLayout));
+                                       nullptr, &_vkEmptyDescriptorSetLayout));
 
   _deletionQueue.pushFunction([this]() {
-    vkDestroyDescriptorSetLayout(_vkDevice, _emptyDescriptorSetLayout, nullptr);
+    vkDestroyDescriptorSetLayout(_vkDevice, _vkEmptyDescriptorSetLayout,
+                                 nullptr);
   });
 
   VkDescriptorSetAllocateInfo vkEmptyDescriptorSetAllocateInfo =
       vkinit::descriptorSetAllocateInfo(_vkDescriptorPool,
-                                        &_emptyDescriptorSetLayout, 1);
+                                        &_vkEmptyDescriptorSetLayout, 1);
 
   VK_CHECK(vkAllocateDescriptorSets(
       _vkDevice, &vkEmptyDescriptorSetAllocateInfo, &_emptyDescriptorSet));
@@ -808,19 +810,12 @@ void VulkanEngine::initDescriptors() {
                                  nullptr);
   });
 
-  std::array<VkDescriptorSetLayoutBinding, 2> perObjectBindings;
-  VkDescriptorSetLayoutBinding& objectDataBinding = perObjectBindings[0];
+  VkDescriptorSetLayoutBinding objectDataBinding = {};
   objectDataBinding = vkinit::descriptorSetLayoutBinding(
       0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
 
-  VkDescriptorSetLayoutBinding& textureBinding = perObjectBindings[1];
-  textureBinding = vkinit::descriptorSetLayoutBinding(
-      1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-      VK_SHADER_STAGE_FRAGMENT_BIT);
-
   VkDescriptorSetLayoutCreateInfo objectLayoutCreateInfo =
-      vkinit::descriptorSetLayoutCreateInfo(perObjectBindings.data(),
-                                            perObjectBindings.size());
+      vkinit::descriptorSetLayoutCreateInfo(&objectDataBinding, 1);
 
   VK_CHECK(vkCreateDescriptorSetLayout(_vkDevice, &objectLayoutCreateInfo,
                                        nullptr,
@@ -924,11 +919,11 @@ void VulkanEngine::initDescriptors() {
 
   VK_CHECK(vkCreateDescriptorSetLayout(
       _vkDevice, &vkDefaultRenderPassDescriptorSetLayoutCreateInfo, nullptr,
-      &_vkDefaultRenderPassDescriptorSetLayout));
+      &_vkLitMeshrenderPassDescriptorSetLayout));
 
   _deletionQueue.pushFunction([this]() {
     vkDestroyDescriptorSetLayout(
-        _vkDevice, _vkDefaultRenderPassDescriptorSetLayout, nullptr);
+        _vkDevice, _vkLitMeshrenderPassDescriptorSetLayout, nullptr);
   });
 
   for (int i = 0; i < frameOverlap; ++i) {
@@ -936,7 +931,7 @@ void VulkanEngine::initDescriptors() {
 
     VkDescriptorSetAllocateInfo vkDefaultRenderPassDescriptorSetAllocateInfo =
         vkinit::descriptorSetAllocateInfo(
-            _vkDescriptorPool, &_vkDefaultRenderPassDescriptorSetLayout, 1);
+            _vkDescriptorPool, &_vkLitMeshrenderPassDescriptorSetLayout, 1);
 
     VK_CHECK(vkAllocateDescriptorSets(
         _vkDevice, &vkDefaultRenderPassDescriptorSetAllocateInfo,
@@ -998,33 +993,36 @@ void VulkanEngine::initDescriptors() {
                                       &objectDataDescriptorSetAllocateInfo,
                                       &frameData.vkObjectDataDescriptorSet));
 
-    std::array<VkWriteDescriptorSet, 2> writeDescriptorSets;
+    VkWriteDescriptorSet writeObjectDataDescriptorSet;
 
     VkDescriptorBufferInfo objectDataDescriptorBufferInfo = {};
     objectDataDescriptorBufferInfo.buffer = frameData.vkObjectDataBuffer.buffer;
     objectDataDescriptorBufferInfo.offset = 0;
     objectDataDescriptorBufferInfo.range = VK_WHOLE_SIZE;
 
-    VkWriteDescriptorSet& writeObjectDataDescriptorSet = writeDescriptorSets[0];
     writeObjectDataDescriptorSet = vkinit::writeDescriptorSet(
         frameData.vkObjectDataDescriptorSet, &objectDataDescriptorBufferInfo, 1,
         nullptr, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 0);
 
-    VkDescriptorImageInfo textureDescriptorImageInfo = {};
-    textureDescriptorImageInfo.imageLayout =
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    textureDescriptorImageInfo.sampler = _vkSampler;
-    textureDescriptorImageInfo.imageView =
-        _loadedTextures["lostEmpire"].imageView;
-
-    VkWriteDescriptorSet& writeImageDescriptorSet = writeDescriptorSets[1];
-    writeImageDescriptorSet = vkinit::writeDescriptorSet(
-        frameData.vkObjectDataDescriptorSet, nullptr, 0,
-        &textureDescriptorImageInfo, 1,
-        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1);
-    vkUpdateDescriptorSets(_vkDevice, writeDescriptorSets.size(),
-                           writeDescriptorSets.data(), 0, nullptr);
+    vkUpdateDescriptorSets(_vkDevice, 1, &writeObjectDataDescriptorSet, 0,
+                           nullptr);
   }
+
+  VkDescriptorSetLayoutBinding albedoTexBinding =
+      vkinit::descriptorSetLayoutBinding(
+          0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+          VK_SHADER_STAGE_FRAGMENT_BIT);
+  VkDescriptorSetLayoutCreateInfo texMatDescriptorSetLayoutCreateInfo =
+      vkinit::descriptorSetLayoutCreateInfo(&albedoTexBinding, 1);
+
+  VK_CHECK(vkCreateDescriptorSetLayout(
+      _vkDevice, &texMatDescriptorSetLayoutCreateInfo, nullptr,
+      &_vkTexturedMaterialDescriptorSetLayout));
+
+  _deletionQueue.pushFunction([this]() {
+    vkDestroyDescriptorSetLayout(
+        _vkDevice, _vkTexturedMaterialDescriptorSetLayout, nullptr);
+  });
 }
 
 void VulkanEngine::initShadowPassDescriptors() {

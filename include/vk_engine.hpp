@@ -73,8 +73,9 @@ private:
   VkDescriptorSetLayout _vkGlobalDescriptorSetLayout;
   VkDescriptorSetLayout _vkObjectDataDescriptorSetLayout;
   VkDescriptorSetLayout _vkShadowPassGlobalDescriptorSetLayout;
-  VkDescriptorSetLayout _vkDefaultRenderPassDescriptorSetLayout;
-  VkDescriptorSetLayout _emptyDescriptorSetLayout;
+  VkDescriptorSetLayout _vkLitMeshrenderPassDescriptorSetLayout;
+  VkDescriptorSetLayout _vkEmptyDescriptorSetLayout;
+  VkDescriptorSetLayout _vkTexturedMaterialDescriptorSetLayout;
   VkDescriptorPool _vkDescriptorPool;
   AllocatedBuffer _sceneDataBuffer;
   AllocatedBuffer _cameraBuffer;
@@ -111,7 +112,8 @@ private:
   void drawObjects(VkCommandBuffer cmd, RenderObject* first, int count);
   void drawShadowPass(VkCommandBuffer, RenderObject* first, int count);
   Material* createMaterial(VkPipeline pipeline, VkPipelineLayout pipelineLayout,
-                           std::string const& name);
+                           std::string const& name,
+                           std::string const& albedoTexName = "default");
   Material* getMaterial(std::string const& name);
   Mesh* getMesh(std::string const& name);
   AllocatedBuffer
