@@ -33,14 +33,30 @@ void main() {
   vec3 sampledColor = texture(tex1, inUV).xyz;
 
   vec4 depthSpacePos = lightCameraData.viewProj * vec4(inWorldPos, 1.0f);
-  vec2 shadowUV = (depthSpacePos.xy + vec2(1.0f, 1.0f)) / 2.0f;
-  float shadowMapValue = texture(shadowMap, shadowUV).r;
 
-  float shadowMultiplier = 1.0f;
+  float shadowMultiplier = 0.0f;
 
-  if (depthSpacePos.z > shadowMapValue + 0.005f) {
-    shadowMultiplier = 0.2f;
+  float bias =
+      max(0.001f, 0.001 * (1.0 - dot(normalize(sceneData.sunlightDirection.xyz),
+                                     normalize(inNormals))));
+
+  vec2 texelSize = 1.0f / textureSize(shadowMap, 0);
+  const int pcfCount = 2;
+  for (int x = -pcfCount; x <= pcfCount; ++x) {
+    for (int y = -pcfCount; y <= pcfCount; ++y) {
+      vec2 shadowUV = (depthSpacePos.xy + vec2(1.0f, 1.0f)) / 2.0f;
+      float shadowMapValue =
+          texture(shadowMap, shadowUV + vec2(x, y) * texelSize.r).r;
+
+      if (depthSpacePos.z > shadowMapValue + bias) {
+        shadowMultiplier += 0.2f;
+      } else {
+        shadowMultiplier += 1.0f;
+      }
+    }
   }
+
+  shadowMultiplier /= ((2 * pcfCount + 1) * (2 * pcfCount + 1));
 
   outFragColor = vec4(shadowMultiplier *
                           (lightIntensity * sceneData.sunlgihtColor.xyz +

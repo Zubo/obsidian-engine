@@ -162,7 +162,7 @@ void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject* first,
   glm::mat4 proj = glm::perspective(glm::radians(60.f),
                                     static_cast<float>(WindowExtent.width) /
                                         WindowExtent.height,
-                                    0.1f, 100.f);
+                                    0.1f, 200.f);
   proj[1][1] *= -1;
 
   // Map NDC from [-1, 1] to [0, 1]

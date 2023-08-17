@@ -624,6 +624,8 @@ void VulkanEngine::initPipelines() {
 
   // Shadow pass pipeline
 
+  pipelineBuilder._vkRasterizationCreateInfo.cullMode = VK_CULL_MODE_BACK_BIT;
+
   pipelineBuilder._vkViewport.x = 0.f;
   pipelineBuilder._vkViewport.y = 0.f;
   pipelineBuilder._vkViewport.width = shadowPassAttachmentWidth;
