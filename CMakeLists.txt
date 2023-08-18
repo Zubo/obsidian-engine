@@ -18,6 +18,7 @@ add_executable(ObsidianEngine
     "src/vk_initializers.cpp"
     "src/vk_pipeline_builder.cpp"
     "src/vk_mesh.cpp"
+    "src/vk_descriptors.cpp"
     "src/renderdoc.cpp"
     "src/stbi_impl.cpp"
     "src/vma_impl.cpp"
@@ -29,6 +30,7 @@ add_executable(ObsidianEngine
     "include/renderdoc.hpp"
     "include/vk_pipeline_builder.hpp"
     "include/vk_deletion_queue.hpp"
+    "include/vk_descriptors.hpp"
 )
 
 target_include_directories(ObsidianEngine PRIVATE include)
