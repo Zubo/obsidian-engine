@@ -3,6 +3,7 @@
 #include <vulkan/vulkan.hpp>
 
 #include <cstdint>
+#include <unordered_map>
 #include <vector>
 
 class DescriptorAllocator {
@@ -39,6 +40,30 @@ private:
       {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 50}};
 };
 
-class DescriptorLayoutCache {};
+class DescriptorLayoutCache {
+public:
+  void init(VkDevice vkDevice);
+  void cleanup();
+  VkDescriptorSetLayout getLayout(
+      VkDescriptorSetLayoutCreateInfo const& descriptorSetLayoutCreateInfo);
+
+private:
+  struct DescriptorLayoutInfo {
+    std::vector<VkDescriptorSetLayoutBinding> descriptorLayoutBindings;
+    VkDescriptorSetLayoutCreateFlags flags;
+
+    bool operator==(DescriptorLayoutInfo const& other) const;
+  };
+
+  struct DescriptorLayoutInfoHash {
+    std::size_t
+    operator()(DescriptorLayoutInfo const& descriptorLayoutInfo) const;
+  };
+
+  VkDevice _vkDevice;
+  std::unordered_map<DescriptorLayoutInfo, VkDescriptorSetLayout,
+                     DescriptorLayoutInfoHash>
+      _descriptorSetLayoutMap;
+};
 
 class DescriptorBuilder {};

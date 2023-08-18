@@ -1,6 +1,11 @@
 #include <vk_check.hpp>
 #include <vk_descriptors.hpp>
+
+#include <crc32.h>
 #include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan_handles.hpp>
+
+#include <algorithm>
 
 void DescriptorAllocator::init(VkDevice vkDevice,
                                VkDescriptorPoolCreateFlags vkFlags) {
@@ -100,4 +105,102 @@ VkDescriptorPool DescriptorAllocator::createNewDescriptorPool() {
   ++_descriptorPoolSizeFactor;
 
   return newDescriptorPool;
+}
+
+bool DescriptorLayoutCache::DescriptorLayoutInfo::operator==(
+    DescriptorLayoutInfo const& other) const {
+  if (other.flags != flags)
+    return false;
+
+  if (other.descriptorLayoutBindings.size() != descriptorLayoutBindings.size())
+    return false;
+
+  for (std::size_t i; i < descriptorLayoutBindings.size(); ++i) {
+    if (other.descriptorLayoutBindings[i].binding !=
+        descriptorLayoutBindings[i].binding)
+      return false;
+    if (other.descriptorLayoutBindings[i].descriptorCount !=
+        descriptorLayoutBindings[i].descriptorCount)
+      return false;
+    if (other.descriptorLayoutBindings[i].descriptorType !=
+        descriptorLayoutBindings[i].descriptorType)
+      return false;
+    if (other.descriptorLayoutBindings[i].stageFlags !=
+        descriptorLayoutBindings[i].stageFlags)
+      return false;
+    if (other.descriptorLayoutBindings[i].pImmutableSamplers !=
+        descriptorLayoutBindings[i].pImmutableSamplers)
+      return false;
+  }
+
+  return true;
+}
+
+void DescriptorLayoutCache::init(VkDevice vkDevice) { _vkDevice = vkDevice; }
+
+void DescriptorLayoutCache::cleanup() {
+  for (auto const& layoutMapEntry : _descriptorSetLayoutMap) {
+    vkDestroyDescriptorSetLayout(_vkDevice, layoutMapEntry.second, nullptr);
+  }
+}
+
+VkDescriptorSetLayout DescriptorLayoutCache::getLayout(
+    VkDescriptorSetLayoutCreateInfo const& descriptorSetLayoutCreateInfo) {
+
+  DescriptorLayoutInfo info = {};
+  info.flags = descriptorSetLayoutCreateInfo.flags;
+
+  for (std::size_t i = 0; i < descriptorSetLayoutCreateInfo.bindingCount; ++i) {
+    info.descriptorLayoutBindings.push_back(
+        descriptorSetLayoutCreateInfo.pBindings[i]);
+  }
+
+  std::sort(info.descriptorLayoutBindings.begin(),
+            info.descriptorLayoutBindings.end(),
+            [](auto const& first, auto const& second) {
+              return first.binding < second.binding;
+            });
+
+  auto const cachedLayoutIter = _descriptorSetLayoutMap.find(info);
+
+  if (cachedLayoutIter != _descriptorSetLayoutMap.cend()) {
+    return cachedLayoutIter->second;
+  }
+
+  VkDescriptorSetLayoutCreateInfo vkDescriptorSetLayoutCreateInfo = {};
+  vkDescriptorSetLayoutCreateInfo.sType =
+      VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+  vkDescriptorSetLayoutCreateInfo.pNext = nullptr;
+
+  vkDescriptorSetLayoutCreateInfo.flags = info.flags;
+  vkDescriptorSetLayoutCreateInfo.bindingCount =
+      info.descriptorLayoutBindings.size();
+  vkDescriptorSetLayoutCreateInfo.pBindings =
+      info.descriptorLayoutBindings.data();
+
+  VkDescriptorSetLayout& newLayout = _descriptorSetLayoutMap[info];
+
+  VK_CHECK(vkCreateDescriptorSetLayout(
+      _vkDevice, &vkDescriptorSetLayoutCreateInfo, nullptr, &newLayout));
+
+  return newLayout;
+}
+
+std::size_t DescriptorLayoutCache::DescriptorLayoutInfoHash::operator()(
+    DescriptorLayoutInfo const& descriptorLayoutInfo) const {
+  // TODO: unit test this
+
+  CRC32 crc32;
+  crc32.add(static_cast<void const*>(&descriptorLayoutInfo),
+            sizeof(DescriptorLayoutInfo));
+
+  for (VkDescriptorSetLayoutBinding const& layoutBinding :
+       descriptorLayoutInfo.descriptorLayoutBindings) {
+    crc32.add(&layoutBinding, sizeof(layoutBinding));
+  }
+
+  std::size_t result;
+  crc32.getHash(reinterpret_cast<unsigned char*>(&result));
+
+  return result;
 }
