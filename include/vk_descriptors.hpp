@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <unordered_map>
 #include <vector>
+#include <vulkan/vulkan_core.h>
 
 class DescriptorAllocator {
 public:
@@ -66,4 +67,36 @@ private:
       _descriptorSetLayoutMap;
 };
 
-class DescriptorBuilder {};
+class DescriptorBuilder {
+public:
+  static DescriptorBuilder begin(VkDevice vkDevice,
+                                 DescriptorAllocator& allocator,
+                                 DescriptorLayoutCache& layoutCache);
+
+  DescriptorBuilder& setFlags(VkDescriptorSetLayoutCreateFlags flags);
+  DescriptorBuilder& bindBuffer(uint32_t binding,
+                                VkDescriptorBufferInfo const& bufferInfo,
+                                VkDescriptorType descriptorType,
+                                VkShaderStageFlags stageFlags,
+                                const VkSampler* pImmutableSamplers = nullptr);
+  DescriptorBuilder& bindImage(uint32_t binding,
+                               VkDescriptorImageInfo const& imageInfo,
+                               VkDescriptorType descriptorType,
+                               VkShaderStageFlags stageFlags,
+                               const VkSampler* pImmutableSamplers);
+
+  bool build(VkDescriptorSet& outVkDescriptorSet);
+  bool build(VkDescriptorSet& outVkDescriptorSet,
+             VkDescriptorSetLayout& outLayout);
+
+private:
+  DescriptorBuilder(VkDevice vkDevice, DescriptorAllocator& allocator,
+                    DescriptorLayoutCache& layoutCache);
+
+  VkDevice _vkDevice;
+  DescriptorAllocator& _allocator;
+  DescriptorLayoutCache& _layoutCache;
+  std::vector<VkDescriptorSetLayoutBinding> _bindings;
+  std::vector<VkWriteDescriptorSet> _writes;
+  VkDescriptorSetLayoutCreateFlags _flags;
+};

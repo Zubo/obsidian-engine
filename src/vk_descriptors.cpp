@@ -145,14 +145,15 @@ void DescriptorLayoutCache::cleanup() {
 }
 
 VkDescriptorSetLayout DescriptorLayoutCache::getLayout(
-    VkDescriptorSetLayoutCreateInfo const& descriptorSetLayoutCreateInfo) {
+    VkDescriptorSetLayoutCreateInfo const& vkDescriptorSetLayoutCreateInfo) {
 
   DescriptorLayoutInfo info = {};
-  info.flags = descriptorSetLayoutCreateInfo.flags;
+  info.flags = vkDescriptorSetLayoutCreateInfo.flags;
 
-  for (std::size_t i = 0; i < descriptorSetLayoutCreateInfo.bindingCount; ++i) {
+  for (std::size_t i = 0; i < vkDescriptorSetLayoutCreateInfo.bindingCount;
+       ++i) {
     info.descriptorLayoutBindings.push_back(
-        descriptorSetLayoutCreateInfo.pBindings[i]);
+        vkDescriptorSetLayoutCreateInfo.pBindings[i]);
   }
 
   std::sort(info.descriptorLayoutBindings.begin(),
@@ -166,17 +167,6 @@ VkDescriptorSetLayout DescriptorLayoutCache::getLayout(
   if (cachedLayoutIter != _descriptorSetLayoutMap.cend()) {
     return cachedLayoutIter->second;
   }
-
-  VkDescriptorSetLayoutCreateInfo vkDescriptorSetLayoutCreateInfo = {};
-  vkDescriptorSetLayoutCreateInfo.sType =
-      VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-  vkDescriptorSetLayoutCreateInfo.pNext = nullptr;
-
-  vkDescriptorSetLayoutCreateInfo.flags = info.flags;
-  vkDescriptorSetLayoutCreateInfo.bindingCount =
-      info.descriptorLayoutBindings.size();
-  vkDescriptorSetLayoutCreateInfo.pBindings =
-      info.descriptorLayoutBindings.data();
 
   VkDescriptorSetLayout& newLayout = _descriptorSetLayoutMap[info];
 
@@ -204,3 +194,101 @@ std::size_t DescriptorLayoutCache::DescriptorLayoutInfoHash::operator()(
 
   return result;
 }
+
+DescriptorBuilder DescriptorBuilder::begin(VkDevice vkDevice,
+                                           DescriptorAllocator& allocator,
+                                           DescriptorLayoutCache& layoutCache) {
+
+  return DescriptorBuilder{vkDevice, allocator, layoutCache};
+}
+
+DescriptorBuilder&
+DescriptorBuilder::setFlags(VkDescriptorSetLayoutCreateFlags flags) {
+  _flags = flags;
+
+  return *this;
+}
+
+DescriptorBuilder& DescriptorBuilder::bindBuffer(
+    uint32_t binding, VkDescriptorBufferInfo const& bufferInfo,
+    VkDescriptorType descriptorType, VkShaderStageFlags stageFlags,
+    const VkSampler* pImmutableSamplers) {
+
+  VkDescriptorSetLayoutBinding& vkDescriptorSetLayoutBinding =
+      _bindings.emplace_back();
+  vkDescriptorSetLayoutBinding.binding = binding;
+  vkDescriptorSetLayoutBinding.descriptorType = descriptorType;
+  vkDescriptorSetLayoutBinding.descriptorCount = 1;
+  vkDescriptorSetLayoutBinding.stageFlags = stageFlags;
+  vkDescriptorSetLayoutBinding.pImmutableSamplers = pImmutableSamplers;
+
+  VkWriteDescriptorSet& vkWriteDescriptorSet = _writes.emplace_back();
+  vkWriteDescriptorSet = {};
+  vkWriteDescriptorSet.dstBinding = binding;
+  vkWriteDescriptorSet.dstArrayElement = 0;
+  vkWriteDescriptorSet.descriptorCount = 1;
+  vkWriteDescriptorSet.descriptorType = descriptorType;
+  vkWriteDescriptorSet.pBufferInfo = &bufferInfo;
+
+  return *this;
+}
+
+DescriptorBuilder& DescriptorBuilder::bindImage(
+    uint32_t binding, VkDescriptorImageInfo const& imageInfo,
+    VkDescriptorType descriptorType, VkShaderStageFlags stageFlags,
+    const VkSampler* pImmutableSamplers) {
+
+  VkDescriptorSetLayoutBinding& vkDescriptorSetLayoutBinding =
+      _bindings.emplace_back();
+  vkDescriptorSetLayoutBinding = {};
+  vkDescriptorSetLayoutBinding.binding = binding;
+  vkDescriptorSetLayoutBinding.descriptorType = descriptorType;
+  vkDescriptorSetLayoutBinding.descriptorCount = 1;
+  vkDescriptorSetLayoutBinding.stageFlags = stageFlags;
+  vkDescriptorSetLayoutBinding.pImmutableSamplers = pImmutableSamplers;
+
+  VkWriteDescriptorSet& vkWriteDescriptorSet = _writes.emplace_back();
+  vkWriteDescriptorSet = {};
+  vkWriteDescriptorSet.dstBinding = binding;
+  vkWriteDescriptorSet.dstArrayElement = 0;
+  vkWriteDescriptorSet.descriptorCount = 1;
+  vkWriteDescriptorSet.descriptorType = descriptorType;
+  vkWriteDescriptorSet.pImageInfo = &imageInfo;
+
+  return *this;
+}
+
+bool DescriptorBuilder::build(VkDescriptorSet& outVkDescriptorSet) {
+  VkDescriptorSetLayout layout;
+  return build(outVkDescriptorSet, layout);
+}
+
+bool DescriptorBuilder::build(VkDescriptorSet& outVkDescriptorSet,
+                              VkDescriptorSetLayout& outLayout) {
+  VkDescriptorSetLayoutCreateInfo vkDescriptorSetLayoutCreateInfo = {};
+  vkDescriptorSetLayoutCreateInfo.sType =
+      VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+  vkDescriptorSetLayoutCreateInfo.pNext = nullptr;
+
+  vkDescriptorSetLayoutCreateInfo.flags = _flags;
+  vkDescriptorSetLayoutCreateInfo.bindingCount = _bindings.size();
+  vkDescriptorSetLayoutCreateInfo.pBindings = _bindings.data();
+
+  VkDescriptorSetLayout const vkDescriptorSetLayout =
+      _layoutCache.getLayout(vkDescriptorSetLayoutCreateInfo);
+
+  bool result = _allocator.allocate(vkDescriptorSetLayout, &outVkDescriptorSet);
+
+  for (VkWriteDescriptorSet& writeDescr : _writes) {
+    writeDescr.dstSet = outVkDescriptorSet;
+  }
+
+  vkUpdateDescriptorSets(_vkDevice, _writes.size(), _writes.data(), 0, nullptr);
+
+  return result;
+}
+
+DescriptorBuilder::DescriptorBuilder(VkDevice vkDevice,
+                                     DescriptorAllocator& allocator,
+                                     DescriptorLayoutCache& layoutCache)
+    : _vkDevice{vkDevice}, _allocator{allocator}, _layoutCache{layoutCache} {}
