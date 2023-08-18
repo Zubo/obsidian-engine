@@ -2,6 +2,7 @@
 
 #include <string_view>
 #include <vk_deletion_queue.hpp>
+#include <vk_descriptors.hpp>
 #include <vk_mesh.hpp>
 #include <vk_pipeline_builder.hpp>
 #include <vk_types.hpp>
@@ -70,13 +71,14 @@ private:
   std::unordered_map<std::string, Material> _materials;
   std::unordered_map<std::string, Mesh> _meshes;
   std::unordered_map<std::string, Texture> _loadedTextures;
+  DescriptorLayoutCache _descriptorLayoutCache;
+  DescriptorAllocator _descriptorAllocator;
   VkDescriptorSetLayout _vkGlobalDescriptorSetLayout;
   VkDescriptorSetLayout _vkObjectDataDescriptorSetLayout;
   VkDescriptorSetLayout _vkShadowPassGlobalDescriptorSetLayout;
   VkDescriptorSetLayout _vkLitMeshrenderPassDescriptorSetLayout;
   VkDescriptorSetLayout _vkEmptyDescriptorSetLayout;
   VkDescriptorSetLayout _vkTexturedMaterialDescriptorSetLayout;
-  VkDescriptorPool _vkDescriptorPool;
   AllocatedBuffer _sceneDataBuffer;
   AllocatedBuffer _cameraBuffer;
   AllocatedBuffer _shadowPassCameraBuffer;

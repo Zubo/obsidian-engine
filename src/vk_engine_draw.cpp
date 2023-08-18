@@ -13,7 +13,6 @@
 #include <glm/gtx/transform.hpp>
 #include <tracy/Tracy.hpp>
 #include <vulkan/vulkan.hpp>
-#include <vulkan/vulkan_core.h>
 
 void VulkanEngine::draw() {
   FrameData& currentFrameData = getCurrentFrameData();

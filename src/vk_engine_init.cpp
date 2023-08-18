@@ -1,3 +1,4 @@
+#include "vk_descriptors.hpp"
 #include "vk_mesh.hpp"
 #include "vk_types.hpp"
 #include <renderdoc.hpp>
@@ -12,7 +13,6 @@
 #include <glm/gtx/transform.hpp>
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.hpp>
-#include <vulkan/vulkan_core.h>
 
 void VulkanEngine::init() {
   SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_WINDOW_MOUSE_CAPTURE);
@@ -746,85 +746,17 @@ void VulkanEngine::initScene() {
 }
 
 void VulkanEngine::initDescriptors() {
-  constexpr std::uint32_t descriptorPoolSize{10};
-
-  std::vector<VkDescriptorPoolSize> descriptorPoolSizes = {
-      {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, descriptorPoolSize},
-      {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, descriptorPoolSize},
-      {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, descriptorPoolSize},
-      {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, descriptorPoolSize}};
-
-  VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {};
-  descriptorPoolCreateInfo.sType =
-      VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-  descriptorPoolCreateInfo.pNext = nullptr;
-  descriptorPoolCreateInfo.maxSets =
-      descriptorPoolSizes.size() * descriptorPoolSize;
-  descriptorPoolCreateInfo.poolSizeCount = descriptorPoolSizes.size();
-  descriptorPoolCreateInfo.pPoolSizes = descriptorPoolSizes.data();
-
-  VK_CHECK(vkCreateDescriptorPool(_vkDevice, &descriptorPoolCreateInfo, nullptr,
-                                  &_vkDescriptorPool));
+  _descriptorLayoutCache.init(_vkDevice);
+  _descriptorAllocator.init(_vkDevice);
 
   _deletionQueue.pushFunction([this]() {
-    vkDestroyDescriptorPool(_vkDevice, _vkDescriptorPool, nullptr);
+    _descriptorAllocator.cleanup();
+    _descriptorLayoutCache.cleanup();
   });
 
-  VkDescriptorSetLayoutCreateInfo vkEmptyDescriptorSetLayoutCreateInfo =
-      vkinit::descriptorSetLayoutCreateInfo(nullptr, 0);
-  VK_CHECK(vkCreateDescriptorSetLayout(_vkDevice,
-                                       &vkEmptyDescriptorSetLayoutCreateInfo,
-                                       nullptr, &_vkEmptyDescriptorSetLayout));
-
-  _deletionQueue.pushFunction([this]() {
-    vkDestroyDescriptorSetLayout(_vkDevice, _vkEmptyDescriptorSetLayout,
-                                 nullptr);
-  });
-
-  VkDescriptorSetAllocateInfo vkEmptyDescriptorSetAllocateInfo =
-      vkinit::descriptorSetAllocateInfo(_vkDescriptorPool,
-                                        &_vkEmptyDescriptorSetLayout, 1);
-
-  VK_CHECK(vkAllocateDescriptorSets(
-      _vkDevice, &vkEmptyDescriptorSetAllocateInfo, &_emptyDescriptorSet));
-
-  VkDescriptorSetLayoutBinding bindings[2];
-  VkDescriptorSetLayoutBinding& camBufferBinding = bindings[0];
-  camBufferBinding = vkinit::descriptorSetLayoutBinding(
-      0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT);
-
-  VkDescriptorSetLayoutBinding& sceneDataBufferBinding = bindings[1];
-  sceneDataBufferBinding = vkinit::descriptorSetLayoutBinding(
-      1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-      VK_SHADER_STAGE_FRAGMENT_BIT);
-
-  VkDescriptorSetLayoutCreateInfo layoutCreateInfo =
-      vkinit::descriptorSetLayoutCreateInfo(bindings, sizeof(bindings) /
-                                                          sizeof(bindings[0]));
-
-  VK_CHECK(vkCreateDescriptorSetLayout(_vkDevice, &layoutCreateInfo, nullptr,
-                                       &_vkGlobalDescriptorSetLayout));
-
-  _deletionQueue.pushFunction([this]() {
-    vkDestroyDescriptorSetLayout(_vkDevice, _vkGlobalDescriptorSetLayout,
-                                 nullptr);
-  });
-
-  VkDescriptorSetLayoutBinding objectDataBinding = {};
-  objectDataBinding = vkinit::descriptorSetLayoutBinding(
-      0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
-
-  VkDescriptorSetLayoutCreateInfo objectLayoutCreateInfo =
-      vkinit::descriptorSetLayoutCreateInfo(&objectDataBinding, 1);
-
-  VK_CHECK(vkCreateDescriptorSetLayout(_vkDevice, &objectLayoutCreateInfo,
-                                       nullptr,
-                                       &_vkObjectDataDescriptorSetLayout));
-
-  _deletionQueue.pushFunction([this]() {
-    vkDestroyDescriptorSetLayout(_vkDevice, _vkObjectDataDescriptorSetLayout,
-                                 nullptr);
-  });
+  DescriptorBuilder::begin(_vkDevice, _descriptorAllocator,
+                           _descriptorLayoutCache)
+      .build(_emptyDescriptorSet, _vkEmptyDescriptorSetLayout);
 
   std::size_t const paddedSceneDataSize =
       getPaddedBufferSize(sizeof(GPUSceneData));
@@ -858,13 +790,6 @@ void VulkanEngine::initDescriptors() {
                      _shadowPassCameraBuffer.allocation);
   });
 
-  VkDescriptorSetAllocateInfo globalDescriptorSetAllocateInfo =
-      vkinit::descriptorSetAllocateInfo(_vkDescriptorPool,
-                                        &_vkGlobalDescriptorSetLayout, 1);
-
-  VK_CHECK(vkAllocateDescriptorSets(_vkDevice, &globalDescriptorSetAllocateInfo,
-                                    &_vkGlobalDescriptorSet));
-
   VkDescriptorBufferInfo cameraDescriptorBufferInfo;
   cameraDescriptorBufferInfo.buffer = _cameraBuffer.buffer;
   cameraDescriptorBufferInfo.offset = 0;
@@ -875,16 +800,15 @@ void VulkanEngine::initDescriptors() {
   sceneDescriptorBufferInfo.offset = 0;
   sceneDescriptorBufferInfo.range = sizeof(GPUSceneData);
 
-  std::vector<VkWriteDescriptorSet> descriptorSetWrites = {
-      vkinit::writeDescriptorSet(_vkGlobalDescriptorSet,
-                                 &cameraDescriptorBufferInfo, 1, nullptr, 0,
-                                 VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 0),
-      vkinit::writeDescriptorSet(_vkGlobalDescriptorSet,
-                                 &sceneDescriptorBufferInfo, 1, nullptr, 0,
-                                 VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1)};
-
-  vkUpdateDescriptorSets(_vkDevice, descriptorSetWrites.size(),
-                         descriptorSetWrites.data(), 0, nullptr);
+  DescriptorBuilder::begin(_vkDevice, _descriptorAllocator,
+                           _descriptorLayoutCache)
+      .bindBuffer(0, cameraDescriptorBufferInfo,
+                  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+                  VK_SHADER_STAGE_VERTEX_BIT)
+      .bindBuffer(1, sceneDescriptorBufferInfo,
+                  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+                  VK_SHADER_STAGE_FRAGMENT_BIT)
+      .build(_vkGlobalDescriptorSet, _vkGlobalDescriptorSetLayout);
 
   VkSamplerCreateInfo vkSamplerCreateInfo = vkinit::samplerCreateInfo(
       VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_NEAREST,
@@ -896,46 +820,8 @@ void VulkanEngine::initDescriptors() {
   _deletionQueue.pushFunction(
       [this]() { vkDestroySampler(_vkDevice, _vkSampler, nullptr); });
 
-  std::array<VkDescriptorSetLayoutBinding, 2> defaultRenderPassBindings;
-
-  VkDescriptorSetLayoutBinding& vkShadowMapDescriptorSetLayoutBinding =
-      defaultRenderPassBindings[0];
-  vkShadowMapDescriptorSetLayoutBinding = vkinit::descriptorSetLayoutBinding(
-      0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-      VK_SHADER_STAGE_FRAGMENT_BIT);
-
-  VkDescriptorSetLayoutBinding& vkLightCameraDataDescriptorSetLayoutBinding =
-      defaultRenderPassBindings[1];
-  vkLightCameraDataDescriptorSetLayoutBinding =
-      vkinit::descriptorSetLayoutBinding(
-          1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-          VK_SHADER_STAGE_FRAGMENT_BIT);
-
-  VkDescriptorSetLayoutCreateInfo
-      vkDefaultRenderPassDescriptorSetLayoutCreateInfo =
-          vkinit::descriptorSetLayoutCreateInfo(
-              defaultRenderPassBindings.data(),
-              defaultRenderPassBindings.size());
-
-  VK_CHECK(vkCreateDescriptorSetLayout(
-      _vkDevice, &vkDefaultRenderPassDescriptorSetLayoutCreateInfo, nullptr,
-      &_vkLitMeshrenderPassDescriptorSetLayout));
-
-  _deletionQueue.pushFunction([this]() {
-    vkDestroyDescriptorSetLayout(
-        _vkDevice, _vkLitMeshrenderPassDescriptorSetLayout, nullptr);
-  });
-
   for (int i = 0; i < frameOverlap; ++i) {
     FrameData& frameData = _frameDataArray[i];
-
-    VkDescriptorSetAllocateInfo vkDefaultRenderPassDescriptorSetAllocateInfo =
-        vkinit::descriptorSetAllocateInfo(
-            _vkDescriptorPool, &_vkLitMeshrenderPassDescriptorSetLayout, 1);
-
-    VK_CHECK(vkAllocateDescriptorSets(
-        _vkDevice, &vkDefaultRenderPassDescriptorSetAllocateInfo,
-        &frameData.vkDefaultRenderPassDescriptorSet));
 
     VkSamplerCreateInfo const vkShadowMapSamplerCreateInfo =
         vkinit::samplerCreateInfo(VK_FILTER_NEAREST,
@@ -955,25 +841,22 @@ void VulkanEngine::initDescriptors() {
     vkShadowMapDescriptorImageInfo.imageView = frameData.shadowMapImageView;
     vkShadowMapDescriptorImageInfo.sampler = frameData.shadowMapSampler;
 
-    std::array<VkWriteDescriptorSet, 2> vkWriteDefaultRenderPassDescriptorSet;
-    vkWriteDefaultRenderPassDescriptorSet[0] = vkinit::writeDescriptorSet(
-        frameData.vkDefaultRenderPassDescriptorSet, nullptr, 0,
-        &vkShadowMapDescriptorImageInfo, 1,
-        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0);
-
     VkDescriptorBufferInfo vkShadowCameraDataBufferInfo = {};
     vkShadowCameraDataBufferInfo.buffer = _shadowPassCameraBuffer.buffer;
     vkShadowCameraDataBufferInfo.offset = 0;
     vkShadowCameraDataBufferInfo.range =
         getPaddedBufferSize(sizeof(GPUCameraData));
 
-    vkWriteDefaultRenderPassDescriptorSet[1] = vkinit::writeDescriptorSet(
-        frameData.vkDefaultRenderPassDescriptorSet,
-        &vkShadowCameraDataBufferInfo, 1, nullptr, 0,
-        VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1);
-    vkUpdateDescriptorSets(
-        _vkDevice, vkWriteDefaultRenderPassDescriptorSet.size(),
-        vkWriteDefaultRenderPassDescriptorSet.data(), 0, nullptr);
+    DescriptorBuilder::begin(_vkDevice, _descriptorAllocator,
+                             _descriptorLayoutCache)
+        .bindImage(0, vkShadowMapDescriptorImageInfo,
+                   VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                   VK_SHADER_STAGE_FRAGMENT_BIT)
+        .bindBuffer(1, vkShadowCameraDataBufferInfo,
+                    VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+                    VK_SHADER_STAGE_FRAGMENT_BIT)
+        .build(frameData.vkDefaultRenderPassDescriptorSet,
+               _vkLitMeshrenderPassDescriptorSetLayout);
 
     frameData.vkObjectDataBuffer =
         createBuffer(maxNumberOfObjects * sizeof(GPUObjectData),
@@ -985,81 +868,45 @@ void VulkanEngine::initDescriptors() {
       vmaDestroyBuffer(_vmaAllocator, buffer.buffer, buffer.allocation);
     });
 
-    VkDescriptorSetAllocateInfo objectDataDescriptorSetAllocateInfo =
-        vkinit::descriptorSetAllocateInfo(_vkDescriptorPool,
-                                          &_vkObjectDataDescriptorSetLayout, 1);
-
-    VK_CHECK(vkAllocateDescriptorSets(_vkDevice,
-                                      &objectDataDescriptorSetAllocateInfo,
-                                      &frameData.vkObjectDataDescriptorSet));
-
-    VkWriteDescriptorSet writeObjectDataDescriptorSet;
-
     VkDescriptorBufferInfo objectDataDescriptorBufferInfo = {};
     objectDataDescriptorBufferInfo.buffer = frameData.vkObjectDataBuffer.buffer;
     objectDataDescriptorBufferInfo.offset = 0;
     objectDataDescriptorBufferInfo.range = VK_WHOLE_SIZE;
 
-    writeObjectDataDescriptorSet = vkinit::writeDescriptorSet(
-        frameData.vkObjectDataDescriptorSet, &objectDataDescriptorBufferInfo, 1,
-        nullptr, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 0);
-
-    vkUpdateDescriptorSets(_vkDevice, 1, &writeObjectDataDescriptorSet, 0,
-                           nullptr);
+    DescriptorBuilder::begin(_vkDevice, _descriptorAllocator,
+                             _descriptorLayoutCache)
+        .bindBuffer(0, objectDataDescriptorBufferInfo,
+                    VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                    VK_SHADER_STAGE_VERTEX_BIT)
+        .build(frameData.vkObjectDataDescriptorSet,
+               _vkObjectDataDescriptorSetLayout);
   }
 
-  VkDescriptorSetLayoutBinding albedoTexBinding =
-      vkinit::descriptorSetLayoutBinding(
-          0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-          VK_SHADER_STAGE_FRAGMENT_BIT);
-  VkDescriptorSetLayoutCreateInfo texMatDescriptorSetLayoutCreateInfo =
-      vkinit::descriptorSetLayoutCreateInfo(&albedoTexBinding, 1);
+  VkDescriptorSetLayoutBinding albedoTexBinding = {};
+  albedoTexBinding.binding = 0;
+  albedoTexBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+  albedoTexBinding.descriptorCount = 1;
+  albedoTexBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-  VK_CHECK(vkCreateDescriptorSetLayout(
-      _vkDevice, &texMatDescriptorSetLayoutCreateInfo, nullptr,
-      &_vkTexturedMaterialDescriptorSetLayout));
-
-  _deletionQueue.pushFunction([this]() {
-    vkDestroyDescriptorSetLayout(
-        _vkDevice, _vkTexturedMaterialDescriptorSetLayout, nullptr);
-  });
+  VkDescriptorSetLayoutCreateInfo texMatDescriptorSetLayoutCreateInfo = {};
+  texMatDescriptorSetLayoutCreateInfo.sType =
+      VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+  texMatDescriptorSetLayoutCreateInfo.bindingCount = 1;
+  texMatDescriptorSetLayoutCreateInfo.pBindings = &albedoTexBinding;
+  _vkTexturedMaterialDescriptorSetLayout =
+      _descriptorLayoutCache.getLayout(texMatDescriptorSetLayoutCreateInfo);
 }
 
 void VulkanEngine::initShadowPassDescriptors() {
-  VkDescriptorSetLayoutBinding vkGlobalDescriptorSetLayoutBidning =
-      vkinit::descriptorSetLayoutBinding(
-          0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-          VK_SHADER_STAGE_VERTEX_BIT);
-
-  VkDescriptorSetLayoutCreateInfo vkGlobalDescriptorSetLayoutCreateInfo =
-      vkinit::descriptorSetLayoutCreateInfo(&vkGlobalDescriptorSetLayoutBidning,
-                                            1);
-
-  VK_CHECK(vkCreateDescriptorSetLayout(
-      _vkDevice, &vkGlobalDescriptorSetLayoutCreateInfo, nullptr,
-      &_vkShadowPassGlobalDescriptorSetLayout));
-
-  _deletionQueue.pushFunction([this]() {
-    vkDestroyDescriptorSetLayout(
-        _vkDevice, _vkShadowPassGlobalDescriptorSetLayout, nullptr);
-  });
-
-  VkDescriptorSetAllocateInfo vkDescriptorSetAllocateInfo =
-      vkinit::descriptorSetAllocateInfo(
-          _vkDescriptorPool, &_vkShadowPassGlobalDescriptorSetLayout, 1);
-
-  VK_CHECK(vkAllocateDescriptorSets(_vkDevice, &vkDescriptorSetAllocateInfo,
-                                    &_vkShadowPassGlobalDescriptorSet));
-
   VkDescriptorBufferInfo vkCameraDatabufferInfo = {};
   vkCameraDatabufferInfo.buffer = _shadowPassCameraBuffer.buffer;
   vkCameraDatabufferInfo.offset = 0;
   vkCameraDatabufferInfo.range = sizeof(GPUCameraData);
-  VkWriteDescriptorSet vkShadowPassGlobalWriteDescriptorSet =
-      vkinit::writeDescriptorSet(_vkShadowPassGlobalDescriptorSet,
-                                 &vkCameraDatabufferInfo, 1, nullptr, 0,
-                                 VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 0);
-
-  vkUpdateDescriptorSets(_vkDevice, 1, &vkShadowPassGlobalWriteDescriptorSet, 0,
-                         nullptr);
+  DescriptorBuilder::begin(_vkDevice, _descriptorAllocator,
+                           _descriptorLayoutCache)
+      .bindBuffer(0, vkCameraDatabufferInfo,
+                  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+                  VK_SHADER_STAGE_VERTEX_BIT)
+      .build(_vkShadowPassGlobalDescriptorSet,
+             _vkShadowPassGlobalDescriptorSetLayout);
 }

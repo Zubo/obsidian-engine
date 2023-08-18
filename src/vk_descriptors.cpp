@@ -2,7 +2,6 @@
 #include <vk_descriptors.hpp>
 
 #include <crc32.h>
-#include <vulkan/vulkan_core.h>
 #include <vulkan/vulkan_handles.hpp>
 
 #include <algorithm>
@@ -16,6 +15,8 @@ void DescriptorAllocator::init(VkDevice vkDevice,
 }
 
 void DescriptorAllocator::cleanup() {
+  vkDestroyDescriptorPool(_vkDevice, _vkCurrentDescriptorPool, nullptr);
+
   for (VkDescriptorPool const pool : _usedDescriptorPools) {
     vkDestroyDescriptorPool(_vkDevice, pool, nullptr);
   }
@@ -224,6 +225,8 @@ DescriptorBuilder& DescriptorBuilder::bindBuffer(
 
   VkWriteDescriptorSet& vkWriteDescriptorSet = _writes.emplace_back();
   vkWriteDescriptorSet = {};
+  vkWriteDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+  vkWriteDescriptorSet.pNext = nullptr;
   vkWriteDescriptorSet.dstBinding = binding;
   vkWriteDescriptorSet.dstArrayElement = 0;
   vkWriteDescriptorSet.descriptorCount = 1;
@@ -249,6 +252,8 @@ DescriptorBuilder& DescriptorBuilder::bindImage(
 
   VkWriteDescriptorSet& vkWriteDescriptorSet = _writes.emplace_back();
   vkWriteDescriptorSet = {};
+  vkWriteDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+  vkWriteDescriptorSet.pNext = nullptr;
   vkWriteDescriptorSet.dstBinding = binding;
   vkWriteDescriptorSet.dstArrayElement = 0;
   vkWriteDescriptorSet.descriptorCount = 1;
@@ -274,10 +279,9 @@ bool DescriptorBuilder::build(VkDescriptorSet& outVkDescriptorSet,
   vkDescriptorSetLayoutCreateInfo.bindingCount = _bindings.size();
   vkDescriptorSetLayoutCreateInfo.pBindings = _bindings.data();
 
-  VkDescriptorSetLayout const vkDescriptorSetLayout =
-      _layoutCache.getLayout(vkDescriptorSetLayoutCreateInfo);
+  outLayout = _layoutCache.getLayout(vkDescriptorSetLayoutCreateInfo);
 
-  bool result = _allocator.allocate(vkDescriptorSetLayout, &outVkDescriptorSet);
+  bool result = _allocator.allocate(outLayout, &outVkDescriptorSet);
 
   for (VkWriteDescriptorSet& writeDescr : _writes) {
     writeDescr.dstSet = outVkDescriptorSet;

@@ -5,11 +5,10 @@
 #include <cstdint>
 #include <unordered_map>
 #include <vector>
-#include <vulkan/vulkan_core.h>
 
 class DescriptorAllocator {
 public:
-  void init(VkDevice vkDevice, VkDescriptorPoolCreateFlags vkFlags);
+  void init(VkDevice vkDevice, VkDescriptorPoolCreateFlags vkFlags = 0);
   void cleanup();
   bool allocate(VkDescriptorSetLayout const& vkDescriptorSetLayout,
                 VkDescriptorSet* outDescriptorSet);
@@ -83,7 +82,7 @@ public:
                                VkDescriptorImageInfo const& imageInfo,
                                VkDescriptorType descriptorType,
                                VkShaderStageFlags stageFlags,
-                               const VkSampler* pImmutableSamplers);
+                               const VkSampler* pImmutableSamplers = nullptr);
 
   bool build(VkDescriptorSet& outVkDescriptorSet);
   bool build(VkDescriptorSet& outVkDescriptorSet,
@@ -98,5 +97,5 @@ private:
   DescriptorLayoutCache& _layoutCache;
   std::vector<VkDescriptorSetLayoutBinding> _bindings;
   std::vector<VkWriteDescriptorSet> _writes;
-  VkDescriptorSetLayoutCreateFlags _flags;
+  VkDescriptorSetLayoutCreateFlags _flags = 0;
 };

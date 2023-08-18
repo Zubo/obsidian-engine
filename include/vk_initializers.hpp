@@ -6,7 +6,6 @@
 
 #include <cstdint>
 #include <optional>
-#include <vulkan/vulkan_core.h>
 
 namespace vkinit {
 
@@ -48,26 +47,6 @@ VkImageViewCreateInfo imageViewCreateInfo(VkImage image, VkFormat format,
 
 VkPipelineDepthStencilStateCreateInfo
 depthStencilStateCreateInfo(bool depthTestEnable);
-
-VkDescriptorSetLayoutBinding
-descriptorSetLayoutBinding(std::uint32_t binding,
-                           VkDescriptorType descriptorType,
-                           VkShaderStageFlags stageFlags);
-
-VkDescriptorSetLayoutCreateInfo
-descriptorSetLayoutCreateInfo(VkDescriptorSetLayoutBinding const* pBindings,
-                              std::uint32_t bindingCount);
-
-VkDescriptorSetAllocateInfo
-descriptorSetAllocateInfo(VkDescriptorPool descriptorPool,
-                          VkDescriptorSetLayout const* descriptorSetLayouts,
-                          std::uint32_t descriptorSetLayoutCount);
-
-VkWriteDescriptorSet writeDescriptorSet(
-    VkDescriptorSet descriptorSet, VkDescriptorBufferInfo const* bufferInfos,
-    std::size_t bufferInfosSize, VkDescriptorImageInfo const* imageInfos,
-    std::size_t imageInfosSize, VkDescriptorType descriptorType,
-    std::uint32_t binding);
 
 VkCommandBufferBeginInfo commandBufferBeginInfo(
     VkCommandBufferUsageFlags flags,

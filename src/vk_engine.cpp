@@ -169,23 +169,17 @@ Material* VulkanEngine::createMaterial(VkPipeline pipeline,
 
   assert(albedoTexIter != _loadedTextures.cend() && "Error: Missing texture");
 
-  VkDescriptorSetAllocateInfo allocateTexturedMatDescriptorSet =
-      vkinit::descriptorSetAllocateInfo(
-          _vkDescriptorPool, &_vkTexturedMaterialDescriptorSetLayout, 1);
-
-  VK_CHECK(vkAllocateDescriptorSets(
-      _vkDevice, &allocateTexturedMatDescriptorSet, &mat.vkDescriptorSet));
-
   VkDescriptorImageInfo albedoTexDescriptorImgInfo = {};
   albedoTexDescriptorImgInfo.imageLayout =
       VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
   albedoTexDescriptorImgInfo.imageView = albedoTexIter->second.imageView;
   albedoTexDescriptorImgInfo.sampler = _vkSampler;
-  VkWriteDescriptorSet updateTextureDescriptorSet = vkinit::writeDescriptorSet(
-      mat.vkDescriptorSet, nullptr, 0, &albedoTexDescriptorImgInfo, 1,
-      VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0);
-
-  vkUpdateDescriptorSets(_vkDevice, 1, &updateTextureDescriptorSet, 0, nullptr);
+  DescriptorBuilder::begin(_vkDevice, _descriptorAllocator,
+                           _descriptorLayoutCache)
+      .bindImage(0, albedoTexDescriptorImgInfo,
+                 VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                 VK_SHADER_STAGE_FRAGMENT_BIT)
+      .build(mat.vkDescriptorSet, _vkTexturedMaterialDescriptorSetLayout);
 
   Material& result = (_materials[name] = mat);
   return &result;
