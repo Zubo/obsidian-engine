@@ -1,6 +1,8 @@
-#include <vk_pipeline_builder.hpp>
+#include <rhi_vk/vk_pipeline_builder.hpp>
 
 #include <iostream>
+
+using namespace obsidian::rhi_vk;
 
 VkPipeline PipelineBuilder::buildPipeline(VkDevice device, VkRenderPass pass) {
   VkPipelineViewportStateCreateInfo viewportStateCreateInfo = {};

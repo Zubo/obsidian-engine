@@ -1,13 +1,15 @@
 #pragma once
 
-#include <vk_engine.hpp>
-#include <vk_types.hpp>
+#include <rhi_vk/vk_engine.hpp>
+#include <rhi_vk/vk_types.hpp>
 
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 
 #include <string_view>
 #include <vector>
+
+namespace obsidian::rhi_vk {
 
 struct VertexInputDescription {
   std::vector<VkVertexInputBindingDescription> bindings;
@@ -33,3 +35,5 @@ struct Mesh {
 
   bool loadFromObj(char const* filePath);
 };
+
+} /*namespace obsidian::rhi_vk*/

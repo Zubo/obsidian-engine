@@ -1,13 +1,11 @@
 #pragma once
 
-#include <vk_types.hpp>
-
 #include <vulkan/vulkan.hpp>
 
 #include <cstdint>
 #include <optional>
 
-namespace vkinit {
+namespace obsidian::rhi_vk::vkinit {
 
 VkCommandPoolCreateInfo
 commandPoolCreateInfo(std::uint32_t queueFamilyIndex,
@@ -59,4 +57,4 @@ samplerCreateInfo(VkFilter filter, VkSamplerMipmapMode mipmapMode,
                   VkSamplerAddressMode addressMode,
                   std::optional<float> maxAnisotropy = std::nullopt);
 
-} // namespace vkinit
+} /*namespace obsidian::rhi_vk::vkinit*/

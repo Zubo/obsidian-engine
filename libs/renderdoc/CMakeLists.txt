@@ -1,3 +1,17 @@
+cmake_minimum_required(VERSION 3.24)
+
+option (ENABLE_RENDERDOC "Enable renderdoc api for GPU debugging" OFF)
+
+add_library(Renderdoc
+    "src/renderdoc.cpp"
+    "include/renderdoc/renderdoc.hpp"
+)
+
+target_include_directories(Renderdoc
+    PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}/include"
+)
+
 if (${ENABLE_RENDERDOC})
     find_library(find_renderdoc NAMES renderdoc NO_CACHE)
 
@@ -11,11 +25,4 @@ if (${ENABLE_RENDERDOC})
     else()
         message(STATUS "Renderdoc library not available.")
     endif()
-endif()
-
-include(CheckIncludeFileCXX)
-CHECK_INCLUDE_FILE_CXX("stb/stb_image.h" stb_image_exists)
-
-if (NOT stb_image_exists)
-    message(FATAL_ERROR "Include file stb/stb_image.h is missing. Please install the stb library.")
 endif()

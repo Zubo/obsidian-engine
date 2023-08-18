@@ -1,18 +1,21 @@
+#include <rhi_vk/vk_check.hpp>
+#include <rhi_vk/vk_engine.hpp>
+#include <rhi_vk/vk_initializers.hpp>
+#include <rhi_vk/vk_types.hpp>
+
 #include "glm/ext/matrix_clip_space.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/geometric.hpp"
-#include "vk_mem_alloc.h"
-#include "vk_types.hpp"
-#include <cstring>
-#include <vk_check.hpp>
-#include <vk_engine.hpp>
-#include <vk_initializers.hpp>
-
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
 #include <tracy/Tracy.hpp>
+#include <vk_mem_alloc.h>
 #include <vulkan/vulkan.hpp>
+
+#include <cstring>
+
+using namespace obsidian::rhi_vk;
 
 void VulkanEngine::draw() {
   FrameData& currentFrameData = getCurrentFrameData();

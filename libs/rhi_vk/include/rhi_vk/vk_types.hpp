@@ -8,6 +8,8 @@
 
 #include <vector>
 
+namespace obsidian::rhi_vk {
+
 struct AllocatedBuffer {
   VkBuffer buffer;
   VmaAllocation allocation;
@@ -86,3 +88,5 @@ struct FrameData {
   VkImageView shadowMapImageView;
   VkSampler shadowMapSampler;
 };
+
+} /*namespace obsidian::rhi_vk*/

@@ -3,6 +3,8 @@
 #include <deque>
 #include <functional>
 
+namespace obsidian::rhi_vk {
+
 class DeletionQueue {
 public:
   template <typename TFunc> void pushFunction(TFunc&& f) {
@@ -20,3 +22,5 @@ public:
 private:
   std::deque<std::function<void()>> deletionFuncs;
 };
+
+} /*namespace obsidian::rhi_vk*/

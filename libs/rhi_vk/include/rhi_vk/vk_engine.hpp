@@ -1,11 +1,11 @@
 #pragma once
 
+#include <rhi_vk/vk_deletion_queue.hpp>
+#include <rhi_vk/vk_descriptors.hpp>
+#include <rhi_vk/vk_mesh.hpp>
+#include <rhi_vk/vk_pipeline_builder.hpp>
+#include <rhi_vk/vk_types.hpp>
 #include <string_view>
-#include <vk_deletion_queue.hpp>
-#include <vk_descriptors.hpp>
-#include <vk_mesh.hpp>
-#include <vk_pipeline_builder.hpp>
-#include <vk_types.hpp>
 
 #include <glm/glm.hpp>
 #include <vulkan/vulkan.hpp>
@@ -22,6 +22,8 @@
 struct SDL_KeyboardEvent;
 struct SDL_MouseMotionEvent;
 struct SDL_Window;
+
+namespace obsidian::rhi_vk {
 
 class VulkanEngine {
   static unsigned int const frameOverlap = 2;
@@ -129,3 +131,5 @@ private:
   void handleKeyboardInput(SDL_KeyboardEvent const& e);
   void handleMoseInput(SDL_MouseMotionEvent const& e);
 };
+
+} /*namespace obsidian::rhi_vk*/

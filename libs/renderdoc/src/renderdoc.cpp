@@ -1,4 +1,4 @@
-#include <renderdoc.hpp>
+#include <renderdoc/renderdoc.hpp>
 
 #ifdef RENDERDOC_ENABLED
 

@@ -6,6 +6,8 @@
 #include <unordered_map>
 #include <vector>
 
+namespace obsidian::rhi_vk {
+
 class DescriptorAllocator {
 public:
   void init(VkDevice vkDevice, VkDescriptorPoolCreateFlags vkFlags = 0);
@@ -99,3 +101,5 @@ private:
   std::vector<VkWriteDescriptorSet> _writes;
   VkDescriptorSetLayoutCreateFlags _flags = 0;
 };
+
+} /*namespace obsidian::rhi_vk*/

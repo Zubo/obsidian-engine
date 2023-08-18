@@ -1,10 +1,10 @@
-#include <vk_check.hpp>
-#include <vk_engine.hpp>
-#include <vk_initializers.hpp>
-#include <vk_types.hpp>
+#include <rhi_vk/vk_check.hpp>
+#include <rhi_vk/vk_engine.hpp>
+#include <rhi_vk/vk_initializers.hpp>
+#include <rhi_vk/vk_types.hpp>
 
 #include <SDL2/SDL.h>
-#include <SDL_vulkan.h>
+#include <SDL2/SDL_vulkan.h>
 #include <stb/stb_image.h>
 #include <tracy/Tracy.hpp>
 #include <vk_mem_alloc.h>
@@ -14,6 +14,8 @@
 #include <cstdint>
 #include <fstream>
 #include <iostream>
+
+using namespace obsidian::rhi_vk;
 
 void VulkanEngine::run() {
   SDL_Event e;

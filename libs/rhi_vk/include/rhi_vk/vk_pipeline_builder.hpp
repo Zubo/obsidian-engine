@@ -4,6 +4,8 @@
 
 #include <vector>
 
+namespace obsidian::rhi_vk {
+
 class PipelineBuilder {
 public:
   std::vector<VkPipelineShaderStageCreateInfo> _vkShaderStageCreateInfo;
@@ -19,3 +21,5 @@ public:
 
   VkPipeline buildPipeline(VkDevice device, VkRenderPass pass);
 };
+
+} /*namespace obsidian::rhi_vk*/
