@@ -53,6 +53,7 @@ target_link_libraries(ObsidianEngine
         glm
         tinyobjloader
         TracyClient
+        HashLibrary
 )
 
 include (SystemLibs.cmake)

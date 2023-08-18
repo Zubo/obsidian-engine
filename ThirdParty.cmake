@@ -41,3 +41,21 @@ FetchContent_Declare(fetch_tracy
 )
 
 FetchContent_MakeAvailable(fetch_tracy)
+
+FetchContent_Declare(fetch_hash_library
+    GIT_REPOSITORY https://github.com/stbrumme/hash-library.git
+    GIT_TAG hash_library_v8
+    GIT_SHALLOW TRUE
+    GIT_PROGRESS TRUE
+)
+
+FetchContent_MakeAvailable(fetch_hash_library)
+
+add_library(HashLibrary
+    ${fetch_hash_library_SOURCE_DIR}/crc32.cpp
+)
+
+target_include_directories(HashLibrary
+    PUBLIC
+     ${fetch_hash_library_SOURCE_DIR}
+)
