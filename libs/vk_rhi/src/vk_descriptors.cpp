@@ -1,12 +1,12 @@
-#include <rhi_vk/vk_check.hpp>
-#include <rhi_vk/vk_descriptors.hpp>
+#include <vk_rhi/vk_check.hpp>
+#include <vk_rhi/vk_descriptors.hpp>
 
 #include <crc32.h>
 #include <vulkan/vulkan_handles.hpp>
 
 #include <algorithm>
 
-using namespace obsidian::rhi_vk;
+using namespace obsidian::vk_rhi;
 
 void DescriptorAllocator::init(VkDevice vkDevice,
                                VkDescriptorPoolCreateFlags vkFlags) {

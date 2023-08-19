@@ -1,10 +1,10 @@
 #pragma once
 
-#include <rhi_vk/vk_deletion_queue.hpp>
-#include <rhi_vk/vk_descriptors.hpp>
-#include <rhi_vk/vk_mesh.hpp>
-#include <rhi_vk/vk_pipeline_builder.hpp>
-#include <rhi_vk/vk_types.hpp>
+#include <vk_rhi/vk_deletion_queue.hpp>
+#include <vk_rhi/vk_descriptors.hpp>
+#include <vk_rhi/vk_mesh.hpp>
+#include <vk_rhi/vk_pipeline_builder.hpp>
+#include <vk_rhi/vk_types.hpp>
 #include <string_view>
 
 #include <glm/glm.hpp>
@@ -23,7 +23,7 @@ struct SDL_KeyboardEvent;
 struct SDL_MouseMotionEvent;
 struct SDL_Window;
 
-namespace obsidian::rhi_vk {
+namespace obsidian::vk_rhi {
 
 class VulkanEngine {
   static unsigned int const frameOverlap = 2;
@@ -132,4 +132,4 @@ private:
   void handleMoseInput(SDL_MouseMotionEvent const& e);
 };
 
-} /*namespace obsidian::rhi_vk*/
+} /*namespace obsidian::vk_rhi*/

@@ -1,7 +1,7 @@
-#include <rhi_vk/vk_check.hpp>
-#include <rhi_vk/vk_engine.hpp>
-#include <rhi_vk/vk_initializers.hpp>
-#include <rhi_vk/vk_types.hpp>
+#include <vk_rhi/vk_check.hpp>
+#include <vk_rhi/vk_engine.hpp>
+#include <vk_rhi/vk_initializers.hpp>
+#include <vk_rhi/vk_types.hpp>
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>
@@ -15,7 +15,7 @@
 #include <fstream>
 #include <iostream>
 
-using namespace obsidian::rhi_vk;
+using namespace obsidian::vk_rhi;
 
 void VulkanEngine::run() {
   SDL_Event e;

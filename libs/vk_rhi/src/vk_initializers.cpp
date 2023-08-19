@@ -1,8 +1,8 @@
-#include <rhi_vk/vk_initializers.hpp>
+#include <vk_rhi/vk_initializers.hpp>
 
 #include <cassert>
 
-namespace obsidian::rhi_vk::vkinit {
+namespace obsidian::vk_rhi::vkinit {
 
 VkCommandPoolCreateInfo commandPoolCreateInfo(std::uint32_t queueFamilyIndex,
                                               VkCommandPoolCreateFlags flags) {
@@ -256,4 +256,4 @@ VkSamplerCreateInfo samplerCreateInfo(VkFilter filter,
   return vkSamplerCreateInfo;
 }
 
-} /*namespace obsidian::rhi_vk::vkinit*/
+} /*namespace obsidian::vk_rhi::vkinit*/

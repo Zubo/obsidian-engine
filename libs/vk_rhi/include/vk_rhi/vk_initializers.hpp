@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <optional>
 
-namespace obsidian::rhi_vk::vkinit {
+namespace obsidian::vk_rhi::vkinit {
 
 VkCommandPoolCreateInfo
 commandPoolCreateInfo(std::uint32_t queueFamilyIndex,
@@ -57,4 +57,4 @@ samplerCreateInfo(VkFilter filter, VkSamplerMipmapMode mipmapMode,
                   VkSamplerAddressMode addressMode,
                   std::optional<float> maxAnisotropy = std::nullopt);
 
-} /*namespace obsidian::rhi_vk::vkinit*/
+} /*namespace obsidian::vk_rhi::vkinit*/

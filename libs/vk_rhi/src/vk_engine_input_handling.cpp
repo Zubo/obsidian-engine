@@ -2,11 +2,11 @@
 #include <glm/ext/vector_float3.hpp>
 #include <glm/geometric.hpp>
 #include <glm/gtx/transform.hpp>
-#include <rhi_vk/vk_engine.hpp>
+#include <vk_rhi/vk_engine.hpp>
 
 #include <SDL2/SDL_events.h>
 
-using namespace obsidian::rhi_vk;
+using namespace obsidian::vk_rhi;
 
 void VulkanEngine::handleKeyboardInput(SDL_KeyboardEvent const& e) {
   glm::vec3 constexpr worldX{1.f, 0.f, 0.0f};

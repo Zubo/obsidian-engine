@@ -1,4 +1,4 @@
-#include <rhi_vk/vk_mesh.hpp>
+#include <vk_rhi/vk_mesh.hpp>
 
 #include <tiny_obj_loader.h>
 #include <vulkan/vulkan.hpp>
@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <iostream>
 
-using namespace obsidian::rhi_vk;
+using namespace obsidian::vk_rhi;
 
 VertexInputDescription Vertex::getVertexInputDescription(bool bindPosition,
                                                          bool bindNormals,

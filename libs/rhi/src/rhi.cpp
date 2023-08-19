@@ -1,9 +1,9 @@
 #include <rhi/rhi.hpp>
-#include <rhi_vk/vk_engine.hpp>
+#include <vk_rhi/vk_engine.hpp>
 
 using namespace obsidian;
 
-static rhi_vk::VulkanEngine _impl;
+static vk_rhi::VulkanEngine _impl;
 
 void rhi::RHI::init() { _impl.init(); }
 

@@ -1,11 +1,11 @@
 #include <renderdoc/renderdoc.hpp>
-#include <rhi_vk/vk_engine.hpp>
+#include <vk_rhi/vk_engine.hpp>
 
 #include <SDL2/SDL.h>
 #include <VkBootstrap.h>
 #include <vulkan/vulkan.hpp>
 
-using namespace obsidian::rhi_vk;
+using namespace obsidian::vk_rhi;
 
 void VulkanEngine::cleanup() {
   if (IsInitialized) {

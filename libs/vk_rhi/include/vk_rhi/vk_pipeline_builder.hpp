@@ -4,7 +4,7 @@
 
 #include <vector>
 
-namespace obsidian::rhi_vk {
+namespace obsidian::vk_rhi {
 
 class PipelineBuilder {
 public:
@@ -22,4 +22,4 @@ public:
   VkPipeline buildPipeline(VkDevice device, VkRenderPass pass);
 };
 
-} /*namespace obsidian::rhi_vk*/
+} /*namespace obsidian::vk_rhi*/

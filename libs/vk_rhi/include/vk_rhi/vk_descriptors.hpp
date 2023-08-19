@@ -6,7 +6,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace obsidian::rhi_vk {
+namespace obsidian::vk_rhi {
 
 class DescriptorAllocator {
 public:
@@ -102,4 +102,4 @@ private:
   VkDescriptorSetLayoutCreateFlags _flags = 0;
 };
 
-} /*namespace obsidian::rhi_vk*/
+} /*namespace obsidian::vk_rhi*/

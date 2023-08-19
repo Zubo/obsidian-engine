@@ -12,5 +12,5 @@ target_include_directories(RHI
 
 target_link_libraries(RHI
     PRIVATE
-        RHIVulkan
+        VulkanRHI
 )

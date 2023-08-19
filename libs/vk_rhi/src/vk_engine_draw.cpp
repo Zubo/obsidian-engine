@@ -1,7 +1,7 @@
-#include <rhi_vk/vk_check.hpp>
-#include <rhi_vk/vk_engine.hpp>
-#include <rhi_vk/vk_initializers.hpp>
-#include <rhi_vk/vk_types.hpp>
+#include <vk_rhi/vk_check.hpp>
+#include <vk_rhi/vk_engine.hpp>
+#include <vk_rhi/vk_initializers.hpp>
+#include <vk_rhi/vk_types.hpp>
 
 #include "glm/ext/matrix_clip_space.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
@@ -15,7 +15,7 @@
 
 #include <cstring>
 
-using namespace obsidian::rhi_vk;
+using namespace obsidian::vk_rhi;
 
 void VulkanEngine::draw() {
   FrameData& currentFrameData = getCurrentFrameData();

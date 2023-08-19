@@ -3,7 +3,7 @@
 #include <deque>
 #include <functional>
 
-namespace obsidian::rhi_vk {
+namespace obsidian::vk_rhi {
 
 class DeletionQueue {
 public:
@@ -23,4 +23,4 @@ private:
   std::deque<std::function<void()>> deletionFuncs;
 };
 
-} /*namespace obsidian::rhi_vk*/
+} /*namespace obsidian::vk_rhi*/

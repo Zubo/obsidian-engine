@@ -1,10 +1,10 @@
 #include <renderdoc/renderdoc.hpp>
-#include <rhi_vk/vk_check.hpp>
-#include <rhi_vk/vk_descriptors.hpp>
-#include <rhi_vk/vk_engine.hpp>
-#include <rhi_vk/vk_initializers.hpp>
-#include <rhi_vk/vk_mesh.hpp>
-#include <rhi_vk/vk_types.hpp>
+#include <vk_rhi/vk_check.hpp>
+#include <vk_rhi/vk_descriptors.hpp>
+#include <vk_rhi/vk_engine.hpp>
+#include <vk_rhi/vk_initializers.hpp>
+#include <vk_rhi/vk_mesh.hpp>
+#include <vk_rhi/vk_types.hpp>
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>
@@ -14,7 +14,7 @@
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.hpp>
 
-using namespace obsidian::rhi_vk;
+using namespace obsidian::vk_rhi;
 
 void VulkanEngine::init() {
   SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_WINDOW_MOUSE_CAPTURE);

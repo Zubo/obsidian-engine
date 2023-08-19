@@ -8,7 +8,7 @@
 
 #include <vector>
 
-namespace obsidian::rhi_vk {
+namespace obsidian::vk_rhi {
 
 struct AllocatedBuffer {
   VkBuffer buffer;
@@ -89,4 +89,4 @@ struct FrameData {
   VkSampler shadowMapSampler;
 };
 
-} /*namespace obsidian::rhi_vk*/
+} /*namespace obsidian::vk_rhi*/
