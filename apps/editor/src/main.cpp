@@ -1,4 +1,6 @@
 
+#include "editor/data.hpp"
+#include "editor/editor_windows.hpp"
 #include <vk_rhi/vk_engine.hpp>
 
 #include <SDL2/SDL.h>
@@ -52,8 +54,6 @@ int main(int, char**) {
   ImGui_ImplSDL2_InitForSDLRenderer(editorWindow, editorUIRenderer);
   ImGui_ImplSDLRenderer2_Init(editorUIRenderer);
 
-  ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-
   SDL_WindowFlags engineWindowFlags =
       static_cast<SDL_WindowFlags>(SDL_WINDOW_VULKAN | SDL_WINDOW_SHOWN);
   SDL_Window* engineWindow =
@@ -62,6 +62,8 @@ int main(int, char**) {
 
   obsidian::vk_rhi::VulkanEngine vulkanEngine;
   vulkanEngine.init(*engineWindow);
+
+  obsidian::editor::DataContext dataContext;
 
   bool shouldQuit = false;
   while (!shouldQuit) {
@@ -80,29 +82,10 @@ int main(int, char**) {
         vulkanEngine.handleEvents(event);
     }
 
-    ImGui_ImplSDLRenderer2_NewFrame();
-    ImGui_ImplSDL2_NewFrame();
-    ImGui::NewFrame();
-
-    ImGui::SetNextWindowSize(io.DisplaySize);
-    ImGui::SetNextWindowPos({0, 0});
-
-    ImGui::Begin("Editor");
-    ImGui::End();
-
-    // Rendering
-    ImGui::Render();
-    ImGui::UpdatePlatformWindows();
-    ImGui::RenderPlatformWindowsDefault();
-    SDL_RenderSetScale(editorUIRenderer, io.DisplayFramebufferScale.x,
-                       io.DisplayFramebufferScale.y);
-    SDL_SetRenderDrawColor(editorUIRenderer, (Uint8)(clear_color.x * 255),
-                           (Uint8)(clear_color.y * 255),
-                           (Uint8)(clear_color.z * 255),
-                           (Uint8)(clear_color.w * 255));
-    SDL_RenderClear(editorUIRenderer);
-    ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData());
-    SDL_RenderPresent(editorUIRenderer);
+    obsidian::editor::editor(*editorUIRenderer, io, dataContext);
+    vulkanEngine.setSceneParams(dataContext.sceneData.ambientColor,
+                                dataContext.sceneData.sunlightDirection,
+                                dataContext.sceneData.sunlightColor);
 
     vulkanEngine.draw();
 

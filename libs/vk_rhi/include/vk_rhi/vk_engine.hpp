@@ -43,6 +43,8 @@ public:
   void draw();
   void handleEvents(SDL_Event const& e);
   void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
+  void setSceneParams(glm::vec3 ambientColor, glm::vec3 sunDirection,
+                      glm::vec3 sunColor);
 
 private:
   VkInstance _vkInstance;
@@ -94,8 +96,8 @@ private:
   glm::vec3 _cameraPos = {25.28111f, 34.15443f, -4.555f};
   glm::vec2 _cameraRotationRad = {-0.63f, -3.65f};
   VkSampler _vkSampler;
-  glm::vec3 _sunlightDirection = {-1.f, -1.f, -1.f};
   VkExtent2D _windowExtent;
+  GPUSceneData _gpuSceneData;
 
   void initVulkan();
   void initSwapchain();

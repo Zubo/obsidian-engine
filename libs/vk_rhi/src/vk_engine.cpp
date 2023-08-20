@@ -92,6 +92,14 @@ void VulkanEngine::immediateSubmit(
       vkResetCommandPool(_vkDevice, _immediateSubmitContext.vkCommandPool, 0));
 }
 
+void VulkanEngine::setSceneParams(glm::vec3 ambientColor,
+                                  glm::vec3 sunDirection, glm::vec3 sunColor) {
+  _gpuSceneData.ambientColor = glm::vec4(ambientColor, 1.0f);
+  _gpuSceneData.sunlightDirection =
+      glm::vec4(glm::normalize(sunDirection), 1.0f);
+  _gpuSceneData.sunlightColor = glm::vec4(sunColor, 1.0f);
+}
+
 void VulkanEngine::loadTexture(std::string_view textureName,
                                std::filesystem::path const& texturePath) {
   Texture& lostEmpireTexture = _loadedTextures[std::string{textureName}];

@@ -193,11 +193,6 @@ void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject* first,
 
   vmaUnmapMemory(_vmaAllocator, _cameraBuffer.allocation);
 
-  GPUSceneData gpuSceneData;
-  gpuSceneData.ambientColor = {0.05f, 0.05f, 0.05f, 1.f};
-  gpuSceneData.sunlightDirection = {glm::normalize(_sunlightDirection), 1.f};
-  gpuSceneData.sunlightColor = glm::vec4(1.5f, 1.5f, 1.5f, 1.0f);
-
   VK_CHECK(vmaMapMemory(_vmaAllocator, _sceneDataBuffer.allocation,
                         reinterpret_cast<void**>(&data)));
 
@@ -205,7 +200,7 @@ void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject* first,
       reinterpret_cast<char*>(data) +
       frameInd * getPaddedBufferSize(sizeof(GPUSceneData));
 
-  std::memcpy(dstGPUSceneData, &gpuSceneData, sizeof(GPUSceneData));
+  std::memcpy(dstGPUSceneData, &_gpuSceneData, sizeof(GPUSceneData));
 
   vmaUnmapMemory(_vmaAllocator, _sceneDataBuffer.allocation);
 
@@ -255,8 +250,9 @@ void VulkanEngine::drawShadowPass(VkCommandBuffer cmd, RenderObject* first,
                                   int count) {
   ZoneScoped;
 
-  glm::mat4 const view =
-      glm::lookAt({}, glm::normalize(_sunlightDirection), {0.f, 1.f, 0.f});
+  glm::mat4 const view = glm::lookAt(
+      {}, glm::normalize(glm::vec3(_gpuSceneData.sunlightDirection)),
+      {0.f, 1.f, 0.f});
   glm::mat4 proj = glm::ortho(-200.f, 200.f, -200.f, 200.f, -200.f, 200.f);
   proj[1][1] *= -1;
 
