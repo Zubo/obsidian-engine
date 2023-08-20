@@ -1,6 +1,6 @@
 #pragma once
 
-#include <vk_rhi/vk_engine.hpp>
+#include <vk_rhi/vk_rhi.hpp>
 #include <vk_rhi/vk_types.hpp>
 
 #include <glm/vec2.hpp>

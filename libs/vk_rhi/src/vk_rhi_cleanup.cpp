@@ -1,5 +1,5 @@
 #include <renderdoc/renderdoc.hpp>
-#include <vk_rhi/vk_engine.hpp>
+#include <vk_rhi/vk_rhi.hpp>
 
 #include <SDL2/SDL.h>
 #include <VkBootstrap.h>
@@ -7,7 +7,7 @@
 
 using namespace obsidian::vk_rhi;
 
-void VulkanEngine::cleanup() {
+void VulkanRHI::cleanup() {
   if (IsInitialized) {
     renderdoc::deinitRenderdoc();
     vkDeviceWaitIdle(_vkDevice);

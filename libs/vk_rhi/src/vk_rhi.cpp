@@ -1,6 +1,6 @@
 #include <vk_rhi/vk_check.hpp>
-#include <vk_rhi/vk_engine.hpp>
 #include <vk_rhi/vk_initializers.hpp>
+#include <vk_rhi/vk_rhi.hpp>
 #include <vk_rhi/vk_types.hpp>
 
 #include <SDL2/SDL.h>
@@ -20,7 +20,7 @@
 
 using namespace obsidian::vk_rhi;
 
-void VulkanEngine::handleEvents(SDL_Event const& e) {
+void VulkanRHI::handleEvents(SDL_Event const& e) {
   Uint32 const windowId = SDL_GetWindowID(Window);
   if (e.type == SDL_KEYDOWN) {
     if (e.key.windowID == windowId) {
@@ -34,8 +34,8 @@ void VulkanEngine::handleEvents(SDL_Event const& e) {
   }
 }
 
-bool VulkanEngine::loadShaderModule(char const* filePath,
-                                    VkShaderModule* outShaderModule) {
+bool VulkanRHI::loadShaderModule(char const* filePath,
+                                 VkShaderModule* outShaderModule) {
   std::ifstream file{filePath, std::ios::ate | std::ios::binary};
 
   if (!file.is_open()) {
@@ -66,7 +66,7 @@ bool VulkanEngine::loadShaderModule(char const* filePath,
   return true;
 }
 
-void VulkanEngine::immediateSubmit(
+void VulkanRHI::immediateSubmit(
     std::function<void(VkCommandBuffer cmd)>&& function) {
   VkCommandBufferBeginInfo commandBufferBeginInfo =
       vkinit::commandBufferBeginInfo(
@@ -92,16 +92,16 @@ void VulkanEngine::immediateSubmit(
       vkResetCommandPool(_vkDevice, _immediateSubmitContext.vkCommandPool, 0));
 }
 
-void VulkanEngine::setSceneParams(glm::vec3 ambientColor,
-                                  glm::vec3 sunDirection, glm::vec3 sunColor) {
+void VulkanRHI::setSceneParams(glm::vec3 ambientColor, glm::vec3 sunDirection,
+                               glm::vec3 sunColor) {
   _gpuSceneData.ambientColor = glm::vec4(ambientColor, 1.0f);
   _gpuSceneData.sunlightDirection =
       glm::vec4(glm::normalize(sunDirection), 1.0f);
   _gpuSceneData.sunlightColor = glm::vec4(sunColor, 1.0f);
 }
 
-void VulkanEngine::loadTexture(std::string_view textureName,
-                               std::filesystem::path const& texturePath) {
+void VulkanRHI::loadTexture(std::string_view textureName,
+                            std::filesystem::path const& texturePath) {
   Texture& lostEmpireTexture = _loadedTextures[std::string{textureName}];
   bool const lostEmpImageLoaded =
       loadImage(texturePath.c_str(), lostEmpireTexture.image);
@@ -119,12 +119,12 @@ void VulkanEngine::loadTexture(std::string_view textureName,
   });
 }
 
-void VulkanEngine::loadTextures() {
+void VulkanRHI::loadTextures() {
   loadTexture("default", {"assets/default-texture.png"});
   loadTexture("lost-empire", {"assets/lost_empire-RGBA.png"});
 }
 
-void VulkanEngine::loadMeshes() {
+void VulkanRHI::loadMeshes() {
   Mesh& triangleMesh = _meshes["triangle"];
   triangleMesh.vertices.resize(3);
   triangleMesh.vertices[0].position = {1.0f, 1.0f, 0.0f};
@@ -146,7 +146,7 @@ void VulkanEngine::loadMeshes() {
   uploadMesh(lostEmpire);
 }
 
-void VulkanEngine::uploadMesh(Mesh& mesh) {
+void VulkanRHI::uploadMesh(Mesh& mesh) {
   size_t const bufferSize =
       mesh.vertices.size() * sizeof(decltype(mesh.vertices)::value_type);
 
@@ -186,15 +186,15 @@ void VulkanEngine::uploadMesh(Mesh& mesh) {
                    stagingBuffer.allocation);
 }
 
-FrameData& VulkanEngine::getCurrentFrameData() {
+FrameData& VulkanRHI::getCurrentFrameData() {
   std::size_t const currentFrameDataInd = _frameNumber % frameOverlap;
   return _frameDataArray[currentFrameDataInd];
 }
 
-Material* VulkanEngine::createMaterial(VkPipeline pipeline,
-                                       VkPipelineLayout pipelineLayout,
-                                       std::string const& name,
-                                       std::string const& albedoTexName) {
+Material* VulkanRHI::createMaterial(VkPipeline pipeline,
+                                    VkPipelineLayout pipelineLayout,
+                                    std::string const& name,
+                                    std::string const& albedoTexName) {
   Material mat;
   mat.vkPipeline = pipeline;
   mat.vkPipelineLayout = pipelineLayout;
@@ -219,7 +219,7 @@ Material* VulkanEngine::createMaterial(VkPipeline pipeline,
   return &result;
 }
 
-Material* VulkanEngine::getMaterial(std::string const& name) {
+Material* VulkanRHI::getMaterial(std::string const& name) {
   auto const matIter = _materials.find(name);
 
   if (matIter == _materials.cend()) {
@@ -229,7 +229,7 @@ Material* VulkanEngine::getMaterial(std::string const& name) {
   return &matIter->second;
 }
 
-Mesh* VulkanEngine::getMesh(std::string const& name) {
+Mesh* VulkanRHI::getMesh(std::string const& name) {
   auto const meshIter = _meshes.find(name);
 
   if (meshIter == _meshes.cend()) {
@@ -240,10 +240,10 @@ Mesh* VulkanEngine::getMesh(std::string const& name) {
 }
 
 AllocatedBuffer
-VulkanEngine::createBuffer(std::size_t bufferSize, VkBufferUsageFlags usage,
-                           VmaMemoryUsage memoryUsage,
-                           VmaAllocationCreateFlags allocationCreateFlags,
-                           VmaAllocationInfo* outAllocationInfo) const {
+VulkanRHI::createBuffer(std::size_t bufferSize, VkBufferUsageFlags usage,
+                        VmaMemoryUsage memoryUsage,
+                        VmaAllocationCreateFlags allocationCreateFlags,
+                        VmaAllocationInfo* outAllocationInfo) const {
   VkBufferCreateInfo vkBufferCreateInfo = {};
   vkBufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
   vkBufferCreateInfo.pNext = nullptr;
@@ -262,7 +262,7 @@ VulkanEngine::createBuffer(std::size_t bufferSize, VkBufferUsageFlags usage,
   return allocatedBuffer;
 }
 
-std::size_t VulkanEngine::getPaddedBufferSize(std::size_t originalSize) const {
+std::size_t VulkanRHI::getPaddedBufferSize(std::size_t originalSize) const {
   std::size_t const minbufferOffset =
       _vkPhysicalDeviceProperties.limits.minUniformBufferOffsetAlignment;
   if (!minbufferOffset)
@@ -271,8 +271,8 @@ std::size_t VulkanEngine::getPaddedBufferSize(std::size_t originalSize) const {
   return (originalSize + minbufferOffset - 1) & (~(minbufferOffset - 1));
 }
 
-bool VulkanEngine::loadImage(char const* filePath,
-                             AllocatedImage& outAllocatedImage) {
+bool VulkanRHI::loadImage(char const* filePath,
+                          AllocatedImage& outAllocatedImage) {
   int width, height, texChannels;
   stbi_uc* const pixels =
       stbi_load(filePath, &width, &height, &texChannels, STBI_rgb_alpha);

@@ -2,9 +2,9 @@
 #include <renderdoc/renderdoc.hpp>
 #include <vk_rhi/vk_check.hpp>
 #include <vk_rhi/vk_descriptors.hpp>
-#include <vk_rhi/vk_engine.hpp>
 #include <vk_rhi/vk_initializers.hpp>
 #include <vk_rhi/vk_mesh.hpp>
+#include <vk_rhi/vk_rhi.hpp>
 #include <vk_rhi/vk_types.hpp>
 
 #include <SDL2/SDL.h>
@@ -17,7 +17,7 @@
 
 using namespace obsidian::vk_rhi;
 
-void VulkanEngine::init(SDL_Window& window) {
+void VulkanRHI::init(SDL_Window& window) {
   Window = &window;
   int width, height;
   SDL_GetWindowSize(Window, &width, &height);
@@ -56,7 +56,7 @@ void VulkanEngine::init(SDL_Window& window) {
 
   IsInitialized = true;
 }
-void VulkanEngine::initVulkan() {
+void VulkanRHI::initVulkan() {
   vkb::InstanceBuilder builder;
 
 #ifdef USE_VULKAN_VALIDATION_LAYERS
@@ -118,7 +118,7 @@ void VulkanEngine::initVulkan() {
   _deletionQueue.pushFunction([this] { vmaDestroyAllocator(_vmaAllocator); });
 }
 
-void VulkanEngine::initSwapchain() {
+void VulkanRHI::initSwapchain() {
   vkb::SwapchainBuilder swapchainBuilder{_vkPhysicalDevice, _vkDevice,
                                          _vkSurface};
 
@@ -190,7 +190,7 @@ void VulkanEngine::initSwapchain() {
   });
 }
 
-void VulkanEngine::initCommands() {
+void VulkanRHI::initCommands() {
   VkCommandPoolCreateInfo vkCommandPoolCreateInfo =
       vkinit::commandPoolCreateInfo(
           _graphicsQueueFamilyIndex,
@@ -233,7 +233,7 @@ void VulkanEngine::initCommands() {
                                     &_immediateSubmitContext.vkCommandBuffer));
 }
 
-void VulkanEngine::initDefaultRenderPass() {
+void VulkanRHI::initDefaultRenderPass() {
   VkAttachmentDescription vkAttachments[2] = {};
 
   VkAttachmentDescription& vkColorAttachment = vkAttachments[0];
@@ -289,7 +289,7 @@ void VulkanEngine::initDefaultRenderPass() {
       [this]() { vkDestroyRenderPass(_vkDevice, _vkRenderPass, nullptr); });
 }
 
-void VulkanEngine::initShadowRenderPass() {
+void VulkanRHI::initShadowRenderPass() {
   VkRenderPassCreateInfo vkRenderPassCreateInfo = {};
   vkRenderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
   vkRenderPassCreateInfo.pNext = nullptr;
@@ -332,7 +332,7 @@ void VulkanEngine::initShadowRenderPass() {
   });
 }
 
-void VulkanEngine::initFramebuffers() {
+void VulkanRHI::initFramebuffers() {
   std::size_t const swapchainImageCount = _vkFramebufferImageViews.size();
   VkFramebufferCreateInfo vkFramebufferCreateInfo = {};
   vkFramebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -358,7 +358,7 @@ void VulkanEngine::initFramebuffers() {
   }
 }
 
-void VulkanEngine::initShadowPassFramebuffers() {
+void VulkanRHI::initShadowPassFramebuffers() {
   for (std::size_t i = 0; i < _frameDataArray.size(); ++i) {
     AllocatedImage& imageShadowPassAttachment =
         _frameDataArray[i].shadowMapImage;
@@ -435,7 +435,7 @@ void VulkanEngine::initShadowPassFramebuffers() {
   }
 }
 
-void VulkanEngine::initSyncStructures() {
+void VulkanRHI::initSyncStructures() {
   VkFenceCreateInfo vkFenceCreateInfo =
       vkinit::fenceCreateInfo(VK_FENCE_CREATE_SIGNALED_BIT);
 
@@ -474,7 +474,7 @@ void VulkanEngine::initSyncStructures() {
   });
 }
 
-void VulkanEngine::initPipelines() {
+void VulkanRHI::initPipelines() {
   PipelineBuilder pipelineBuilder;
 
   pipelineBuilder._vkVertexInputInfo = vkinit::vertexInputStateCreateInfo();
@@ -726,7 +726,7 @@ void VulkanEngine::initPipelines() {
   vkDestroyShaderModule(_vkDevice, shadowPassFragShader, nullptr);
 }
 
-void VulkanEngine::initScene() {
+void VulkanRHI::initScene() {
   RenderObject& monkey = _renderObjects.emplace_back();
   monkey.mesh = getMesh("monkey");
   monkey.material = getMaterial("defaultmesh");
@@ -755,7 +755,7 @@ void VulkanEngine::initScene() {
   }
 }
 
-void VulkanEngine::initDescriptors() {
+void VulkanRHI::initDescriptors() {
   _descriptorLayoutCache.init(_vkDevice);
   _descriptorAllocator.init(_vkDevice);
 
@@ -907,7 +907,7 @@ void VulkanEngine::initDescriptors() {
       _descriptorLayoutCache.getLayout(texMatDescriptorSetLayoutCreateInfo);
 }
 
-void VulkanEngine::initShadowPassDescriptors() {
+void VulkanRHI::initShadowPassDescriptors() {
   VkDescriptorBufferInfo vkCameraDatabufferInfo = {};
   vkCameraDatabufferInfo.buffer = _shadowPassCameraBuffer.buffer;
   vkCameraDatabufferInfo.offset = 0;

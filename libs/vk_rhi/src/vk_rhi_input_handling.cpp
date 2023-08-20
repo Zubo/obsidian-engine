@@ -2,13 +2,13 @@
 #include <glm/ext/vector_float3.hpp>
 #include <glm/geometric.hpp>
 #include <glm/gtx/transform.hpp>
-#include <vk_rhi/vk_engine.hpp>
+#include <vk_rhi/vk_rhi.hpp>
 
 #include <SDL2/SDL_events.h>
 
 using namespace obsidian::vk_rhi;
 
-void VulkanEngine::handleKeyboardInput(SDL_KeyboardEvent const& e) {
+void VulkanRHI::handleKeyboardInput(SDL_KeyboardEvent const& e) {
   glm::vec3 constexpr worldX{1.f, 0.f, 0.0f};
   glm::vec3 constexpr worldY{0.f, 1.f, 0.f};
   glm::vec3 constexpr worldZ{0.f, 0.f, 1.f};
@@ -40,7 +40,7 @@ void VulkanEngine::handleKeyboardInput(SDL_KeyboardEvent const& e) {
   }
 }
 
-void VulkanEngine::handleMoseInput(SDL_MouseMotionEvent const& e) {
+void VulkanRHI::handleMoseInput(SDL_MouseMotionEvent const& e) {
   constexpr float pi = 3.14f;
   constexpr float camMotionFactor = 0.01f;
   _cameraRotationRad += camMotionFactor * glm::vec2{-e.yrel, -e.xrel};

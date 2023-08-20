@@ -1,6 +1,6 @@
 #include <vk_rhi/vk_check.hpp>
-#include <vk_rhi/vk_engine.hpp>
 #include <vk_rhi/vk_initializers.hpp>
+#include <vk_rhi/vk_rhi.hpp>
 #include <vk_rhi/vk_types.hpp>
 
 #include "glm/ext/matrix_clip_space.hpp"
@@ -17,7 +17,7 @@
 
 using namespace obsidian::vk_rhi;
 
-void VulkanEngine::draw() {
+void VulkanRHI::draw() {
   FrameData& currentFrameData = getCurrentFrameData();
 
   constexpr std::uint64_t timeoutNanoseconds = 1000000000;
@@ -156,8 +156,8 @@ void VulkanEngine::draw() {
   FrameMark;
 }
 
-void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject* first,
-                               int count) {
+void VulkanRHI::drawObjects(VkCommandBuffer cmd, RenderObject* first,
+                            int count) {
   ZoneScoped;
   glm::mat4 view = glm::mat4{1.f};
   view = glm::rotate(view, -_cameraRotationRad.x, {1.f, 0.f, 0.f});
@@ -246,8 +246,8 @@ void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject* first,
   }
 }
 
-void VulkanEngine::drawShadowPass(VkCommandBuffer cmd, RenderObject* first,
-                                  int count) {
+void VulkanRHI::drawShadowPass(VkCommandBuffer cmd, RenderObject* first,
+                               int count) {
   ZoneScoped;
 
   glm::mat4 const view = glm::lookAt(

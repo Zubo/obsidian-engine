@@ -26,7 +26,7 @@ struct SDL_Window;
 
 namespace obsidian::vk_rhi {
 
-class VulkanEngine {
+class VulkanRHI {
   static unsigned int const frameOverlap = 2;
   static unsigned int const maxNumberOfObjects = 10000;
   static unsigned int const shadowPassAttachmentWidth = 2000;

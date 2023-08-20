@@ -1,7 +1,7 @@
 
 #include "editor/data.hpp"
 #include "editor/editor_windows.hpp"
-#include <vk_rhi/vk_engine.hpp>
+#include <vk_rhi/vk_rhi.hpp>
 
 #include <SDL2/SDL.h>
 #include <SDL_video.h>
@@ -60,8 +60,8 @@ int main(int, char**) {
       SDL_CreateWindow("Obsidian Engine", SDL_WINDOWPOS_CENTERED,
                        SDL_WINDOWPOS_CENTERED, 1200, 800, engineWindowFlags);
 
-  obsidian::vk_rhi::VulkanEngine vulkanEngine;
-  vulkanEngine.init(*engineWindow);
+  obsidian::vk_rhi::VulkanRHI vulkanRHI;
+  vulkanRHI.init(*engineWindow);
 
   obsidian::editor::DataContext dataContext;
 
@@ -79,15 +79,15 @@ int main(int, char**) {
           event.window.event == SDL_WINDOWEVENT_CLOSE)
         shouldQuit = true;
       else
-        vulkanEngine.handleEvents(event);
+        vulkanRHI.handleEvents(event);
     }
 
     obsidian::editor::editor(*editorUIRenderer, io, dataContext);
-    vulkanEngine.setSceneParams(dataContext.sceneData.ambientColor,
-                                dataContext.sceneData.sunlightDirection,
-                                dataContext.sceneData.sunlightColor);
+    vulkanRHI.setSceneParams(dataContext.sceneData.ambientColor,
+                             dataContext.sceneData.sunlightDirection,
+                             dataContext.sceneData.sunlightColor);
 
-    vulkanEngine.draw();
+    vulkanRHI.draw();
 
     FrameMark;
   }

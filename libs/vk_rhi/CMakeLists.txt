@@ -3,16 +3,16 @@ cmake_minimum_required(VERSION 3.24)
 option (FORCE_VALIDATION_LAYERS "Force validation layers in non-debug builds" OFF)
 
 add_library(VulkanRHI
-    "src/vk_engine.cpp"
-    "src/vk_engine_input_handling.cpp"
-    "src/vk_engine_draw.cpp"
-    "src/vk_engine_init.cpp"
-    "src/vk_engine_cleanup.cpp"
+    "src/vk_rhi.cpp"
+    "src/vk_rhi_input_handling.cpp"
+    "src/vk_rhi_draw.cpp"
+    "src/vk_rhi_init.cpp"
+    "src/vk_rhi_cleanup.cpp"
     "src/vk_initializers.cpp"
     "src/vk_pipeline_builder.cpp"
     "src/vk_mesh.cpp"
     "src/vk_descriptors.cpp"
-    "include/vk_rhi/vk_engine.hpp"
+    "include/vk_rhi/vk_rhi.hpp"
     "include/vk_rhi/vk_check.hpp"
     "include/vk_rhi/vk_types.hpp"
     "include/vk_rhi/vk_initializers.hpp"
