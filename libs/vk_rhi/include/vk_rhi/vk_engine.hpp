@@ -5,7 +5,6 @@
 #include <vk_rhi/vk_mesh.hpp>
 #include <vk_rhi/vk_pipeline_builder.hpp>
 #include <vk_rhi/vk_types.hpp>
-#include <string_view>
 
 #include <glm/glm.hpp>
 #include <vulkan/vulkan.hpp>
@@ -18,9 +17,11 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <vulkan/vulkan_core.h>
 
-struct SDL_KeyboardEvent;
+union SDL_Event;
 struct SDL_MouseMotionEvent;
+struct SDL_KeyboardEvent;
 struct SDL_Window;
 
 namespace obsidian::vk_rhi {
@@ -34,12 +35,14 @@ class VulkanEngine {
 public:
   bool IsInitialized{false};
   int FrameNumber{0};
-  VkExtent2D WindowExtent{1920, 1080};
   struct SDL_Window* Window{nullptr};
 
-  void init();
-  void run();
+  void init(SDL_Window& window);
   void cleanup();
+
+  void draw();
+  void handleEvents(SDL_Event const& e);
+  void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
 
 private:
   VkInstance _vkInstance;
@@ -92,6 +95,7 @@ private:
   glm::vec2 _cameraRotationRad = {-0.63f, -3.65f};
   VkSampler _vkSampler;
   glm::vec3 _sunlightDirection = {-1.f, -1.f, -1.f};
+  VkExtent2D _windowExtent;
 
   void initVulkan();
   void initSwapchain();
@@ -112,7 +116,6 @@ private:
   void loadMeshes();
   void uploadMesh(Mesh& mesh);
   FrameData& getCurrentFrameData();
-  void draw();
   void drawObjects(VkCommandBuffer cmd, RenderObject* first, int count);
   void drawShadowPass(VkCommandBuffer, RenderObject* first, int count);
   Material* createMaterial(VkPipeline pipeline, VkPipelineLayout pipelineLayout,
@@ -126,7 +129,6 @@ private:
                VmaAllocationCreateFlags allocationCreateFlags,
                VmaAllocationInfo* outAllocationInfo = nullptr) const;
   std::size_t getPaddedBufferSize(std::size_t originalSize) const;
-  void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
   bool loadImage(char const* filePath, AllocatedImage& outAllocatedImage);
   void handleKeyboardInput(SDL_KeyboardEvent const& e);
   void handleMoseInput(SDL_MouseMotionEvent const& e);

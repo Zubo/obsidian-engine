@@ -5,6 +5,9 @@
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>
+#include <SDL_events.h>
+#include <SDL_stdinc.h>
+#include <SDL_video.h>
 #include <stb/stb_image.h>
 #include <tracy/Tracy.hpp>
 #include <vk_mem_alloc.h>
@@ -17,25 +20,20 @@
 
 using namespace obsidian::vk_rhi;
 
-void VulkanEngine::run() {
-  SDL_Event e;
-  bool shouldQuit = false;
-
-  while (!shouldQuit) {
-    while (SDL_PollEvent(&e)) {
-      if (e.type == SDL_KEYDOWN) {
-        handleKeyboardInput(e.key);
-      } else if (e.type == SDL_MOUSEMOTION) {
-        handleMoseInput(e.motion);
-      } else if (e.type == SDL_QUIT)
-        shouldQuit = true;
+void VulkanEngine::handleEvents(SDL_Event const& e) {
+  Uint32 const windowId = SDL_GetWindowID(Window);
+  if (e.type == SDL_KEYDOWN) {
+    if (e.key.windowID == windowId) {
+      handleKeyboardInput(e.key);
     }
+  } else if (e.type == SDL_MOUSEMOTION) {
+    if (e.motion.windowID == windowId) {
 
-    draw();
-
-    FrameMark;
+      handleMoseInput(e.motion);
+    }
   }
 }
+
 bool VulkanEngine::loadShaderModule(char const* filePath,
                                     VkShaderModule* outShaderModule) {
   std::ifstream file{filePath, std::ios::ate | std::ios::binary};
@@ -66,6 +64,32 @@ bool VulkanEngine::loadShaderModule(char const* filePath,
   }
 
   return true;
+}
+
+void VulkanEngine::immediateSubmit(
+    std::function<void(VkCommandBuffer cmd)>&& function) {
+  VkCommandBufferBeginInfo commandBufferBeginInfo =
+      vkinit::commandBufferBeginInfo(
+          VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+
+  VK_CHECK(vkBeginCommandBuffer(_immediateSubmitContext.vkCommandBuffer,
+                                &commandBufferBeginInfo));
+
+  function(_immediateSubmitContext.vkCommandBuffer);
+
+  VK_CHECK(vkEndCommandBuffer(_immediateSubmitContext.vkCommandBuffer));
+
+  VkSubmitInfo submit =
+      vkinit::commandBufferSubmitInfo(&_immediateSubmitContext.vkCommandBuffer);
+
+  VK_CHECK(vkQueueSubmit(_vkGraphicsQueue, 1, &submit,
+                         _immediateSubmitContext.vkFence));
+  vkWaitForFences(_vkDevice, 1, &_immediateSubmitContext.vkFence, VK_TRUE,
+                  9999999999);
+  vkResetFences(_vkDevice, 1, &_immediateSubmitContext.vkFence);
+
+  VK_CHECK(
+      vkResetCommandPool(_vkDevice, _immediateSubmitContext.vkCommandPool, 0));
 }
 
 void VulkanEngine::loadTexture(std::string_view textureName,
@@ -237,32 +261,6 @@ std::size_t VulkanEngine::getPaddedBufferSize(std::size_t originalSize) const {
     return originalSize;
 
   return (originalSize + minbufferOffset - 1) & (~(minbufferOffset - 1));
-}
-
-void VulkanEngine::immediateSubmit(
-    std::function<void(VkCommandBuffer cmd)>&& function) {
-  VkCommandBufferBeginInfo commandBufferBeginInfo =
-      vkinit::commandBufferBeginInfo(
-          VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-
-  VK_CHECK(vkBeginCommandBuffer(_immediateSubmitContext.vkCommandBuffer,
-                                &commandBufferBeginInfo));
-
-  function(_immediateSubmitContext.vkCommandBuffer);
-
-  VK_CHECK(vkEndCommandBuffer(_immediateSubmitContext.vkCommandBuffer));
-
-  VkSubmitInfo submit =
-      vkinit::commandBufferSubmitInfo(&_immediateSubmitContext.vkCommandBuffer);
-
-  VK_CHECK(vkQueueSubmit(_vkGraphicsQueue, 1, &submit,
-                         _immediateSubmitContext.vkFence));
-  vkWaitForFences(_vkDevice, 1, &_immediateSubmitContext.vkFence, VK_TRUE,
-                  9999999999);
-  vkResetFences(_vkDevice, 1, &_immediateSubmitContext.vkFence);
-
-  VK_CHECK(
-      vkResetCommandPool(_vkDevice, _immediateSubmitContext.vkCommandPool, 0));
 }
 
 bool VulkanEngine::loadImage(char const* filePath,

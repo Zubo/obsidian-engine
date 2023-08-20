@@ -30,15 +30,16 @@ target_include_directories(VulkanRHI
 target_link_libraries(VulkanRHI
     PUBLIC
         VulkanSDK
-        SDLInterface
-        vk-bootstrap::vk-bootstrap
         VulkanMemoryAllocator
         glm
+    PRIVATE
+        vk-bootstrap::vk-bootstrap
+        SDLInterface
         tinyobjloader
-        TracyClient
         HashLibrary
         Renderdoc
         ThirdPartyImpl
+        TracyClient
 )
 
 if (${FORCE_VALIDATION_LAYERS} OR ${CMAKE_BUILD_TYPE} STREQUAL "Debug")

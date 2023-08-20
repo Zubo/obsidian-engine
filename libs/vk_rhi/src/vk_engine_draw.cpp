@@ -111,7 +111,7 @@ void VulkanEngine::draw() {
   vkRenderPassBeginInfo.renderPass = _vkRenderPass;
   vkRenderPassBeginInfo.framebuffer = _vkFramebuffers[swapchainImageIndex];
   vkRenderPassBeginInfo.renderArea.offset = {0, 0};
-  vkRenderPassBeginInfo.renderArea.extent = WindowExtent;
+  vkRenderPassBeginInfo.renderArea.extent = _windowExtent;
   vkRenderPassBeginInfo.clearValueCount = clearValues.size();
   vkRenderPassBeginInfo.pClearValues = clearValues.data();
 
@@ -152,6 +152,8 @@ void VulkanEngine::draw() {
   VK_CHECK(vkQueuePresentKHR(_vkGraphicsQueue, &vkPresentInfo));
 
   ++_frameNumber;
+
+  FrameMark;
 }
 
 void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject* first,
@@ -162,8 +164,8 @@ void VulkanEngine::drawObjects(VkCommandBuffer cmd, RenderObject* first,
   view = glm::rotate(view, -_cameraRotationRad.y, {0.f, 1.f, 0.f});
   view = glm::translate(view, -_cameraPos);
   glm::mat4 proj = glm::perspective(glm::radians(60.f),
-                                    static_cast<float>(WindowExtent.width) /
-                                        WindowExtent.height,
+                                    static_cast<float>(_windowExtent.width) /
+                                        _windowExtent.height,
                                     0.1f, 200.f);
   proj[1][1] *= -1;
 

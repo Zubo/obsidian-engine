@@ -1,3 +1,4 @@
+#include <SDL_video.h>
 #include <renderdoc/renderdoc.hpp>
 #include <vk_rhi/vk_check.hpp>
 #include <vk_rhi/vk_descriptors.hpp>
@@ -16,13 +17,12 @@
 
 using namespace obsidian::vk_rhi;
 
-void VulkanEngine::init() {
-  SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_WINDOW_MOUSE_CAPTURE);
-  SDL_WindowFlags windowFlags =
-      static_cast<SDL_WindowFlags>(SDL_WINDOW_VULKAN | SDL_WINDOW_SHOWN);
-  Window = SDL_CreateWindow("Obsidian Engine", SDL_WINDOWPOS_CENTERED,
-                            SDL_WINDOWPOS_CENTERED, WindowExtent.width,
-                            WindowExtent.height, windowFlags);
+void VulkanEngine::init(SDL_Window& window) {
+  Window = &window;
+  int width, height;
+  SDL_GetWindowSize(Window, &width, &height);
+  _windowExtent.width = width;
+  _windowExtent.height = height;
 
   renderdoc::initRenderdoc();
 
@@ -56,7 +56,6 @@ void VulkanEngine::init() {
 
   IsInitialized = true;
 }
-
 void VulkanEngine::initVulkan() {
   vkb::InstanceBuilder builder;
 
@@ -65,6 +64,14 @@ void VulkanEngine::initVulkan() {
 #else
   constexpr bool enable_validation_layers = false;
 #endif
+
+  unsigned int extensionCount;
+  char const* extensionNames;
+  SDL_Vulkan_GetInstanceExtensions(Window, &extensionCount, &extensionNames);
+
+  for (std::size_t i = 0; i < extensionCount; ++i) {
+    builder.enable_extension((&extensionNames)[i]);
+  }
 
   auto const builderReturn = builder.set_app_name("Obsidian Engine")
                                  .request_validation_layers(true)
@@ -78,6 +85,7 @@ void VulkanEngine::initVulkan() {
   _vkDebugMessenger = vkbInstance.debug_messenger;
 
   SDL_Vulkan_CreateSurface(Window, _vkInstance, &_vkSurface);
+
   vkb::PhysicalDeviceSelector vkbSelector{vkbInstance};
   vkb::PhysicalDevice vkbPhysicalDevice = vkbSelector.set_minimum_version(1, 2)
                                               .set_surface(_vkSurface)
@@ -117,7 +125,7 @@ void VulkanEngine::initSwapchain() {
   vkb::Swapchain vkbSwapchain =
       swapchainBuilder.use_default_format_selection()
           .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
-          .set_desired_extent(WindowExtent.width, WindowExtent.height)
+          .set_desired_extent(_windowExtent.width, _windowExtent.height)
           .build()
           .value();
   _vkSwapchain = vkbSwapchain.swapchain;
@@ -141,7 +149,7 @@ void VulkanEngine::initSwapchain() {
 
   VkImageUsageFlags depthUsageFlags =
       VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-  VkExtent3D const depthExtent{WindowExtent.width, WindowExtent.height, 1};
+  VkExtent3D const depthExtent{_windowExtent.width, _windowExtent.height, 1};
 
   _vkFramebuffers.resize(swapchainSize);
 
@@ -330,8 +338,8 @@ void VulkanEngine::initFramebuffers() {
   vkFramebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
   vkFramebufferCreateInfo.pNext = nullptr;
   vkFramebufferCreateInfo.renderPass = _vkRenderPass;
-  vkFramebufferCreateInfo.width = WindowExtent.width;
-  vkFramebufferCreateInfo.height = WindowExtent.height;
+  vkFramebufferCreateInfo.width = _windowExtent.width;
+  vkFramebufferCreateInfo.height = _windowExtent.height;
   vkFramebufferCreateInfo.layers = 1;
 
   for (int i = 0; i < swapchainImageCount; ++i) {
@@ -478,13 +486,13 @@ void VulkanEngine::initPipelines() {
 
   pipelineBuilder._vkViewport.x = 0.0f;
   pipelineBuilder._vkViewport.y = 0.0f;
-  pipelineBuilder._vkViewport.height = WindowExtent.height;
-  pipelineBuilder._vkViewport.width = WindowExtent.width;
+  pipelineBuilder._vkViewport.height = _windowExtent.height;
+  pipelineBuilder._vkViewport.width = _windowExtent.width;
   pipelineBuilder._vkViewport.minDepth = 0.0f;
   pipelineBuilder._vkViewport.maxDepth = 1.0f;
 
   pipelineBuilder._vkScissor.offset = {0, 0};
-  pipelineBuilder._vkScissor.extent = WindowExtent;
+  pipelineBuilder._vkScissor.extent = _windowExtent;
 
   pipelineBuilder._vkRasterizationCreateInfo =
       vkinit::rasterizationCreateInfo(VK_POLYGON_MODE_FILL);

@@ -59,3 +59,33 @@ target_include_directories(HashLibrary
     PUBLIC
      ${fetch_hash_library_SOURCE_DIR}
 )
+
+FetchContent_Declare(fetch_dear_imgui
+    GIT_REPOSITORY https://github.com/ocornut/imgui.git
+    GIT_TAG v1.89.8-docking
+    GIT_PROGRESS TRUE
+)
+
+FetchContent_MakeAvailable(fetch_dear_imgui)
+
+add_library(DearImgui STATIC
+    ${fetch_dear_imgui_SOURCE_DIR}/imgui.h
+    ${fetch_dear_imgui_SOURCE_DIR}/imgui.cpp
+    ${fetch_dear_imgui_SOURCE_DIR}/imgui_draw.cpp
+    ${fetch_dear_imgui_SOURCE_DIR}/imgui_demo.cpp
+    ${fetch_dear_imgui_SOURCE_DIR}/imgui_widgets.cpp
+    ${fetch_dear_imgui_SOURCE_DIR}/imgui_tables.cpp
+    ${fetch_dear_imgui_SOURCE_DIR}/backends/imgui_impl_sdlrenderer2.cpp
+    ${fetch_dear_imgui_SOURCE_DIR}/backends/imgui_impl_sdl2.cpp
+)
+
+target_include_directories(DearImgui
+    PUBLIC
+        ${fetch_dear_imgui_SOURCE_DIR}
+)
+
+target_link_libraries(DearImgui
+    PUBLIC
+        ${Vulkan_LIBRARIES}
+        ${SDL2_LIBRARIES}
+)
