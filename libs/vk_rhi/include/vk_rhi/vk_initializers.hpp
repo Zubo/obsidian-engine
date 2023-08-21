@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <optional>
+#include <vulkan/vulkan_core.h>
 
 namespace obsidian::vk_rhi::vkinit {
 
@@ -25,7 +26,8 @@ VkPipelineInputAssemblyStateCreateInfo
 inputAssemblyCreateInfo(VkPrimitiveTopology primitiveTopology);
 
 VkPipelineRasterizationStateCreateInfo
-rasterizationCreateInfo(VkPolygonMode polygonMode);
+rasterizationCreateInfo(VkPolygonMode polygonMode,
+                        VkCullModeFlags cullMode = VK_CULL_MODE_BACK_BIT);
 
 VkPipelineMultisampleStateCreateInfo multisampleStateCreateInfo();
 

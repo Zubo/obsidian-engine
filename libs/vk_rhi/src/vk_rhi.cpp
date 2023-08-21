@@ -31,6 +31,10 @@ void VulkanRHI::handleEvents(SDL_Event const& e) {
 
       handleMoseInput(e.motion);
     }
+  } else if (e.type == SDL_WINDOWEVENT) {
+    if (e.window.windowID == windowId) {
+      handleWindowEvent(e.window);
+    }
   }
 }
 

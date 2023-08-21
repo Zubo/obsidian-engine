@@ -14,10 +14,17 @@
 #include <vulkan/vulkan.hpp>
 
 #include <cstring>
+#include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan_structs.hpp>
 
 using namespace obsidian::vk_rhi;
 
 void VulkanRHI::draw() {
+  if (_skipFrame) {
+    _skipFrame = false;
+    return;
+  }
+
   FrameData& currentFrameData = getCurrentFrameData();
 
   constexpr std::uint64_t timeoutNanoseconds = 1000000000;
@@ -108,7 +115,7 @@ void VulkanRHI::draw() {
   VkRenderPassBeginInfo vkRenderPassBeginInfo = {};
   vkRenderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
   vkRenderPassBeginInfo.pNext = nullptr;
-  vkRenderPassBeginInfo.renderPass = _vkRenderPass;
+  vkRenderPassBeginInfo.renderPass = _vkDefaultRenderPass;
   vkRenderPassBeginInfo.framebuffer = _vkFramebuffers[swapchainImageIndex];
   vkRenderPassBeginInfo.renderArea.offset = {0, 0};
   vkRenderPassBeginInfo.renderArea.extent = _windowExtent;
@@ -149,7 +156,14 @@ void VulkanRHI::draw() {
 
   vkPresentInfo.pImageIndices = &swapchainImageIndex;
 
-  VK_CHECK(vkQueuePresentKHR(_vkGraphicsQueue, &vkPresentInfo));
+  VkResult const presetnResult =
+      vkQueuePresentKHR(_vkGraphicsQueue, &vkPresentInfo);
+
+  if (presetnResult == VK_ERROR_OUT_OF_DATE_KHR ||
+      presetnResult == VK_SUBOPTIMAL_KHR) {
+  } else {
+    VK_CHECK(presetnResult);
+  }
 
   ++_frameNumber;
 

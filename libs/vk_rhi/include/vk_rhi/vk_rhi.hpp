@@ -1,5 +1,6 @@
 #pragma once
 
+#include <SDL_events.h>
 #include <vk_rhi/vk_deletion_queue.hpp>
 #include <vk_rhi/vk_descriptors.hpp>
 #include <vk_rhi/vk_mesh.hpp>
@@ -53,14 +54,14 @@ private:
   VkPhysicalDevice _vkPhysicalDevice;
   VkPhysicalDeviceProperties _vkPhysicalDeviceProperties;
   VkDevice _vkDevice;
-  VkSwapchainKHR _vkSwapchain;
+  VkSwapchainKHR _vkSwapchain = VK_NULL_HANDLE;
   VkFormat _vkSwapchainImageFormat;
   std::vector<FramebufferImageViews> _vkFramebufferImageViews;
   std::vector<VkImage> _vkSwapchainImages;
   AllocatedImage _depthImage;
   VkQueue _vkGraphicsQueue;
   std::uint32_t _graphicsQueueFamilyIndex;
-  VkRenderPass _vkRenderPass;
+  VkRenderPass _vkDefaultRenderPass;
   VkRenderPass _vkShadowRenderPass;
   std::vector<VkFramebuffer> _vkFramebuffers;
   std::array<FrameData, 2> _frameDataArray;
@@ -72,6 +73,7 @@ private:
   VkPipeline _vkLitMeshPipeline;
   VkPipeline _vkShadowPassPipeline;
   DeletionQueue _deletionQueue;
+  DeletionQueue _swapchainDeletionQueue;
   VmaAllocator _vmaAllocator;
   VkFormat _depthFormat = VK_FORMAT_D32_SFLOAT;
   std::vector<RenderObject> _renderObjects;
@@ -98,6 +100,7 @@ private:
   VkSampler _vkSampler;
   VkExtent2D _windowExtent;
   GPUSceneData _gpuSceneData;
+  bool _skipFrame = false;
 
   void initVulkan();
   void initSwapchain();
@@ -108,7 +111,8 @@ private:
   void initShadowPassFramebuffers();
   void initSyncStructures();
   bool loadShaderModule(char const* filePath, VkShaderModule* outShaderModule);
-  void initPipelines();
+  void initDefaultPipelines();
+  void initShadowPassPipeline();
   void initScene();
   void initDescriptors();
   void initShadowPassDescriptors();
@@ -134,6 +138,7 @@ private:
   bool loadImage(char const* filePath, AllocatedImage& outAllocatedImage);
   void handleKeyboardInput(SDL_KeyboardEvent const& e);
   void handleMoseInput(SDL_MouseMotionEvent const& e);
+  void handleWindowEvent(SDL_WindowEvent const& e);
 };
 
 } /*namespace obsidian::vk_rhi*/

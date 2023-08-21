@@ -14,6 +14,7 @@
 #include <glm/gtx/transform.hpp>
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.hpp>
+#include <vulkan/vulkan_core.h>
 
 using namespace obsidian::vk_rhi;
 
@@ -48,7 +49,9 @@ void VulkanRHI::init(SDL_Window& window) {
 
   initShadowPassDescriptors();
 
-  initPipelines();
+  initDefaultPipelines();
+
+  initShadowPassPipeline();
 
   loadMeshes();
 
@@ -121,7 +124,6 @@ void VulkanRHI::initVulkan() {
 void VulkanRHI::initSwapchain() {
   vkb::SwapchainBuilder swapchainBuilder{_vkPhysicalDevice, _vkDevice,
                                          _vkSurface};
-
   vkb::Swapchain vkbSwapchain =
       swapchainBuilder.use_default_format_selection()
           .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
@@ -139,7 +141,7 @@ void VulkanRHI::initSwapchain() {
 
   _vkSwapchainImageFormat = vkbSwapchain.image_format;
 
-  _deletionQueue.pushFunction([this, swapchainColorImageViews]() {
+  _swapchainDeletionQueue.pushFunction([this, swapchainColorImageViews]() {
     for (VkImageView const& vkSwapchainImgView : swapchainColorImageViews) {
       vkDestroyImageView(_vkDevice, vkSwapchainImgView, nullptr);
     }
@@ -180,12 +182,13 @@ void VulkanRHI::initSwapchain() {
     VK_CHECK(vkCreateImageView(_vkDevice, &imageViewCreateInfo, nullptr,
                                &depthImageView));
 
-    _deletionQueue.pushFunction([this, depthImageView]() {
+    _swapchainDeletionQueue.pushFunction([this, depthImageView]() {
       vkDestroyImageView(_vkDevice, depthImageView, nullptr);
     });
   }
-
-  _deletionQueue.pushFunction([this]() {
+  _swapchainDeletionQueue.pushFunction([this]() {
+    _vkFramebufferImageViews.clear();
+    _vkFramebuffers.clear();
     vmaDestroyImage(_vmaAllocator, _depthImage.vkImage, _depthImage.allocation);
   });
 }
@@ -283,10 +286,11 @@ void VulkanRHI::initDefaultRenderPass() {
   vkRenderPassCreateInfo.pSubpasses = &vkSubpassDescription;
 
   VK_CHECK(vkCreateRenderPass(_vkDevice, &vkRenderPassCreateInfo, nullptr,
-                              &_vkRenderPass));
+                              &_vkDefaultRenderPass));
 
-  _deletionQueue.pushFunction(
-      [this]() { vkDestroyRenderPass(_vkDevice, _vkRenderPass, nullptr); });
+  _swapchainDeletionQueue.pushFunction([this]() {
+    vkDestroyRenderPass(_vkDevice, _vkDefaultRenderPass, nullptr);
+  });
 }
 
 void VulkanRHI::initShadowRenderPass() {
@@ -337,7 +341,7 @@ void VulkanRHI::initFramebuffers() {
   VkFramebufferCreateInfo vkFramebufferCreateInfo = {};
   vkFramebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
   vkFramebufferCreateInfo.pNext = nullptr;
-  vkFramebufferCreateInfo.renderPass = _vkRenderPass;
+  vkFramebufferCreateInfo.renderPass = _vkDefaultRenderPass;
   vkFramebufferCreateInfo.width = _windowExtent.width;
   vkFramebufferCreateInfo.height = _windowExtent.height;
   vkFramebufferCreateInfo.layers = 1;
@@ -352,7 +356,7 @@ void VulkanRHI::initFramebuffers() {
     VK_CHECK(vkCreateFramebuffer(_vkDevice, &vkFramebufferCreateInfo, nullptr,
                                  &_vkFramebuffers[i]));
 
-    _deletionQueue.pushFunction([this, i]() {
+    _swapchainDeletionQueue.pushFunction([this, i]() {
       vkDestroyFramebuffer(_vkDevice, _vkFramebuffers[i], nullptr);
     });
   }
@@ -474,7 +478,7 @@ void VulkanRHI::initSyncStructures() {
   });
 }
 
-void VulkanRHI::initPipelines() {
+void VulkanRHI::initDefaultPipelines() {
   PipelineBuilder pipelineBuilder;
 
   pipelineBuilder._vkVertexInputInfo = vkinit::vertexInputStateCreateInfo();
@@ -554,19 +558,20 @@ void VulkanRHI::initPipelines() {
                                   &_vkMeshPipelineLayout));
 
   pipelineBuilder._vkPipelineLayout = _vkMeshPipelineLayout;
-  _vkMeshPipeline = pipelineBuilder.buildPipeline(_vkDevice, _vkRenderPass);
+  _vkMeshPipeline =
+      pipelineBuilder.buildPipeline(_vkDevice, _vkDefaultRenderPass);
 
   createMaterial(_vkMeshPipeline, _vkMeshPipelineLayout, "defaultmesh");
 
   vkDestroyShaderModule(_vkDevice, meshVertShader, nullptr);
   vkDestroyShaderModule(_vkDevice, meshFragShader, nullptr);
 
-  _deletionQueue.pushFunction(
+  _swapchainDeletionQueue.pushFunction(
       [this] { vkDestroyPipeline(_vkDevice, _vkMeshPipeline, nullptr); });
 
   pipelineBuilder._vkShaderStageCreateInfo.clear();
 
-  _deletionQueue.pushFunction([this] {
+  _swapchainDeletionQueue.pushFunction([this] {
     vkDestroyPipelineLayout(_vkDevice, _vkMeshPipelineLayout, nullptr);
   });
 
@@ -617,13 +622,14 @@ void VulkanRHI::initPipelines() {
   VK_CHECK(vkCreatePipelineLayout(_vkDevice, &litMeshPipelineLayoutCreateInfo,
                                   nullptr, &_vkLitMeshPipelineLayout));
 
-  _deletionQueue.pushFunction([this]() {
+  _swapchainDeletionQueue.pushFunction([this]() {
     vkDestroyPipelineLayout(_vkDevice, _vkLitMeshPipelineLayout, nullptr);
   });
 
   pipelineBuilder._vkPipelineLayout = _vkLitMeshPipelineLayout;
 
-  _vkLitMeshPipeline = pipelineBuilder.buildPipeline(_vkDevice, _vkRenderPass);
+  _vkLitMeshPipeline =
+      pipelineBuilder.buildPipeline(_vkDevice, _vkDefaultRenderPass);
 
   createMaterial(_vkLitMeshPipeline, _vkMeshPipelineLayout, "lit-mesh",
                  "lost-empire");
@@ -631,14 +637,27 @@ void VulkanRHI::initPipelines() {
   vkDestroyShaderModule(_vkDevice, litMeshVertShader, nullptr);
   vkDestroyShaderModule(_vkDevice, litMeshFragShader, nullptr);
 
-  _deletionQueue.pushFunction(
+  _swapchainDeletionQueue.pushFunction(
       [this] { vkDestroyPipeline(_vkDevice, _vkLitMeshPipeline, nullptr); });
 
   pipelineBuilder._vkShaderStageCreateInfo.clear();
+}
 
-  // Shadow pass pipeline
+void VulkanRHI::initShadowPassPipeline() {
+  PipelineBuilder pipelineBuilder;
 
-  pipelineBuilder._vkRasterizationCreateInfo.cullMode = VK_CULL_MODE_BACK_BIT;
+  pipelineBuilder._vkVertexInputInfo = vkinit::vertexInputStateCreateInfo();
+  pipelineBuilder._vkInputAssemblyCreateInfo =
+      vkinit::inputAssemblyCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+
+  pipelineBuilder._vkDepthStencilStateCreateInfo =
+      vkinit::depthStencilStateCreateInfo(VK_TRUE);
+
+  pipelineBuilder._vkRasterizationCreateInfo =
+      vkinit::rasterizationCreateInfo(VK_POLYGON_MODE_FILL);
+
+  pipelineBuilder._vkMultisampleStateCreateInfo =
+      vkinit::multisampleStateCreateInfo();
 
   pipelineBuilder._vkViewport.x = 0.f;
   pipelineBuilder._vkViewport.y = 0.f;

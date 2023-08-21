@@ -1,6 +1,7 @@
 
 #include "editor/data.hpp"
 #include "editor/editor_windows.hpp"
+#include <SDL_events.h>
 #include <vk_rhi/vk_rhi.hpp>
 
 #include <SDL2/SDL.h>
@@ -54,8 +55,8 @@ int main(int, char**) {
   ImGui_ImplSDL2_InitForSDLRenderer(editorWindow, editorUIRenderer);
   ImGui_ImplSDLRenderer2_Init(editorUIRenderer);
 
-  SDL_WindowFlags engineWindowFlags =
-      static_cast<SDL_WindowFlags>(SDL_WINDOW_VULKAN | SDL_WINDOW_SHOWN);
+  SDL_WindowFlags engineWindowFlags = static_cast<SDL_WindowFlags>(
+      SDL_WINDOW_VULKAN | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
   SDL_Window* engineWindow =
       SDL_CreateWindow("Obsidian Engine", SDL_WINDOWPOS_CENTERED,
                        SDL_WINDOWPOS_CENTERED, 1200, 800, engineWindowFlags);
@@ -68,18 +69,21 @@ int main(int, char**) {
   bool shouldQuit = false;
   while (!shouldQuit) {
     SDL_Event event;
+    std::size_t sizeCnt = 0;
     while (SDL_PollEvent(&event)) {
       ZoneScoped;
 
       ImGui_ImplSDL2_ProcessEvent(&event);
 
-      if (event.type == SDL_QUIT)
+      if (event.type == SDL_QUIT) {
         shouldQuit = true;
+      }
       if (event.type == SDL_WINDOWEVENT &&
-          event.window.event == SDL_WINDOWEVENT_CLOSE)
+          event.window.event == SDL_WINDOWEVENT_CLOSE) {
         shouldQuit = true;
-      else
+      } else {
         vulkanRHI.handleEvents(event);
+      }
     }
 
     obsidian::editor::editor(*editorUIRenderer, io, dataContext);

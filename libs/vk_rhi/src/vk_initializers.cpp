@@ -1,6 +1,7 @@
 #include <vk_rhi/vk_initializers.hpp>
 
 #include <cassert>
+#include <vulkan/vulkan_core.h>
 
 namespace obsidian::vk_rhi::vkinit {
 
@@ -70,7 +71,7 @@ inputAssemblyCreateInfo(VkPrimitiveTopology primitiveTopology) {
 }
 
 VkPipelineRasterizationStateCreateInfo
-rasterizationCreateInfo(VkPolygonMode polygonMode) {
+rasterizationCreateInfo(VkPolygonMode polygonMode, VkCullModeFlags cullMode) {
   VkPipelineRasterizationStateCreateInfo rasterizationCreateInfo = {};
   rasterizationCreateInfo.sType =
       VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
@@ -78,7 +79,7 @@ rasterizationCreateInfo(VkPolygonMode polygonMode) {
   rasterizationCreateInfo.depthClampEnable = VK_FALSE;
   rasterizationCreateInfo.rasterizerDiscardEnable = VK_FALSE;
   rasterizationCreateInfo.polygonMode = polygonMode;
-  rasterizationCreateInfo.cullMode = VK_CULL_MODE_BACK_BIT;
+  rasterizationCreateInfo.cullMode = cullMode;
   rasterizationCreateInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
   rasterizationCreateInfo.depthBiasEnable = VK_FALSE;
   rasterizationCreateInfo.depthBiasConstantFactor = 0.0f;

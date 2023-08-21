@@ -12,6 +12,7 @@ void VulkanRHI::cleanup() {
     renderdoc::deinitRenderdoc();
     vkDeviceWaitIdle(_vkDevice);
 
+    _swapchainDeletionQueue.flush();
     _deletionQueue.flush();
 
     vkDestroyDevice(_vkDevice, nullptr);
