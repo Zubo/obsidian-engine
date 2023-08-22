@@ -4,7 +4,6 @@
 
 #include <cstdint>
 #include <optional>
-#include <vulkan/vulkan_core.h>
 
 namespace obsidian::vk_rhi::vkinit {
 

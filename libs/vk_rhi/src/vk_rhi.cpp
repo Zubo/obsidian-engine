@@ -3,11 +3,6 @@
 #include <vk_rhi/vk_rhi.hpp>
 #include <vk_rhi/vk_types.hpp>
 
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_vulkan.h>
-#include <SDL_events.h>
-#include <SDL_stdinc.h>
-#include <SDL_video.h>
 #include <stb/stb_image.h>
 #include <tracy/Tracy.hpp>
 #include <vk_mem_alloc.h>
@@ -20,22 +15,18 @@
 
 using namespace obsidian::vk_rhi;
 
-void VulkanRHI::handleEvents(SDL_Event const& e) {
-  Uint32 const windowId = SDL_GetWindowID(Window);
-  if (e.type == SDL_KEYDOWN) {
-    if (e.key.windowID == windowId) {
-      handleKeyboardInput(e.key);
-    }
-  } else if (e.type == SDL_MOUSEMOTION) {
-    if (e.motion.windowID == windowId) {
+void VulkanRHI::updateExtent(VkExtent2D newExtent) {
 
-      handleMoseInput(e.motion);
-    }
-  } else if (e.type == SDL_WINDOWEVENT) {
-    if (e.window.windowID == windowId) {
-      handleWindowEvent(e.window);
-    }
-  }
+  vkDeviceWaitIdle(_vkDevice);
+  _skipFrame = true;
+  _windowExtent = newExtent;
+
+  _swapchainDeletionQueue.flush();
+
+  initSwapchain();
+  initDefaultRenderPass();
+  initFramebuffers();
+  initDefaultPipelines();
 }
 
 bool VulkanRHI::loadShaderModule(char const* filePath,
@@ -94,14 +85,6 @@ void VulkanRHI::immediateSubmit(
 
   VK_CHECK(
       vkResetCommandPool(_vkDevice, _immediateSubmitContext.vkCommandPool, 0));
-}
-
-void VulkanRHI::setSceneParams(glm::vec3 ambientColor, glm::vec3 sunDirection,
-                               glm::vec3 sunColor) {
-  _gpuSceneData.ambientColor = glm::vec4(ambientColor, 1.0f);
-  _gpuSceneData.sunlightDirection =
-      glm::vec4(glm::normalize(sunDirection), 1.0f);
-  _gpuSceneData.sunlightColor = glm::vec4(sunColor, 1.0f);
 }
 
 void VulkanRHI::loadTexture(std::string_view textureName,

@@ -1,12 +1,9 @@
 #include <vk_rhi/vk_check.hpp>
 #include <vk_rhi/vk_initializers.hpp>
 #include <vk_rhi/vk_rhi.hpp>
+#include <vk_rhi/vk_rhi_input.hpp>
 #include <vk_rhi/vk_types.hpp>
 
-#include "glm/ext/matrix_clip_space.hpp"
-#include "glm/ext/matrix_float4x4.hpp"
-#include "glm/ext/vector_float3.hpp"
-#include "glm/geometric.hpp"
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
 #include <tracy/Tracy.hpp>
@@ -14,12 +11,10 @@
 #include <vulkan/vulkan.hpp>
 
 #include <cstring>
-#include <vulkan/vulkan_core.h>
-#include <vulkan/vulkan_structs.hpp>
 
 using namespace obsidian::vk_rhi;
 
-void VulkanRHI::draw() {
+void VulkanRHI::draw(SceneGlobalParams const& sceneParams) {
   if (_skipFrame) {
     _skipFrame = false;
     return;
@@ -89,7 +84,8 @@ void VulkanRHI::draw() {
   vkCmdBeginRenderPass(cmd, &vkShadowRenderPassBeginInfo,
                        VK_SUBPASS_CONTENTS_INLINE);
 
-  drawShadowPass(cmd, _renderObjects.data(), _renderObjects.size());
+  drawShadowPass(cmd, _renderObjects.data(), _renderObjects.size(),
+                 sceneParams);
 
   vkCmdEndRenderPass(cmd);
 
@@ -124,7 +120,7 @@ void VulkanRHI::draw() {
 
   vkCmdBeginRenderPass(cmd, &vkRenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-  drawObjects(cmd, _renderObjects.data(), _renderObjects.size());
+  drawObjects(cmd, _renderObjects.data(), _renderObjects.size(), sceneParams);
 
   vkCmdEndRenderPass(cmd);
   VK_CHECK(vkEndCommandBuffer(cmd));
@@ -156,13 +152,13 @@ void VulkanRHI::draw() {
 
   vkPresentInfo.pImageIndices = &swapchainImageIndex;
 
-  VkResult const presetnResult =
+  VkResult const presentResult =
       vkQueuePresentKHR(_vkGraphicsQueue, &vkPresentInfo);
 
-  if (presetnResult == VK_ERROR_OUT_OF_DATE_KHR ||
-      presetnResult == VK_SUBOPTIMAL_KHR) {
+  if (presentResult == VK_ERROR_OUT_OF_DATE_KHR ||
+      presentResult == VK_SUBOPTIMAL_KHR) {
   } else {
-    VK_CHECK(presetnResult);
+    VK_CHECK(presentResult);
   }
 
   ++_frameNumber;
@@ -170,13 +166,14 @@ void VulkanRHI::draw() {
   FrameMark;
 }
 
-void VulkanRHI::drawObjects(VkCommandBuffer cmd, RenderObject* first,
-                            int count) {
+void VulkanRHI::drawObjects(VkCommandBuffer cmd, RenderObject* first, int count,
+                            SceneGlobalParams const& sceneParams) {
   ZoneScoped;
   glm::mat4 view = glm::mat4{1.f};
-  view = glm::rotate(view, -_cameraRotationRad.x, {1.f, 0.f, 0.f});
-  view = glm::rotate(view, -_cameraRotationRad.y, {0.f, 1.f, 0.f});
-  view = glm::translate(view, -_cameraPos);
+  view = glm::rotate(view, -sceneParams.cameraRotationRad.x, {1.f, 0.f, 0.f});
+  view = glm::rotate(view, -sceneParams.cameraRotationRad.y, {0.f, 1.f, 0.f});
+  view = glm::translate(view, -sceneParams.cameraPos);
+
   glm::mat4 proj = glm::perspective(glm::radians(60.f),
                                     static_cast<float>(_windowExtent.width) /
                                         _windowExtent.height,
@@ -214,7 +211,12 @@ void VulkanRHI::drawObjects(VkCommandBuffer cmd, RenderObject* first,
       reinterpret_cast<char*>(data) +
       frameInd * getPaddedBufferSize(sizeof(GPUSceneData));
 
-  std::memcpy(dstGPUSceneData, &_gpuSceneData, sizeof(GPUSceneData));
+  GPUSceneData gpuSceneData;
+  gpuSceneData.ambientColor = glm::vec4(sceneParams.ambientColor, 1.0f);
+  gpuSceneData.sunlightColor = glm::vec4(sceneParams.sunColor, 1.0f);
+  gpuSceneData.sunlightDirection = glm::vec4(sceneParams.sunDirection, 1.0f);
+
+  std::memcpy(dstGPUSceneData, &gpuSceneData, sizeof(GPUSceneData));
 
   vmaUnmapMemory(_vmaAllocator, _sceneDataBuffer.allocation);
 
@@ -261,12 +263,12 @@ void VulkanRHI::drawObjects(VkCommandBuffer cmd, RenderObject* first,
 }
 
 void VulkanRHI::drawShadowPass(VkCommandBuffer cmd, RenderObject* first,
-                               int count) {
+                               int count,
+                               SceneGlobalParams const& sceneGlobalParams) {
   ZoneScoped;
 
   glm::mat4 const view = glm::lookAt(
-      {}, glm::normalize(glm::vec3(_gpuSceneData.sunlightDirection)),
-      {0.f, 1.f, 0.f});
+      {}, glm::normalize(sceneGlobalParams.sunDirection), {0.f, 1.f, 0.f});
   glm::mat4 proj = glm::ortho(-200.f, 200.f, -200.f, 200.f, -200.f, 200.f);
   proj[1][1] *= -1;
 

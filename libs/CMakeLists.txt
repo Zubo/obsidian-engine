@@ -1,4 +1,10 @@
 cmake_minimum_required(VERSION 3.24)
 
+add_subdirectory(core)
+add_subdirectory(window)
+add_subdirectory(input)
+add_subdirectory(obsidian_engine)
 add_subdirectory(vk_rhi)
+add_subdirectory(scene)
 add_subdirectory(renderdoc)
+add_subdirectory(sdl_wrapper)

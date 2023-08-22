@@ -4,7 +4,6 @@ option (FORCE_VALIDATION_LAYERS "Force validation layers in non-debug builds" OF
 
 add_library(VulkanRHI
     "src/vk_rhi.cpp"
-    "src/vk_rhi_input_handling.cpp"
     "src/vk_rhi_draw.cpp"
     "src/vk_rhi_init.cpp"
     "src/vk_rhi_cleanup.cpp"
@@ -20,6 +19,7 @@ add_library(VulkanRHI
     "include/vk_rhi/vk_pipeline_builder.hpp"
     "include/vk_rhi/vk_deletion_queue.hpp"
     "include/vk_rhi/vk_descriptors.hpp"
+    "include/vk_rhi/vk_rhi_input.hpp"
 )
 
 target_include_directories(VulkanRHI
@@ -34,12 +34,12 @@ target_link_libraries(VulkanRHI
         glm
     PRIVATE
         vk-bootstrap::vk-bootstrap
-        SDLInterface
         tinyobjloader
         HashLibrary
         Renderdoc
         ThirdPartyImpl
         TracyClient
+        Input
 )
 
 if (${FORCE_VALIDATION_LAYERS} OR ${CMAKE_BUILD_TYPE} STREQUAL "Debug")

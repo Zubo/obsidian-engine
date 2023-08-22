@@ -15,16 +15,4 @@ target_include_directories(VulkanSDK
         ${VULKAN_INCLUDE_DIRS}
 )
 
-add_library(SDLInterface INTERFACE)
-
-target_link_libraries(SDLInterface
-    INTERFACE
-        ${SDL2_LIBRARIES}
-)
-
-target_include_directories(SDLInterface
-    INTERFACE
-        ${SDL2_INCLUDE_DIRS}
-)
-
 add_subdirectory(single_header_impl)

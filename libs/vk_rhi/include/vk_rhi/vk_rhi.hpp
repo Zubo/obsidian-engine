@@ -1,10 +1,10 @@
 #pragma once
 
-#include <SDL_events.h>
 #include <vk_rhi/vk_deletion_queue.hpp>
 #include <vk_rhi/vk_descriptors.hpp>
 #include <vk_rhi/vk_mesh.hpp>
 #include <vk_rhi/vk_pipeline_builder.hpp>
+#include <vk_rhi/vk_rhi_input.hpp>
 #include <vk_rhi/vk_types.hpp>
 
 #include <glm/glm.hpp>
@@ -18,14 +18,16 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
-#include <vulkan/vulkan_core.h>
 
-union SDL_Event;
-struct SDL_MouseMotionEvent;
-struct SDL_KeyboardEvent;
-struct SDL_Window;
+namespace obsidian::input {
+
+struct InputContext;
+
+}
 
 namespace obsidian::vk_rhi {
+
+struct SceneGlobalParams;
 
 class VulkanRHI {
   static unsigned int const frameOverlap = 2;
@@ -34,18 +36,18 @@ class VulkanRHI {
   static unsigned int const shadowPassAttachmentHeight = 2000;
 
 public:
+  using SurfaceProvider = std::function<void(VkInstance, VkSurfaceKHR&)>;
+
   bool IsInitialized{false};
   int FrameNumber{0};
-  struct SDL_Window* Window{nullptr};
 
-  void init(SDL_Window& window);
+  void init(VkExtent2D extent, SurfaceProvider surfaceProvider,
+            input::InputContext& inputContext);
   void cleanup();
 
-  void draw();
-  void handleEvents(SDL_Event const& e);
+  void draw(SceneGlobalParams const& sceneParams);
+  void updateExtent(VkExtent2D newExtent);
   void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
-  void setSceneParams(glm::vec3 ambientColor, glm::vec3 sunDirection,
-                      glm::vec3 sunColor);
 
 private:
   VkInstance _vkInstance;
@@ -95,14 +97,11 @@ private:
   VkDescriptorSet _vkShadowPassGlobalDescriptorSet;
   VkDescriptorSet _emptyDescriptorSet;
   ImmediateSubmitContext _immediateSubmitContext;
-  glm::vec3 _cameraPos = {25.28111f, 34.15443f, -4.555f};
-  glm::vec2 _cameraRotationRad = {-0.63f, -3.65f};
   VkSampler _vkSampler;
   VkExtent2D _windowExtent;
-  GPUSceneData _gpuSceneData;
   bool _skipFrame = false;
 
-  void initVulkan();
+  void initVulkan(SurfaceProvider surfaceProvider);
   void initSwapchain();
   void initCommands();
   void initDefaultRenderPass();
@@ -122,8 +121,10 @@ private:
   void loadMeshes();
   void uploadMesh(Mesh& mesh);
   FrameData& getCurrentFrameData();
-  void drawObjects(VkCommandBuffer cmd, RenderObject* first, int count);
-  void drawShadowPass(VkCommandBuffer, RenderObject* first, int count);
+  void drawObjects(VkCommandBuffer cmd, RenderObject* first, int count,
+                   SceneGlobalParams const& sceneParams);
+  void drawShadowPass(VkCommandBuffer, RenderObject* first, int count,
+                      SceneGlobalParams const& sceneGlobalParams);
   Material* createMaterial(VkPipeline pipeline, VkPipelineLayout pipelineLayout,
                            std::string const& name,
                            std::string const& albedoTexName = "default");
@@ -136,9 +137,6 @@ private:
                VmaAllocationInfo* outAllocationInfo = nullptr) const;
   std::size_t getPaddedBufferSize(std::size_t originalSize) const;
   bool loadImage(char const* filePath, AllocatedImage& outAllocatedImage);
-  void handleKeyboardInput(SDL_KeyboardEvent const& e);
-  void handleMoseInput(SDL_MouseMotionEvent const& e);
-  void handleWindowEvent(SDL_WindowEvent const& e);
 };
 
 } /*namespace obsidian::vk_rhi*/

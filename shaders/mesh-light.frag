@@ -37,7 +37,7 @@ void main() {
   float shadowMultiplier = 0.0f;
 
   float bias =
-      max(0.001f, 0.001 * (1.0 - dot(normalize(sceneData.sunlightDirection.xyz),
+      max(0.005f, 0.005 * (1.0 - dot(normalize(sceneData.sunlightDirection.xyz),
                                      normalize(inNormals))));
 
   vec2 texelSize = 1.0f / textureSize(shadowMap, 0);

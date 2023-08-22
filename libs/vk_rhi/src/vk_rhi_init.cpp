@@ -1,4 +1,4 @@
-#include <SDL_video.h>
+#include <input/input_context.hpp>
 #include <renderdoc/renderdoc.hpp>
 #include <vk_rhi/vk_check.hpp>
 #include <vk_rhi/vk_descriptors.hpp>
@@ -7,8 +7,6 @@
 #include <vk_rhi/vk_rhi.hpp>
 #include <vk_rhi/vk_types.hpp>
 
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_vulkan.h>
 #include <VkBootstrap.h>
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
@@ -16,18 +14,25 @@
 #include <vulkan/vulkan.hpp>
 #include <vulkan/vulkan_core.h>
 
+#include <utility>
+
 using namespace obsidian::vk_rhi;
 
-void VulkanRHI::init(SDL_Window& window) {
-  Window = &window;
-  int width, height;
-  SDL_GetWindowSize(Window, &width, &height);
-  _windowExtent.width = width;
-  _windowExtent.height = height;
+void VulkanRHI::init(VkExtent2D extent, SurfaceProvider surfaceProvider,
+                     input::InputContext& inputContext) {
+  _windowExtent = extent;
+
+  inputContext.windowEventEmitter.subscribeToWindowResizedEvent(
+      [this](std::size_t w, std::size_t h) {
+        VkExtent2D newExtent;
+        newExtent.width = w;
+        newExtent.height = h;
+        updateExtent(newExtent);
+      });
 
   renderdoc::initRenderdoc();
 
-  initVulkan();
+  initVulkan(std::move(surfaceProvider));
 
   initSwapchain();
 
@@ -59,7 +64,7 @@ void VulkanRHI::init(SDL_Window& window) {
 
   IsInitialized = true;
 }
-void VulkanRHI::initVulkan() {
+void VulkanRHI::initVulkan(SurfaceProvider surfaceProvider) {
   vkb::InstanceBuilder builder;
 
 #ifdef USE_VULKAN_VALIDATION_LAYERS
@@ -67,14 +72,6 @@ void VulkanRHI::initVulkan() {
 #else
   constexpr bool enable_validation_layers = false;
 #endif
-
-  unsigned int extensionCount;
-  char const* extensionNames;
-  SDL_Vulkan_GetInstanceExtensions(Window, &extensionCount, &extensionNames);
-
-  for (std::size_t i = 0; i < extensionCount; ++i) {
-    builder.enable_extension((&extensionNames)[i]);
-  }
 
   auto const builderReturn = builder.set_app_name("Obsidian Engine")
                                  .request_validation_layers(true)
@@ -87,7 +84,7 @@ void VulkanRHI::initVulkan() {
   _vkInstance = vkbInstance.instance;
   _vkDebugMessenger = vkbInstance.debug_messenger;
 
-  SDL_Vulkan_CreateSurface(Window, _vkInstance, &_vkSurface);
+  surfaceProvider(_vkInstance, _vkSurface);
 
   vkb::PhysicalDeviceSelector vkbSelector{vkbInstance};
   vkb::PhysicalDevice vkbPhysicalDevice = vkbSelector.set_minimum_version(1, 2)

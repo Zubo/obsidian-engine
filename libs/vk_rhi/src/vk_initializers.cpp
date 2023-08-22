@@ -1,7 +1,6 @@
 #include <vk_rhi/vk_initializers.hpp>
 
 #include <cassert>
-#include <vulkan/vulkan_core.h>
 
 namespace obsidian::vk_rhi::vkinit {
 
