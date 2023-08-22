@@ -89,3 +89,21 @@ target_link_libraries(DearImgui
         ${Vulkan_LIBRARIES}
         ${SDL2_LIBRARIES}
 )
+
+
+FetchContent_Declare(fetch_lz4
+    GIT_REPOSITORY https://github.com/lz4/lz4.git
+    GIT_TAG v1.9.4
+    SOURCE_SUBDIR ./build/cmake
+    GIT_PROGRESS TRUE
+)
+
+FetchContent_MakeAvailable(fetch_lz4)
+
+FetchContent_Declare(fetch_json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG v3.11.2
+    GIT_PROGRESS TRUE
+)
+
+FetchContent_MakeAvailable(fetch_json)
