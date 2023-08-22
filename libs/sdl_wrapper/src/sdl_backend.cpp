@@ -1,15 +1,16 @@
-#include "sdl_wrapper/sdl_window_backend.hpp"
-#include "window/window_impl_interface.hpp"
-#include <cstdlib>
-#include <memory>
 #include <sdl_wrapper/sdl_backend.hpp>
+#include <sdl_wrapper/sdl_window_backend.hpp>
+#include <window/window_impl_interface.hpp>
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_events.h>
+#include <SDL2/SDL_stdinc.h>
 #include <SDL2/SDL_video.h>
 
+#include <cstdlib>
 #include <functional>
 #include <iostream>
+#include <memory>
 
 using namespace obsidian;
 using namespace obsidian::sdl_wrapper;
@@ -55,11 +56,17 @@ SDLBackend::createWindow(const CreateWindowParams& params) const {
   SDL_WindowFlags const flags = static_cast<SDL_WindowFlags>(
       SDL_WINDOW_VULKAN | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
 
+  Uint32 const posX = params.posX == CreateWindowParams::windowCenetered
+                          ? SDL_WINDOWPOS_CENTERED
+                          : params.posX;
+  Uint32 const posY = params.posY == CreateWindowParams::windowCenetered
+                          ? SDL_WINDOWPOS_CENTERED
+                          : params.posY;
   using UniquePtr =
       std::unique_ptr<SDL_Window, SDLWindowBackend::SDLWindowDeleter>;
   UniquePtr sdlWindowUnique =
-      UniquePtr(SDL_CreateWindow(params.title.c_str(), params.posX, params.posY,
-                                 params.width, params.height, flags),
+      UniquePtr(SDL_CreateWindow(params.title.c_str(), posX, posY, params.width,
+                                 params.height, flags),
                 [](SDL_Window* w) {
                   if (w)
                     SDL_DestroyWindow(w);

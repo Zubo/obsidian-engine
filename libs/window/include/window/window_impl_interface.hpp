@@ -36,6 +36,8 @@ public:
   operator=(IWindowBackendProvider const& other) = delete;
 
   struct CreateWindowParams {
+    static constexpr std::uint32_t windowCenetered = ~0;
+
     std::string title;
     std::uint32_t posX;
     std::uint32_t posY;

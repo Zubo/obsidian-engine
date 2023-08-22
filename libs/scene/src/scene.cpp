@@ -1,6 +1,6 @@
-#include "input/key_input_emitter.hpp"
-#include "input/mouse_motion_emitter.hpp"
 #include <input/input_context.hpp>
+#include <input/key_input_emitter.hpp>
+#include <input/mouse_motion_emitter.hpp>
 #include <scene/scene.hpp>
 
 #include <glm/gtx/transform.hpp>

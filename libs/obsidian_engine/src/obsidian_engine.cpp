@@ -13,8 +13,10 @@ void ObsidianEngine::init(IWindowBackendProvider const& windowBackendProvider) {
 
   IWindowBackendProvider::CreateWindowParams windowParams;
   windowParams.title = "Obsidian Engine";
-  windowParams.posX = 100;
-  windowParams.posY = 100;
+  windowParams.posX =
+      IWindowBackendProvider::CreateWindowParams::windowCenetered;
+  windowParams.posY =
+      IWindowBackendProvider::CreateWindowParams::windowCenetered;
   windowParams.width = 1000;
   windowParams.height = 800;
 

@@ -42,8 +42,8 @@ int main(int, char**) {
 
   constexpr Uint32 editorWindowWidth = 300;
   constexpr Uint32 editorWindowHeight = 800;
-  Uint32 const editorWindowXPos = 1000;
-  Uint32 const editorWindowYPos = 540;
+  Uint32 const editorWindowXPos = screenCenterX + 500 + 10;
+  Uint32 const editorWindowYPos = screenCenterY - editorWindowHeight / 2;
 
   // Create window with SDL_Renderer graphics context
   SDL_WindowFlags editorWindowFlags =
@@ -111,8 +111,8 @@ int main(int, char**) {
     FrameMark;
   }
 
-  engine.cleanup();
   // Cleanup
+  engine.cleanup();
   ImGui_ImplSDLRenderer2_Shutdown();
   ImGui_ImplSDL2_Shutdown();
   ImGui::DestroyContext();

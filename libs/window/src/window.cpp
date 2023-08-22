@@ -1,9 +1,9 @@
-#include "window/window_events.hpp"
 #include <core/keycode.hpp>
 #include <input/input_context.hpp>
 #include <input/key_input_emitter.hpp>
 #include <input/mouse_motion_emitter.hpp>
 #include <window/window.hpp>
+#include <window/window_events.hpp>
 
 #include <cassert>
 #include <iostream>
