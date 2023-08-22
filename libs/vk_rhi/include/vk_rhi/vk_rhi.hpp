@@ -8,7 +8,7 @@
 #include <vk_rhi/vk_types.hpp>
 
 #include <glm/glm.hpp>
-#include <vulkan/vulkan.hpp>
+#include <vulkan/vulkan.h>
 
 #include <array>
 #include <cstdint>

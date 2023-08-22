@@ -1,7 +1,7 @@
 #include <vk_rhi/vk_mesh.hpp>
 
 #include <tiny_obj_loader.h>
-#include <vulkan/vulkan.hpp>
+#include <vulkan/vulkan.h>
 
 #include <cstddef>
 #include <cstdint>

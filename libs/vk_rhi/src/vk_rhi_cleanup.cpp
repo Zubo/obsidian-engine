@@ -2,7 +2,7 @@
 #include <vk_rhi/vk_rhi.hpp>
 
 #include <VkBootstrap.h>
-#include <vulkan/vulkan.hpp>
+#include <vulkan/vulkan.h>
 
 using namespace obsidian::vk_rhi;
 

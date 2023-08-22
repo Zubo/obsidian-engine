@@ -4,7 +4,7 @@
 #include <window/window.hpp>
 #include <window/window_impl_interface.hpp>
 
-#include <vulkan/vulkan.hpp>
+#include <vulkan/vulkan.h>
 
 using namespace obsidian;
 

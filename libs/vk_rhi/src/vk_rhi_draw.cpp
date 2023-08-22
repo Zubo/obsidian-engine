@@ -8,7 +8,7 @@
 #include <glm/gtx/transform.hpp>
 #include <tracy/Tracy.hpp>
 #include <vk_mem_alloc.h>
-#include <vulkan/vulkan.hpp>
+#include <vulkan/vulkan.h>
 
 #include <cstring>
 

@@ -3,7 +3,7 @@
 #include <string>
 #include <window/window_events.hpp>
 
-#include <vulkan/vulkan.hpp>
+#include <vulkan/vulkan.h>
 
 #include <memory>
 #include <vector>

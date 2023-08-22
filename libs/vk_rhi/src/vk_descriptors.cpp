@@ -2,9 +2,10 @@
 #include <vk_rhi/vk_descriptors.hpp>
 
 #include <crc32.h>
-#include <vulkan/vulkan_handles.hpp>
+#include <vulkan/vulkan.h>
 
 #include <algorithm>
+#include <array>
 
 using namespace obsidian::vk_rhi;
 
@@ -86,8 +87,7 @@ VkDescriptorPool DescriptorAllocator::createNewDescriptorPool() {
   vkDescriptorPoolCreateInfo.flags = _vkDescriptorPoolCreateFlags;
   vkDescriptorPoolCreateInfo.maxSets = maxSets;
 
-  constexpr std::size_t numDescriptorPoolSizes =
-      sizeof(descriptorPoolSizes) / sizeof(descriptorPoolSizes[0]);
+  constexpr std::size_t numDescriptorPoolSizes = std::size(descriptorPoolSizes);
 
   std::array<VkDescriptorPoolSize, numDescriptorPoolSizes> newPoolSizes;
 

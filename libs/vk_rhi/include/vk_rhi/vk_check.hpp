@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vulkan/vulkan.h>
+
 #include <iostream>
 
 #define VK_CHECK(x)                                                            \
