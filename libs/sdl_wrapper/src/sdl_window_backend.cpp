@@ -61,11 +61,15 @@ void SDLWindowBackend::pollEvents(
           outEvent.windowResized =
               window::WindowResizedEvent{window::WindowEventType::WindowResized,
                                          e.window.data1, e.window.data2};
-        }
-
-        if (e.window.event == SDL_WINDOWEVENT_CLOSE) {
+        } else if (e.window.event == SDL_WINDOWEVENT_CLOSE) {
           outEvent.shouldQuitEvent =
               window::ShouldQuitEvent{window::WindowEventType::ShouldQuit};
+        } else if (e.window.event == SDL_WINDOWEVENT_FOCUS_GAINED) {
+          outEvent.focusGained = window::FocusGainedEvent{
+              window::WindowEventType::FocusGainedEvent};
+        } else if (e.window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
+          outEvent.focusLost =
+              window::FocusLostEvent{window::WindowEventType::FocusLostEvent};
         }
       }
     }

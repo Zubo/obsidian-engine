@@ -14,6 +14,8 @@ enum class WindowEventType {
   KeyUp = 2,
   MouseMotion = 3,
   WindowResized = 4,
+  FocusGainedEvent = 5,
+  FocusLostEvent = 6,
   ShouldQuit = 1000
 };
 
@@ -43,12 +45,22 @@ struct ShouldQuitEvent {
   WindowEventType type;
 };
 
+struct FocusGainedEvent {
+  WindowEventType type;
+};
+
+struct FocusLostEvent {
+  WindowEventType type;
+};
+
 union WindowEvent {
   WindowEventType type;
   KeyDownEvent keyDownEvent;
   KeyUpEvent keyUpEvent;
   MouseMotionEvent mouseMotionEvent;
   WindowResizedEvent windowResized;
+  FocusGainedEvent focusGained;
+  FocusLostEvent focusLost;
   ShouldQuitEvent shouldQuitEvent;
 };
 

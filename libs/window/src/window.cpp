@@ -17,6 +17,9 @@ void Window::init(
   (void)windowBackendUnique;
 
   _inputContext = &inputContext;
+
+  _inputContext->windowEventEmitter.subscribeToFocusChangedEvent(
+      [this](bool hasFocus) { _hasFocus = hasFocus; });
 }
 
 void Window::pollEvents() {
@@ -27,27 +30,36 @@ void Window::pollEvents() {
   _windowBackend->pollEvents(_polledEvents);
 
   for (WindowEvent const& e : _polledEvents) {
-    switch (e.type) {
-    case WindowEventType::ShouldQuit:
-      _shouldQuit = true;
-      break;
-    case WindowEventType::KeyDown:
-      _inputContext->keyInputEmitter.fireKeyPressedEvent(
-          e.keyDownEvent.keyCode);
-      break;
-    case WindowEventType::KeyUp:
-      _inputContext->keyInputEmitter.fireKeyReleasedEvent(e.keyUpEvent.keyCode);
-      break;
-    case WindowEventType::MouseMotion:
-      _inputContext->mouseMotionEmitter.fireMouseMotionEvent(
-          e.mouseMotionEvent.deltaXPixel, e.mouseMotionEvent.deltaYPixel);
-      break;
-    case WindowEventType::WindowResized:
-      _inputContext->windowEventEmitter.fireWindowResizedEvent(
-          e.windowResized.width, e.windowResized.height);
-      break;
-    default:
-      break;
+    if (_hasFocus) {
+      switch (e.type) {
+      case WindowEventType::ShouldQuit:
+        _shouldQuit = true;
+        break;
+      case WindowEventType::KeyDown:
+        _inputContext->keyInputEmitter.fireKeyPressedEvent(
+            e.keyDownEvent.keyCode);
+        break;
+      case WindowEventType::KeyUp:
+        _inputContext->keyInputEmitter.fireKeyReleasedEvent(
+            e.keyUpEvent.keyCode);
+        break;
+      case WindowEventType::MouseMotion:
+        _inputContext->mouseMotionEmitter.fireMouseMotionEvent(
+            e.mouseMotionEvent.deltaXPixel, e.mouseMotionEvent.deltaYPixel);
+        break;
+      case WindowEventType::WindowResized:
+        _inputContext->windowEventEmitter.fireWindowResizedEvent(
+            e.windowResized.width, e.windowResized.height);
+        break;
+      default:
+        break;
+      }
+    }
+
+    if (e.type == WindowEventType::FocusGainedEvent) {
+      _inputContext->windowEventEmitter.fireFocusChangedEvent(true);
+    } else if (e.type == WindowEventType::FocusLostEvent) {
+      _inputContext->windowEventEmitter.fireFocusChangedEvent(false);
     }
   }
 }

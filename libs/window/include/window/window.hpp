@@ -31,6 +31,7 @@ private:
   std::unique_ptr<interface::IWindowBackend> _windowBackend = nullptr;
   input::InputContext* _inputContext = nullptr;
   bool _shouldQuit = false;
+  bool _hasFocus = false;
   std::vector<WindowEvent> _polledEvents;
 };
 

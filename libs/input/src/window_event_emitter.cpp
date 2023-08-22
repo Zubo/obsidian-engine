@@ -9,6 +9,11 @@ void WindowEventEmitter::subscribeToWindowResizedEvent(
   _windowResizedHandlers.emplace_back(std::move(windowResizedHandler));
 }
 
+void WindowEventEmitter::subscribeToFocusChangedEvent(
+    FocusChangedHandler focusChangedHandler) {
+  _focusChangedHandlers.emplace_back(std::move(focusChangedHandler));
+}
+
 void WindowEventEmitter::fireWindowResizedEvent(std::size_t newWidth,
                                                 std::size_t newHeight) {
   for (auto const& handler : _windowResizedHandlers) {
@@ -17,6 +22,16 @@ void WindowEventEmitter::fireWindowResizedEvent(std::size_t newWidth,
   }
 }
 
-void WindowEventEmitter::cleanup() { _windowResizedHandlers.clear(); }
+void WindowEventEmitter::fireFocusChangedEvent(bool hasFocus) {
+  for (auto const& handler : _focusChangedHandlers) {
+    assert(handler);
+    handler(hasFocus);
+  }
+}
+
+void WindowEventEmitter::cleanup() {
+  _windowResizedHandlers.clear();
+  _focusChangedHandlers.clear();
+}
 
 } /*namespace obsidian::input*/
