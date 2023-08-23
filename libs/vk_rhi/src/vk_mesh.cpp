@@ -1,6 +1,9 @@
+#include "asset/asset_info.hpp"
+#include "asset/asset_io.hpp"
+#include "asset/mesh_asset_info.hpp"
 #include <vk_rhi/vk_mesh.hpp>
 
-#include <tiny_obj_loader.h>
+#include <asset/asset.hpp>
 #include <vulkan/vulkan.h>
 
 #include <cstddef>
@@ -65,64 +68,22 @@ VertexInputDescription Vertex::getVertexInputDescription(bool bindPosition,
   return description;
 }
 
-bool Mesh::loadFromObj(char const* filePath) {
-  tinyobj::attrib_t attrib;
-  std::vector<tinyobj::shape_t> shapes;
-  std::vector<tinyobj::material_t> materials;
+bool Mesh::load(char const* filePath) {
+  asset::Asset meshAsset;
+  asset::MeshAssetInfo meshAssetInfo;
 
-  std::string warning, error;
+  bool const meshAssetLoaded =
+      asset::loadFromFile(filePath, meshAsset) &&
+      asset::readMeshAssetInfo(meshAsset, meshAssetInfo);
 
-  tinyobj::LoadObj(&attrib, &shapes, &materials, &warning, &error, filePath,
-                   "assets");
-
-  if (!warning.empty()) {
-    std::cout << "tinyobj warning: " << warning << std::endl;
-  }
-
-  if (!error.empty()) {
-    std::cout << "tinyobj error: " << error << std::endl;
+  if (!meshAssetLoaded) {
     return false;
   }
 
-  for (std::size_t s = 0; s < shapes.size(); ++s) {
-    tinyobj::shape_t const& shape = shapes[s];
+  vertices.resize(meshAssetInfo.unpackedSize /
+                  sizeof(decltype(vertices)::value_type));
 
-    std::size_t faceIndOffset = 0;
-
-    for (std::size_t f = 0; f < shape.mesh.num_face_vertices.size(); ++f) {
-      unsigned char const vertexCount = shape.mesh.num_face_vertices[f];
-
-      for (std::size_t v = 0; v < vertexCount; ++v) {
-        tinyobj::index_t const idx = shape.mesh.indices[faceIndOffset + v];
-
-        tinyobj::real_t const posX = attrib.vertices[3 * idx.vertex_index + 0];
-        tinyobj::real_t const posY = attrib.vertices[3 * idx.vertex_index + 1];
-        tinyobj::real_t const posZ = attrib.vertices[3 * idx.vertex_index + 2];
-
-        tinyobj::real_t const normalX =
-            attrib.normals[3 * idx.normal_index + 0];
-        tinyobj::real_t const normalY =
-            attrib.normals[3 * idx.normal_index + 1];
-        tinyobj::real_t const normalZ =
-            attrib.normals[3 * idx.normal_index + 2];
-
-        tinyobj::real_t const colorR = attrib.colors[3 * idx.vertex_index + 0];
-        tinyobj::real_t const colorG = attrib.colors[3 * idx.vertex_index + 1];
-        tinyobj::real_t const colorB = attrib.colors[3 * idx.vertex_index + 2];
-
-        tinyobj::real_t const texCoordU =
-            attrib.texcoords[2 * idx.texcoord_index + 0];
-        tinyobj::real_t const texCoordV =
-            1.f - attrib.texcoords[2 * idx.texcoord_index + 1];
-
-        vertices.push_back({glm::vec3{posX, posY, posZ},
-                            glm::vec3{normalX, normalY, normalZ},
-                            glm::vec3{colorR, colorG, colorB},
-                            glm::vec2{texCoordU, texCoordV}});
-      }
-
-      faceIndOffset += vertexCount;
-    }
-  }
-  return true;
+  return asset::unpackAsset(meshAssetInfo, meshAsset.binaryBlob.data(),
+                            meshAsset.binaryBlob.size(),
+                            reinterpret_cast<char*>(vertices.data()));
 }

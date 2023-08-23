@@ -33,7 +33,7 @@ struct Mesh {
   std::vector<Vertex> vertices;
   AllocatedBuffer vertexBuffer;
 
-  bool loadFromObj(char const* filePath);
+  bool load(char const* filePath);
 };
 
 } /*namespace obsidian::vk_rhi*/

@@ -1,9 +1,15 @@
 #include <asset/asset.hpp>
 #include <asset/asset_io.hpp>
+#include <asset/mesh_asset_info.hpp>
 #include <asset/texture_asset_info.hpp>
 #include <asset_converter/asset_converter.hpp>
 
+#include <cstddef>
+#include <cstring>
+#include <glm/vec2.hpp>
+#include <glm/vec3.hpp>
 #include <stb/stb_image.h>
+#include <tiny_obj_loader.h>
 
 #include <iostream>
 
@@ -12,7 +18,6 @@ namespace fs = std::filesystem;
 namespace obsidian::asset_converter {
 
 bool convertPngToAsset(fs::path const srcPath, fs::path const& dstPath) {
-
   int w, h, channelCnt;
 
   unsigned char* data =
@@ -39,8 +44,100 @@ bool convertPngToAsset(fs::path const srcPath, fs::path const& dstPath) {
   return asset::saveToFile(dstPath, outAsset);
 }
 
+template <typename V>
+std::size_t appendVec(V const& vec, char* dst, std::size_t offset) {
+  std::memcpy(dst + offset, reinterpret_cast<char const*>(&vec), sizeof(vec));
+  return offset + sizeof(vec);
+}
+
+bool convertObjToAsset(fs::path const& srcPath, fs::path const& dstPath) {
+  asset::MeshAssetInfo meshAssetInfo;
+  meshAssetInfo.compressionMode = asset::CompressionMode::LZ4;
+
+  tinyobj::attrib_t attrib;
+  std::vector<tinyobj::shape_t> shapes;
+  std::vector<tinyobj::material_t> materials;
+
+  std::string warning, error;
+
+  tinyobj::LoadObj(&attrib, &shapes, &materials, &warning, &error,
+                   srcPath.c_str(), "assets");
+
+  if (!warning.empty()) {
+    std::cout << "tinyobj warning: " << warning << std::endl;
+  }
+
+  if (!error.empty()) {
+    std::cout << "tinyobj error: " << error << std::endl;
+    return false;
+  }
+
+  meshAssetInfo.hasNormals = attrib.normals.size();
+  meshAssetInfo.hasColors = attrib.colors.size();
+  meshAssetInfo.hasUV = attrib.colors.size();
+  std::size_t const vertexSize = asset::getVertexSize(meshAssetInfo);
+
+  std::vector<char> meshData;
+
+  for (std::size_t s = 0; s < shapes.size(); ++s) {
+    tinyobj::shape_t const& shape = shapes[s];
+
+    std::size_t faceIndOffset = 0;
+
+    for (std::size_t f = 0; f < shape.mesh.num_face_vertices.size(); ++f) {
+      unsigned char const vertexCount = shape.mesh.num_face_vertices[f];
+
+      std::size_t blobOffset = meshData.size();
+      meshData.resize(meshData.size() + vertexCount * vertexSize);
+
+      for (std::size_t v = 0; v < vertexCount; ++v) {
+        tinyobj::index_t const idx = shape.mesh.indices[faceIndOffset + v];
+
+        glm::vec3 const pos = {attrib.vertices[3 * idx.vertex_index + 0],
+                               attrib.vertices[3 * idx.vertex_index + 1],
+                               attrib.vertices[3 * idx.vertex_index + 2]};
+        blobOffset = appendVec(pos, meshData.data(), blobOffset);
+
+        if (meshAssetInfo.hasNormals) {
+          glm::vec3 const normals = {attrib.normals[3 * idx.normal_index + 0],
+                                     attrib.normals[3 * idx.normal_index + 1],
+                                     attrib.normals[3 * idx.normal_index + 2]};
+          blobOffset = appendVec(normals, meshData.data(), blobOffset);
+        }
+
+        if (meshAssetInfo.hasColors) {
+          glm::vec3 const col = {attrib.colors[3 * idx.vertex_index + 0],
+                                 attrib.colors[3 * idx.vertex_index + 1],
+                                 attrib.colors[3 * idx.vertex_index + 2]};
+          blobOffset = appendVec(col, meshData.data(), blobOffset);
+        }
+
+        if (meshAssetInfo.hasUV) {
+          glm::vec2 const uv = {
+              attrib.texcoords[2 * idx.texcoord_index + 0],
+              1.f - attrib.texcoords[2 * idx.texcoord_index + 1]};
+          blobOffset = appendVec(uv, meshData.data(), blobOffset);
+        }
+      }
+
+      faceIndOffset += vertexCount;
+    }
+  }
+
+  meshAssetInfo.unpackedSize = meshData.size();
+
+  asset::Asset meshAsset;
+  if (!asset::packMeshAsset(meshAssetInfo, meshData.data(), meshAsset)) {
+    return false;
+  }
+
+  asset::saveToFile(dstPath, meshAsset);
+
+  return true;
+} // namespace obsidian::asset_converter
+
 bool convertAsset(fs::path const& srcPath, fs::path const& dstPath) {
-  std::string extension = srcPath.extension().string();
+  std::string const extension = srcPath.extension().string();
 
   if (!extension.size()) {
     std::cout << "Error: File doesn't have extension." << std::endl;
@@ -49,6 +146,8 @@ bool convertAsset(fs::path const& srcPath, fs::path const& dstPath) {
 
   if (extension == ".png") {
     return convertPngToAsset(srcPath, dstPath);
+  } else if (extension == ".obj") {
+    return convertObjToAsset(srcPath, dstPath);
   }
 
   std::cout << "Error: Unknown file extension." << std::endl;

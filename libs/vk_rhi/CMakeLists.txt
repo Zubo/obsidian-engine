@@ -35,7 +35,6 @@ target_link_libraries(VulkanRHI
     PRIVATE
         Asset
         vk-bootstrap::vk-bootstrap
-        tinyobjloader
         HashLibrary
         Renderdoc
         ThirdPartyImpl

@@ -128,11 +128,11 @@ void VulkanRHI::loadMeshes() {
   uploadMesh(triangleMesh);
 
   Mesh& monkeyMesh = _meshes["monkey"];
-  monkeyMesh.loadFromObj("assets/monkey_smooth.obj");
+  monkeyMesh.load("assets/monkey_smooth.obsmesh");
   uploadMesh(monkeyMesh);
 
   Mesh& lostEmpire = _meshes["lost-empire"];
-  lostEmpire.loadFromObj("assets/lost_empire.obj");
+  lostEmpire.load("assets/lost_empire.obsmesh");
   uploadMesh(lostEmpire);
 }
 
