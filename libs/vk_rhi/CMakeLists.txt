@@ -33,6 +33,7 @@ target_link_libraries(VulkanRHI
         VulkanMemoryAllocator
         glm
     PRIVATE
+        Asset
         vk-bootstrap::vk-bootstrap
         tinyobjloader
         HashLibrary

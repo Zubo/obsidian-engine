@@ -33,8 +33,8 @@ bool readTextureAssetInfo(Asset const& asset,
   return true;
 }
 
-bool packTexture(TextureAssetInfo const& textureAssetInfo, void* pixelData,
-                 Asset& outAsset) {
+bool packTexture(TextureAssetInfo const& textureAssetInfo,
+                 void const* pixelData, Asset& outAsset) {
   outAsset.type[0] = 'T';
   outAsset.type[1] = 'E';
   outAsset.type[2] = 'X';
@@ -62,7 +62,7 @@ bool packTexture(TextureAssetInfo const& textureAssetInfo, void* pixelData,
   outAsset.binaryBlob.resize(compressBound);
 
   std::size_t compressedSize = LZ4_compress_default(
-      reinterpret_cast<char*>(pixelData), outAsset.binaryBlob.data(),
+      reinterpret_cast<char const*>(pixelData), outAsset.binaryBlob.data(),
       textureAssetInfo.textureSize, outAsset.binaryBlob.size());
 
   outAsset.binaryBlob.resize(compressedSize);

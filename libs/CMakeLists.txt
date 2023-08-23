@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.24)
 
 add_subdirectory(core)
 add_subdirectory(asset)
+add_subdirectory(asset_converter)
 add_subdirectory(window)
 add_subdirectory(input)
 add_subdirectory(obsidian_engine)

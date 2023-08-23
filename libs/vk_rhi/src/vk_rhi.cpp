@@ -1,9 +1,11 @@
+#include <asset/asset.hpp>
+#include <asset/asset_io.hpp>
+#include <asset/texture_asset_info.hpp>
 #include <vk_rhi/vk_check.hpp>
 #include <vk_rhi/vk_initializers.hpp>
 #include <vk_rhi/vk_rhi.hpp>
 #include <vk_rhi/vk_types.hpp>
 
-#include <stb/stb_image.h>
 #include <tracy/Tracy.hpp>
 #include <vk_mem_alloc.h>
 
@@ -108,8 +110,8 @@ void VulkanRHI::loadTexture(std::string_view textureName,
 }
 
 void VulkanRHI::loadTextures() {
-  loadTexture("default", {"assets/default-texture.png"});
-  loadTexture("lost-empire", {"assets/lost_empire-RGBA.png"});
+  loadTexture("default", {"assets/default-texture.asset"});
+  loadTexture("lost-empire", {"assets/lost_empire-RGBA.asset"});
 }
 
 void VulkanRHI::loadMeshes() {
@@ -261,41 +263,40 @@ std::size_t VulkanRHI::getPaddedBufferSize(std::size_t originalSize) const {
 
 bool VulkanRHI::loadImage(char const* filePath,
                           AllocatedImage& outAllocatedImage) {
-  int width, height, texChannels;
-  stbi_uc* const pixels =
-      stbi_load(filePath, &width, &height, &texChannels, STBI_rgb_alpha);
+  asset::Asset textureAsset;
+  asset::TextureAssetInfo textureAssetInfo;
 
-  if (!pixels) {
-    std::cout << "Failed to load image: " << filePath << std::endl;
+  bool const textureAssetLoaded =
+      asset::loadFromFile(filePath, textureAsset) &&
+      asset::readTextureAssetInfo(textureAsset, textureAssetInfo);
+
+  if (!textureAssetLoaded) {
+    std::cout << "Failed to load texture asset: " << filePath << std::endl;
     return false;
   }
 
-  std::size_t imageOnDeviceSize =
-      texChannels * sizeof(std::uint8_t) * width * height;
+  AllocatedBuffer stagingBuffer = createBuffer(
+      textureAssetInfo.textureSize, VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+      VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
 
-  std::cout << pixels[imageOnDeviceSize - 1];
-  AllocatedBuffer stagingBuffer =
-      createBuffer(imageOnDeviceSize, VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-                   VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
-
-                   VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+      VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
 
   void* mappedMemory;
   vmaMapMemory(_vmaAllocator, stagingBuffer.allocation, &mappedMemory);
 
-  std::memcpy(mappedMemory, pixels, imageOnDeviceSize);
+  asset::unpackTexture(textureAssetInfo, textureAsset.binaryBlob.data(),
+                       textureAsset.binaryBlob.size(),
+                       reinterpret_cast<char*>(mappedMemory));
 
   vmaUnmapMemory(_vmaAllocator, stagingBuffer.allocation);
-
-  stbi_image_free(pixels);
 
   AllocatedImage newImage;
   VkImageUsageFlags const imageUsageFlags =
       VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 
   VkExtent3D extent = {};
-  extent.width = width;
-  extent.height = height;
+  extent.width = textureAssetInfo.width;
+  extent.height = textureAssetInfo.height;
   extent.depth = 1;
   VkFormat const format = VK_FORMAT_R8G8B8A8_SRGB;
 

@@ -20,7 +20,14 @@ bool loadFromFile(fs::path const& path, Asset& outAsset) {
     return false;
   }
 
+  if (!inputFileStream) {
+    std::cout << "Error: Failed to load file: " << path << std::endl;
+    return false;
+  }
+
   inputFileStream.read(outAsset.type, std::size(outAsset.type));
+  inputFileStream.read(reinterpret_cast<char*>(&outAsset.version),
+                       sizeof(outAsset.version));
 
   Asset::SizeType jsonSize;
   inputFileStream.read(reinterpret_cast<char*>(&jsonSize), sizeof(jsonSize));
@@ -49,14 +56,18 @@ bool saveToFile(fs::path const& path, Asset const& asset) {
     return false;
   }
 
-  Asset::SizeType const jsonSize{asset.json.size()};
   outputFileStream.write(asset.type, std::size(asset.type));
+  outputFileStream.write(reinterpret_cast<char const*>(&asset.version),
+                         sizeof(asset.version));
+
+  Asset::SizeType const jsonSize{asset.json.size()};
   outputFileStream.write(reinterpret_cast<char const*>(&jsonSize),
                          sizeof(jsonSize));
 
   Asset::SizeType const binaryBlobSize{asset.binaryBlob.size()};
   outputFileStream.write(reinterpret_cast<char const*>(&binaryBlobSize),
                          sizeof(binaryBlobSize));
+
   outputFileStream.write(asset.json.data(), asset.json.size());
   outputFileStream.write(asset.binaryBlob.data(), asset.binaryBlob.size());
 

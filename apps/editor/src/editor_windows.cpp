@@ -1,3 +1,4 @@
+#include <asset_converter/asset_converter.hpp>
 #include <editor/data.hpp>
 #include <editor/editor_windows.hpp>
 
@@ -5,6 +6,8 @@
 #include <backends/imgui_impl_sdl2.h>
 #include <backends/imgui_impl_sdlrenderer2.h>
 #include <imgui.h>
+
+#include <array>
 
 namespace obsidian::editor {
 
@@ -34,6 +37,24 @@ void sceneTab(SceneData& sceneData) {
   ImGui::End();
 }
 
+void assetsTab() {
+  ImGui::Begin("Assets");
+
+  constexpr std::size_t maxFilePathSize = 256;
+
+  static char srcFilePath[maxFilePathSize];
+  ImGui::InputText("Src file path", srcFilePath, std::size(srcFilePath));
+
+  static char dstFilePath[maxFilePathSize];
+  ImGui::InputText("Dst file path", dstFilePath, std::size(dstFilePath));
+
+  if (ImGui::Button("Convert")) {
+    obsidian::asset_converter::convertAsset(srcFilePath, dstFilePath);
+  }
+
+  ImGui::End();
+}
+
 void editor(SDL_Renderer& renderer, ImGuiIO& imguiIO, DataContext& context) {
   ImGui_ImplSDLRenderer2_NewFrame();
   ImGui_ImplSDL2_NewFrame();
@@ -43,6 +64,7 @@ void editor(SDL_Renderer& renderer, ImGuiIO& imguiIO, DataContext& context) {
   ImGui::SetNextWindowPos({0, 0});
 
   sceneTab(context.sceneData);
+  assetsTab();
 
   // Rendering
   ImGui::Render();
