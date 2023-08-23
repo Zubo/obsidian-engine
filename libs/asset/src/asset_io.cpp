@@ -1,4 +1,4 @@
-#include "asset/asset.hpp"
+#include <asset/asset.hpp>
 #include <asset/asset_io.hpp>
 
 #include <fstream>
@@ -9,14 +9,15 @@ namespace fs = std::filesystem;
 
 namespace obsidian::asset {
 
-std::string loadFromFile(fs::path const& path, Asset& outAsset) {
+bool loadFromFile(fs::path const& path, Asset& outAsset) {
   std::ifstream inputFileStream;
   inputFileStream.exceptions(std::ios::failbit);
 
   try {
     inputFileStream.open(path, std::ios_base::in | std::ios_base::binary);
   } catch (std::ios_base::failure const& e) {
-    return std::string(e.what());
+    std::cout << e.what() << std::endl;
+    return false;
   }
 
   inputFileStream.read(outAsset.type, std::size(outAsset.type));
@@ -34,17 +35,18 @@ std::string loadFromFile(fs::path const& path, Asset& outAsset) {
   outAsset.binaryBlob.resize(binaryBlobSize);
   inputFileStream.read(outAsset.binaryBlob.data(), outAsset.binaryBlob.size());
 
-  return {};
+  return true;
 }
 
-std::string saveToFile(fs::path const& path, Asset const& asset) {
+bool saveToFile(fs::path const& path, Asset const& asset) {
   std::ofstream outputFileStream;
   outputFileStream.exceptions(std::ios_base::failbit);
 
   try {
     outputFileStream.open(path, std::ios_base::out | std::ios_base::binary);
   } catch (std::ios_base::failure const& e) {
-    return std::string{e.what()};
+    std::cout << e.what() << std::endl;
+    return false;
   }
 
   Asset::SizeType const jsonSize{asset.json.size()};
@@ -58,7 +60,7 @@ std::string saveToFile(fs::path const& path, Asset const& asset) {
   outputFileStream.write(asset.json.data(), asset.json.size());
   outputFileStream.write(asset.binaryBlob.data(), asset.binaryBlob.size());
 
-  return {};
+  return true;
 }
 
 } /*namespace obsidian::asset*/
