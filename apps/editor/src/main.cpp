@@ -40,7 +40,7 @@ int main(int, char**) {
   Uint32 const screenCenterX = displayMode.w / 2;
   Uint32 const screenCenterY = displayMode.h / 2;
 
-  constexpr Uint32 editorWindowWidth = 300;
+  constexpr Uint32 editorWindowWidth = 400;
   constexpr Uint32 editorWindowHeight = 800;
   Uint32 const editorWindowXPos = screenCenterX + 500 + 10;
   Uint32 const editorWindowYPos = screenCenterY - editorWindowHeight / 2;

@@ -14,45 +14,46 @@ namespace obsidian::editor {
 constexpr const char* sceneWindowName = "Scene";
 
 void sceneTab(SceneData& sceneData) {
-  ImGui::Begin(sceneWindowName);
+  if (ImGui::BeginTabItem("Scene")) {
+    ImGui::SliderFloat("Sun direction X", &sceneData.sunlightDirection.x, -1.f,
+                       1.f);
+    ImGui::SliderFloat("Sun direction Y", &sceneData.sunlightDirection.y, -1.f,
+                       1.f);
+    ImGui::SliderFloat("Sun direction Z", &sceneData.sunlightDirection.z, -1.f,
+                       1.f);
 
-  ImGui::SliderFloat("Sun direction X", &sceneData.sunlightDirection.x, -1.f,
-                     1.f);
-  ImGui::SliderFloat("Sun direction Y", &sceneData.sunlightDirection.y, -1.f,
-                     1.f);
-  ImGui::SliderFloat("Sun direction Z", &sceneData.sunlightDirection.z, -1.f,
-                     1.f);
+    ImGui::SliderFloat("Sun color r", &sceneData.sunlightColor.r, 0.f, 10.f);
+    ImGui::SliderFloat("Sun color g", &sceneData.sunlightColor.g, 0.f, 10.f);
+    ImGui::SliderFloat("Sun color b", &sceneData.sunlightColor.b, 0.f, 10.f);
 
-  ImGui::SliderFloat("Sun color r", &sceneData.sunlightColor.r, 0.f, 10.f);
-  ImGui::SliderFloat("Sun color g", &sceneData.sunlightColor.g, 0.f, 10.f);
-  ImGui::SliderFloat("Sun color b", &sceneData.sunlightColor.b, 0.f, 10.f);
+    ImGui::SliderFloat("Ambient light color r", &sceneData.ambientColor.r, 0.f,
+                       1.f);
+    ImGui::SliderFloat("Ambient light color g", &sceneData.ambientColor.g, 0.f,
+                       1.f);
+    ImGui::SliderFloat("Ambient light color b", &sceneData.ambientColor.b, 0.f,
+                       1.f);
 
-  ImGui::SliderFloat("Ambient light color r", &sceneData.ambientColor.r, 0.f,
-                     1.f);
-  ImGui::SliderFloat("Ambient light color g", &sceneData.ambientColor.g, 0.f,
-                     1.f);
-  ImGui::SliderFloat("Ambient light color b", &sceneData.ambientColor.b, 0.f,
-                     1.f);
-
-  ImGui::End();
+    ImGui::EndTabItem();
+  }
 }
 
 void assetsTab() {
-  ImGui::Begin("Assets");
+  if (ImGui::BeginTabItem("Assets")) {
 
-  constexpr std::size_t maxFilePathSize = 256;
+    constexpr std::size_t maxFilePathSize = 256;
 
-  static char srcFilePath[maxFilePathSize];
-  ImGui::InputText("Src file path", srcFilePath, std::size(srcFilePath));
+    static char srcFilePath[maxFilePathSize];
+    ImGui::InputText("Src file path", srcFilePath, std::size(srcFilePath));
 
-  static char dstFilePath[maxFilePathSize];
-  ImGui::InputText("Dst file path", dstFilePath, std::size(dstFilePath));
+    static char dstFilePath[maxFilePathSize];
+    ImGui::InputText("Dst file path", dstFilePath, std::size(dstFilePath));
 
-  if (ImGui::Button("Convert")) {
-    obsidian::asset_converter::convertAsset(srcFilePath, dstFilePath);
+    if (ImGui::Button("Convert")) {
+      obsidian::asset_converter::convertAsset(srcFilePath, dstFilePath);
+    }
+
+    ImGui::EndTabItem();
   }
-
-  ImGui::End();
 }
 
 void editor(SDL_Renderer& renderer, ImGuiIO& imguiIO, DataContext& context) {
@@ -63,9 +64,15 @@ void editor(SDL_Renderer& renderer, ImGuiIO& imguiIO, DataContext& context) {
   ImGui::SetNextWindowSize(imguiIO.DisplaySize);
   ImGui::SetNextWindowPos({0, 0});
 
-  sceneTab(context.sceneData);
-  assetsTab();
+  ImGui::Begin("EditorWindow");
+  if (ImGui::BeginTabBar("EditorTabBar")) {
+    sceneTab(context.sceneData);
+    assetsTab();
 
+    ImGui::EndTabBar();
+  }
+
+  ImGui::End();
   // Rendering
   ImGui::Render();
   ImGui::UpdatePlatformWindows();
