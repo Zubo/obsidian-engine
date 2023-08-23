@@ -61,7 +61,8 @@ glm::vec3 Scene::getCameraRight() const {
   glm::vec3 constexpr worldY{0.f, 1.f, 0.f};
 
   glm::vec3 const cameraForward = getCameraForward();
-  glm::vec3 const cameraRight = glm::cross(cameraForward, worldY);
+  glm::vec3 const cameraRight =
+      glm::normalize(glm::cross(cameraForward, worldY));
 
   return cameraRight;
 }
