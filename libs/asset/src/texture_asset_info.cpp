@@ -1,17 +1,16 @@
+#include "asset/asset_info.hpp"
 #include <asset/asset.hpp>
 #include <asset/texture_asset_info.hpp>
 
 #include <lz4.h>
 #include <nlohmann/json.hpp>
 
-#include <cstring>
 #include <exception>
 #include <iostream>
 
 namespace obsidian::asset {
-constexpr char const* textureSizeJsonName = "textureSize";
+
 constexpr char const* formatJsonName = "format";
-constexpr char const* compressionModeJsonName = "compressionMode";
 constexpr char const* textureWidthJsonName = "width";
 constexpr char const* textureHeightJsonName = "height";
 
@@ -20,9 +19,9 @@ bool readTextureAssetInfo(Asset const& asset,
   try {
     nlohmann::json textureJson = nlohmann::json::parse(asset.json);
 
-    outTextureAssetInfo.textureSize = textureJson[textureSizeJsonName];
-    outTextureAssetInfo.format = textureJson[formatJsonName];
+    outTextureAssetInfo.unpackedSize = textureJson[unpackedSizeJsonName];
     outTextureAssetInfo.compressionMode = textureJson[compressionModeJsonName];
+    outTextureAssetInfo.format = textureJson[formatJsonName];
     outTextureAssetInfo.width = textureJson[textureWidthJsonName];
     outTextureAssetInfo.height = textureJson[textureHeightJsonName];
   } catch (std::exception const& e) {
@@ -44,44 +43,30 @@ bool packTexture(TextureAssetInfo const& textureAssetInfo,
 
   try {
     nlohmann::json assetJson;
-    assetJson[textureSizeJsonName] = textureAssetInfo.textureSize;
+    assetJson[unpackedSizeJsonName] = textureAssetInfo.unpackedSize;
     assetJson[formatJsonName] = textureAssetInfo.format;
     assetJson[compressionModeJsonName] = textureAssetInfo.compressionMode;
     assetJson[textureWidthJsonName] = textureAssetInfo.width;
     assetJson[textureHeightJsonName] = textureAssetInfo.height;
 
     outAsset.json = assetJson.dump();
+
+    std::size_t const compressBound =
+        LZ4_compressBound(textureAssetInfo.unpackedSize);
+
+    outAsset.binaryBlob.resize(compressBound);
+
+    std::size_t compressedSize = LZ4_compress_default(
+        reinterpret_cast<char const*>(pixelData), outAsset.binaryBlob.data(),
+        textureAssetInfo.unpackedSize, outAsset.binaryBlob.size());
+
+    outAsset.binaryBlob.resize(compressedSize);
   } catch (std::exception const& e) {
     std::cout << e.what() << std::endl;
     return false;
   }
 
-  std::size_t const compressBound =
-      LZ4_compressBound(textureAssetInfo.textureSize);
-
-  outAsset.binaryBlob.resize(compressBound);
-
-  std::size_t compressedSize = LZ4_compress_default(
-      reinterpret_cast<char const*>(pixelData), outAsset.binaryBlob.data(),
-      textureAssetInfo.textureSize, outAsset.binaryBlob.size());
-
-  outAsset.binaryBlob.resize(compressedSize);
-
   return true;
-}
-
-bool unpackTexture(TextureAssetInfo const& textureInfo, char const* src,
-                   std::size_t srcSize, char* dst) {
-  switch (textureInfo.compressionMode) {
-  case CompressionMode::none:
-    std::memcpy(dst, src, srcSize);
-    return true;
-  case CompressionMode::LZ4:
-    LZ4_decompress_safe(src, dst, srcSize, textureInfo.textureSize);
-    return true;
-  default:
-    return false;
-  }
 }
 
 } /*namespace obsidian::asset*/

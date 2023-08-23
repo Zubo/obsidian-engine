@@ -1,5 +1,7 @@
 #pragma once
 
+#include <asset/asset_info.hpp>
+
 #include <cstddef>
 #include <cstdint>
 
@@ -13,12 +15,8 @@ enum class TextureFormat : std::uint32_t {
   R8G8B8A8 = 2
 };
 
-enum class CompressionMode : std::uint32_t { none = 0, LZ4 = 1 };
-
-struct TextureAssetInfo {
-  std::size_t textureSize;
+struct TextureAssetInfo : public AssetInfo {
   TextureFormat format;
-  CompressionMode compressionMode;
   std::uint32_t width;
   std::uint32_t height;
 };
@@ -28,8 +26,5 @@ bool readTextureAssetInfo(Asset const& asset,
 
 bool packTexture(TextureAssetInfo const& textureAssetInfo,
                  void const* pixelData, Asset& outAsset);
-
-bool unpackTexture(TextureAssetInfo const& textureInfo, char const* src,
-                   std::size_t srcSize, char* dst);
 
 } /*namespace obsidian::asset*/

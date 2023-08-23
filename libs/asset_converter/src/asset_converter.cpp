@@ -20,7 +20,7 @@ bool convertPngToAsset(fs::path const srcPath, fs::path const& dstPath) {
 
   asset::Asset outAsset;
   asset::TextureAssetInfo textureAssetInfo;
-  textureAssetInfo.textureSize = w * h * channelCnt;
+  textureAssetInfo.unpackedSize = w * h * channelCnt;
   textureAssetInfo.compressionMode = asset::CompressionMode::LZ4;
   textureAssetInfo.format = asset::TextureFormat::R8G8B8A8;
   textureAssetInfo.width = w;

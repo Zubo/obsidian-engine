@@ -276,7 +276,7 @@ bool VulkanRHI::loadImage(char const* filePath,
   }
 
   AllocatedBuffer stagingBuffer = createBuffer(
-      textureAssetInfo.textureSize, VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+      textureAssetInfo.unpackedSize, VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
       VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
 
       VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
@@ -284,9 +284,9 @@ bool VulkanRHI::loadImage(char const* filePath,
   void* mappedMemory;
   vmaMapMemory(_vmaAllocator, stagingBuffer.allocation, &mappedMemory);
 
-  asset::unpackTexture(textureAssetInfo, textureAsset.binaryBlob.data(),
-                       textureAsset.binaryBlob.size(),
-                       reinterpret_cast<char*>(mappedMemory));
+  asset::unpackAsset(textureAssetInfo, textureAsset.binaryBlob.data(),
+                     textureAsset.binaryBlob.size(),
+                     reinterpret_cast<char*>(mappedMemory));
 
   vmaUnmapMemory(_vmaAllocator, stagingBuffer.allocation);
 
