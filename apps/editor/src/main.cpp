@@ -1,4 +1,5 @@
 
+#include <core/logging.hpp>
 #include <editor/data.hpp>
 #include <editor/editor_windows.hpp>
 #include <obsidian_engine/obsidian_engine.hpp>
@@ -16,8 +17,6 @@
 #include <imgui.h>
 #include <tracy/Tracy.hpp>
 
-#include <iostream>
-
 #if !SDL_VERSION_ATLEAST(2, 0, 17)
 #error This backend requires SDL 2.0.17+ because of SDL_RenderGeometry() function
 #endif
@@ -26,7 +25,7 @@ int main(int, char**) {
   // Setup SDL
   if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_EVENTS |
                SDL_INIT_GAMECONTROLLER) != 0) {
-    std::cout << "Error: " << SDL_GetError() << std::endl;
+    OBS_LOG_ERR(std::string("Error: ") + SDL_GetError());
     return -1;
   }
 

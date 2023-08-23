@@ -1,13 +1,13 @@
 #include <asset/asset.hpp>
 #include <asset/asset_info.hpp>
 #include <asset/mesh_asset_info.hpp>
+#include <core/logging.hpp>
 
 #include <lz4.h>
 #include <nlohmann/json.hpp>
 
 #include <cstring>
 #include <exception>
-#include <iostream>
 
 namespace obsidian::asset {
 
@@ -24,7 +24,7 @@ bool readMeshAssetInfo(Asset const& asset, MeshAssetInfo& outMeshAssetInfo) {
     outMeshAssetInfo.hasColors = json[hasColorsJsonName];
     outMeshAssetInfo.hasUV = json[hasUVJsonName];
   } catch (std::exception const& e) {
-    std::cout << e.what() << std::endl;
+    OBS_LOG_ERR(e.what());
     return false;
   }
 
@@ -64,11 +64,11 @@ bool packMeshAsset(MeshAssetInfo const& meshAssetInfo, void const* meshData,
                            outAsset.binaryBlob.data(),
                            meshAssetInfo.unpackedSize, compressedSize);
     } else {
-      std::cout << "Error: Unknown compression mode." << std::endl;
+      OBS_LOG_ERR("Error: Unknown compression mode.");
       return false;
     }
   } catch (std::exception const& e) {
-    std::cout << e.what() << std::endl;
+    OBS_LOG_ERR(e.what());
   }
 
   return true;

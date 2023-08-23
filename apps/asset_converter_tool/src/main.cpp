@@ -1,7 +1,8 @@
-#include "asset_converter/asset_converter.hpp"
+#include <asset_converter/asset_converter.hpp>
+#include <core/logging.hpp>
+
 #include <cstring>
 #include <filesystem>
-#include <iostream>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -9,11 +10,10 @@
 namespace fs = std::filesystem;
 
 void reportInvalidArguments() {
-  std::cout << "Invalid command line arguments. The required command line "
-               "arguments are:"
-            << std::endl
-            << "-s <source-dir-path>" << std::endl
-            << "-d <destination-dir-path>" << std::endl;
+  OBS_LOG_ERR("Invalid command line arguments. The required command line "
+              "arguments are:\n"
+              "-s <source-dir-path>\n"
+              "-d <destination-dir-path>\n");
 }
 
 int main(int argc, char** argv) {
@@ -44,19 +44,19 @@ int main(int argc, char** argv) {
   }
 
   if (!fs::exists(*srcPath)) {
-    std::cout << "Error: the src path " << *srcPath << " doesn't exist.";
+    OBS_LOG_ERR("Error: the src path " + srcPath->string() + " doesn't exist.");
     return -1;
   }
 
   if (fs::exists(*dstPath)) {
     if (!fs::is_directory(*dstPath)) {
-      std::cout << "Error: the destination path is not a directory.";
+      OBS_LOG_ERR("Error: the destination path is not a directory.");
       return -1;
     }
   } else {
     if (!fs::create_directory(*dstPath))
-      std::cout << "Error: Couldn't create directory at path " << *dstPath
-                << std::endl;
+      OBS_LOG_ERR("Error: Couldn't create directory at path " +
+                  dstPath->string());
     return -1;
   }
 

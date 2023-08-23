@@ -13,6 +13,7 @@ target_include_directories(AssetConverter
 target_link_libraries(AssetConverter
     PRIVATE
         Asset
+        Core
         ThirdPartyImpl
         tinyobjloader
         glm

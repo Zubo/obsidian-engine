@@ -1,12 +1,12 @@
 #include "asset/asset_info.hpp"
 #include <asset/asset.hpp>
 #include <asset/texture_asset_info.hpp>
+#include <core/logging.hpp>
 
 #include <lz4.h>
 #include <nlohmann/json.hpp>
 
 #include <exception>
-#include <iostream>
 
 namespace obsidian::asset {
 
@@ -25,7 +25,7 @@ bool readTextureAssetInfo(Asset const& asset,
     outTextureAssetInfo.width = textureJson[textureWidthJsonName];
     outTextureAssetInfo.height = textureJson[textureHeightJsonName];
   } catch (std::exception const& e) {
-    std::cout << e.what() << std::endl;
+    OBS_LOG_ERR(e.what());
     return false;
   }
 
@@ -62,7 +62,7 @@ bool packTexture(TextureAssetInfo const& textureAssetInfo,
 
     outAsset.binaryBlob.resize(compressedSize);
   } catch (std::exception const& e) {
-    std::cout << e.what() << std::endl;
+    OBS_LOG_ERR(e.what());
     return false;
   }
 

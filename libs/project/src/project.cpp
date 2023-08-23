@@ -1,7 +1,7 @@
+#include <core/logging.hpp>
 #include <project/project.hpp>
 
 #include <filesystem>
-#include <iostream>
 
 using namespace obsidian::project;
 
@@ -9,7 +9,8 @@ namespace fs = std::filesystem;
 
 bool Project::open(fs::path projectRootPath) {
   if (fs::exists(projectRootPath) && !fs::is_directory(projectRootPath)) {
-    std::cout << "Error: Project path needs to be a directory" << std::endl;
+    OBS_LOG_ERR("Project path " + projectRootPath.string() +
+                " is not a directory.");
     return false;
   }
 
@@ -18,6 +19,8 @@ bool Project::open(fs::path projectRootPath) {
   }
 
   _projectRootPath = std::move(projectRootPath);
+
+  return true;
 }
 
 fs::path Project::getAbsolutePath(fs::path const& relativePath) const {

@@ -1,3 +1,4 @@
+#include <core/logging.hpp>
 #include <input/input_context.hpp>
 #include <renderdoc/renderdoc.hpp>
 #include <vk_rhi/vk_check.hpp>
@@ -518,19 +519,17 @@ void VulkanRHI::initDefaultPipelines() {
   VkShaderModule meshVertShader;
 
   if (!loadShaderModule("shaders/mesh.vert.spv", &meshVertShader)) {
-    std::cout << "Error when building the mesh vertex shader module"
-              << std::endl;
+    OBS_LOG_ERR("Failed to build the mesh vertex shader module");
   } else {
-    std::cout << "Mesh vertex shader successfully loaded" << std::endl;
+    OBS_LOG_MSG("Mesh vertex shader successfully loaded");
   }
 
   VkShaderModule meshFragShader;
 
   if (!loadShaderModule("shaders/mesh.frag.spv", &meshFragShader)) {
-    std::cout << "Error when building the mesh fragment shader module"
-              << std::endl;
+    OBS_LOG_ERR("Failed to build the mesh fragment shader module")
   } else {
-    std::cout << "Mesh fragment shader successfully loaded" << std::endl;
+    OBS_LOG_MSG("Mesh fragment shader successfully loaded");
   }
 
   pipelineBuilder._vkShaderStageCreateInfo.push_back(
@@ -578,20 +577,18 @@ void VulkanRHI::initDefaultPipelines() {
 
   if (!loadShaderModule("shaders/mesh-light.vert.dbg.spv",
                         &litMeshVertShader)) {
-    std::cout << "Error when building the lit mesh vertex shader module"
-              << std::endl;
+    OBS_LOG_ERR("Failed to build the lit mesh vertex shader module");
   } else {
-    std::cout << "Lit mesh vertex shader successfully loaded" << std::endl;
+    OBS_LOG_MSG("Lit mesh vertex shader successfully loaded");
   }
 
   VkShaderModule litMeshFragShader;
 
   if (!loadShaderModule("shaders/mesh-light.frag.dbg.spv",
                         &litMeshFragShader)) {
-    std::cout << "Error when building the lit mesh fragment shader module"
-              << std::endl;
+    OBS_LOG_ERR("Failed to build the lit mesh fragment shader module");
   } else {
-    std::cout << "Lit mesh fragment shader successfully loaded" << std::endl;
+    OBS_LOG_MSG("Lit mesh fragment shader successfully loaded");
   }
 
   pipelineBuilder._vkShaderStageCreateInfo.push_back(
@@ -684,19 +681,17 @@ void VulkanRHI::initShadowPassPipeline() {
 
   if (!loadShaderModule("shaders/shadow-pass.vert.spv",
                         &shadowPassVertShader)) {
-    std::cout << "Error when building the shadow pass vertex shader module"
-              << std::endl;
+    OBS_LOG_ERR("Failed to build the shadow pass vertex shader module");
   } else {
-    std::cout << "Shadow pass vertex shader successfully loaded" << std::endl;
+    OBS_LOG_MSG("Shadow pass vertex shader successfully loaded");
   }
 
   VkShaderModule shadowPassFragShader;
 
   if (!loadShaderModule("shaders/empty.frag.spv", &shadowPassFragShader)) {
-    std::cout << "Error when building the empty fragment shader module"
-              << std::endl;
+    OBS_LOG_ERR("Failed to build the empty fragment shader module");
   } else {
-    std::cout << "Empty fragment shader successfully loaded" << std::endl;
+    OBS_LOG_MSG("Empty fragment shader successfully loaded");
   }
 
   pipelineBuilder._vkShaderStageCreateInfo.push_back(

@@ -8,7 +8,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <iostream>
 
 using namespace obsidian::vk_rhi;
 

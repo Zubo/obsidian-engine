@@ -1,14 +1,16 @@
 #pragma once
 
+#include <core/logging.hpp>
 #include <vulkan/vulkan.h>
 
-#include <iostream>
+#include <cstdlib>
+#include <string>
 
 #define VK_CHECK(x)                                                            \
   do {                                                                         \
     VkResult err = x;                                                          \
     if (err) {                                                                 \
-      std::cout << "Detected Vulkan error: " << err << std::endl;              \
+      OBS_LOG_ERR("Detected Vulkan error: " + std::to_string(err));            \
       std::abort();                                                            \
     }                                                                          \
   } while (0)

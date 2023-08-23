@@ -1,6 +1,5 @@
+#include <core/logging.hpp>
 #include <vk_rhi/vk_pipeline_builder.hpp>
-
-#include <iostream>
 
 using namespace obsidian::vk_rhi;
 
@@ -49,7 +48,7 @@ VkPipeline PipelineBuilder::buildPipeline(VkDevice device, VkRenderPass pass) {
   if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1,
                                 &graphicsPipelineCreateInfo, nullptr,
                                 &newPipeline) != VK_SUCCESS) {
-    std::cout << "Failed to create pipeline" << std::endl;
+    OBS_LOG_ERR("Failed to create pipeline.");
     return VK_NULL_HANDLE;
   }
 

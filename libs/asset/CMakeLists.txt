@@ -19,6 +19,7 @@ target_include_directories(Asset
 
 target_link_libraries(Asset
     PRIVATE
+        Core
         nlohmann_json::nlohmann_json
         lz4_static
 )

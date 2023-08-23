@@ -3,6 +3,7 @@
 #include <asset/mesh_asset_info.hpp>
 #include <asset/texture_asset_info.hpp>
 #include <asset_converter/asset_converter.hpp>
+#include <core/logging.hpp>
 
 #include <cstddef>
 #include <cstring>
@@ -10,8 +11,6 @@
 #include <glm/vec3.hpp>
 #include <stb/stb_image.h>
 #include <tiny_obj_loader.h>
-
-#include <iostream>
 
 namespace fs = std::filesystem;
 
@@ -39,8 +38,8 @@ bool convertPngToAsset(fs::path const srcPath, fs::path const& dstPath) {
     return false;
   }
 
-  std::cout << "Successfully converted " << srcPath << " to asset format."
-            << std::endl;
+  OBS_LOG_MSG("Successfully converted " + srcPath.string() +
+              " to asset format.");
   return asset::saveToFile(dstPath, outAsset);
 }
 
@@ -64,11 +63,11 @@ bool convertObjToAsset(fs::path const& srcPath, fs::path const& dstPath) {
                    srcPath.c_str(), "assets");
 
   if (!warning.empty()) {
-    std::cout << "tinyobj warning: " << warning << std::endl;
+    OBS_LOG_WARN("tinyobj warning: " + warning);
   }
 
   if (!error.empty()) {
-    std::cout << "tinyobj error: " << error << std::endl;
+    OBS_LOG_ERR("tinyobj error: " + error);
     return false;
   }
 
@@ -140,7 +139,7 @@ bool convertAsset(fs::path const& srcPath, fs::path const& dstPath) {
   std::string const extension = srcPath.extension().string();
 
   if (!extension.size()) {
-    std::cout << "Error: File doesn't have extension." << std::endl;
+    OBS_LOG_ERR("Error: File doesn't have extension.");
     return false;
   }
 
@@ -150,7 +149,7 @@ bool convertAsset(fs::path const& srcPath, fs::path const& dstPath) {
     return convertObjToAsset(srcPath, dstPath);
   }
 
-  std::cout << "Error: Unknown file extension." << std::endl;
+  OBS_LOG_ERR("Error: Unknown file extension.");
   return false;
 }
 

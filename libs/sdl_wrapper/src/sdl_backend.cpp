@@ -1,3 +1,4 @@
+#include <core/logging.hpp>
 #include <sdl_wrapper/sdl_backend.hpp>
 #include <sdl_wrapper/sdl_window_backend.hpp>
 #include <window/window_impl_interface.hpp>
@@ -9,7 +10,6 @@
 
 #include <cstdlib>
 #include <functional>
-#include <iostream>
 #include <memory>
 
 using namespace obsidian;
@@ -29,7 +29,7 @@ SDLBackend::~SDLBackend() { SDL_Quit(); }
 
 void SDLBackend::init() {
   if (int result = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) != 0) {
-    std::cout << "Error: " << SDL_GetError() << std::endl;
+    OBS_LOG_ERR(std::string("Error: ") + SDL_GetError());
   }
 
   _initialized = true;

@@ -6,7 +6,6 @@
 #include <window/window_events.hpp>
 
 #include <cassert>
-#include <iostream>
 
 using namespace obsidian::window;
 

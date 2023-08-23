@@ -7,4 +7,5 @@ add_executable(ObsidianAssetConverterTool
 target_link_libraries(ObsidianAssetConverterTool
     PRIVATE
         AssetConverter
+        Core
 )

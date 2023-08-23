@@ -1,6 +1,7 @@
 #include <asset/asset.hpp>
 #include <asset/asset_io.hpp>
 #include <asset/texture_asset_info.hpp>
+#include <core/logging.hpp>
 #include <vk_rhi/vk_check.hpp>
 #include <vk_rhi/vk_initializers.hpp>
 #include <vk_rhi/vk_rhi.hpp>
@@ -14,7 +15,6 @@
 #include <cstdint>
 #include <cstring>
 #include <fstream>
-#include <iostream>
 
 using namespace obsidian::vk_rhi;
 
@@ -110,8 +110,8 @@ void VulkanRHI::loadTexture(std::string_view textureName,
 }
 
 void VulkanRHI::loadTextures() {
-  loadTexture("default", {"assets/default-texture.asset"});
-  loadTexture("lost-empire", {"assets/lost_empire-RGBA.asset"});
+  loadTexture("default", {"assets/default-texture.obstex"});
+  loadTexture("lost-empire", {"assets/lost_empire-RGBA.obstex"});
 }
 
 void VulkanRHI::loadMeshes() {
@@ -271,7 +271,7 @@ bool VulkanRHI::loadImage(char const* filePath,
       asset::readTextureAssetInfo(textureAsset, textureAssetInfo);
 
   if (!textureAssetLoaded) {
-    std::cout << "Failed to load texture asset: " << filePath << std::endl;
+    OBS_LOG_ERR("Failed to load texture asset: " + std::string(filePath));
     return false;
   }
 

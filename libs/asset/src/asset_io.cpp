@@ -1,9 +1,9 @@
 #include <asset/asset.hpp>
 #include <asset/asset_io.hpp>
+#include <core/logging.hpp>
 
 #include <fstream>
 #include <ios>
-#include <iostream>
 
 namespace fs = std::filesystem;
 
@@ -16,12 +16,12 @@ bool loadFromFile(fs::path const& path, Asset& outAsset) {
   try {
     inputFileStream.open(path, std::ios_base::in | std::ios_base::binary);
   } catch (std::ios_base::failure const& e) {
-    std::cout << e.what() << std::endl;
+    OBS_LOG_ERR(e.what());
     return false;
   }
 
   if (!inputFileStream) {
-    std::cout << "Error: Failed to load file: " << path << std::endl;
+    OBS_LOG_ERR("Error: Failed to load file: " + path.string());
     return false;
   }
 
@@ -52,7 +52,7 @@ bool saveToFile(fs::path const& path, Asset const& asset) {
   try {
     outputFileStream.open(path, std::ios_base::out | std::ios_base::binary);
   } catch (std::ios_base::failure const& e) {
-    std::cout << e.what() << std::endl;
+    OBS_LOG_ERR(e.what());
     return false;
   }
 

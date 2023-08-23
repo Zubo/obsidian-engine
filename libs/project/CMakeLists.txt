@@ -9,3 +9,8 @@ target_include_directories(Project
     PUBLIC
         "include"
 )
+
+target_link_libraries(Project
+    PRIVATE
+        Core
+)
