@@ -18,7 +18,7 @@ void reportInvalidArguments() {
 
 int main(int argc, char** argv) {
   static std::unordered_map<std::string, std::string> extensionMap = {
-      {".png", ".obstex"}, {".obj", ".obsmesh"}};
+      {".png", ".obstex"}, {".obj", ".obsmesh"}, {".spirv", ".obsshad"}};
 
   if (argc != 5) {
     reportInvalidArguments();

@@ -34,10 +34,10 @@ bool readTextureAssetInfo(Asset const& asset,
 
 bool packTexture(TextureAssetInfo const& textureAssetInfo,
                  void const* pixelData, Asset& outAsset) {
-  outAsset.type[0] = 'T';
-  outAsset.type[1] = 'E';
-  outAsset.type[2] = 'X';
-  outAsset.type[3] = 'I';
+  outAsset.type[0] = 't';
+  outAsset.type[1] = 'e';
+  outAsset.type[2] = 'x';
+  outAsset.type[3] = 'i';
 
   outAsset.version = currentAssetVersion;
 

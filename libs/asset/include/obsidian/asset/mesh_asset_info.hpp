@@ -3,6 +3,7 @@
 #include <obsidian/asset/asset_info.hpp>
 
 #include <cstddef>
+#include <vector>
 
 namespace obsidian::asset {
 
@@ -16,8 +17,8 @@ struct MeshAssetInfo : public AssetInfo {
 
 bool readMeshAssetInfo(Asset const& asset, MeshAssetInfo& outMeshAssetInfo);
 
-bool packMeshAsset(MeshAssetInfo const& meshAssetInfo, void const* meshData,
-                   Asset& outAsset);
+bool packMeshAsset(MeshAssetInfo const& meshAssetInfo,
+                   std::vector<char> meshData, Asset& outAsset);
 
 std::size_t getVertexSize(MeshAssetInfo const& meshAssetInfo);
 

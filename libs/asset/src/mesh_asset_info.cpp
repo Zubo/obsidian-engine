@@ -31,8 +31,8 @@ bool readMeshAssetInfo(Asset const& asset, MeshAssetInfo& outMeshAssetInfo) {
   return true;
 }
 
-bool packMeshAsset(MeshAssetInfo const& meshAssetInfo, void const* meshData,
-                   Asset& outAsset) {
+bool packMeshAsset(MeshAssetInfo const& meshAssetInfo,
+                   std::vector<char> meshData, Asset& outAsset) {
   outAsset.type[0] = 'm';
   outAsset.type[1] = 'e';
   outAsset.type[2] = 's';
@@ -51,17 +51,14 @@ bool packMeshAsset(MeshAssetInfo const& meshAssetInfo, void const* meshData,
     outAsset.json = json.dump();
 
     if (meshAssetInfo.compressionMode == CompressionMode::none) {
-      outAsset.binaryBlob.resize(meshAssetInfo.unpackedSize);
-      std::memcpy(outAsset.binaryBlob.data(), meshData,
-                  outAsset.binaryBlob.size());
+      outAsset.binaryBlob = std::move(meshData);
     } else if (meshAssetInfo.compressionMode == CompressionMode::LZ4) {
       std::size_t compressedSize =
           LZ4_compressBound(meshAssetInfo.unpackedSize);
 
       outAsset.binaryBlob.resize(compressedSize);
 
-      LZ4_compress_default(reinterpret_cast<char const*>(meshData),
-                           outAsset.binaryBlob.data(),
+      LZ4_compress_default(meshData.data(), outAsset.binaryBlob.data(),
                            meshAssetInfo.unpackedSize, compressedSize);
     } else {
       OBS_LOG_ERR("Error: Unknown compression mode.");

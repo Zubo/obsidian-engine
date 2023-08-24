@@ -1,3 +1,4 @@
+#include "obsidian/asset/shader_asset_info.hpp"
 #include <obsidian/asset/asset.hpp>
 #include <obsidian/asset/asset_io.hpp>
 #include <obsidian/asset/mesh_asset_info.hpp>
@@ -6,12 +7,14 @@
 #include <obsidian/core/logging.hpp>
 #include <obsidian/core/texture_format.hpp>
 
-#include <cstddef>
-#include <cstring>
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 #include <stb/stb_image.h>
 #include <tiny_obj_loader.h>
+
+#include <cstddef>
+#include <cstring>
+#include <fstream>
 
 namespace fs = std::filesystem;
 
@@ -127,7 +130,7 @@ bool convertObjToAsset(fs::path const& srcPath, fs::path const& dstPath) {
   meshAssetInfo.unpackedSize = meshData.size();
 
   asset::Asset meshAsset;
-  if (!asset::packMeshAsset(meshAssetInfo, meshData.data(), meshAsset)) {
+  if (!asset::packMeshAsset(meshAssetInfo, std::move(meshData), meshAsset)) {
     return false;
   }
 
@@ -135,6 +138,40 @@ bool convertObjToAsset(fs::path const& srcPath, fs::path const& dstPath) {
 
   return true;
 } // namespace obsidian::asset_converter
+
+bool convertSpirvToAsset(fs::path const& srcPath, fs::path const& dstPath) {
+  std::ifstream file{srcPath, std::ios::ate | std::ios::binary};
+
+  if (!file.is_open()) {
+    return false;
+  }
+
+  std::size_t const fileSize = static_cast<std::size_t>(file.tellg());
+
+  std::vector<char> buffer(fileSize);
+
+  file.seekg(0);
+
+  file.read(reinterpret_cast<char*>(buffer.data()), fileSize);
+
+  file.close();
+
+  asset::Asset outAsset;
+  asset::ShaderAssetInfo shaderAssetInfo;
+  shaderAssetInfo.unpackedSize = buffer.size();
+  shaderAssetInfo.compressionMode = asset::CompressionMode::none;
+
+  bool const packResult =
+      asset::packShader(shaderAssetInfo, std::move(buffer), outAsset);
+
+  if (!packResult) {
+    return false;
+  }
+
+  OBS_LOG_MSG("Successfully converted " + srcPath.string() +
+              " to asset format.");
+  return asset::saveToFile(dstPath, outAsset);
+}
 
 bool convertAsset(fs::path const& srcPath, fs::path const& dstPath) {
   std::string const extension = srcPath.extension().string();
@@ -148,6 +185,8 @@ bool convertAsset(fs::path const& srcPath, fs::path const& dstPath) {
     return convertPngToAsset(srcPath, dstPath);
   } else if (extension == ".obj") {
     return convertObjToAsset(srcPath, dstPath);
+  } else if (extension == ".spirv") {
+    return convertSpirvToAsset(srcPath, dstPath);
   }
 
   OBS_LOG_ERR("Error: Unknown file extension.");
