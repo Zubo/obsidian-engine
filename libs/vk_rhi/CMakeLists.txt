@@ -31,6 +31,7 @@ target_link_libraries(VulkanRHI
     PUBLIC
         VulkanSDK
         VulkanMemoryAllocator
+        RHI
     PRIVATE
         Core
         Asset
