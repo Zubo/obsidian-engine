@@ -16,6 +16,4 @@ target_link_libraries(AssetConverter
         Core
         ThirdPartyImpl
         tinyobjloader
-        glm
-
 )

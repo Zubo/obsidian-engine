@@ -51,8 +51,8 @@ void ObsidianEngine::processFrame() {
   sceneGlobalParams.ambientColor = sceneState.ambientColor;
   sceneGlobalParams.sunColor = sceneState.sunColor;
   sceneGlobalParams.sunDirection = sceneState.sunDirection;
-  sceneGlobalParams.cameraPos = sceneState.cameraPos;
-  sceneGlobalParams.cameraRotationRad = sceneState.cameraRotationRad;
+  sceneGlobalParams.cameraPos = sceneState.camera.pos;
+  sceneGlobalParams.cameraRotationRad = sceneState.camera.rotationRad;
 
   _context.vulkanRHI.draw(sceneGlobalParams);
 }

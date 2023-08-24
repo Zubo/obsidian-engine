@@ -9,3 +9,8 @@ target_include_directories(Core
     INTERFACE
         "include"
 )
+
+target_link_libraries(Core
+    INTERFACE
+        glm
+)

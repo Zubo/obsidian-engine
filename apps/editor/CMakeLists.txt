@@ -18,5 +18,5 @@ target_link_libraries(ObsidianEditor
         SDLWrapper
         DearImgui
         TracyClient
-        glm
+        Core
 )

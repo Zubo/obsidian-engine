@@ -31,8 +31,8 @@ target_link_libraries(VulkanRHI
     PUBLIC
         VulkanSDK
         VulkanMemoryAllocator
-        glm
     PRIVATE
+        Core
         Asset
         vk-bootstrap::vk-bootstrap
         HashLibrary
