@@ -1,6 +1,7 @@
 #pragma once
 
-#include <obsidian/window/window_impl_interface.hpp>
+#include "obsidian/rhi/rhi.hpp"
+#include <obsidian/window/window_backend.hpp>
 
 #include <SDL2/SDL_events.h>
 
@@ -22,7 +23,8 @@ public:
   std::vector<SDL_Event> const& getPolledEvents() const;
 
   std::unique_ptr<window::interface::IWindowBackend>
-  createWindow(CreateWindowParams const& params) const override;
+  createWindow(CreateWindowParams const& params,
+               rhi::RHIBackends backend) const override;
 
 private:
   SDLBackend() = default;

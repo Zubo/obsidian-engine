@@ -1,5 +1,7 @@
+#include "obsidian/rhi/rhi.hpp"
 #include <obsidian/sdl_wrapper/sdl_backend.hpp>
 #include <obsidian/sdl_wrapper/sdl_window_backend.hpp>
+#include <obsidian/vk_rhi/vk_rhi.hpp>
 #include <obsidian/window/window_events.hpp>
 
 #include <SDL2/SDL_events.h>
@@ -14,12 +16,22 @@ using namespace obsidian;
 using namespace obsidian::sdl_wrapper;
 
 SDLWindowBackend::SDLWindowBackend(
-    std::unique_ptr<SDL_Window, SDLWindowDeleter> sdlWindow)
-    : _sdlWindowUnique{std::move(sdlWindow)} {}
+    std::unique_ptr<SDL_Window, SDLWindowDeleter> sdlWindow,
+    rhi::RHIBackends backend)
+    : _sdlWindowUnique{std::move(sdlWindow)} {
+  assert(backend == rhi::RHIBackends::vulkan &&
+         "Currently only Vulkan backend is supported");
+}
 
-void SDLWindowBackend::provideVulkanSurface(VkInstance vkInstance,
-                                            VkSurfaceKHR& outVkSurface) {
-  SDL_Vulkan_CreateSurface(_sdlWindowUnique.get(), vkInstance, &outVkSurface);
+void SDLWindowBackend::provideSurface(rhi::RHI& rhi) const {
+  vk_rhi::VulkanRHI* vulkanRhi = dynamic_cast<vk_rhi::VulkanRHI*>(&rhi);
+
+  assert(vulkanRhi);
+
+  VkSurfaceKHR surface;
+  SDL_Vulkan_CreateSurface(_sdlWindowUnique.get(), vulkanRhi->getInstance(),
+                           &surface);
+  vulkanRhi->setSurface(surface);
 }
 
 void SDLWindowBackend::pollEvents(

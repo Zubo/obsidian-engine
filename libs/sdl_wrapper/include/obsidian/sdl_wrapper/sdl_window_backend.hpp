@@ -1,6 +1,7 @@
 #pragma once
 
-#include <obsidian/window/window_impl_interface.hpp>
+#include <obsidian/rhi/rhi.hpp>
+#include <obsidian/window/window_backend.hpp>
 
 #include <cstddef>
 #include <cstdint>
@@ -15,12 +16,12 @@ public:
   using SDLWindowDeleter = void (*)(SDL_Window*);
 
   explicit SDLWindowBackend(
-      std::unique_ptr<SDL_Window, SDLWindowDeleter> sdlWindow);
+      std::unique_ptr<SDL_Window, SDLWindowDeleter> sdlWindow,
+      rhi::RHIBackends backend);
 
   virtual ~SDLWindowBackend() = default;
 
-  void provideVulkanSurface(VkInstance vkInstance,
-                            VkSurfaceKHR& outVkSurface) override;
+  void provideSurface(rhi::RHI& rhi) const override;
 
   void
   pollEvents(std::vector<window::WindowEvent>& outWindowEvents) const override;

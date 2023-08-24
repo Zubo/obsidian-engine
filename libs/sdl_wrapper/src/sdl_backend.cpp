@@ -1,7 +1,8 @@
+#include "obsidian/rhi/rhi.hpp"
 #include <obsidian/core/logging.hpp>
 #include <obsidian/sdl_wrapper/sdl_backend.hpp>
 #include <obsidian/sdl_wrapper/sdl_window_backend.hpp>
-#include <obsidian/window/window_impl_interface.hpp>
+#include <obsidian/window/window_backend.hpp>
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_events.h>
@@ -52,7 +53,11 @@ std::vector<SDL_Event> const& SDLBackend::getPolledEvents() const {
 }
 
 std::unique_ptr<window::interface::IWindowBackend>
-SDLBackend::createWindow(const CreateWindowParams& params) const {
+SDLBackend::createWindow(const CreateWindowParams& params,
+                         rhi::RHIBackends backend) const {
+  assert(backend == rhi::RHIBackends::vulkan &&
+         "Currently only Vulkan backend is supported.");
+
   SDL_WindowFlags const flags = static_cast<SDL_WindowFlags>(
       SDL_WINDOW_VULKAN | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
 
@@ -72,5 +77,6 @@ SDLBackend::createWindow(const CreateWindowParams& params) const {
                     SDL_DestroyWindow(w);
                 });
 
-  return std::make_unique<SDLWindowBackend>(std::move(sdlWindowUnique));
+  return std::make_unique<SDLWindowBackend>(std::move(sdlWindowUnique),
+                                            rhi::RHIBackends::vulkan);
 }

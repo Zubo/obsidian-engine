@@ -1,8 +1,8 @@
 #include <obsidian/obsidian_engine/obsidian_engine.hpp>
+#include <obsidian/rhi/rhi.hpp>
 #include <obsidian/scene/scene.hpp>
-#include <obsidian/vk_rhi/vk_rhi_input.hpp>
 #include <obsidian/window/window.hpp>
-#include <obsidian/window/window_impl_interface.hpp>
+#include <obsidian/window/window_backend.hpp>
 
 #include <vulkan/vulkan.h>
 
@@ -20,19 +20,27 @@ void ObsidianEngine::init(IWindowBackendProvider const& windowBackendProvider) {
   windowParams.width = 1000;
   windowParams.height = 800;
 
-  _context.window.init(windowBackendProvider.createWindow(windowParams),
+  _context.window.init(windowBackendProvider.createWindow(
+                           windowParams, rhi::RHIBackends::vulkan),
                        _context.inputContext);
 
   auto const vulkanSurfaceProvider = [this](VkInstance vkInstance,
                                             VkSurfaceKHR& outSurface) {
-    _context.window.getWindowBackend().provideVulkanSurface(vkInstance,
-                                                            outSurface);
+    _context.window.getWindowBackend().provideSurface(_context.vulkanRHI);
   };
 
-  VkExtent2D extent;
+  rhi::WindowExtentRHI extent;
   extent.width = windowParams.width;
   extent.height = windowParams.height;
-  _context.vulkanRHI.init(extent, vulkanSurfaceProvider, _context.inputContext);
+  _context.vulkanRHI.init(extent, _context.window.getWindowBackend());
+
+  _context.inputContext.windowEventEmitter.subscribeToWindowResizedEvent(
+      [this](std::size_t w, std::size_t h) {
+        rhi::WindowExtentRHI newExtent;
+        newExtent.width = w;
+        newExtent.height = h;
+        _context.vulkanRHI.updateExtent(newExtent);
+      });
 
   _context.scene.init(_context.inputContext);
 }
@@ -47,7 +55,7 @@ void ObsidianEngine::cleanup() {
 void ObsidianEngine::processFrame() {
   scene::SceneState const& sceneState = _context.scene.getState();
 
-  vk_rhi::SceneGlobalParams sceneGlobalParams;
+  rhi::SceneGlobalParams sceneGlobalParams;
   sceneGlobalParams.ambientColor = sceneState.ambientColor;
   sceneGlobalParams.sunColor = sceneState.sunColor;
   sceneGlobalParams.sunDirection = sceneState.sunDirection;

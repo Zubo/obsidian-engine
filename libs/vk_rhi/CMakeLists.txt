@@ -19,7 +19,6 @@ add_library(VulkanRHI
     "include/obsidian/vk_rhi/vk_pipeline_builder.hpp"
     "include/obsidian/vk_rhi/vk_deletion_queue.hpp"
     "include/obsidian/vk_rhi/vk_descriptors.hpp"
-    "include/obsidian/vk_rhi/vk_rhi_input.hpp"
 )
 
 target_include_directories(VulkanRHI
@@ -40,7 +39,6 @@ target_link_libraries(VulkanRHI
         Renderdoc
         ThirdPartyImpl
         TracyClient
-        Input
 )
 
 if (${FORCE_VALIDATION_LAYERS} OR ${CMAKE_BUILD_TYPE} STREQUAL "Debug")

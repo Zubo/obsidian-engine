@@ -8,3 +8,8 @@ target_include_directories(RHI
     INTERFACE
         include
 )
+
+target_link_libraries(RHI
+    INTERFACE
+        glm
+)

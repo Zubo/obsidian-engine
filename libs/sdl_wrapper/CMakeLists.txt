@@ -18,5 +18,8 @@ target_link_libraries(SDLWrapper
     PUBLIC
         Window
         Core
+        RHI
         ${SDL2_LIBRARIES}
+    PRIVATE
+        VulkanRHI
 )

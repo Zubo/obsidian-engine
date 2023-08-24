@@ -1,7 +1,7 @@
+#include <obsidian/rhi/rhi.hpp>
 #include <obsidian/vk_rhi/vk_check.hpp>
 #include <obsidian/vk_rhi/vk_initializers.hpp>
 #include <obsidian/vk_rhi/vk_rhi.hpp>
-#include <obsidian/vk_rhi/vk_rhi_input.hpp>
 #include <obsidian/vk_rhi/vk_types.hpp>
 
 #include <glm/glm.hpp>
@@ -14,7 +14,7 @@
 
 using namespace obsidian::vk_rhi;
 
-void VulkanRHI::draw(SceneGlobalParams const& sceneParams) {
+void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   if (_skipFrame) {
     _skipFrame = false;
     return;
@@ -167,7 +167,7 @@ void VulkanRHI::draw(SceneGlobalParams const& sceneParams) {
 }
 
 void VulkanRHI::drawObjects(VkCommandBuffer cmd, RenderObject* first, int count,
-                            SceneGlobalParams const& sceneParams) {
+                            rhi::SceneGlobalParams const& sceneParams) {
   ZoneScoped;
   glm::mat4 view = glm::mat4{1.f};
   view = glm::rotate(view, -sceneParams.cameraRotationRad.x, {1.f, 0.f, 0.f});
@@ -262,9 +262,9 @@ void VulkanRHI::drawObjects(VkCommandBuffer cmd, RenderObject* first, int count,
   }
 }
 
-void VulkanRHI::drawShadowPass(VkCommandBuffer cmd, RenderObject* first,
-                               int count,
-                               SceneGlobalParams const& sceneGlobalParams) {
+void VulkanRHI::drawShadowPass(
+    VkCommandBuffer cmd, RenderObject* first, int count,
+    rhi::SceneGlobalParams const& sceneGlobalParams) {
   ZoneScoped;
 
   glm::mat4 const view = glm::lookAt(

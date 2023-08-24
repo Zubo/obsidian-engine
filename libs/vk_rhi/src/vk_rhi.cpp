@@ -1,3 +1,4 @@
+#include "obsidian/rhi/rhi.hpp"
 #include <obsidian/asset/asset.hpp>
 #include <obsidian/asset/asset_io.hpp>
 #include <obsidian/asset/texture_asset_info.hpp>
@@ -18,11 +19,16 @@
 
 using namespace obsidian::vk_rhi;
 
-void VulkanRHI::updateExtent(VkExtent2D newExtent) {
+VkInstance VulkanRHI::getInstance() const { return _vkInstance; }
+
+void VulkanRHI::setSurface(VkSurfaceKHR surface) { _vkSurface = surface; }
+
+void VulkanRHI::updateExtent(rhi::WindowExtentRHI newExtent) {
 
   vkDeviceWaitIdle(_vkDevice);
   _skipFrame = true;
-  _windowExtent = newExtent;
+  _windowExtent.width = newExtent.width;
+  _windowExtent.height = newExtent.height;
 
   _swapchainDeletionQueue.flush();
 

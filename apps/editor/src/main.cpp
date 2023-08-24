@@ -3,10 +3,10 @@
 #include <obsidian/editor/data.hpp>
 #include <obsidian/editor/editor_windows.hpp>
 #include <obsidian/obsidian_engine/obsidian_engine.hpp>
+#include <obsidian/rhi/rhi.hpp>
 #include <obsidian/scene/scene.hpp>
 #include <obsidian/sdl_wrapper/sdl_backend.hpp>
 #include <obsidian/vk_rhi/vk_rhi.hpp>
-#include <obsidian/vk_rhi/vk_rhi_input.hpp>
 #include <obsidian/window/window.hpp>
 
 #include <SDL2/SDL.h>

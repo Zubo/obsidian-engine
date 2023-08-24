@@ -1,5 +1,4 @@
 #include <obsidian/core/logging.hpp>
-#include <obsidian/input/input_context.hpp>
 #include <obsidian/renderdoc/renderdoc.hpp>
 #include <obsidian/vk_rhi/vk_check.hpp>
 #include <obsidian/vk_rhi/vk_descriptors.hpp>
@@ -15,25 +14,16 @@
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
-#include <utility>
-
 using namespace obsidian::vk_rhi;
 
-void VulkanRHI::init(VkExtent2D extent, SurfaceProvider surfaceProvider,
-                     input::InputContext& inputContext) {
-  _windowExtent = extent;
-
-  inputContext.windowEventEmitter.subscribeToWindowResizedEvent(
-      [this](std::size_t w, std::size_t h) {
-        VkExtent2D newExtent;
-        newExtent.width = w;
-        newExtent.height = h;
-        updateExtent(newExtent);
-      });
+void VulkanRHI::init(rhi::WindowExtentRHI extent,
+                     rhi::ISurfaceProviderRHI const& surfaceProvider) {
+  _windowExtent.height = extent.height;
+  _windowExtent.width = extent.width;
 
   renderdoc::initRenderdoc();
 
-  initVulkan(std::move(surfaceProvider));
+  initVulkan(surfaceProvider);
 
   initSwapchain();
 
@@ -65,7 +55,7 @@ void VulkanRHI::init(VkExtent2D extent, SurfaceProvider surfaceProvider,
 
   IsInitialized = true;
 }
-void VulkanRHI::initVulkan(SurfaceProvider surfaceProvider) {
+void VulkanRHI::initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider) {
   vkb::InstanceBuilder builder;
 
 #ifdef USE_VULKAN_VALIDATION_LAYERS
@@ -85,7 +75,7 @@ void VulkanRHI::initVulkan(SurfaceProvider surfaceProvider) {
   _vkInstance = vkbInstance.instance;
   _vkDebugMessenger = vkbInstance.debug_messenger;
 
-  surfaceProvider(_vkInstance, _vkSurface);
+  surfaceProvider.provideSurface(*this);
 
   vkb::PhysicalDeviceSelector vkbSelector{vkbInstance};
   vkb::PhysicalDevice vkbPhysicalDevice = vkbSelector.set_minimum_version(1, 2)

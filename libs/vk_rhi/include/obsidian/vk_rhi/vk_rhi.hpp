@@ -1,10 +1,10 @@
 #pragma once
 
+#include <obsidian/rhi/rhi.hpp>
 #include <obsidian/vk_rhi/vk_deletion_queue.hpp>
 #include <obsidian/vk_rhi/vk_descriptors.hpp>
 #include <obsidian/vk_rhi/vk_mesh.hpp>
 #include <obsidian/vk_rhi/vk_pipeline_builder.hpp>
-#include <obsidian/vk_rhi/vk_rhi_input.hpp>
 #include <obsidian/vk_rhi/vk_types.hpp>
 
 #include <glm/glm.hpp>
@@ -27,27 +27,24 @@ struct InputContext;
 
 namespace obsidian::vk_rhi {
 
-struct SceneGlobalParams;
-
-class VulkanRHI {
+class VulkanRHI : public rhi::RHI {
   static unsigned int const frameOverlap = 2;
   static unsigned int const maxNumberOfObjects = 10000;
   static unsigned int const shadowPassAttachmentWidth = 2000;
   static unsigned int const shadowPassAttachmentHeight = 2000;
 
 public:
-  using SurfaceProvider = std::function<void(VkInstance, VkSurfaceKHR&)>;
-
   bool IsInitialized{false};
   int FrameNumber{0};
 
-  void init(VkExtent2D extent, SurfaceProvider surfaceProvider,
-            input::InputContext& inputContext);
-  void cleanup();
+  void init(rhi::WindowExtentRHI extent,
+            rhi::ISurfaceProviderRHI const& surfaceProvider) override;
+  void cleanup() override;
+  void draw(rhi::SceneGlobalParams const& sceneParams) override;
+  void updateExtent(rhi::WindowExtentRHI newExtent) override;
 
-  void draw(SceneGlobalParams const& sceneParams);
-  void updateExtent(VkExtent2D newExtent);
-  void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
+  VkInstance getInstance() const;
+  void setSurface(VkSurfaceKHR surface);
 
 private:
   VkInstance _vkInstance;
@@ -101,7 +98,7 @@ private:
   VkExtent2D _windowExtent;
   bool _skipFrame = false;
 
-  void initVulkan(SurfaceProvider surfaceProvider);
+  void initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider);
   void initSwapchain();
   void initCommands();
   void initDefaultRenderPass();
@@ -115,6 +112,7 @@ private:
   void initScene();
   void initDescriptors();
   void initShadowPassDescriptors();
+  void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
   void loadTexture(std::string_view textureName,
                    std::filesystem::path const& texturePath);
   void loadTextures();
@@ -122,9 +120,9 @@ private:
   void uploadMesh(Mesh& mesh);
   FrameData& getCurrentFrameData();
   void drawObjects(VkCommandBuffer cmd, RenderObject* first, int count,
-                   SceneGlobalParams const& sceneParams);
+                   rhi::SceneGlobalParams const& sceneParams);
   void drawShadowPass(VkCommandBuffer, RenderObject* first, int count,
-                      SceneGlobalParams const& sceneGlobalParams);
+                      rhi::SceneGlobalParams const& sceneGlobalParams);
   Material* createMaterial(VkPipeline pipeline, VkPipelineLayout pipelineLayout,
                            std::string const& name,
                            std::string const& albedoTexName = "default");

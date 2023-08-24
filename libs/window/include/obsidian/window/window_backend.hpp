@@ -1,16 +1,15 @@
 #pragma once
 
+#include <obsidian/rhi/rhi.hpp>
 #include <obsidian/window/window_events.hpp>
-#include <string>
-
-#include <vulkan/vulkan.h>
 
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace obsidian::window::interface {
 
-class IWindowBackend {
+class IWindowBackend : public rhi::ISurfaceProviderRHI {
 public:
   IWindowBackend() = default;
   IWindowBackend(IWindowBackend const& other) = delete;
@@ -18,9 +17,6 @@ public:
   virtual ~IWindowBackend() = default;
 
   IWindowBackend& operator=(IWindowBackend const& other) = delete;
-
-  virtual void provideVulkanSurface(VkInstance vkInstance,
-                                    VkSurfaceKHR& outVkSurface) = 0;
 
   virtual void pollEvents(std::vector<WindowEvent>& outWindowEvents) const = 0;
 };
@@ -46,7 +42,8 @@ public:
   };
 
   virtual std::unique_ptr<IWindowBackend>
-  createWindow(CreateWindowParams const& params) const = 0;
+  createWindow(CreateWindowParams const& params,
+               rhi::RHIBackends backend) const = 0;
 };
 
 } /*namespace obsidian::window::interface*/
