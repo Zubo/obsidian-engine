@@ -1,6 +1,6 @@
 #pragma once
 
-#include <asset/asset_info.hpp>
+#include <obsidian/asset/asset_info.hpp>
 
 #include <cstddef>
 #include <cstdint>

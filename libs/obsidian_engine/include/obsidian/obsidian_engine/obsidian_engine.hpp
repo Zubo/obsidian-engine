@@ -1,9 +1,9 @@
 #pragma once
 
-#include <input/input_context.hpp>
-#include <scene/scene.hpp>
-#include <vk_rhi/vk_rhi.hpp>
-#include <window/window.hpp>
+#include <obsidian/input/input_context.hpp>
+#include <obsidian/scene/scene.hpp>
+#include <obsidian/vk_rhi/vk_rhi.hpp>
+#include <obsidian/window/window.hpp>
 
 namespace obsidian::window::interface {
 

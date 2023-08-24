@@ -1,6 +1,6 @@
 #pragma once
 
-#include <asset/asset.hpp>
+#include <obsidian/asset/asset.hpp>
 
 #include <filesystem>
 

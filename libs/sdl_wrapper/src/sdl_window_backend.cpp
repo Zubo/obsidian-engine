@@ -1,6 +1,6 @@
-#include <sdl_wrapper/sdl_backend.hpp>
-#include <sdl_wrapper/sdl_window_backend.hpp>
-#include <window/window_events.hpp>
+#include <obsidian/sdl_wrapper/sdl_backend.hpp>
+#include <obsidian/sdl_wrapper/sdl_window_backend.hpp>
+#include <obsidian/window/window_events.hpp>
 
 #include <SDL2/SDL_events.h>
 #include <SDL2/SDL_stdinc.h>

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <core/logging.hpp>
+#include <obsidian/core/logging.hpp>
 #include <vulkan/vulkan.h>
 
 #include <cstdlib>

@@ -1,5 +1,5 @@
-#include <renderdoc/renderdoc.hpp>
-#include <vk_rhi/vk_rhi.hpp>
+#include <obsidian/renderdoc/renderdoc.hpp>
+#include <obsidian/vk_rhi/vk_rhi.hpp>
 
 #include <VkBootstrap.h>
 #include <vulkan/vulkan.h>

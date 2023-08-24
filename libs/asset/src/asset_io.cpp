@@ -1,6 +1,6 @@
-#include <asset/asset.hpp>
-#include <asset/asset_io.hpp>
-#include <core/logging.hpp>
+#include <obsidian/asset/asset.hpp>
+#include <obsidian/asset/asset_io.hpp>
+#include <obsidian/core/logging.hpp>
 
 #include <fstream>
 #include <ios>

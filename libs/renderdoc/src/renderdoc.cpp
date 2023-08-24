@@ -1,4 +1,4 @@
-#include <renderdoc/renderdoc.hpp>
+#include <obsidian/renderdoc/renderdoc.hpp>
 
 #ifdef RENDERDOC_ENABLED
 

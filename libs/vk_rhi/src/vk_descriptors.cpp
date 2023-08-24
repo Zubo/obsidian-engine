@@ -1,5 +1,5 @@
-#include <vk_rhi/vk_check.hpp>
-#include <vk_rhi/vk_descriptors.hpp>
+#include <obsidian/vk_rhi/vk_check.hpp>
+#include <obsidian/vk_rhi/vk_descriptors.hpp>
 
 #include <crc32.h>
 #include <vulkan/vulkan.h>

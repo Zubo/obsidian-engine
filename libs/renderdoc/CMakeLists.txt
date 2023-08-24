@@ -4,7 +4,7 @@ option (ENABLE_RENDERDOC "Enable renderdoc api for GPU debugging" OFF)
 
 add_library(Renderdoc
     "src/renderdoc.cpp"
-    "include/renderdoc/renderdoc.hpp"
+    "include/obsidian/renderdoc/renderdoc.hpp"
 )
 
 target_include_directories(Renderdoc

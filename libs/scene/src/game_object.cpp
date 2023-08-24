@@ -1,5 +1,5 @@
 #include "glm/gtx/transform.hpp"
-#include <scene/game_object.hpp>
+#include <obsidian/scene/game_object.hpp>
 
 using namespace obsidian::scene;
 

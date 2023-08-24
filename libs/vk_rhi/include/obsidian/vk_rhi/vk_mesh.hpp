@@ -1,7 +1,7 @@
 #pragma once
 
-#include <vk_rhi/vk_rhi.hpp>
-#include <vk_rhi/vk_types.hpp>
+#include <obsidian/vk_rhi/vk_rhi.hpp>
+#include <obsidian/vk_rhi/vk_types.hpp>
 
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>

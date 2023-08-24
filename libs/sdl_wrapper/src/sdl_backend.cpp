@@ -1,7 +1,7 @@
-#include <core/logging.hpp>
-#include <sdl_wrapper/sdl_backend.hpp>
-#include <sdl_wrapper/sdl_window_backend.hpp>
-#include <window/window_impl_interface.hpp>
+#include <obsidian/core/logging.hpp>
+#include <obsidian/sdl_wrapper/sdl_backend.hpp>
+#include <obsidian/sdl_wrapper/sdl_window_backend.hpp>
+#include <obsidian/window/window_impl_interface.hpp>
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_events.h>

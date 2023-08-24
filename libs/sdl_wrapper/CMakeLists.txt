@@ -3,8 +3,8 @@ cmake_minimum_required(VERSION 3.24)
 add_library(SDLWrapper
     "src/sdl_backend.cpp"
     "src/sdl_window_backend.cpp"
-    "include/sdl_wrapper/sdl_backend.hpp"
-    "include/sdl_wrapper/sdl_window_backend.hpp"
+    "include/obsidian/sdl_wrapper/sdl_backend.hpp"
+    "include/obsidian/sdl_wrapper/sdl_window_backend.hpp"
 )
 
 target_include_directories(SDLWrapper

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <core/keycode.hpp>
+#include <obsidian/core/keycode.hpp>
 
 #include <array>
 #include <functional>

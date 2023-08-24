@@ -1,8 +1,8 @@
-#include <obsidian_engine/obsidian_engine.hpp>
-#include <scene/scene.hpp>
-#include <vk_rhi/vk_rhi_input.hpp>
-#include <window/window.hpp>
-#include <window/window_impl_interface.hpp>
+#include <obsidian/obsidian_engine/obsidian_engine.hpp>
+#include <obsidian/scene/scene.hpp>
+#include <obsidian/vk_rhi/vk_rhi_input.hpp>
+#include <obsidian/window/window.hpp>
+#include <obsidian/window/window_impl_interface.hpp>
 
 #include <vulkan/vulkan.h>
 

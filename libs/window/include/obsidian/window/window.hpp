@@ -1,8 +1,8 @@
 #pragma once
 
-#include <input/input_context.hpp>
-#include <window/window_events.hpp>
-#include <window/window_impl_interface.hpp>
+#include <obsidian/input/input_context.hpp>
+#include <obsidian/window/window_events.hpp>
+#include <obsidian/window/window_impl_interface.hpp>
 
 #include <cstdint>
 #include <memory>

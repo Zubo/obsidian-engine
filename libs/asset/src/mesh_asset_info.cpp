@@ -1,7 +1,7 @@
-#include <asset/asset.hpp>
-#include <asset/asset_info.hpp>
-#include <asset/mesh_asset_info.hpp>
-#include <core/logging.hpp>
+#include <obsidian/asset/asset.hpp>
+#include <obsidian/asset/asset_info.hpp>
+#include <obsidian/asset/mesh_asset_info.hpp>
+#include <obsidian/core/logging.hpp>
 
 #include <lz4.h>
 #include <nlohmann/json.hpp>

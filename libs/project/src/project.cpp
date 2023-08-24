@@ -1,5 +1,5 @@
-#include <core/logging.hpp>
-#include <project/project.hpp>
+#include <obsidian/core/logging.hpp>
+#include <obsidian/project/project.hpp>
 
 #include <filesystem>
 

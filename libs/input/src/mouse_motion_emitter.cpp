@@ -1,4 +1,4 @@
-#include <input/mouse_motion_emitter.hpp>
+#include <obsidian/input/mouse_motion_emitter.hpp>
 
 #include <cassert>
 #include <utility>

@@ -1,11 +1,11 @@
-#include <asset/asset.hpp>
-#include <asset/asset_io.hpp>
-#include <asset/texture_asset_info.hpp>
-#include <core/logging.hpp>
-#include <vk_rhi/vk_check.hpp>
-#include <vk_rhi/vk_initializers.hpp>
-#include <vk_rhi/vk_rhi.hpp>
-#include <vk_rhi/vk_types.hpp>
+#include <obsidian/asset/asset.hpp>
+#include <obsidian/asset/asset_io.hpp>
+#include <obsidian/asset/texture_asset_info.hpp>
+#include <obsidian/core/logging.hpp>
+#include <obsidian/vk_rhi/vk_check.hpp>
+#include <obsidian/vk_rhi/vk_initializers.hpp>
+#include <obsidian/vk_rhi/vk_rhi.hpp>
+#include <obsidian/vk_rhi/vk_types.hpp>
 
 #include <tracy/Tracy.hpp>
 #include <vk_mem_alloc.h>

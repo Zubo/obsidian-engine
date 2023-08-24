@@ -1,4 +1,4 @@
-#include <asset/asset_info.hpp>
+#include <obsidian/asset/asset_info.hpp>
 
 #include <lz4.h>
 

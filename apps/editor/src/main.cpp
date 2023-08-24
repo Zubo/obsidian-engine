@@ -1,13 +1,13 @@
 
-#include <core/logging.hpp>
-#include <editor/data.hpp>
-#include <editor/editor_windows.hpp>
-#include <obsidian_engine/obsidian_engine.hpp>
-#include <scene/scene.hpp>
-#include <sdl_wrapper/sdl_backend.hpp>
-#include <vk_rhi/vk_rhi.hpp>
-#include <vk_rhi/vk_rhi_input.hpp>
-#include <window/window.hpp>
+#include <obsidian/core/logging.hpp>
+#include <obsidian/editor/data.hpp>
+#include <obsidian/editor/editor_windows.hpp>
+#include <obsidian/obsidian_engine/obsidian_engine.hpp>
+#include <obsidian/scene/scene.hpp>
+#include <obsidian/sdl_wrapper/sdl_backend.hpp>
+#include <obsidian/vk_rhi/vk_rhi.hpp>
+#include <obsidian/vk_rhi/vk_rhi_input.hpp>
+#include <obsidian/window/window.hpp>
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_video.h>

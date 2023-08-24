@@ -1,12 +1,12 @@
-#include <core/logging.hpp>
-#include <input/input_context.hpp>
-#include <renderdoc/renderdoc.hpp>
-#include <vk_rhi/vk_check.hpp>
-#include <vk_rhi/vk_descriptors.hpp>
-#include <vk_rhi/vk_initializers.hpp>
-#include <vk_rhi/vk_mesh.hpp>
-#include <vk_rhi/vk_rhi.hpp>
-#include <vk_rhi/vk_types.hpp>
+#include <obsidian/core/logging.hpp>
+#include <obsidian/input/input_context.hpp>
+#include <obsidian/renderdoc/renderdoc.hpp>
+#include <obsidian/vk_rhi/vk_check.hpp>
+#include <obsidian/vk_rhi/vk_descriptors.hpp>
+#include <obsidian/vk_rhi/vk_initializers.hpp>
+#include <obsidian/vk_rhi/vk_mesh.hpp>
+#include <obsidian/vk_rhi/vk_rhi.hpp>
+#include <obsidian/vk_rhi/vk_types.hpp>
 
 #include <VkBootstrap.h>
 #include <glm/glm.hpp>

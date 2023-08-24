@@ -1,5 +1,5 @@
-#include <asset_converter/asset_converter.hpp>
-#include <core/logging.hpp>
+#include <obsidian/asset_converter/asset_converter.hpp>
+#include <obsidian/core/logging.hpp>
 
 #include <cstring>
 #include <filesystem>

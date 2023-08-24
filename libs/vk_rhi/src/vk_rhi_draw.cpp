@@ -1,8 +1,8 @@
-#include <vk_rhi/vk_check.hpp>
-#include <vk_rhi/vk_initializers.hpp>
-#include <vk_rhi/vk_rhi.hpp>
-#include <vk_rhi/vk_rhi_input.hpp>
-#include <vk_rhi/vk_types.hpp>
+#include <obsidian/vk_rhi/vk_check.hpp>
+#include <obsidian/vk_rhi/vk_initializers.hpp>
+#include <obsidian/vk_rhi/vk_rhi.hpp>
+#include <obsidian/vk_rhi/vk_rhi_input.hpp>
+#include <obsidian/vk_rhi/vk_types.hpp>
 
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>

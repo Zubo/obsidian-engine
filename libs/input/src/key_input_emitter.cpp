@@ -1,4 +1,4 @@
-#include <input/key_input_emitter.hpp>
+#include <obsidian/input/key_input_emitter.hpp>
 
 #include <cassert>
 

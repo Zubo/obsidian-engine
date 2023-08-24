@@ -1,4 +1,4 @@
-#include <scene/camera.hpp>
+#include <obsidian/scene/camera.hpp>
 
 #include <glm/gtx/transform.hpp>
 

@@ -1,5 +1,5 @@
-#include <core/logging.hpp>
-#include <vk_rhi/vk_pipeline_builder.hpp>
+#include <obsidian/core/logging.hpp>
+#include <obsidian/vk_rhi/vk_pipeline_builder.hpp>
 
 using namespace obsidian::vk_rhi;
 

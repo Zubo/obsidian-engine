@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.24)
 
 add_library(Project
     "src/project.cpp"
-    "include/project/project.hpp"
+    "include/obsidian/project/project.hpp"
 )
 
 target_include_directories(Project

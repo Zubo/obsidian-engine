@@ -1,6 +1,6 @@
-#include <asset_converter/asset_converter.hpp>
-#include <editor/data.hpp>
-#include <editor/editor_windows.hpp>
+#include <obsidian/asset_converter/asset_converter.hpp>
+#include <obsidian/editor/data.hpp>
+#include <obsidian/editor/editor_windows.hpp>
 
 #include <SDL2/SDL.h>
 #include <backends/imgui_impl_sdl2.h>

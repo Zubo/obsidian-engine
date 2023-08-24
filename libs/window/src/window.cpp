@@ -1,9 +1,9 @@
-#include <core/keycode.hpp>
-#include <input/input_context.hpp>
-#include <input/key_input_emitter.hpp>
-#include <input/mouse_motion_emitter.hpp>
-#include <window/window.hpp>
-#include <window/window_events.hpp>
+#include <obsidian/core/keycode.hpp>
+#include <obsidian/input/input_context.hpp>
+#include <obsidian/input/key_input_emitter.hpp>
+#include <obsidian/input/mouse_motion_emitter.hpp>
+#include <obsidian/window/window.hpp>
+#include <obsidian/window/window_events.hpp>
 
 #include <cassert>
 

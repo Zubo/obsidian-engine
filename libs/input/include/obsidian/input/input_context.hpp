@@ -1,8 +1,8 @@
 #pragma once
 
-#include <input/key_input_emitter.hpp>
-#include <input/mouse_motion_emitter.hpp>
-#include <input/window_event_emitter.hpp>
+#include <obsidian/input/key_input_emitter.hpp>
+#include <obsidian/input/mouse_motion_emitter.hpp>
+#include <obsidian/input/window_event_emitter.hpp>
 
 namespace obsidian::input {
 

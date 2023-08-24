@@ -1,4 +1,4 @@
-#include <input/window_event_emitter.hpp>
+#include <obsidian/input/window_event_emitter.hpp>
 
 #include <cassert>
 

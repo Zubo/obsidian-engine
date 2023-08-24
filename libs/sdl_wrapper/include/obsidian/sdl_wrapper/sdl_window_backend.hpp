@@ -1,6 +1,6 @@
 #pragma once
 
-#include <window/window_impl_interface.hpp>
+#include <obsidian/window/window_impl_interface.hpp>
 
 #include <cstddef>
 #include <cstdint>

@@ -1,7 +1,7 @@
 #pragma once
 
+#include <obsidian/window/window_events.hpp>
 #include <string>
-#include <window/window_events.hpp>
 
 #include <vulkan/vulkan.h>
 
