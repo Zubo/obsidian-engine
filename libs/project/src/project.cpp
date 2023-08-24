@@ -35,3 +35,25 @@ Project::getRelativeToProjectRootPath(fs::path const& absolutePath) const {
 std::filesystem::path Project::getOpenProjectPath() const {
   return _projectRootPath;
 }
+
+std::vector<fs::path>
+Project::getAllFilesWithExtension(std::string_view extension) const {
+  if (_projectRootPath.empty()) {
+    OBS_LOG_WARN("Project not open.");
+    return {};
+  }
+  std::vector<fs::path> result;
+
+  for (fs::directory_entry const& p :
+       fs::recursive_directory_iterator(_projectRootPath)) {
+    if (!p.is_regular_file()) {
+      continue;
+    }
+
+    if (p.path().extension() == extension) {
+      result.push_back(getRelativeToProjectRootPath(p.path()));
+    }
+  }
+
+  return result;
+}

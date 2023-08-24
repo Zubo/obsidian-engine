@@ -1,6 +1,8 @@
 #pragma once
 
 #include <filesystem>
+#include <string_view>
+#include <vector>
 
 namespace obsidian::project {
 
@@ -15,6 +17,9 @@ public:
 
   std::filesystem::path
   getRelativeToProjectRootPath(std::filesystem::path const& absolutePath) const;
+
+  std::vector<std::filesystem::path>
+  getAllFilesWithExtension(std::string_view extension) const;
 
 private:
   std::filesystem::path _projectRootPath;

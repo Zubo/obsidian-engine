@@ -61,6 +61,33 @@ void assetsTab() {
   }
 }
 
+void materialCreatorTab() {
+  static bool isOpen = false;
+  static std::vector<fs::path> texturesInProj;
+  static std::vector<char const*> texturePathStringPtrs;
+  static int selectedItem = 0;
+  if (ImGui::BeginTabItem("Material Creator")) {
+    bool justOpened = !isOpen;
+    isOpen = true;
+
+    if (justOpened) {
+      texturesInProj = project.getAllFilesWithExtension(".obstex");
+      texturePathStringPtrs.clear();
+
+      for (auto const& tex : texturesInProj) {
+        texturePathStringPtrs.push_back(tex.c_str());
+      }
+    }
+
+    if (ImGui::Combo("Mat Tex", &selectedItem, texturePathStringPtrs.data(),
+                     texturePathStringPtrs.size())) {
+    }
+    ImGui::EndTabItem();
+  } else {
+    isOpen = false;
+  }
+}
+
 void projectTab() {
 
   if (ImGui::BeginTabItem("Project")) {
@@ -89,6 +116,7 @@ void projectTab() {
     if (!project.getOpenProjectPath().empty()) {
       if (ImGui::BeginTabBar("EditorTabBar")) {
         assetsTab();
+        materialCreatorTab();
         ImGui::EndTabBar();
       }
     }
