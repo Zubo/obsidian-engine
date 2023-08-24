@@ -1,6 +1,6 @@
 #pragma once
 
-#include "obsidian/rhi/rhi.hpp"
+#include <obsidian/rhi/rhi.hpp>
 #include <obsidian/window/window_backend.hpp>
 
 #include <SDL2/SDL_events.h>

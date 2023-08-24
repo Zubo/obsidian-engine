@@ -8,7 +8,6 @@ namespace obsidian::asset {
 
 bool readShaderAssetInfo(Asset const& asset,
                          ShaderAssetInfo& outShaderAssetInfo) {
-
   try {
     nlohmann::json json = nlohmann::json::parse(asset.json);
     outShaderAssetInfo.unpackedSize = json[unpackedSizeJsonName];

@@ -1,5 +1,5 @@
-#include "obsidian/rhi/rhi.hpp"
 #include <obsidian/core/logging.hpp>
+#include <obsidian/rhi/rhi.hpp>
 #include <obsidian/sdl_wrapper/sdl_backend.hpp>
 #include <obsidian/sdl_wrapper/sdl_window_backend.hpp>
 #include <obsidian/window/window_backend.hpp>

@@ -1,4 +1,4 @@
-#include "obsidian/core/logging.hpp"
+#include <obsidian/core/logging.hpp>
 #include <obsidian/core/texture_format.hpp>
 
 namespace obsidian::core {

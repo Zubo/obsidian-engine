@@ -7,12 +7,14 @@ add_library(Asset
     "src/texture_asset_info.cpp"
     "src/mesh_asset_info.cpp"
     "src/shader_asset_info.cpp"
+    "src/material_asset_info.cpp"
     "include/obsidian/asset/asset.hpp"
     "include/obsidian/asset/asset_io.hpp"
     "include/obsidian/asset/asset_info.hpp"
     "include/obsidian/asset/texture_asset_info.hpp"
     "include/obsidian/asset/mesh_asset_info.hpp"
     "include/obsidian/asset/shader_asset_info.hpp"
+    "include/obsidian/asset/material_asset_info.hpp"
     
 )
 
