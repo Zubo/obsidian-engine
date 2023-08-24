@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
 
 add_library(Asset
+    "src/asset.cpp"
     "src/asset_io.cpp"
     "src/asset_info.cpp"
     "src/texture_asset_info.cpp"

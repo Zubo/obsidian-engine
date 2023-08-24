@@ -4,6 +4,7 @@
 #include <obsidian/asset/texture_asset_info.hpp>
 #include <obsidian/asset_converter/asset_converter.hpp>
 #include <obsidian/core/logging.hpp>
+#include <obsidian/core/texture_format.hpp>
 
 #include <cstddef>
 #include <cstring>
@@ -26,7 +27,7 @@ bool convertPngToAsset(fs::path const srcPath, fs::path const& dstPath) {
   asset::TextureAssetInfo textureAssetInfo;
   textureAssetInfo.unpackedSize = w * h * channelCnt;
   textureAssetInfo.compressionMode = asset::CompressionMode::LZ4;
-  textureAssetInfo.format = asset::TextureFormat::R8G8B8A8;
+  textureAssetInfo.format = core::TextureFormat::R8G8B8A8;
   textureAssetInfo.width = w;
   textureAssetInfo.height = h;
 

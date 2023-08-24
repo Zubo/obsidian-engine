@@ -1,6 +1,7 @@
 #pragma once
 
 #include <obsidian/asset/asset_info.hpp>
+#include <obsidian/core/texture_format.hpp>
 
 #include <cstddef>
 #include <cstdint>
@@ -9,14 +10,8 @@ namespace obsidian::asset {
 
 struct Asset;
 
-enum class TextureFormat : std::uint32_t {
-  unknown = 0,
-  R8G8B8 = 1,
-  R8G8B8A8 = 2
-};
-
 struct TextureAssetInfo : public AssetInfo {
-  TextureFormat format;
+  core::TextureFormat format;
   std::uint32_t width;
   std::uint32_t height;
 };

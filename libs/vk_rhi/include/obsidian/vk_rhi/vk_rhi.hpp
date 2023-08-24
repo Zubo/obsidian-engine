@@ -1,5 +1,6 @@
 #pragma once
 
+#include <obsidian/rhi/resource_rhi.hpp>
 #include <obsidian/rhi/rhi.hpp>
 #include <obsidian/vk_rhi/vk_deletion_queue.hpp>
 #include <obsidian/vk_rhi/vk_descriptors.hpp>
@@ -19,12 +20,6 @@
 #include <utility>
 #include <vector>
 
-namespace obsidian::input {
-
-struct InputContext;
-
-}
-
 namespace obsidian::vk_rhi {
 
 class VulkanRHI : public rhi::RHI {
@@ -39,11 +34,20 @@ public:
 
   void init(rhi::WindowExtentRHI extent,
             rhi::ISurfaceProviderRHI const& surfaceProvider) override;
+
   void cleanup() override;
+
   void draw(rhi::SceneGlobalParams const& sceneParams) override;
+
   void updateExtent(rhi::WindowExtentRHI newExtent) override;
 
+  rhi::ResourceIdRHI
+  uploadTexture(rhi::UploadTextureRHI const& uploadTextureInfoRHI) override;
+
+  rhi::ResourceIdRHI uploadMesh(rhi::UploadMeshRHI const& meshInfo) override;
+
   VkInstance getInstance() const;
+
   void setSurface(VkSurfaceKHR surface);
 
 private:
@@ -97,6 +101,9 @@ private:
   VkSampler _vkSampler;
   VkExtent2D _windowExtent;
   bool _skipFrame = false;
+  rhi::ResourceIdRHI _nextResourceId = 0;
+  std::unordered_map<rhi::ResourceIdRHI, Texture> _texturesNew;
+  std::unordered_map<rhi::ResourceIdRHI, Mesh> _meshesNew;
 
   void initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider);
   void initSwapchain();
@@ -134,7 +141,9 @@ private:
                VmaAllocationCreateFlags allocationCreateFlags,
                VmaAllocationInfo* outAllocationInfo = nullptr) const;
   std::size_t getPaddedBufferSize(std::size_t originalSize) const;
+
   bool loadImage(char const* filePath, AllocatedImage& outAllocatedImage);
+  rhi::ResourceIdRHI consumeNewResourceId();
 };
 
 } /*namespace obsidian::vk_rhi*/

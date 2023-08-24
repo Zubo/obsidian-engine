@@ -1,8 +1,10 @@
-#include "obsidian/rhi/rhi.hpp"
+#include "obsidian/core/texture_format.hpp"
+#include "obsidian/rhi/resource_rhi.hpp"
 #include <obsidian/asset/asset.hpp>
 #include <obsidian/asset/asset_io.hpp>
 #include <obsidian/asset/texture_asset_info.hpp>
 #include <obsidian/core/logging.hpp>
+#include <obsidian/rhi/rhi.hpp>
 #include <obsidian/vk_rhi/vk_check.hpp>
 #include <obsidian/vk_rhi/vk_initializers.hpp>
 #include <obsidian/vk_rhi/vk_rhi.hpp>
@@ -17,7 +19,169 @@
 #include <cstring>
 #include <fstream>
 
+using namespace obsidian;
 using namespace obsidian::vk_rhi;
+
+rhi::ResourceIdRHI
+VulkanRHI::uploadTexture(rhi::UploadTextureRHI const& uploadTextureInfoRHI) {
+
+  std::size_t const size =
+      uploadTextureInfoRHI.width * uploadTextureInfoRHI.height *
+      core::getFormatPixelSize(uploadTextureInfoRHI.format);
+
+  AllocatedBuffer stagingBuffer = createBuffer(
+      size, VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
+
+      VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+
+  void* mappedMemory;
+  vmaMapMemory(_vmaAllocator, stagingBuffer.allocation, &mappedMemory);
+
+  uploadTextureInfoRHI.unpackFunc(reinterpret_cast<char*>(mappedMemory));
+
+  vmaUnmapMemory(_vmaAllocator, stagingBuffer.allocation);
+
+  AllocatedImage newImage;
+  VkImageUsageFlags const imageUsageFlags =
+      VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+
+  VkExtent3D extent = {};
+  extent.width = uploadTextureInfoRHI.width;
+  extent.height = uploadTextureInfoRHI.height;
+  extent.depth = 1;
+  VkFormat const format = VK_FORMAT_R8G8B8A8_SRGB;
+
+  VkImageCreateInfo vkImgCreateInfo =
+      vkinit::imageCreateInfo(imageUsageFlags, extent, format);
+
+  VmaAllocationCreateInfo imgAllocationCreateInfo = {};
+  imgAllocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+
+  vmaCreateImage(_vmaAllocator, &vkImgCreateInfo, &imgAllocationCreateInfo,
+                 &newImage.vkImage, &newImage.allocation, nullptr);
+
+  immediateSubmit([this, &extent, &newImage,
+                   &stagingBuffer](VkCommandBuffer cmd) {
+    VkImageMemoryBarrier vkImgBarrierToTransfer = {};
+    vkImgBarrierToTransfer.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    vkImgBarrierToTransfer.pNext = nullptr;
+
+    vkImgBarrierToTransfer.srcAccessMask = VK_ACCESS_NONE;
+    vkImgBarrierToTransfer.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    vkImgBarrierToTransfer.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    vkImgBarrierToTransfer.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    vkImgBarrierToTransfer.image = newImage.vkImage;
+
+    VkImageSubresourceRange& vkImgSubresourceRangeToTransfer =
+        vkImgBarrierToTransfer.subresourceRange;
+    vkImgSubresourceRangeToTransfer.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    vkImgSubresourceRangeToTransfer.baseMipLevel = 0;
+    vkImgSubresourceRangeToTransfer.levelCount = 1;
+    vkImgSubresourceRangeToTransfer.baseArrayLayer = 0;
+    vkImgSubresourceRangeToTransfer.layerCount = 1;
+
+    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                         VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
+                         nullptr, 1, &vkImgBarrierToTransfer);
+
+    VkBufferImageCopy vkBufferImgCopy = {};
+    vkBufferImgCopy.imageExtent = extent;
+    vkBufferImgCopy.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    vkBufferImgCopy.imageSubresource.layerCount = 1;
+
+    vkCmdCopyBufferToImage(cmd, stagingBuffer.buffer, newImage.vkImage,
+                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1,
+                           &vkBufferImgCopy);
+
+    VkImageMemoryBarrier vkImageBarrierToRead = {};
+    vkImageBarrierToRead.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    vkImageBarrierToRead.pNext = nullptr;
+
+    vkImageBarrierToRead.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    vkImageBarrierToRead.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    vkImageBarrierToRead.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    vkImageBarrierToRead.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    vkImageBarrierToRead.image = newImage.vkImage;
+    vkImageBarrierToRead.srcQueueFamilyIndex = 0;
+    vkImageBarrierToRead.dstQueueFamilyIndex = _graphicsQueueFamilyIndex;
+
+    VkImageSubresourceRange& vkImgSubresourceRangeToRead =
+        vkImageBarrierToRead.subresourceRange;
+    vkImgSubresourceRangeToRead.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    vkImgSubresourceRangeToRead.layerCount = 1;
+    vkImgSubresourceRangeToRead.levelCount = 1;
+
+    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr,
+                         0, nullptr, 1, &vkImageBarrierToRead);
+  });
+
+  _deletionQueue.pushFunction([this, newImage]() {
+    vmaDestroyImage(_vmaAllocator, newImage.vkImage, newImage.allocation);
+  });
+
+  vmaDestroyBuffer(_vmaAllocator, stagingBuffer.buffer,
+                   stagingBuffer.allocation);
+
+  rhi::ResourceIdRHI const newResourceId = consumeNewResourceId();
+  Texture& lostEmpireTexture = _texturesNew[newResourceId];
+
+  VkImageViewCreateInfo lostEmpImgViewCreateInfo = vkinit::imageViewCreateInfo(
+      lostEmpireTexture.image.vkImage, VK_FORMAT_R8G8B8A8_SRGB,
+      VK_IMAGE_ASPECT_COLOR_BIT);
+
+  vkCreateImageView(_vkDevice, &lostEmpImgViewCreateInfo, nullptr,
+                    &lostEmpireTexture.imageView);
+
+  _deletionQueue.pushFunction([this, lostEmpireTexture]() {
+    vkDestroyImageView(_vkDevice, lostEmpireTexture.imageView, nullptr);
+  });
+
+  return newResourceId;
+}
+
+rhi::ResourceIdRHI VulkanRHI::uploadMesh(rhi::UploadMeshRHI const& meshInfo) {
+  std::size_t const bufferSize = meshInfo.meshSize;
+  AllocatedBuffer stagingBuffer =
+      createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                   VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
+                   VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+
+  void* mappedMemory;
+  vmaMapMemory(_vmaAllocator, stagingBuffer.allocation, &mappedMemory);
+
+  meshInfo.unpackFunc(reinterpret_cast<char*>(mappedMemory));
+
+  vmaUnmapMemory(_vmaAllocator, stagingBuffer.allocation);
+
+  rhi::ResourceIdRHI const newResourceId = consumeNewResourceId();
+  Mesh& mesh = _meshesNew[newResourceId];
+
+  mesh.vertexBuffer = createBuffer(bufferSize,
+                                   VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                                       VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                                   VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0);
+
+  _deletionQueue.pushFunction([this, mesh] {
+    vmaDestroyBuffer(_vmaAllocator, mesh.vertexBuffer.buffer,
+                     mesh.vertexBuffer.allocation);
+  });
+
+  immediateSubmit(
+      [this, &stagingBuffer, &mesh, bufferSize](VkCommandBuffer cmd) {
+        VkBufferCopy vkBufferCopy = {};
+        vkBufferCopy.srcOffset = 0;
+        vkBufferCopy.dstOffset = 0;
+        vkBufferCopy.size = bufferSize;
+        vkCmdCopyBuffer(cmd, stagingBuffer.buffer, mesh.vertexBuffer.buffer, 1,
+                        &vkBufferCopy);
+      });
+
+  vmaDestroyBuffer(_vmaAllocator, stagingBuffer.buffer,
+                   stagingBuffer.allocation);
+
+  return newResourceId;
+}
 
 VkInstance VulkanRHI::getInstance() const { return _vkInstance; }
 
@@ -380,4 +544,8 @@ bool VulkanRHI::loadImage(char const* filePath,
                    stagingBuffer.allocation);
 
   return true;
+}
+
+rhi::ResourceIdRHI VulkanRHI::consumeNewResourceId() {
+  return _nextResourceId++;
 }

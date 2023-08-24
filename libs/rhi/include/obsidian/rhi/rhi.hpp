@@ -1,14 +1,12 @@
 #pragma once
 
 #include <cstdint>
+#include <obsidian/rhi/resource_rhi.hpp>
 
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 
 namespace obsidian::rhi {
-
-using RHIResourceId = std::int64_t;
-constexpr RHIResourceId rhiIdUninitialized = ~0;
 
 struct WindowExtentRHI {
   std::uint32_t width;
@@ -40,6 +38,11 @@ public:
   virtual void draw(rhi::SceneGlobalParams const& sceneGlobalParams) = 0;
 
   virtual void updateExtent(rhi::WindowExtentRHI extent) = 0;
+
+  virtual rhi::ResourceIdRHI
+  uploadTexture(UploadTextureRHI const& textureInfo) = 0;
+
+  virtual rhi::ResourceIdRHI uploadMesh(UploadMeshRHI const& meshInfo) = 0;
 };
 
 class ISurfaceProviderRHI {
