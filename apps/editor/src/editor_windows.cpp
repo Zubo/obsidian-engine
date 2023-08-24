@@ -1,17 +1,24 @@
+#include <cstring>
 #include <obsidian/asset_converter/asset_converter.hpp>
 #include <obsidian/editor/data.hpp>
 #include <obsidian/editor/editor_windows.hpp>
+#include <obsidian/project/project.hpp>
 
 #include <SDL2/SDL.h>
 #include <backends/imgui_impl_sdl2.h>
 #include <backends/imgui_impl_sdlrenderer2.h>
 #include <imgui.h>
+#include <imgui_internal.h>
 
 #include <array>
 
 namespace obsidian::editor {
 
 constexpr const char* sceneWindowName = "Scene";
+constexpr std::size_t maxPathSize = 256;
+constexpr std::size_t maxFileSize = 64;
+static obsidian::project::Project project;
+namespace fs = std::filesystem;
 
 void sceneTab(SceneData& sceneData) {
   if (ImGui::BeginTabItem("Scene")) {
@@ -39,17 +46,51 @@ void sceneTab(SceneData& sceneData) {
 
 void assetsTab() {
   if (ImGui::BeginTabItem("Assets")) {
-
-    constexpr std::size_t maxFilePathSize = 256;
-
-    static char srcFilePath[maxFilePathSize];
+    static char srcFilePath[maxPathSize];
     ImGui::InputText("Src file path", srcFilePath, std::size(srcFilePath));
 
-    static char dstFilePath[maxFilePathSize];
-    ImGui::InputText("Dst file path", dstFilePath, std::size(dstFilePath));
+    static char dstFileName[maxPathSize];
+    ImGui::InputText("Dst file name", dstFileName, std::size(dstFileName));
 
     if (ImGui::Button("Convert")) {
-      obsidian::asset_converter::convertAsset(srcFilePath, dstFilePath);
+      fs::path destPath = project.getAbsolutePath(dstFileName);
+      obsidian::asset_converter::convertAsset(srcFilePath, destPath);
+    }
+
+    ImGui::EndTabItem();
+  }
+}
+
+void projectTab() {
+
+  if (ImGui::BeginTabItem("Project")) {
+    fs::path projPath = project.getOpenProjectPath();
+
+    static char projPathBuf[maxPathSize];
+    ImGui::InputText("Project Path", projPathBuf, std::size(projPathBuf));
+
+    std::size_t projPathLen = std::strlen(projPathBuf);
+    bool disabled = projPathLen == 0;
+
+    if (disabled) {
+      ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+      ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
+    }
+
+    if (ImGui::Button("Open")) {
+      project.open(projPathBuf);
+    }
+
+    if (disabled) {
+      ImGui::PopItemFlag();
+      ImGui::PopStyleVar();
+    }
+
+    if (!project.getOpenProjectPath().empty()) {
+      if (ImGui::BeginTabBar("EditorTabBar")) {
+        assetsTab();
+        ImGui::EndTabBar();
+      }
     }
 
     ImGui::EndTabItem();
@@ -67,7 +108,7 @@ void editor(SDL_Renderer& renderer, ImGuiIO& imguiIO, DataContext& context) {
   ImGui::Begin("EditorWindow");
   if (ImGui::BeginTabBar("EditorTabBar")) {
     sceneTab(context.sceneData);
-    assetsTab();
+    projectTab();
 
     ImGui::EndTabBar();
   }

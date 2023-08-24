@@ -31,3 +31,7 @@ fs::path
 Project::getRelativeToProjectRootPath(fs::path const& absolutePath) const {
   return fs::relative(absolutePath, _projectRootPath);
 }
+
+std::filesystem::path Project::getOpenProjectPath() const {
+  return _projectRootPath;
+}

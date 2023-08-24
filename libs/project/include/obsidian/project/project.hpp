@@ -8,6 +8,8 @@ class Project {
 public:
   bool open(std::filesystem::path projectRootPath);
 
+  std::filesystem::path getOpenProjectPath() const;
+
   std::filesystem::path
   getAbsolutePath(std::filesystem::path const& relativePath) const;
 

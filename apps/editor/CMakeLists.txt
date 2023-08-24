@@ -14,6 +14,7 @@ target_include_directories(ObsidianEditor
 target_link_libraries(ObsidianEditor
     PRIVATE
         AssetConverter
+        Project
         ObsidianEngine
         SDLWrapper
         DearImgui

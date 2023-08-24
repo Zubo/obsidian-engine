@@ -17,9 +17,6 @@ void reportInvalidArguments() {
 }
 
 int main(int argc, char** argv) {
-  static std::unordered_map<std::string, std::string> extensionMap = {
-      {".png", ".obstex"}, {".obj", ".obsmesh"}, {".spirv", ".obsshad"}};
-
   if (argc != 5) {
     reportInvalidArguments();
     return -1;
@@ -66,10 +63,10 @@ int main(int argc, char** argv) {
     }
 
     fs::path srcFilePath = entry.path();
-    auto const extensionMapping =
-        extensionMap.find(srcFilePath.extension().string());
+    auto const extensionMapping = obsidian::asset_converter::extensionMap.find(
+        srcFilePath.extension().string());
 
-    if (extensionMapping == extensionMap.cend()) {
+    if (extensionMapping == obsidian::asset_converter::extensionMap.cend()) {
       continue;
     }
 

@@ -20,7 +20,24 @@ namespace fs = std::filesystem;
 
 namespace obsidian::asset_converter {
 
-bool convertPngToAsset(fs::path const srcPath, fs::path const& dstPath) {
+std::unordered_map<std::string, std::string> extensionMap = {
+    {".png", ".obstex"}, {".obj", ".obsmesh"}, {".spirv", ".obsshad"}};
+
+bool saveAsset(fs::path const& srcPath, fs::path const& dstPath,
+               asset::Asset const& textureAsset) {
+  if (!dstPath.has_extension()) {
+    auto const extensionIter = extensionMap.find(srcPath.extension());
+
+    if (extensionIter != extensionMap.cend()) {
+      fs::path dstPathExt = dstPath;
+      dstPathExt.replace_extension(extensionIter->second);
+      return asset::saveToFile(dstPathExt, textureAsset);
+    }
+  }
+  return asset::saveToFile(dstPath, textureAsset);
+}
+
+bool convertPngToAsset(fs::path const& srcPath, fs::path const& dstPath) {
   int w, h, channelCnt;
 
   unsigned char* data =
@@ -44,7 +61,7 @@ bool convertPngToAsset(fs::path const srcPath, fs::path const& dstPath) {
 
   OBS_LOG_MSG("Successfully converted " + srcPath.string() +
               " to asset format.");
-  return asset::saveToFile(dstPath, outAsset);
+  return saveAsset(srcPath, dstPath, outAsset);
 }
 
 template <typename V>
@@ -134,9 +151,7 @@ bool convertObjToAsset(fs::path const& srcPath, fs::path const& dstPath) {
     return false;
   }
 
-  asset::saveToFile(dstPath, meshAsset);
-
-  return true;
+  return saveAsset(srcPath, dstPath, meshAsset);
 } // namespace obsidian::asset_converter
 
 bool convertSpirvToAsset(fs::path const& srcPath, fs::path const& dstPath) {
@@ -156,13 +171,13 @@ bool convertSpirvToAsset(fs::path const& srcPath, fs::path const& dstPath) {
 
   file.close();
 
-  asset::Asset outAsset;
+  asset::Asset shaderAsset;
   asset::ShaderAssetInfo shaderAssetInfo;
   shaderAssetInfo.unpackedSize = buffer.size();
   shaderAssetInfo.compressionMode = asset::CompressionMode::none;
 
   bool const packResult =
-      asset::packShader(shaderAssetInfo, std::move(buffer), outAsset);
+      asset::packShader(shaderAssetInfo, std::move(buffer), shaderAsset);
 
   if (!packResult) {
     return false;
@@ -170,7 +185,7 @@ bool convertSpirvToAsset(fs::path const& srcPath, fs::path const& dstPath) {
 
   OBS_LOG_MSG("Successfully converted " + srcPath.string() +
               " to asset format.");
-  return asset::saveToFile(dstPath, outAsset);
+  return saveAsset(srcPath, dstPath, shaderAsset);
 }
 
 bool convertAsset(fs::path const& srcPath, fs::path const& dstPath) {
