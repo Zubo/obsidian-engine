@@ -69,18 +69,21 @@ int main(int, char**) {
   ImGui_ImplSDL2_InitForSDLRenderer(editorWindow, editorUIRenderer);
   ImGui_ImplSDLRenderer2_Init(editorUIRenderer);
 
-  obsidian::ObsidianEngine engine;
-  auto& sdlBackend = obsidian::sdl_wrapper::SDLBackend::instance();
+  using namespace obsidian;
+  ObsidianEngine engine;
+  auto& sdlBackend = sdl_wrapper::SDLBackend::instance();
 
-  engine.init(sdlBackend);
+  bool engineStarted = false;
 
-  obsidian::ObsidianEngineContext& engineContext = engine.getContext();
+  // engine.init(sdlBackend);
 
-  obsidian::editor::DataContext dataContext;
+  ObsidianEngineContext& engineContext = engine.getContext();
+
+  editor::DataContext dataContext;
 
   bool shouldQuit = false;
 
-  while (!shouldQuit && !engineContext.window.shouldQuit()) {
+  while (!shouldQuit) {
     ZoneScoped;
 
     sdlBackend.pollEvents();
@@ -98,14 +101,17 @@ int main(int, char**) {
       }
     }
 
-    engineContext.window.pollEvents();
-    obsidian::editor::editor(*editorUIRenderer, io, dataContext);
-    obsidian::scene::SceneState& sceneState = engineContext.scene.getState();
-    sceneState.ambientColor = dataContext.sceneData.ambientColor;
-    sceneState.sunColor = dataContext.sceneData.sunlightColor;
-    sceneState.sunDirection = dataContext.sceneData.sunlightDirection;
+    editor::editor(*editorUIRenderer, io, dataContext, engine, engineStarted);
 
-    engine.processFrame();
+    if (engineStarted) {
+      engineContext.window.pollEvents();
+      scene::SceneState& sceneState = engineContext.scene.getState();
+      sceneState.ambientColor = dataContext.sceneData.ambientColor;
+      sceneState.sunColor = dataContext.sceneData.sunlightColor;
+      sceneState.sunDirection = dataContext.sceneData.sunlightDirection;
+
+      engine.processFrame();
+    }
 
     FrameMark;
   }

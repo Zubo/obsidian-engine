@@ -1,12 +1,14 @@
-#include <cstring>
 #include <obsidian/asset_converter/asset_converter.hpp>
 #include <obsidian/editor/data.hpp>
 #include <obsidian/editor/editor_windows.hpp>
+#include <obsidian/obsidian_engine/obsidian_engine.hpp>
 #include <obsidian/project/project.hpp>
+#include <obsidian/sdl_wrapper/sdl_backend.hpp>
 
 #include <SDL2/SDL.h>
 #include <backends/imgui_impl_sdl2.h>
 #include <backends/imgui_impl_sdlrenderer2.h>
+#include <cstring>
 #include <imgui.h>
 #include <imgui_internal.h>
 
@@ -20,25 +22,34 @@ constexpr std::size_t maxFileSize = 64;
 static obsidian::project::Project project;
 namespace fs = std::filesystem;
 
-void sceneTab(SceneData& sceneData) {
-  if (ImGui::BeginTabItem("Scene")) {
-    ImGui::SliderFloat("Sun direction X", &sceneData.sunlightDirection.x, -1.f,
-                       1.f);
-    ImGui::SliderFloat("Sun direction Y", &sceneData.sunlightDirection.y, -1.f,
-                       1.f);
-    ImGui::SliderFloat("Sun direction Z", &sceneData.sunlightDirection.z, -1.f,
-                       1.f);
+void engineTab(SceneData& sceneData, ObsidianEngine& engine,
+               bool& engineStarted) {
+  if (ImGui::BeginTabItem("Engine")) {
+    if (engineStarted) {
+      ImGui::SliderFloat("Sun direction X", &sceneData.sunlightDirection.x,
+                         -1.f, 1.f);
+      ImGui::SliderFloat("Sun direction Y", &sceneData.sunlightDirection.y,
+                         -1.f, 1.f);
+      ImGui::SliderFloat("Sun direction Z", &sceneData.sunlightDirection.z,
+                         -1.f, 1.f);
 
-    ImGui::SliderFloat("Sun color r", &sceneData.sunlightColor.r, 0.f, 10.f);
-    ImGui::SliderFloat("Sun color g", &sceneData.sunlightColor.g, 0.f, 10.f);
-    ImGui::SliderFloat("Sun color b", &sceneData.sunlightColor.b, 0.f, 10.f);
+      ImGui::SliderFloat("Sun color r", &sceneData.sunlightColor.r, 0.f, 10.f);
+      ImGui::SliderFloat("Sun color g", &sceneData.sunlightColor.g, 0.f, 10.f);
+      ImGui::SliderFloat("Sun color b", &sceneData.sunlightColor.b, 0.f, 10.f);
 
-    ImGui::SliderFloat("Ambient light color r", &sceneData.ambientColor.r, 0.f,
-                       1.f);
-    ImGui::SliderFloat("Ambient light color g", &sceneData.ambientColor.g, 0.f,
-                       1.f);
-    ImGui::SliderFloat("Ambient light color b", &sceneData.ambientColor.b, 0.f,
-                       1.f);
+      ImGui::SliderFloat("Ambient light color r", &sceneData.ambientColor.r,
+                         0.f, 1.f);
+      ImGui::SliderFloat("Ambient light color g", &sceneData.ambientColor.g,
+                         0.f, 1.f);
+      ImGui::SliderFloat("Ambient light color b", &sceneData.ambientColor.b,
+                         0.f, 1.f);
+
+    } else {
+      if (ImGui::Button("Start Engine")) {
+        engineStarted = true;
+        engine.init(sdl_wrapper::SDLBackend::instance());
+      }
+    }
 
     ImGui::EndTabItem();
   }
@@ -89,7 +100,6 @@ void materialCreatorTab() {
 }
 
 void projectTab() {
-
   if (ImGui::BeginTabItem("Project")) {
     fs::path projPath = project.getOpenProjectPath();
 
@@ -125,7 +135,8 @@ void projectTab() {
   }
 }
 
-void editor(SDL_Renderer& renderer, ImGuiIO& imguiIO, DataContext& context) {
+void editor(SDL_Renderer& renderer, ImGuiIO& imguiIO, DataContext& context,
+            ObsidianEngine& engine, bool& engineStarted) {
   ImGui_ImplSDLRenderer2_NewFrame();
   ImGui_ImplSDL2_NewFrame();
   ImGui::NewFrame();
@@ -135,7 +146,8 @@ void editor(SDL_Renderer& renderer, ImGuiIO& imguiIO, DataContext& context) {
 
   ImGui::Begin("EditorWindow");
   if (ImGui::BeginTabBar("EditorTabBar")) {
-    sceneTab(context.sceneData);
+
+    engineTab(context.sceneData, engine, engineStarted);
     projectTab();
 
     ImGui::EndTabBar();
