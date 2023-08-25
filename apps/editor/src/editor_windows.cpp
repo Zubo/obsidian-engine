@@ -1,6 +1,9 @@
+#include "obsidian/core/logging.hpp"
+#include <filesystem>
 #include <obsidian/asset_converter/asset_converter.hpp>
 #include <obsidian/editor/data.hpp>
 #include <obsidian/editor/editor_windows.hpp>
+#include <obsidian/editor/settings.hpp>
 #include <obsidian/obsidian_engine/obsidian_engine.hpp>
 #include <obsidian/project/project.hpp>
 #include <obsidian/sdl_wrapper/sdl_backend.hpp>
@@ -13,6 +16,7 @@
 #include <imgui_internal.h>
 
 #include <array>
+#include <iostream>
 
 namespace obsidian::editor {
 
@@ -26,23 +30,43 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
                bool& engineStarted) {
   if (ImGui::BeginTabItem("Engine")) {
     if (engineStarted) {
-      ImGui::SliderFloat("Sun direction X", &sceneData.sunlightDirection.x,
-                         -1.f, 1.f);
-      ImGui::SliderFloat("Sun direction Y", &sceneData.sunlightDirection.y,
-                         -1.f, 1.f);
-      ImGui::SliderFloat("Sun direction Z", &sceneData.sunlightDirection.z,
-                         -1.f, 1.f);
+      if (ImGui::CollapsingHeader("Global Scene Params")) {
+        ImGui::SliderFloat("Sun direction X", &sceneData.sunlightDirection.x,
+                           -1.f, 1.f);
+        ImGui::SliderFloat("Sun direction Y", &sceneData.sunlightDirection.y,
+                           -1.f, 1.f);
+        ImGui::SliderFloat("Sun direction Z", &sceneData.sunlightDirection.z,
+                           -1.f, 1.f);
 
-      ImGui::SliderFloat("Sun color r", &sceneData.sunlightColor.r, 0.f, 10.f);
-      ImGui::SliderFloat("Sun color g", &sceneData.sunlightColor.g, 0.f, 10.f);
-      ImGui::SliderFloat("Sun color b", &sceneData.sunlightColor.b, 0.f, 10.f);
+        ImGui::SliderFloat("Sun color r", &sceneData.sunlightColor.r, 0.f,
+                           10.f);
+        ImGui::SliderFloat("Sun color g", &sceneData.sunlightColor.g, 0.f,
+                           10.f);
+        ImGui::SliderFloat("Sun color b", &sceneData.sunlightColor.b, 0.f,
+                           10.f);
 
-      ImGui::SliderFloat("Ambient light color r", &sceneData.ambientColor.r,
-                         0.f, 1.f);
-      ImGui::SliderFloat("Ambient light color g", &sceneData.ambientColor.g,
-                         0.f, 1.f);
-      ImGui::SliderFloat("Ambient light color b", &sceneData.ambientColor.b,
-                         0.f, 1.f);
+        ImGui::SliderFloat("Ambient light color r", &sceneData.ambientColor.r,
+                           0.f, 1.f);
+        ImGui::SliderFloat("Ambient light color g", &sceneData.ambientColor.g,
+                           0.f, 1.f);
+        ImGui::SliderFloat("Ambient light color b", &sceneData.ambientColor.b,
+                           0.f, 1.f);
+      }
+
+      if (ImGui::CollapsingHeader("Scene")) {
+        if (ImGui::TreeNode("Object Hierarchy")) {
+          if (ImGui::TreeNode("Game obj")) {
+            ImGui::TreePop();
+            if (ImGui::Button("+")) {
+              // Add object
+            }
+          }
+          ImGui::TreePop();
+          if (ImGui::Button("+")) {
+            // Add object
+          }
+        }
+      }
 
     } else {
       if (ImGui::Button("Start Engine")) {
@@ -56,7 +80,7 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
 }
 
 void assetsTab() {
-  if (ImGui::BeginTabItem("Assets")) {
+  if (ImGui::BeginTabItem("Import")) {
     static char srcFilePath[maxPathSize];
     ImGui::InputText("Src file path", srcFilePath, std::size(srcFilePath));
 
@@ -116,6 +140,7 @@ void projectTab() {
 
     if (ImGui::Button("Open")) {
       project.open(projPathBuf);
+      setLastOpenProject(projPathBuf);
     }
 
     if (disabled) {
@@ -123,7 +148,17 @@ void projectTab() {
       ImGui::PopStyleVar();
     }
 
-    if (!project.getOpenProjectPath().empty()) {
+    if (project.getOpenProjectPath().empty()) {
+      fs::path lastOpenProject = getLastOpenProject();
+
+      if (!lastOpenProject.empty()) {
+        if (ImGui::Button("Load last project")) {
+          project.open(lastOpenProject);
+          std::strncpy(projPathBuf, lastOpenProject.c_str(),
+                       lastOpenProject.string().size());
+        }
+      }
+    } else {
       if (ImGui::BeginTabBar("EditorTabBar")) {
         assetsTab();
         materialCreatorTab();
@@ -168,6 +203,19 @@ void editor(SDL_Renderer& renderer, ImGuiIO& imguiIO, DataContext& context,
   SDL_RenderClear(&renderer);
   ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData());
   SDL_RenderPresent(&renderer);
+}
+
+void fileDropped(const char* file) {
+
+  if (project.getOpenProjectPath().empty()) {
+    OBS_LOG_ERR("File dropped in but no project was open.");
+    return;
+  }
+
+  fs::path const srcPath{file};
+  fs::path destPath = project.getAbsolutePath(srcPath.filename());
+  destPath.replace_extension("");
+  obsidian::asset_converter::convertAsset(srcPath, destPath);
 }
 
 } /*namespace obsidian::editor*/

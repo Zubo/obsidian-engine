@@ -3,7 +3,9 @@ cmake_minimum_required(VERSION 3.24)
 add_executable(ObsidianEditor
     "src/main.cpp"
     "src/editor_windows.cpp"
+    "src/settings.cpp"
     "include/obsidian/editor/editor_windows.hpp"
+    "include/obsidian/editor/settings.hpp"
 )
 
 target_include_directories(ObsidianEditor
@@ -20,4 +22,5 @@ target_link_libraries(ObsidianEditor
         DearImgui
         TracyClient
         Core
+        nlohmann_json::nlohmann_json
 )

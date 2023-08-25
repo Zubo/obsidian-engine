@@ -99,6 +99,11 @@ int main(int, char**) {
           e.window.event == SDL_WINDOWEVENT_CLOSE) {
         shouldQuit = true;
       }
+      if (e.type == SDL_DROPFILE) {
+        if (e.drop.windowID == SDL_GetWindowID(editorWindow)) {
+          editor::fileDropped(e.drop.file);
+        }
+      }
     }
 
     editor::editor(*editorUIRenderer, io, dataContext, engine, engineStarted);

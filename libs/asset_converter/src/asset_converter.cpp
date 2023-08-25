@@ -21,7 +21,7 @@ namespace fs = std::filesystem;
 namespace obsidian::asset_converter {
 
 std::unordered_map<std::string, std::string> extensionMap = {
-    {".png", ".obstex"}, {".obj", ".obsmesh"}, {".spirv", ".obsshad"}};
+    {".png", ".obstex"}, {".obj", ".obsmesh"}, {".spv", ".obsshad"}};
 
 bool saveAsset(fs::path const& srcPath, fs::path const& dstPath,
                asset::Asset const& textureAsset) {
@@ -200,7 +200,7 @@ bool convertAsset(fs::path const& srcPath, fs::path const& dstPath) {
     return convertPngToAsset(srcPath, dstPath);
   } else if (extension == ".obj") {
     return convertObjToAsset(srcPath, dstPath);
-  } else if (extension == ".spirv") {
+  } else if (extension == ".spv") {
     return convertSpirvToAsset(srcPath, dstPath);
   }
 
