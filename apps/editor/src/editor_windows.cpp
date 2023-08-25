@@ -205,23 +205,16 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
                            meshesPathStringPtrs.size())) {
           }
 
-          ImGui::SameLine();
-
-          if (ImGui::Button("Apply Mesh")) {
-            selectedGameObject->meshResource =
-                &engine.getContext().resourceManager.getResource(
-                    meshesInProj[selectedObjectMesh]);
-          }
-
           static int selectedMaterial = 0;
           if (ImGui::Combo("Available Materials", &selectedMaterial,
                            materialPathStringPtrs.data(),
                            materialPathStringPtrs.size())) {
           }
 
-          ImGui::SameLine();
-
-          if (ImGui::Button("Apply Material")) {
+          if (ImGui::Button("Apply Mesh and Material")) {
+            selectedGameObject->meshResource =
+                &engine.getContext().resourceManager.getResource(
+                    meshesInProj[selectedObjectMesh]);
             selectedGameObject->materialResource =
                 &engine.getContext().resourceManager.getResource(
                     project.getAbsolutePath(materialsInProj[selectedMaterial]));

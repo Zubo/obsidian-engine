@@ -164,6 +164,7 @@ rhi::ResourceIdRHI VulkanRHI::uploadMesh(rhi::UploadMeshRHI const& meshInfo) {
                                    VK_BUFFER_USAGE_TRANSFER_DST_BIT |
                                        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                                    VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0);
+  mesh.vertexCount = meshInfo.vertexCount;
 
   immediateSubmit(
       [this, &stagingBuffer, &mesh, bufferSize](VkCommandBuffer cmd) {
@@ -272,7 +273,10 @@ void VulkanRHI::unloadMaterial(rhi::ResourceIdRHI resourceIdRHI) {
 }
 
 void VulkanRHI::submitDrawCall(rhi::DrawCall const& drawCall) {
-  _drawCallQueue.emplace_back(drawCall);
+  VKDrawCall& vkDrawCall = _drawCallQueue.emplace_back();
+  vkDrawCall.model = drawCall.transform;
+  vkDrawCall.mesh = &_meshesNew[drawCall.meshId];
+  vkDrawCall.material = &_materialsNew[drawCall.materialId];
 }
 
 VkInstance VulkanRHI::getInstance() const { return _vkInstance; }

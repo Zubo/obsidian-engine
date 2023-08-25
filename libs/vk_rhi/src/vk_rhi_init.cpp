@@ -505,6 +505,14 @@ void VulkanRHI::initDefaultPipelines() {
   meshPipelineLayoutInfo.setLayoutCount = meshDescriptorSetLayouts.size();
   meshPipelineLayoutInfo.pSetLayouts = meshDescriptorSetLayouts.data();
 
+  VkPushConstantRange vkPushConstantRange;
+  vkPushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+  vkPushConstantRange.offset = 0;
+  vkPushConstantRange.size = sizeof(MeshPushConstants);
+
+  meshPipelineLayoutInfo.pushConstantRangeCount = 1;
+  meshPipelineLayoutInfo.pPushConstantRanges = &vkPushConstantRange;
+
   VK_CHECK(vkCreatePipelineLayout(_vkDevice, &meshPipelineLayoutInfo, nullptr,
                                   &_vkMeshPipelineLayout));
 
@@ -514,7 +522,7 @@ void VulkanRHI::initDefaultPipelines() {
 
   VkShaderModule meshVertShader;
 
-  if (!loadShaderModule("shaders/mesh.vert.spv", &meshVertShader)) {
+  if (!loadShaderModule("shaders/mesh-vert.spv", &meshVertShader)) {
     OBS_LOG_ERR("Failed to build the mesh vertex shader module");
   } else {
     OBS_LOG_MSG("Mesh vertex shader successfully loaded");
@@ -522,7 +530,7 @@ void VulkanRHI::initDefaultPipelines() {
 
   VkShaderModule meshFragShader;
 
-  if (!loadShaderModule("shaders/mesh.frag.spv", &meshFragShader)) {
+  if (!loadShaderModule("shaders/mesh-frag.spv", &meshFragShader)) {
     OBS_LOG_ERR("Failed to build the mesh fragment shader module")
   } else {
     OBS_LOG_MSG("Mesh fragment shader successfully loaded");
@@ -567,7 +575,8 @@ void VulkanRHI::initDefaultPipelines() {
   litMeshPipelineLayoutCreateInfo.pSetLayouts = vkLitMeshPipelineLayouts.data();
   litMeshPipelineLayoutCreateInfo.setLayoutCount =
       vkLitMeshPipelineLayouts.size();
-
+  litMeshPipelineLayoutCreateInfo.pushConstantRangeCount = 1;
+  litMeshPipelineLayoutCreateInfo.pPushConstantRanges = &vkPushConstantRange;
   VK_CHECK(vkCreatePipelineLayout(_vkDevice, &litMeshPipelineLayoutCreateInfo,
                                   nullptr, &_vkLitMeshPipelineLayout));
 
@@ -581,7 +590,7 @@ void VulkanRHI::initDefaultPipelines() {
 
   VkShaderModule litMeshVertShader;
 
-  if (!loadShaderModule("shaders/mesh-light.vert.dbg.spv",
+  if (!loadShaderModule("shaders/mesh-light-vert-dbg.spv",
                         &litMeshVertShader)) {
     OBS_LOG_ERR("Failed to build the lit mesh vertex shader module");
   } else {
@@ -590,7 +599,7 @@ void VulkanRHI::initDefaultPipelines() {
 
   VkShaderModule litMeshFragShader;
 
-  if (!loadShaderModule("shaders/mesh-light.frag.dbg.spv",
+  if (!loadShaderModule("shaders/mesh-light-frag-dbg.spv",
                         &litMeshFragShader)) {
     OBS_LOG_ERR("Failed to build the lit mesh fragment shader module");
   } else {
@@ -654,7 +663,7 @@ void VulkanRHI::initShadowPassPipeline() {
 
   VkShaderModule shadowPassVertShader;
 
-  if (!loadShaderModule("shaders/shadow-pass.vert.spv",
+  if (!loadShaderModule("shaders/shadow-pass-vert.spv",
                         &shadowPassVertShader)) {
     OBS_LOG_ERR("Failed to build the shadow pass vertex shader module");
   } else {
@@ -663,7 +672,7 @@ void VulkanRHI::initShadowPassPipeline() {
 
   VkShaderModule shadowPassFragShader;
 
-  if (!loadShaderModule("shaders/empty.frag.spv", &shadowPassFragShader)) {
+  if (!loadShaderModule("shaders/empty-frag.spv", &shadowPassFragShader)) {
     OBS_LOG_ERR("Failed to build the empty fragment shader module");
   } else {
     OBS_LOG_MSG("Empty fragment shader successfully loaded");
@@ -690,6 +699,14 @@ void VulkanRHI::initShadowPassPipeline() {
       shadowPassDescriptorSetLayouts.size();
   vkShadowPassPipelineLayoutCreateInfo.pSetLayouts =
       shadowPassDescriptorSetLayouts.data();
+
+  VkPushConstantRange vkPushConstantRange;
+  vkPushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+  vkPushConstantRange.offset = 0;
+  vkPushConstantRange.size = sizeof(MeshPushConstants);
+  vkShadowPassPipelineLayoutCreateInfo.pushConstantRangeCount = 1;
+  vkShadowPassPipelineLayoutCreateInfo.pPushConstantRanges =
+      &vkPushConstantRange;
 
   VK_CHECK(vkCreatePipelineLayout(_vkDevice,
                                   &vkShadowPassPipelineLayoutCreateInfo,
@@ -865,16 +882,14 @@ void VulkanRHI::initDescriptors() {
       vmaDestroyBuffer(_vmaAllocator, buffer.buffer, buffer.allocation);
     });
 
-    VkDescriptorBufferInfo objectDataDescriptorBufferInfo = {};
-    objectDataDescriptorBufferInfo.buffer = frameData.vkObjectDataBuffer.buffer;
-    objectDataDescriptorBufferInfo.offset = 0;
-    objectDataDescriptorBufferInfo.range = VK_WHOLE_SIZE;
+    // VkDescriptorBufferInfo objectDataDescriptorBufferInfo = {};
+    // objectDataDescriptorBufferInfo.buffer =
+    // frameData.vkObjectDataBuffer.buffer;
+    // objectDataDescriptorBufferInfo.offset = 0;
+    // objectDataDescriptorBufferInfo.range = VK_WHOLE_SIZE;
 
     DescriptorBuilder::begin(_vkDevice, _descriptorAllocator,
                              _descriptorLayoutCache)
-        .bindBuffer(0, objectDataDescriptorBufferInfo,
-                    VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-                    VK_SHADER_STAGE_VERTEX_BIT)
         .build(frameData.vkObjectDataDescriptorSet,
                _vkObjectDataDescriptorSetLayout);
   }

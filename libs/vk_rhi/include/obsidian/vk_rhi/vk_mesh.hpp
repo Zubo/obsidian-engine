@@ -22,7 +22,7 @@ struct Vertex {
 };
 
 struct Mesh {
-  std::vector<Vertex> vertices;
+  VkDeviceSize vertexCount;
   AllocatedBuffer vertexBuffer;
 
   bool load(char const* filePath);

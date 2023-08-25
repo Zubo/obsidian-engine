@@ -124,7 +124,7 @@ private:
   std::unordered_map<rhi::ResourceIdRHI, VkShaderModule> _shaderModules;
   std::unordered_map<core::MaterialType, PipelineBuilder> _pipelineBuilders;
   std::unordered_map<rhi::ResourceIdRHI, Material> _materialsNew;
-  std::vector<rhi::DrawCall> _drawCallQueue;
+  std::vector<VKDrawCall> _drawCallQueue;
 
   void initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider);
   void initSwapchain();
@@ -147,9 +147,9 @@ private:
   void loadMeshes();
   void uploadMesh(Mesh& mesh);
   FrameData& getCurrentFrameData();
-  void drawObjects(VkCommandBuffer cmd, RenderObject* first, int count,
+  void drawObjects(VkCommandBuffer cmd, VKDrawCall* first, int count,
                    rhi::SceneGlobalParams const& sceneParams);
-  void drawShadowPass(VkCommandBuffer, RenderObject* first, int count,
+  void drawShadowPass(VkCommandBuffer, VKDrawCall* first, int count,
                       rhi::SceneGlobalParams const& sceneGlobalParams);
   Material* createMaterial(VkPipeline pipeline, VkPipelineLayout pipelineLayout,
                            std::string const& name,

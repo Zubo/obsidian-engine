@@ -36,8 +36,7 @@ struct RenderObject {
 };
 
 struct MeshPushConstants {
-  glm::vec4 data;
-  glm::mat4 renderMatrix;
+  glm::mat4 modelMatrix;
 };
 
 struct GPUCameraData {
@@ -56,6 +55,12 @@ struct GPUSceneData {
 
 struct GPUObjectData {
   glm::mat4 modelMat;
+};
+
+struct VKDrawCall {
+  glm::mat4 model;
+  Mesh* mesh;
+  Material* material;
 };
 
 struct ImmediateSubmitContext {

@@ -51,7 +51,7 @@ private:
   GameObjectId _objectId;
   glm::vec3 _position = {};
   glm::vec3 _euler = {};
-  glm::vec3 _scale = {};
+  glm::vec3 _scale = {1.0f, 1.0f, 1.0f};
   glm::mat4 _transform{1.0f};
 
   std::vector<GameObject> _children;

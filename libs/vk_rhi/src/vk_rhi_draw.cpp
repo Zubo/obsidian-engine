@@ -84,7 +84,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   vkCmdBeginRenderPass(cmd, &vkShadowRenderPassBeginInfo,
                        VK_SUBPASS_CONTENTS_INLINE);
 
-  drawShadowPass(cmd, _renderObjects.data(), _renderObjects.size(),
+  drawShadowPass(cmd, _drawCallQueue.data(), _drawCallQueue.size(),
                  sceneParams);
 
   vkCmdEndRenderPass(cmd);
@@ -120,7 +120,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
 
   vkCmdBeginRenderPass(cmd, &vkRenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-  drawObjects(cmd, _renderObjects.data(), _renderObjects.size(), sceneParams);
+  drawObjects(cmd, _drawCallQueue.data(), _drawCallQueue.size(), sceneParams);
 
   vkCmdEndRenderPass(cmd);
   VK_CHECK(vkEndCommandBuffer(cmd));
@@ -167,7 +167,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   FrameMark;
 }
 
-void VulkanRHI::drawObjects(VkCommandBuffer cmd, RenderObject* first, int count,
+void VulkanRHI::drawObjects(VkCommandBuffer cmd, VKDrawCall* first, int count,
                             rhi::SceneGlobalParams const& sceneParams) {
   ZoneScoped;
   glm::mat4 view = glm::mat4{1.f};
@@ -226,13 +226,13 @@ void VulkanRHI::drawObjects(VkCommandBuffer cmd, RenderObject* first, int count,
   Material const* lastMaterial;
   for (int i = 0; i < count; ++i) {
     ZoneScopedN("Draw Object");
-    RenderObject const& obj = first[i];
+    VKDrawCall const& drawCall = first[i];
 
-    assert(obj.material && "Error: Missing material.");
-    Material const& material = *obj.material;
+    assert(drawCall.material && "Error: Missing material.");
+    Material const& material = *drawCall.material;
 
-    assert(obj.mesh && "Error: Missing mesh");
-    Mesh const& mesh = *obj.mesh;
+    assert(drawCall.mesh && "Error: Missing mesh");
+    Mesh const& mesh = *drawCall.mesh;
 
     constexpr VkPipelineBindPoint pipelineBindPoint =
         VK_PIPELINE_BIND_POINT_GRAPHICS;
@@ -258,13 +258,15 @@ void VulkanRHI::drawObjects(VkCommandBuffer cmd, RenderObject* first, int count,
 
     VkDeviceSize const bufferOffset = 0;
     vkCmdBindVertexBuffers(cmd, 0, 1, &mesh.vertexBuffer.buffer, &bufferOffset);
-
-    vkCmdDraw(cmd, mesh.vertices.size(), 1, 0, i);
+    vkCmdPushConstants(cmd, drawCall.material->vkPipelineLayout,
+                       VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants),
+                       &drawCall.model);
+    vkCmdDraw(cmd, mesh.vertexCount * 3, 1, 0, i);
   }
 }
 
 void VulkanRHI::drawShadowPass(
-    VkCommandBuffer cmd, RenderObject* first, int count,
+    VkCommandBuffer cmd, VKDrawCall* first, int count,
     rhi::SceneGlobalParams const& sceneGlobalParams) {
   ZoneScoped;
 
@@ -315,14 +317,16 @@ void VulkanRHI::drawShadowPass(
       &gpuCameraDataDynamicOffset);
 
   for (std::size_t i = 0; i < count; ++i) {
-    RenderObject& renderObject = first[i];
-    assert(renderObject.mesh && "Error: Missing mesh");
+    VKDrawCall& drawCall = first[i];
+    assert(drawCall.mesh && "Error: Missing mesh");
 
-    Mesh& mesh = *renderObject.mesh;
+    Mesh& mesh = *drawCall.mesh;
 
     VkDeviceSize const bufferOffset = 0;
     vkCmdBindVertexBuffers(cmd, 0, 1, &mesh.vertexBuffer.buffer, &bufferOffset);
-
-    vkCmdDraw(cmd, mesh.vertices.size(), 1u, 0u, i);
+    vkCmdPushConstants(cmd, drawCall.material->vkPipelineLayout,
+                       VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants),
+                       &drawCall.model);
+    vkCmdDraw(cmd, mesh.vertexCount * 3, 1u, 0u, i);
   }
 }

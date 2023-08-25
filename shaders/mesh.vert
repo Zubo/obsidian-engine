@@ -15,18 +15,11 @@ layout(set = 0, binding = 0) uniform CameraBuffer {
 }
 cameraData;
 
-struct ObjectData {
-  mat4 modelMat;
-};
-
-layout(std140, set = 3, binding = 0) buffer ObjectDataBuffer {
-  ObjectData objectData[];
-}
-objectDataBuffer;
+layout(push_constant) uniform constants { mat4 model; }
+PushConstants;
 
 void main() {
-  mat4 transformMatrix = cameraData.viewProj *
-                         objectDataBuffer.objectData[gl_BaseInstance].modelMat;
+  mat4 transformMatrix = cameraData.viewProj * PushConstants.model;
   gl_Position = transformMatrix * vec4(vPosition, 1.0f);
   outColor = vColor;
   outUV = vUV;
