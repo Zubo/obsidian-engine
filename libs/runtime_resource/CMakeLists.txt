@@ -13,8 +13,9 @@ target_include_directories(RuntimeResource
 )
 
 target_link_libraries(RuntimeResource
-    PRIVATE
+    PUBLIC
         Asset
         RHI
+    PRIVATE
         VulkanRHI # To be removed when proper interface gets implemented in RHI
 )

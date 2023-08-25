@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <obsidian/rhi/resource_rhi.hpp>
 
+#include <glm/mat4x4.hpp>
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 
@@ -20,6 +21,12 @@ struct SceneGlobalParams {
   glm::vec3 ambientColor;
   glm::vec3 sunDirection;
   glm::vec3 sunColor;
+};
+
+struct DrawCall {
+  glm::mat4 transform;
+  ResourceIdRHI materialId;
+  ResourceIdRHI meshId;
 };
 
 enum class RHIBackends { vulkan = 1 };
@@ -49,6 +56,8 @@ public:
 
   virtual rhi::ResourceIdRHI
   uploadMaterial(UploadMaterialRHI const& uploadMaterial) = 0;
+
+  virtual void submitDrawCall(DrawCall const& drawCall) = 0;
 };
 
 class ISurfaceProviderRHI {

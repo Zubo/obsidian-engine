@@ -161,6 +161,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
     VK_CHECK(presentResult);
   }
 
+  _drawCallQueue.clear();
   ++_frameNumber;
 
   FrameMark;

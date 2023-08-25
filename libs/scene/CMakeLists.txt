@@ -15,6 +15,8 @@ target_include_directories(Scene
 )
 
 target_link_libraries(Scene
+    PUBLIC
+        RuntimeResource
     PRIVATE
         Input
         Core

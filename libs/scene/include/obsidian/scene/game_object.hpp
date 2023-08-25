@@ -1,5 +1,7 @@
 #pragma once
 
+#include <obsidian/runtime_resource/runtime_resource.hpp>
+
 #include <glm/glm.hpp>
 
 #include <vector>
@@ -23,6 +25,9 @@ public:
 
   std::vector<GameObject> const& getChildren() const;
   std::vector<GameObject>& getChildren();
+
+  runtime_resource::RuntimeResource* materialResource = nullptr;
+  runtime_resource::RuntimeResource* meshResource = nullptr;
 
 private:
   void updateTransform();

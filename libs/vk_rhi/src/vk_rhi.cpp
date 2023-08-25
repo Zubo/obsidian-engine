@@ -253,6 +253,10 @@ VulkanRHI::uploadMaterial(rhi::UploadMaterialRHI const& uploadMaterial) {
   return newResourceId;
 }
 
+void VulkanRHI::submitDrawCall(rhi::DrawCall const& drawCall) {
+  _drawCallQueue.emplace_back(drawCall);
+}
+
 VkInstance VulkanRHI::getInstance() const { return _vkInstance; }
 
 void VulkanRHI::setSurface(VkSurfaceKHR surface) { _vkSurface = surface; }
