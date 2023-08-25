@@ -9,7 +9,7 @@ namespace obsidian::asset {
 
 static constexpr std::size_t currentAssetVersion = 0;
 
-enum class AssetType { unknown, mesh, texture, shader };
+enum class AssetType { unknown, mesh, texture, shader, material };
 
 struct Asset {
   using SizeType = std::size_t;

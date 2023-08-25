@@ -16,6 +16,7 @@ target_include_directories(ObsidianEditor
 target_link_libraries(ObsidianEditor
     PRIVATE
         AssetConverter
+        Asset
         Project
         ObsidianEngine
         SDLWrapper

@@ -2,6 +2,7 @@
 
 #include <obsidian/asset/asset.hpp>
 #include <obsidian/asset/asset_info.hpp>
+#include <obsidian/core/material.hpp>
 
 #include <string>
 #include <vector>
@@ -9,7 +10,10 @@
 namespace obsidian::asset {
 
 struct MaterialAssetInfo : public AssetInfo {
-  std::vector<std::string> textures;
+  core::MaterialType materialType;
+  std::string vertexShaderPath;
+  std::string fragmentShaderPath;
+  std::string albedoTexturePath;
 };
 
 bool readMaterialAssetInfo(Asset const& asset,

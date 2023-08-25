@@ -4,6 +4,7 @@ add_library(Core
     "include/obsidian/core/keycode.hpp"
     "include/obsidian/core/logging.hpp"
     "include/obsidian/core/texture_format.hpp"
+    "include/obsidian/core/material.hpp"
     "src/texture_format.cpp"
 )
 

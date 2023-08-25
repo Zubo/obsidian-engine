@@ -14,9 +14,13 @@ class RHI;
 
 namespace obsidian::runtime_resource {
 
+class RuntimeResourceManager;
+
 class RuntimeResource {
 public:
-  RuntimeResource(std::filesystem::path path, rhi::RHI& rhi);
+  RuntimeResource(std::filesystem::path path,
+                  RuntimeResourceManager& runtimeResourceManager,
+                  rhi::RHI& rhi);
   RuntimeResource(RuntimeResource const& other) = delete;
 
   RuntimeResource& operator=(RuntimeResource const& other) = delete;
@@ -26,6 +30,7 @@ public:
   void uploadToRHI();
 
 private:
+  RuntimeResourceManager& _runtimeResourceManager;
   rhi::RHI& _rhi;
   std::filesystem::path _path;
   std::optional<asset::Asset> _asset;

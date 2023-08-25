@@ -1,4 +1,3 @@
-#include "nlohmann/detail/input/input_adapters.hpp"
 #include <exception>
 #include <filesystem>
 #include <obsidian/core/logging.hpp>

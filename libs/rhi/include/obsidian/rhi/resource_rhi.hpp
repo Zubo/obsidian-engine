@@ -1,5 +1,6 @@
 #pragma once
 
+#include <obsidian/core/material.hpp>
 #include <obsidian/core/texture_format.hpp>
 
 #include <cstdint>
@@ -27,6 +28,13 @@ struct UploadMeshRHI {
 struct UploadShaderRHI {
   std::size_t shaderDataSize;
   std::function<void(char*)> unpackFunc;
+};
+
+struct UploadMaterialRHI {
+  core::MaterialType materialType;
+  ResourceIdRHI vertexShaderId;
+  ResourceIdRHI fragmentShaderId;
+  ResourceIdRHI albedoTextureId;
 };
 
 } /*namespace obsidian::rhi*/

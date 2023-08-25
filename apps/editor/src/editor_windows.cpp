@@ -1,6 +1,9 @@
-#include "obsidian/core/logging.hpp"
-#include <filesystem>
+#include <obsidian/asset/asset_info.hpp>
+#include <obsidian/asset/asset_io.hpp>
+#include <obsidian/asset/material_asset_info.hpp>
 #include <obsidian/asset_converter/asset_converter.hpp>
+#include <obsidian/core/logging.hpp>
+#include <obsidian/core/material.hpp>
 #include <obsidian/editor/data.hpp>
 #include <obsidian/editor/editor_windows.hpp>
 #include <obsidian/editor/settings.hpp>
@@ -16,13 +19,14 @@
 #include <imgui_internal.h>
 
 #include <array>
+#include <filesystem>
 #include <iostream>
 
 namespace obsidian::editor {
 
 constexpr const char* sceneWindowName = "Scene";
 constexpr std::size_t maxPathSize = 256;
-constexpr std::size_t maxFileSize = 64;
+constexpr std::size_t maxFileNameSize = 64;
 static obsidian::project::Project project;
 namespace fs = std::filesystem;
 
@@ -98,10 +102,18 @@ void assetsTab() {
 
 void materialCreatorTab() {
   static bool isOpen = false;
-  static std::vector<fs::path> texturesInProj;
-  static std::vector<char const*> texturePathStringPtrs;
-  static int selectedItem = 0;
+
   if (ImGui::BeginTabItem("Material Creator")) {
+    static int selectedMaterialType = 0;
+    static char const* materialTypes[] = {"lit", "unlit"};
+    static int selectedAlbedoTex = 0;
+    static std::vector<fs::path> texturesInProj;
+    static int selectedVertexShad = 0;
+    static int selectedFragmentShad = 0;
+    static std::vector<fs::path> shadersInProj;
+    static std::vector<char const*> texturePathStringPtrs;
+    static std::vector<char const*> shaderPathStringPtrs;
+
     bool justOpened = !isOpen;
     isOpen = true;
 
@@ -112,11 +124,84 @@ void materialCreatorTab() {
       for (auto const& tex : texturesInProj) {
         texturePathStringPtrs.push_back(tex.c_str());
       }
+
+      shaderPathStringPtrs.clear();
+      shadersInProj = project.getAllFilesWithExtension(".obsshad");
+
+      for (auto const& shad : shadersInProj) {
+        shaderPathStringPtrs.push_back(shad.c_str());
+      }
     }
 
-    if (ImGui::Combo("Mat Tex", &selectedItem, texturePathStringPtrs.data(),
-                     texturePathStringPtrs.size())) {
+    bool canCreateMat = true;
+    if (!texturesInProj.size()) {
+      ImGui::Text("No textures in the project");
+      canCreateMat = false;
     }
+    if (!shadersInProj.size()) {
+      ImGui::Text("No shaders in the project");
+      canCreateMat = false;
+    }
+
+    if (canCreateMat) {
+      static char matName[maxFileNameSize];
+      ImGui::InputText("Material name", matName, std::size(matName));
+
+      if (ImGui::Combo("Material Type", &selectedMaterialType, materialTypes,
+                       std::size(materialTypes))) {
+      }
+
+      if (ImGui::Combo("Vertex Shader", &selectedVertexShad,
+                       shaderPathStringPtrs.data(),
+                       shaderPathStringPtrs.size())) {
+      }
+
+      if (ImGui::Combo("Fragment Shader", &selectedFragmentShad,
+                       shaderPathStringPtrs.data(),
+                       shaderPathStringPtrs.size())) {
+      }
+
+      if (ImGui::Combo("Albedo Tex", &selectedAlbedoTex,
+                       texturePathStringPtrs.data(),
+                       texturePathStringPtrs.size())) {
+      }
+
+      std::size_t matNameLen = std::strlen(matName);
+      bool disabled = matNameLen == 0;
+
+      if (disabled) {
+        ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+        ImGui::PushStyleVar(ImGuiStyleVar_Alpha,
+                            ImGui::GetStyle().Alpha * 0.5f);
+      }
+
+      if (ImGui::Button("Create")) {
+        asset::MaterialAssetInfo mtlAssetInfo;
+        mtlAssetInfo.compressionMode = asset::CompressionMode::none;
+        mtlAssetInfo.materialType =
+            static_cast<core::MaterialType>(selectedMaterialType);
+        mtlAssetInfo.vertexShaderPath =
+            shaderPathStringPtrs[selectedVertexShad];
+        mtlAssetInfo.fragmentShaderPath =
+            shaderPathStringPtrs[selectedFragmentShad];
+        mtlAssetInfo.albedoTexturePath =
+            texturePathStringPtrs[selectedAlbedoTex];
+
+        asset::Asset materialAsset;
+        asset::packMaterial(mtlAssetInfo, {}, materialAsset);
+        fs::path matPath = matName;
+        matPath.replace_extension(".obsmat");
+        asset::saveToFile(project.getAbsolutePath(matPath), materialAsset);
+      }
+
+      if (disabled) {
+        ImGui::PopItemFlag();
+        ImGui::PopStyleVar();
+      }
+    } else {
+      isOpen = false;
+    }
+
     ImGui::EndTabItem();
   } else {
     isOpen = false;
