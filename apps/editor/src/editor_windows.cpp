@@ -1,3 +1,11 @@
+/*
+ *
+ *
+ *  Needs refactor
+ *
+ *
+ */
+
 #include <obsidian/asset/asset_info.hpp>
 #include <obsidian/asset/asset_io.hpp>
 #include <obsidian/asset/material_asset_info.hpp>
@@ -9,6 +17,8 @@
 #include <obsidian/editor/settings.hpp>
 #include <obsidian/obsidian_engine/obsidian_engine.hpp>
 #include <obsidian/project/project.hpp>
+#include <obsidian/scene/game_object.hpp>
+#include <obsidian/scene/scene.hpp>
 #include <obsidian/sdl_wrapper/sdl_backend.hpp>
 
 #include <SDL2/SDL.h>
@@ -27,8 +37,73 @@ namespace obsidian::editor {
 constexpr const char* sceneWindowName = "Scene";
 constexpr std::size_t maxPathSize = 256;
 constexpr std::size_t maxFileNameSize = 64;
+constexpr std::size_t maxGameObjectNameSize = 64;
 static obsidian::project::Project project;
 namespace fs = std::filesystem;
+
+static scene::GameObject* selectedGameObject = nullptr;
+
+void gameObjectHierarchy(scene::GameObject& gameObject,
+                         scene::SceneState& sceneState) {
+  bool selected = &gameObject == selectedGameObject;
+
+  if (selected) {
+    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0, 255, 0, 255));
+  }
+  if (ImGui::TreeNode(gameObject.name.c_str())) {
+    if (selected) {
+      ImGui::PopStyleColor();
+    }
+
+    bool deleted = false;
+    ImGui::PushID(gameObject.getId());
+    if (ImGui::Button("+")) {
+      gameObject.createChild();
+    }
+
+    ImGui::SameLine();
+
+    if (ImGui::Button("-")) {
+      scene::GameObject* const parent = gameObject.getParent();
+      if (selectedGameObject == &gameObject) {
+        selectedGameObject = nullptr;
+      }
+
+      if (parent) {
+        parent->destroyChild(gameObject.getId());
+      } else {
+        auto const gameObjectIter = std::find_if(
+            sceneState.gameObjects.cbegin(), sceneState.gameObjects.cend(),
+            [&gameObject](scene::GameObject const& g) {
+              return gameObject.getId() == g.getId();
+            });
+
+        if (gameObjectIter != sceneState.gameObjects.cend()) {
+          sceneState.gameObjects.erase(gameObjectIter);
+          deleted = true;
+        }
+      }
+    }
+
+    ImGui::SameLine();
+
+    if (ImGui::Button("Select")) {
+      selectedGameObject = &gameObject;
+    }
+
+    ImGui::PopID();
+
+    if (!deleted) {
+      for (scene::GameObject& gameObject : gameObject.getChildren()) {
+        gameObjectHierarchy(gameObject, sceneState);
+      }
+    }
+
+    ImGui::TreePop();
+  } else if (selected) {
+    ImGui::PopStyleColor();
+  }
+}
 
 void engineTab(SceneData& sceneData, ObsidianEngine& engine,
                bool& engineStarted) {
@@ -57,28 +132,41 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
                            0.f, 1.f);
       }
 
+      scene::SceneState& sceneState = engine.getContext().scene.getState();
+
       if (ImGui::CollapsingHeader("Scene")) {
         if (ImGui::TreeNode("Object Hierarchy")) {
-          if (ImGui::TreeNode("Game obj")) {
-            ImGui::TreePop();
-            if (ImGui::Button("+")) {
-              // Add object
-            }
+          if (ImGui::Button("+")) {
+            sceneState.gameObjects.emplace_back();
+          }
+          for (scene::GameObject& gameObject : sceneState.gameObjects) {
+            gameObjectHierarchy(gameObject, sceneState);
           }
           ImGui::TreePop();
-          if (ImGui::Button("+")) {
-            // Add object
-          }
         }
       }
 
+      if (ImGui::CollapsingHeader("Game Object")) {
+        if (selectedGameObject) {
+          char gameObjectName[maxGameObjectNameSize];
+          std::strncpy(gameObjectName, selectedGameObject->name.c_str(),
+                       selectedGameObject->name.size() + 1);
+
+          ImGui::InputText("Name", gameObjectName, std::size(gameObjectName));
+
+          selectedGameObject->name = gameObjectName;
+
+          glm::vec3 pos = selectedGameObject->getPosition();
+          ImGui::InputScalarN("Position", ImGuiDataType_Float, &pos, 3);
+          selectedGameObject->setPosition(pos);
+        }
+      }
     } else {
       if (ImGui::Button("Start Engine")) {
-        engineStarted = true;
         engine.init(sdl_wrapper::SDLBackend::instance());
+        engineStarted = true;
       }
     }
-
     ImGui::EndTabItem();
   }
 }

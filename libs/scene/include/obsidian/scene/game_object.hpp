@@ -4,12 +4,22 @@
 
 #include <glm/glm.hpp>
 
+#include <string>
 #include <vector>
 
 namespace obsidian::scene {
 
 class GameObject {
 public:
+  using GameObjectId = std::size_t;
+
+  GameObject();
+  GameObject(GameObject const& other) = delete;
+  GameObject(GameObject&& other) noexcept = default;
+  GameObject& operator=(GameObject&& other) noexcept = default;
+
+  GameObjectId getId() const;
+
   glm::vec3 const& getPosition() const;
   void setPosition(glm::vec3 const& pos);
 
@@ -23,21 +33,30 @@ public:
 
   GameObject& createChild();
 
+  GameObject* getParent();
+
+  void destroyChild(GameObjectId id);
+
   std::vector<GameObject> const& getChildren() const;
   std::vector<GameObject>& getChildren();
 
+  std::string name;
   runtime_resource::RuntimeResource* materialResource = nullptr;
   runtime_resource::RuntimeResource* meshResource = nullptr;
+  GameObject* parent = nullptr;
 
 private:
   void updateTransform();
 
-  glm::vec3 _position;
-  glm::vec3 _euler;
-  glm::vec3 _scale;
-  glm::mat4 _transform;
+  GameObjectId _objectId;
+  glm::vec3 _position = {};
+  glm::vec3 _euler = {};
+  glm::vec3 _scale = {};
+  glm::mat4 _transform{1.0f};
 
   std::vector<GameObject> _children;
+
+  static GameObjectId _idCounter;
 };
 
 inline void forEachGameObjAndChildren(std::vector<GameObject>& gameObjects,

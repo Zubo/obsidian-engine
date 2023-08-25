@@ -1,5 +1,6 @@
 #include <obsidian/obsidian_engine/obsidian_engine.hpp>
 #include <obsidian/rhi/rhi.hpp>
+#include <obsidian/scene/game_object.hpp>
 #include <obsidian/scene/scene.hpp>
 #include <obsidian/window/window.hpp>
 #include <obsidian/window/window_backend.hpp>
@@ -52,8 +53,29 @@ void ObsidianEngine::cleanup() {
   _context.vulkanRHI.cleanup();
 }
 
+void submitDrawCalls(scene::GameObject const& gameObject, rhi::RHI& rhi,
+                     glm::mat4 parentTransform) {
+
+  glm::mat4 transform = parentTransform * gameObject.getTransform();
+  if (gameObject.meshResource && gameObject.materialResource) {
+    rhi::DrawCall drawCall;
+    drawCall.materialId = gameObject.materialResource->uploadToRHI();
+    drawCall.meshId = gameObject.meshResource->uploadToRHI();
+    drawCall.transform = transform;
+    rhi.submitDrawCall(drawCall);
+  }
+
+  for (scene::GameObject const& child : gameObject.getChildren()) {
+    submitDrawCalls(child, rhi, transform);
+  }
+}
+
 void ObsidianEngine::processFrame() {
   scene::SceneState const& sceneState = _context.scene.getState();
+
+  for (scene::GameObject const& gameObject : sceneState.gameObjects) {
+    submitDrawCalls(gameObject, _context.vulkanRHI, glm::mat4{1.0f});
+  }
 
   rhi::SceneGlobalParams sceneGlobalParams;
   sceneGlobalParams.ambientColor = sceneState.ambientColor;
