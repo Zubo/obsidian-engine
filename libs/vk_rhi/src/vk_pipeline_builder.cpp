@@ -1,9 +1,22 @@
+#include "obsidian/vk_rhi/vk_initializers.hpp"
 #include <obsidian/core/logging.hpp>
 #include <obsidian/vk_rhi/vk_pipeline_builder.hpp>
 
 using namespace obsidian::vk_rhi;
 
 VkPipeline PipelineBuilder::buildPipeline(VkDevice device, VkRenderPass pass) {
+  VkPipelineVertexInputStateCreateInfo vkVertexInputInfo =
+      vkinit::vertexInputStateCreateInfo();
+  vkVertexInputInfo.vertexBindingDescriptionCount =
+      _vertexInputAttributeDescription.bindings.size();
+  vkVertexInputInfo.pVertexBindingDescriptions =
+      _vertexInputAttributeDescription.bindings.data();
+
+  vkVertexInputInfo.vertexAttributeDescriptionCount =
+      _vertexInputAttributeDescription.attributes.size();
+  vkVertexInputInfo.pVertexAttributeDescriptions =
+      _vertexInputAttributeDescription.attributes.data();
+
   VkPipelineViewportStateCreateInfo viewportStateCreateInfo = {};
   viewportStateCreateInfo.sType =
       VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -28,7 +41,7 @@ VkPipeline PipelineBuilder::buildPipeline(VkDevice device, VkRenderPass pass) {
 
   graphicsPipelineCreateInfo.stageCount = _vkShaderStageCreateInfo.size();
   graphicsPipelineCreateInfo.pStages = _vkShaderStageCreateInfo.data();
-  graphicsPipelineCreateInfo.pVertexInputState = &_vkVertexInputInfo;
+  graphicsPipelineCreateInfo.pVertexInputState = &vkVertexInputInfo;
   graphicsPipelineCreateInfo.pInputAssemblyState = &_vkInputAssemblyCreateInfo;
   graphicsPipelineCreateInfo.pTessellationState = nullptr;
   graphicsPipelineCreateInfo.pViewportState = &viewportStateCreateInfo;

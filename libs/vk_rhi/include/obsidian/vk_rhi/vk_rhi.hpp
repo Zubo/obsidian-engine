@@ -45,13 +45,21 @@ public:
   rhi::ResourceIdRHI
   uploadTexture(rhi::UploadTextureRHI const& uploadTextureInfoRHI) override;
 
+  void unloadTexture(rhi::ResourceIdRHI resourceIdRHI) override;
+
   rhi::ResourceIdRHI uploadMesh(rhi::UploadMeshRHI const& meshInfo) override;
+
+  void unloadMesh(rhi::ResourceIdRHI resourceIdRHI) override;
 
   rhi::ResourceIdRHI
   uploadShader(rhi::UploadShaderRHI const& uploadShader) override;
 
+  void unloadShader(rhi::ResourceIdRHI resourceIdRHI) override;
+
   rhi::ResourceIdRHI
   uploadMaterial(rhi::UploadMaterialRHI const& uploadMaterial) override;
+
+  void unloadMaterial(rhi::ResourceIdRHI resourceIdRHI) override;
 
   void submitDrawCall(rhi::DrawCall const& drawCall) override;
 

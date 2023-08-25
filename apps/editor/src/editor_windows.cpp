@@ -115,6 +115,7 @@ void gameObjectHierarchy(scene::GameObject& gameObject,
 
       if (parent) {
         parent->destroyChild(gameObject.getId());
+        deleted = true;
       } else {
         auto const gameObjectIter = std::find_if(
             sceneState.gameObjects.cbegin(), sceneState.gameObjects.cend(),
@@ -221,15 +222,16 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
           ImGui::SameLine();
 
           if (ImGui::Button("Apply Material")) {
-            selectedGameObject->meshResource =
+            selectedGameObject->materialResource =
                 &engine.getContext().resourceManager.getResource(
-                    materialsInProj[selectedMaterial]);
+                    project.getAbsolutePath(materialsInProj[selectedMaterial]));
           }
         }
       }
     } else {
       if (ImGui::Button("Start Engine")) {
-        engine.init(sdl_wrapper::SDLBackend::instance());
+        engine.init(sdl_wrapper::SDLBackend::instance(),
+                    project.getOpenProjectPath());
         engineStarted = true;
       }
     }
@@ -328,7 +330,7 @@ void materialCreatorTab() {
         asset::packMaterial(mtlAssetInfo, {}, materialAsset);
         fs::path matPath = matName;
         matPath.replace_extension(".obsmat");
-        asset::saveToFile(project.getAbsolutePath(matPath), materialAsset);
+        asset::saveToFile(matPath, materialAsset);
         assetListDirty = true;
       }
 
@@ -412,8 +414,10 @@ void editor(SDL_Renderer& renderer, ImGuiIO& imguiIO, DataContext& context,
   ImGui::Begin("EditorWindow");
   if (ImGui::BeginTabBar("EditorTabBar")) {
 
-    engineTab(context.sceneData, engine, engineStarted);
     projectTab();
+    if (!project.getOpenProjectPath().empty()) {
+      engineTab(context.sceneData, engine, engineStarted);
+    }
 
     ImGui::EndTabBar();
   }

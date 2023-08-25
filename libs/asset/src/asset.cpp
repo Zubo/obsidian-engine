@@ -9,7 +9,7 @@ AssetType getAssetType(char const typeStr[4]) {
     return AssetType::mesh;
   } else if (std::strncmp(typeStr, "texi", 4) == 0) {
     return AssetType::texture;
-  } else if (std::strncmp(typeStr, "shdr", 4) == 0) {
+  } else if (std::strncmp(typeStr, "shad", 4) == 0) {
     return AssetType::shader;
   } else if (std::strncmp(typeStr, "matl", 4) == 0) {
     return AssetType::material;

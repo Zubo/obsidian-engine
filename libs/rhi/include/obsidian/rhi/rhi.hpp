@@ -48,14 +48,18 @@ public:
 
   virtual rhi::ResourceIdRHI
   uploadTexture(UploadTextureRHI const& uploadTexture) = 0;
+  virtual void unloadTexture(rhi::ResourceIdRHI) = 0;
 
   virtual rhi::ResourceIdRHI uploadMesh(UploadMeshRHI const& uploadMesh) = 0;
+  virtual void unloadMesh(rhi::ResourceIdRHI) = 0;
 
   virtual rhi::ResourceIdRHI
   uploadShader(UploadShaderRHI const& uploadShader) = 0;
+  virtual void unloadShader(rhi::ResourceIdRHI) = 0;
 
   virtual rhi::ResourceIdRHI
   uploadMaterial(UploadMaterialRHI const& uploadMaterial) = 0;
+  virtual void unloadMaterial(rhi::ResourceIdRHI) = 0;
 
   virtual void submitDrawCall(DrawCall const& drawCall) = 0;
 };

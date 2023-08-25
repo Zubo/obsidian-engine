@@ -20,6 +20,18 @@ RuntimeResource::RuntimeResource(std::filesystem::path path,
     : _runtimeResourceManager(runtimeResourceManager), _rhi{rhi},
       _path{std::move(path)} {}
 
+RuntimeResource::~RuntimeResource() {
+  releaseAsset();
+  unloadFromRHI();
+}
+
+void RuntimeResource::unloadFromRHI() {
+  if (_releaseFunc && _resourceIdRHI != rhi::rhiIdUninitialized) {
+    _releaseFunc(_rhi, _resourceIdRHI);
+    _releaseFunc = nullptr;
+  }
+}
+
 bool RuntimeResource::loadAsset() {
   asset::Asset& asset = _asset.emplace();
   return asset::loadFromFile(_path, asset);
@@ -38,7 +50,10 @@ rhi::ResourceIdRHI RuntimeResource::uploadToRHI() {
   }
 
   if (!_asset) {
-    loadAsset();
+    if (!loadAsset()) {
+      OBS_LOG_ERR("Failed to load asset." + _path.string());
+      return _resourceIdRHI;
+    }
   }
   asset::AssetType const assetType = asset::getAssetType(_asset->type);
 
@@ -57,7 +72,9 @@ rhi::ResourceIdRHI RuntimeResource::uploadToRHI() {
                          _asset->binaryBlob.size(), dst);
     };
     _resourceIdRHI = _rhi.uploadMesh(uploadMesh);
-
+    _releaseFunc = [](rhi::RHI& rhi, rhi::ResourceIdRHI id) {
+      rhi.unloadMesh(id);
+    };
     break;
   }
   case asset::AssetType::texture: {
@@ -76,6 +93,9 @@ rhi::ResourceIdRHI RuntimeResource::uploadToRHI() {
                          _asset->binaryBlob.size(), dst);
     };
     _resourceIdRHI = _rhi.uploadTexture(uploadTexture);
+    _releaseFunc = [](rhi::RHI& rhi, rhi::ResourceIdRHI id) {
+      rhi.unloadTexture(id);
+    };
     break;
   }
   case asset::AssetType::material: {
@@ -98,6 +118,9 @@ rhi::ResourceIdRHI RuntimeResource::uploadToRHI() {
             .uploadToRHI();
 
     _resourceIdRHI = _rhi.uploadMaterial(uploadMaterial);
+    _releaseFunc = [](rhi::RHI& rhi, rhi::ResourceIdRHI id) {
+      rhi.unloadMaterial(id);
+    };
     break;
   }
   case asset::AssetType::shader: {
@@ -115,6 +138,9 @@ rhi::ResourceIdRHI RuntimeResource::uploadToRHI() {
     };
 
     _resourceIdRHI = _rhi.uploadShader(uploadShader);
+    _releaseFunc = [](rhi::RHI& rhi, rhi::ResourceIdRHI id) {
+      rhi.unloadShader(id);
+    };
     break;
   }
   default:

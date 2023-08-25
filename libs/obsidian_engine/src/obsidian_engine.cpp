@@ -7,9 +7,12 @@
 
 #include <vulkan/vulkan.h>
 
+#include <utility>
+
 using namespace obsidian;
 
-void ObsidianEngine::init(IWindowBackendProvider const& windowBackendProvider) {
+void ObsidianEngine::init(IWindowBackendProvider const& windowBackendProvider,
+                          std::filesystem::path rootPath) {
   // create window
 
   IWindowBackendProvider::CreateWindowParams windowParams;
@@ -44,13 +47,14 @@ void ObsidianEngine::init(IWindowBackendProvider const& windowBackendProvider) {
       });
 
   _context.scene.init(_context.inputContext);
-  _context.resourceManager.init(_context.vulkanRHI);
+  _context.resourceManager.init(_context.vulkanRHI, std::move(rootPath));
 }
 
 void ObsidianEngine::cleanup() {
   _context.inputContext.keyInputEmitter.cleanup();
   _context.inputContext.mouseMotionEmitter.cleanup();
   _context.inputContext.windowEventEmitter.cleanup();
+  _context.resourceManager.cleanup();
   _context.vulkanRHI.cleanup();
 }
 

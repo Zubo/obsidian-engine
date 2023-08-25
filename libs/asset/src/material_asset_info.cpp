@@ -42,6 +42,9 @@ bool packMaterial(MaterialAssetInfo const& materialAssetInfo,
     nlohmann::json json;
     json[unpackedSizeJsonName] = materialAssetInfo.unpackedSize;
     json[compressionModeJsonName] = materialAssetInfo.compressionMode;
+    json[materialTypeJsonName] = materialAssetInfo.materialType;
+    json[vertexShaderJsonName] = materialAssetInfo.vertexShaderPath;
+    json[fragmentShaderJsonName] = materialAssetInfo.fragmentShaderPath;
     json[albedoTextureJsonName] = materialAssetInfo.albedoTexturePath;
 
     outAsset.json = json.dump();

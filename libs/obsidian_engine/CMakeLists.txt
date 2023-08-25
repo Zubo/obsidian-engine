@@ -17,4 +17,5 @@ target_link_libraries(ObsidianEngine
         Window
         Scene
         RuntimeResource
+        Project
 )

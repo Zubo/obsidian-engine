@@ -1,6 +1,5 @@
 #pragma once
 
-#include <obsidian/vk_rhi/vk_rhi.hpp>
 #include <obsidian/vk_rhi/vk_types.hpp>
 
 #include <glm/vec2.hpp>
@@ -10,13 +9,6 @@
 #include <vector>
 
 namespace obsidian::vk_rhi {
-
-struct VertexInputDescription {
-  std::vector<VkVertexInputBindingDescription> bindings;
-  std::vector<VkVertexInputAttributeDescription> attributes;
-
-  VkPipelineVertexInputStateCreateFlags flags = 0;
-};
 
 struct Vertex {
   glm::vec3 position;

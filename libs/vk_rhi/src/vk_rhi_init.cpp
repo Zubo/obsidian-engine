@@ -469,7 +469,6 @@ void VulkanRHI::initSyncStructures() {
 void VulkanRHI::initDefaultPipelines() {
   PipelineBuilder pipelineBuilder;
 
-  pipelineBuilder._vkVertexInputInfo = vkinit::vertexInputStateCreateInfo();
   pipelineBuilder._vkInputAssemblyCreateInfo =
       vkinit::inputAssemblyCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 
@@ -493,18 +492,8 @@ void VulkanRHI::initDefaultPipelines() {
   pipelineBuilder._vkMultisampleStateCreateInfo =
       vkinit::multisampleStateCreateInfo();
 
-  VertexInputDescription vertexDescription =
+  pipelineBuilder._vertexInputAttributeDescription =
       Vertex::getVertexInputDescription();
-
-  pipelineBuilder._vkVertexInputInfo.vertexAttributeDescriptionCount =
-      vertexDescription.attributes.size();
-  pipelineBuilder._vkVertexInputInfo.pVertexAttributeDescriptions =
-      vertexDescription.attributes.data();
-
-  pipelineBuilder._vkVertexInputInfo.vertexBindingDescriptionCount =
-      vertexDescription.bindings.size();
-  pipelineBuilder._vkVertexInputInfo.pVertexBindingDescriptions =
-      vertexDescription.bindings.data();
 
   VkPipelineLayoutCreateInfo meshPipelineLayoutInfo =
       vkinit::pipelineLayoutCreateInfo();
@@ -550,7 +539,7 @@ void VulkanRHI::initDefaultPipelines() {
   _vkMeshPipeline =
       pipelineBuilder.buildPipeline(_vkDevice, _vkDefaultRenderPass);
 
-  createMaterial(_vkMeshPipeline, _vkMeshPipelineLayout, "defaultmesh");
+  // createMaterial(_vkMeshPipeline, _vkMeshPipelineLayout, "defaultmesh");
 
   vkDestroyShaderModule(_vkDevice, meshVertShader, nullptr);
   vkDestroyShaderModule(_vkDevice, meshFragShader, nullptr);
@@ -619,8 +608,8 @@ void VulkanRHI::initDefaultPipelines() {
   _vkLitMeshPipeline =
       pipelineBuilder.buildPipeline(_vkDevice, _vkDefaultRenderPass);
 
-  createMaterial(_vkLitMeshPipeline, _vkMeshPipelineLayout, "lit-mesh",
-                 "lost-empire");
+  // createMaterial(_vkLitMeshPipeline, _vkMeshPipelineLayout, "lit-mesh",
+  //                "lost-empire");
 
   vkDestroyShaderModule(_vkDevice, litMeshVertShader, nullptr);
   vkDestroyShaderModule(_vkDevice, litMeshFragShader, nullptr);
@@ -634,7 +623,6 @@ void VulkanRHI::initDefaultPipelines() {
 void VulkanRHI::initShadowPassPipeline() {
   PipelineBuilder pipelineBuilder;
 
-  pipelineBuilder._vkVertexInputInfo = vkinit::vertexInputStateCreateInfo();
   pipelineBuilder._vkInputAssemblyCreateInfo =
       vkinit::inputAssemblyCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 
@@ -646,6 +634,9 @@ void VulkanRHI::initShadowPassPipeline() {
 
   pipelineBuilder._vkMultisampleStateCreateInfo =
       vkinit::multisampleStateCreateInfo();
+
+  pipelineBuilder._vertexInputAttributeDescription =
+      Vertex::getVertexInputDescription(true, false, false, false);
 
   pipelineBuilder._vkViewport.x = 0.f;
   pipelineBuilder._vkViewport.y = 0.f;
@@ -660,16 +651,6 @@ void VulkanRHI::initShadowPassPipeline() {
 
   VertexInputDescription shadowPassVertexInputDescription =
       Vertex::getVertexInputDescription(true, false, false, false);
-
-  pipelineBuilder._vkVertexInputInfo.vertexBindingDescriptionCount =
-      shadowPassVertexInputDescription.bindings.size();
-  pipelineBuilder._vkVertexInputInfo.pVertexBindingDescriptions =
-      shadowPassVertexInputDescription.bindings.data();
-
-  pipelineBuilder._vkVertexInputInfo.vertexAttributeDescriptionCount =
-      shadowPassVertexInputDescription.attributes.size();
-  pipelineBuilder._vkVertexInputInfo.pVertexAttributeDescriptions =
-      shadowPassVertexInputDescription.attributes.data();
 
   VkShaderModule shadowPassVertShader;
 
@@ -732,6 +713,7 @@ void VulkanRHI::initShadowPassPipeline() {
 }
 
 void VulkanRHI::initScene() {
+  return;
   RenderObject& monkey = _renderObjects.emplace_back();
   monkey.mesh = getMesh("monkey");
   monkey.material = getMaterial("defaultmesh");

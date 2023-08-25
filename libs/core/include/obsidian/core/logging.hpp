@@ -12,7 +12,9 @@
 
 #include <iostream>
 
-#define OBS_LOG_ERR(str) std::cout << "Error: " << str << std::endl;
+#define OBS_LOG_ERR(str)                                                       \
+  std::cout << "Error: " << str << " File: " << __FILE__                       \
+            << " Line: " << __LINE__ << std::endl;
 
 #endif
 

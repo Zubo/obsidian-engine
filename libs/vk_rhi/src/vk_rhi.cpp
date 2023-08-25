@@ -43,7 +43,9 @@ VulkanRHI::uploadTexture(rhi::UploadTextureRHI const& uploadTextureInfoRHI) {
 
   vmaUnmapMemory(_vmaAllocator, stagingBuffer.allocation);
 
-  AllocatedImage newImage;
+  rhi::ResourceIdRHI const newResourceId = consumeNewResourceId();
+  Texture& newTexture = _texturesNew[newResourceId];
+
   VkImageUsageFlags const imageUsageFlags =
       VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 
@@ -60,9 +62,10 @@ VulkanRHI::uploadTexture(rhi::UploadTextureRHI const& uploadTextureInfoRHI) {
   imgAllocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
 
   vmaCreateImage(_vmaAllocator, &vkImgCreateInfo, &imgAllocationCreateInfo,
-                 &newImage.vkImage, &newImage.allocation, nullptr);
+                 &newTexture.image.vkImage, &newTexture.image.allocation,
+                 nullptr);
 
-  immediateSubmit([this, &extent, &newImage,
+  immediateSubmit([this, &extent, &newTexture,
                    &stagingBuffer](VkCommandBuffer cmd) {
     VkImageMemoryBarrier vkImgBarrierToTransfer = {};
     vkImgBarrierToTransfer.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -72,7 +75,7 @@ VulkanRHI::uploadTexture(rhi::UploadTextureRHI const& uploadTextureInfoRHI) {
     vkImgBarrierToTransfer.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
     vkImgBarrierToTransfer.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     vkImgBarrierToTransfer.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    vkImgBarrierToTransfer.image = newImage.vkImage;
+    vkImgBarrierToTransfer.image = newTexture.image.vkImage;
 
     VkImageSubresourceRange& vkImgSubresourceRangeToTransfer =
         vkImgBarrierToTransfer.subresourceRange;
@@ -91,7 +94,7 @@ VulkanRHI::uploadTexture(rhi::UploadTextureRHI const& uploadTextureInfoRHI) {
     vkBufferImgCopy.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     vkBufferImgCopy.imageSubresource.layerCount = 1;
 
-    vkCmdCopyBufferToImage(cmd, stagingBuffer.buffer, newImage.vkImage,
+    vkCmdCopyBufferToImage(cmd, stagingBuffer.buffer, newTexture.image.vkImage,
                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1,
                            &vkBufferImgCopy);
 
@@ -103,7 +106,7 @@ VulkanRHI::uploadTexture(rhi::UploadTextureRHI const& uploadTextureInfoRHI) {
     vkImageBarrierToRead.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
     vkImageBarrierToRead.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     vkImageBarrierToRead.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    vkImageBarrierToRead.image = newImage.vkImage;
+    vkImageBarrierToRead.image = newTexture.image.vkImage;
     vkImageBarrierToRead.srcQueueFamilyIndex = 0;
     vkImageBarrierToRead.dstQueueFamilyIndex = _graphicsQueueFamilyIndex;
 
@@ -118,28 +121,26 @@ VulkanRHI::uploadTexture(rhi::UploadTextureRHI const& uploadTextureInfoRHI) {
                          0, nullptr, 1, &vkImageBarrierToRead);
   });
 
-  _deletionQueue.pushFunction([this, newImage]() {
-    vmaDestroyImage(_vmaAllocator, newImage.vkImage, newImage.allocation);
-  });
-
   vmaDestroyBuffer(_vmaAllocator, stagingBuffer.buffer,
                    stagingBuffer.allocation);
 
-  rhi::ResourceIdRHI const newResourceId = consumeNewResourceId();
-  Texture& lostEmpireTexture = _texturesNew[newResourceId];
-
-  VkImageViewCreateInfo lostEmpImgViewCreateInfo = vkinit::imageViewCreateInfo(
-      lostEmpireTexture.image.vkImage, VK_FORMAT_R8G8B8A8_SRGB,
+  VkImageViewCreateInfo imageViewCreateInfo = vkinit::imageViewCreateInfo(
+      newTexture.image.vkImage, VK_FORMAT_R8G8B8A8_SRGB,
       VK_IMAGE_ASPECT_COLOR_BIT);
 
-  vkCreateImageView(_vkDevice, &lostEmpImgViewCreateInfo, nullptr,
-                    &lostEmpireTexture.imageView);
-
-  _deletionQueue.pushFunction([this, lostEmpireTexture]() {
-    vkDestroyImageView(_vkDevice, lostEmpireTexture.imageView, nullptr);
-  });
+  vkCreateImageView(_vkDevice, &imageViewCreateInfo, nullptr,
+                    &newTexture.imageView);
 
   return newResourceId;
+}
+
+void VulkanRHI::unloadTexture(rhi::ResourceIdRHI resourceIdRHI) {
+  Texture& tex = _texturesNew[resourceIdRHI];
+
+  vkDestroyImageView(_vkDevice, tex.imageView, nullptr);
+  vmaDestroyImage(_vmaAllocator, tex.image.vkImage, tex.image.allocation);
+
+  _texturesNew.erase(resourceIdRHI);
 }
 
 rhi::ResourceIdRHI VulkanRHI::uploadMesh(rhi::UploadMeshRHI const& meshInfo) {
@@ -164,11 +165,6 @@ rhi::ResourceIdRHI VulkanRHI::uploadMesh(rhi::UploadMeshRHI const& meshInfo) {
                                        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                                    VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0);
 
-  _deletionQueue.pushFunction([this, mesh] {
-    vmaDestroyBuffer(_vmaAllocator, mesh.vertexBuffer.buffer,
-                     mesh.vertexBuffer.allocation);
-  });
-
   immediateSubmit(
       [this, &stagingBuffer, &mesh, bufferSize](VkCommandBuffer cmd) {
         VkBufferCopy vkBufferCopy = {};
@@ -183,6 +179,15 @@ rhi::ResourceIdRHI VulkanRHI::uploadMesh(rhi::UploadMeshRHI const& meshInfo) {
                    stagingBuffer.allocation);
 
   return newResourceId;
+}
+
+void VulkanRHI::unloadMesh(rhi::ResourceIdRHI resourceIdRHI) {
+  Mesh& tex = _meshesNew[resourceIdRHI];
+
+  vmaDestroyBuffer(_vmaAllocator, tex.vertexBuffer.buffer,
+                   tex.vertexBuffer.allocation);
+
+  _meshesNew.erase(resourceIdRHI);
 }
 
 rhi::ResourceIdRHI
@@ -208,6 +213,11 @@ VulkanRHI::uploadShader(rhi::UploadShaderRHI const& uploadShader) {
   _shaderModules[newResourceId] = shaderModule;
 
   return newResourceId;
+}
+
+void VulkanRHI::unloadShader(rhi::ResourceIdRHI resourceIdRHI) {
+  VkShaderModule shader = _shaderModules[resourceIdRHI];
+  vkDestroyShaderModule(_vkDevice, shader, nullptr);
 }
 
 rhi::ResourceIdRHI
@@ -251,6 +261,14 @@ VulkanRHI::uploadMaterial(rhi::UploadMaterialRHI const& uploadMaterial) {
       .build(newMaterial.vkDescriptorSet);
 
   return newResourceId;
+}
+
+void VulkanRHI::unloadMaterial(rhi::ResourceIdRHI resourceIdRHI) {
+  Material& material = _materialsNew[resourceIdRHI];
+
+  vkDeviceWaitIdle(_vkDevice);
+
+  vkDestroyPipeline(_vkDevice, material.vkPipeline, nullptr);
 }
 
 void VulkanRHI::submitDrawCall(rhi::DrawCall const& drawCall) {
@@ -354,11 +372,13 @@ void VulkanRHI::loadTexture(std::string_view textureName,
 }
 
 void VulkanRHI::loadTextures() {
+  return;
   loadTexture("default", {"assets/default-texture.obstex"});
   loadTexture("lost-empire", {"assets/lost_empire-RGBA.obstex"});
 }
 
 void VulkanRHI::loadMeshes() {
+  return;
   Mesh& triangleMesh = _meshes["triangle"];
   triangleMesh.vertices.resize(3);
   triangleMesh.vertices[0].position = {1.0f, 1.0f, 0.0f};
