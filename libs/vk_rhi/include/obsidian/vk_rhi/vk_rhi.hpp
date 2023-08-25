@@ -46,6 +46,9 @@ public:
 
   rhi::ResourceIdRHI uploadMesh(rhi::UploadMeshRHI const& meshInfo) override;
 
+  rhi::ResourceIdRHI
+  uploadShader(rhi::UploadShaderRHI const& uploadShader) override;
+
   VkInstance getInstance() const;
 
   void setSurface(VkSurfaceKHR surface);
@@ -104,6 +107,7 @@ private:
   rhi::ResourceIdRHI _nextResourceId = 0;
   std::unordered_map<rhi::ResourceIdRHI, Texture> _texturesNew;
   std::unordered_map<rhi::ResourceIdRHI, Mesh> _meshesNew;
+  std::unordered_map<rhi::ResourceIdRHI, VkShaderModule> _shaderModules;
 
   void initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider);
   void initSwapchain();

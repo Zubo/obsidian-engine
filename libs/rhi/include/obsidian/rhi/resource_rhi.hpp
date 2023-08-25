@@ -24,4 +24,9 @@ struct UploadMeshRHI {
   std::function<void(char*)> unpackFunc;
 };
 
+struct UploadShaderRHI {
+  std::size_t shaderDataSize;
+  std::function<void(char*)> unpackFunc;
+};
+
 } /*namespace obsidian::rhi*/

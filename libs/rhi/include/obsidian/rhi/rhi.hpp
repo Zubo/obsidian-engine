@@ -40,9 +40,12 @@ public:
   virtual void updateExtent(rhi::WindowExtentRHI extent) = 0;
 
   virtual rhi::ResourceIdRHI
-  uploadTexture(UploadTextureRHI const& textureInfo) = 0;
+  uploadTexture(UploadTextureRHI const& uploadTexture) = 0;
 
-  virtual rhi::ResourceIdRHI uploadMesh(UploadMeshRHI const& meshInfo) = 0;
+  virtual rhi::ResourceIdRHI uploadMesh(UploadMeshRHI const& uploadMesh) = 0;
+
+  virtual rhi::ResourceIdRHI
+  uploadShader(UploadShaderRHI const& uploadShader) = 0;
 };
 
 class ISurfaceProviderRHI {

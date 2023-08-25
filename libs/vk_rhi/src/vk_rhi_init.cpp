@@ -12,7 +12,6 @@
 #include <glm/gtx/transform.hpp>
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
 
 using namespace obsidian::vk_rhi;
 

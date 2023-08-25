@@ -183,6 +183,31 @@ rhi::ResourceIdRHI VulkanRHI::uploadMesh(rhi::UploadMeshRHI const& meshInfo) {
   return newResourceId;
 }
 
+rhi::ResourceIdRHI
+VulkanRHI::uploadShader(rhi::UploadShaderRHI const& uploadShader) {
+  std::vector<std::uint32_t> buffer(
+      (uploadShader.shaderDataSize + sizeof(std::uint32_t) - 1) /
+      sizeof(std::uint32_t));
+  uploadShader.unpackFunc(reinterpret_cast<char*>(buffer.data()));
+
+  VkShaderModuleCreateInfo shaderModuleCreateInfo = {};
+  shaderModuleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+  shaderModuleCreateInfo.pNext = nullptr;
+  shaderModuleCreateInfo.codeSize = uploadShader.shaderDataSize;
+  shaderModuleCreateInfo.pCode = buffer.data();
+
+  VkShaderModule shaderModule;
+  if (vkCreateShaderModule(_vkDevice, &shaderModuleCreateInfo, nullptr,
+                           &shaderModule)) {
+    return rhi::rhiIdUninitialized;
+  }
+
+  rhi::ResourceIdRHI newResourceId = consumeNewResourceId();
+  _shaderModules[newResourceId] = shaderModule;
+
+  return newResourceId;
+}
+
 VkInstance VulkanRHI::getInstance() const { return _vkInstance; }
 
 void VulkanRHI::setSurface(VkSurfaceKHR surface) { _vkSurface = surface; }
