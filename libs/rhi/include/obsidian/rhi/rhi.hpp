@@ -46,6 +46,9 @@ public:
 
   virtual rhi::ResourceIdRHI
   uploadShader(UploadShaderRHI const& uploadShader) = 0;
+
+  virtual rhi::ResourceIdRHI
+  uploadMaterial(UploadMaterialRHI const& uploadMaterial) = 0;
 };
 
 class ISurfaceProviderRHI {

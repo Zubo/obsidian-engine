@@ -6,7 +6,9 @@
 #include <obsidian/rhi/resource_rhi.hpp>
 #include <obsidian/rhi/rhi.hpp>
 #include <obsidian/vk_rhi/vk_check.hpp>
+#include <obsidian/vk_rhi/vk_descriptors.hpp>
 #include <obsidian/vk_rhi/vk_initializers.hpp>
+#include <obsidian/vk_rhi/vk_pipeline_builder.hpp>
 #include <obsidian/vk_rhi/vk_rhi.hpp>
 #include <obsidian/vk_rhi/vk_types.hpp>
 
@@ -204,6 +206,49 @@ VulkanRHI::uploadShader(rhi::UploadShaderRHI const& uploadShader) {
 
   rhi::ResourceIdRHI newResourceId = consumeNewResourceId();
   _shaderModules[newResourceId] = shaderModule;
+
+  return newResourceId;
+}
+
+rhi::ResourceIdRHI
+VulkanRHI::uploadMaterial(rhi::UploadMaterialRHI const& uploadMaterial) {
+  PipelineBuilder& pipelineBuilder =
+      _pipelineBuilders[uploadMaterial.materialType];
+
+  VkShaderModule vertexShaderModule =
+      _shaderModules[uploadMaterial.vertexShaderId];
+
+  pipelineBuilder._vkShaderStageCreateInfo.clear();
+  pipelineBuilder._vkShaderStageCreateInfo.push_back(
+      vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT,
+                                            vertexShaderModule));
+
+  VkShaderModule fragmentShaderModule =
+      _shaderModules[uploadMaterial.fragmentShaderId];
+
+  pipelineBuilder._vkShaderStageCreateInfo.push_back(
+      vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT,
+                                            fragmentShaderModule));
+
+  rhi::ResourceIdRHI const newResourceId = consumeNewResourceId();
+  Material& newMaterial = _materialsNew[newResourceId];
+  newMaterial.vkPipelineLayout = pipelineBuilder._vkPipelineLayout;
+  newMaterial.vkPipeline =
+      pipelineBuilder.buildPipeline(_vkDevice, _vkDefaultRenderPass);
+
+  Texture const& albedoTexture = _texturesNew[uploadMaterial.albedoTextureId];
+
+  VkDescriptorImageInfo albedoTexImageInfo;
+  albedoTexImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  albedoTexImageInfo.imageView = albedoTexture.imageView;
+  albedoTexImageInfo.sampler = _vkSampler;
+
+  DescriptorBuilder::begin(_vkDevice, _descriptorAllocator,
+                           _descriptorLayoutCache)
+      .bindImage(0, albedoTexImageInfo,
+                 VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                 VK_SHADER_STAGE_FRAGMENT_BIT)
+      .build(newMaterial.vkDescriptorSet);
 
   return newResourceId;
 }

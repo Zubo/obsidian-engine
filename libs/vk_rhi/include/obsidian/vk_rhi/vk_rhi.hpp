@@ -1,5 +1,6 @@
 #pragma once
 
+#include <obsidian/core/material.hpp>
 #include <obsidian/rhi/resource_rhi.hpp>
 #include <obsidian/rhi/rhi.hpp>
 #include <obsidian/vk_rhi/vk_deletion_queue.hpp>
@@ -48,6 +49,9 @@ public:
 
   rhi::ResourceIdRHI
   uploadShader(rhi::UploadShaderRHI const& uploadShader) override;
+
+  rhi::ResourceIdRHI
+  uploadMaterial(rhi::UploadMaterialRHI const& uploadMaterial) override;
 
   VkInstance getInstance() const;
 
@@ -108,6 +112,8 @@ private:
   std::unordered_map<rhi::ResourceIdRHI, Texture> _texturesNew;
   std::unordered_map<rhi::ResourceIdRHI, Mesh> _meshesNew;
   std::unordered_map<rhi::ResourceIdRHI, VkShaderModule> _shaderModules;
+  std::unordered_map<core::MaterialType, PipelineBuilder> _pipelineBuilders;
+  std::unordered_map<rhi::ResourceIdRHI, Material> _materialsNew;
 
   void initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider);
   void initSwapchain();

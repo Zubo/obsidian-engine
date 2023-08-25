@@ -1,4 +1,5 @@
 #include <obsidian/core/logging.hpp>
+#include <obsidian/core/material.hpp>
 #include <obsidian/renderdoc/renderdoc.hpp>
 #include <obsidian/vk_rhi/vk_check.hpp>
 #include <obsidian/vk_rhi/vk_descriptors.hpp>
@@ -505,6 +506,23 @@ void VulkanRHI::initDefaultPipelines() {
   pipelineBuilder._vkVertexInputInfo.pVertexBindingDescriptions =
       vertexDescription.bindings.data();
 
+  VkPipelineLayoutCreateInfo meshPipelineLayoutInfo =
+      vkinit::pipelineLayoutCreateInfo();
+
+  std::array<VkDescriptorSetLayout, 4> const meshDescriptorSetLayouts = {
+      _vkGlobalDescriptorSetLayout, _vkLitMeshrenderPassDescriptorSetLayout,
+      _vkTexturedMaterialDescriptorSetLayout, _vkObjectDataDescriptorSetLayout};
+
+  meshPipelineLayoutInfo.setLayoutCount = meshDescriptorSetLayouts.size();
+  meshPipelineLayoutInfo.pSetLayouts = meshDescriptorSetLayouts.data();
+
+  VK_CHECK(vkCreatePipelineLayout(_vkDevice, &meshPipelineLayoutInfo, nullptr,
+                                  &_vkMeshPipelineLayout));
+
+  pipelineBuilder._vkPipelineLayout = _vkMeshPipelineLayout;
+
+  _pipelineBuilders[core::MaterialType::unlit] = pipelineBuilder;
+
   VkShaderModule meshVertShader;
 
   if (!loadShaderModule("shaders/mesh.vert.spv", &meshVertShader)) {
@@ -529,20 +547,6 @@ void VulkanRHI::initDefaultPipelines() {
       vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT,
                                             meshFragShader));
 
-  VkPipelineLayoutCreateInfo meshPipelineLayoutInfo =
-      vkinit::pipelineLayoutCreateInfo();
-
-  std::array<VkDescriptorSetLayout, 4> const meshDescriptorSetLayouts = {
-      _vkGlobalDescriptorSetLayout, _vkLitMeshrenderPassDescriptorSetLayout,
-      _vkTexturedMaterialDescriptorSetLayout, _vkObjectDataDescriptorSetLayout};
-
-  meshPipelineLayoutInfo.setLayoutCount = meshDescriptorSetLayouts.size();
-  meshPipelineLayoutInfo.pSetLayouts = meshDescriptorSetLayouts.data();
-
-  VK_CHECK(vkCreatePipelineLayout(_vkDevice, &meshPipelineLayoutInfo, nullptr,
-                                  &_vkMeshPipelineLayout));
-
-  pipelineBuilder._vkPipelineLayout = _vkMeshPipelineLayout;
   _vkMeshPipeline =
       pipelineBuilder.buildPipeline(_vkDevice, _vkDefaultRenderPass);
 
@@ -561,6 +565,30 @@ void VulkanRHI::initDefaultPipelines() {
   });
 
   // Lit mesh pipeline
+  VkPipelineLayoutCreateInfo litMeshPipelineLayoutCreateInfo =
+      vkinit::pipelineLayoutCreateInfo();
+
+  std::array<VkDescriptorSetLayout, 4> vkLitMeshPipelineLayouts = {
+      _vkGlobalDescriptorSetLayout,
+      _vkLitMeshrenderPassDescriptorSetLayout,
+      _vkTexturedMaterialDescriptorSetLayout,
+      _vkObjectDataDescriptorSetLayout,
+  };
+
+  litMeshPipelineLayoutCreateInfo.pSetLayouts = vkLitMeshPipelineLayouts.data();
+  litMeshPipelineLayoutCreateInfo.setLayoutCount =
+      vkLitMeshPipelineLayouts.size();
+
+  VK_CHECK(vkCreatePipelineLayout(_vkDevice, &litMeshPipelineLayoutCreateInfo,
+                                  nullptr, &_vkLitMeshPipelineLayout));
+
+  _swapchainDeletionQueue.pushFunction([this]() {
+    vkDestroyPipelineLayout(_vkDevice, _vkLitMeshPipelineLayout, nullptr);
+  });
+
+  pipelineBuilder._vkPipelineLayout = _vkLitMeshPipelineLayout;
+
+  _pipelineBuilders[core::MaterialType::lit] = pipelineBuilder;
 
   VkShaderModule litMeshVertShader;
 
@@ -587,29 +615,6 @@ void VulkanRHI::initDefaultPipelines() {
   pipelineBuilder._vkShaderStageCreateInfo.push_back(
       vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT,
                                             litMeshFragShader));
-
-  VkPipelineLayoutCreateInfo litMeshPipelineLayoutCreateInfo =
-      vkinit::pipelineLayoutCreateInfo();
-
-  std::array<VkDescriptorSetLayout, 4> vkLitMeshPipelineLayouts = {
-      _vkGlobalDescriptorSetLayout,
-      _vkLitMeshrenderPassDescriptorSetLayout,
-      _vkTexturedMaterialDescriptorSetLayout,
-      _vkObjectDataDescriptorSetLayout,
-  };
-
-  litMeshPipelineLayoutCreateInfo.pSetLayouts = vkLitMeshPipelineLayouts.data();
-  litMeshPipelineLayoutCreateInfo.setLayoutCount =
-      vkLitMeshPipelineLayouts.size();
-
-  VK_CHECK(vkCreatePipelineLayout(_vkDevice, &litMeshPipelineLayoutCreateInfo,
-                                  nullptr, &_vkLitMeshPipelineLayout));
-
-  _swapchainDeletionQueue.pushFunction([this]() {
-    vkDestroyPipelineLayout(_vkDevice, _vkLitMeshPipelineLayout, nullptr);
-  });
-
-  pipelineBuilder._vkPipelineLayout = _vkLitMeshPipelineLayout;
 
   _vkLitMeshPipeline =
       pipelineBuilder.buildPipeline(_vkDevice, _vkDefaultRenderPass);
