@@ -27,14 +27,15 @@ public:
 
   bool loadAsset();
   void releaseAsset();
-  void uploadToRHI();
+  rhi::ResourceIdRHI uploadToRHI();
+  rhi::ResourceIdRHI getResourceIdRHI() const;
 
 private:
   RuntimeResourceManager& _runtimeResourceManager;
   rhi::RHI& _rhi;
   std::filesystem::path _path;
   std::optional<asset::Asset> _asset;
-  rhi::ResourceIdRHI _rhiResourceId = rhi::rhiIdUninitialized;
+  rhi::ResourceIdRHI _resourceIdRHI = rhi::rhiIdUninitialized;
 };
 
 } /*namespace obsidian::runtime_resource*/

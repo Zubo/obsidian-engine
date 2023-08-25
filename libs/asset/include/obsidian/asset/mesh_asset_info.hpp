@@ -10,6 +10,7 @@ namespace obsidian::asset {
 struct Asset;
 
 struct MeshAssetInfo : public AssetInfo {
+  std::size_t vertexCount;
   bool hasNormals;
   bool hasColors;
   bool hasUV;

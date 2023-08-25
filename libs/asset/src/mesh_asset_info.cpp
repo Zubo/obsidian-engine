@@ -11,6 +11,7 @@
 
 namespace obsidian::asset {
 
+constexpr char const* vertexCountJsonName = "vertexCount";
 constexpr char const* hasNormalsJsonName = "hasNormals";
 constexpr char const* hasUVJsonName = "hasUV";
 constexpr char const* hasColorsJsonName = "hasColors";
@@ -20,6 +21,7 @@ bool readMeshAssetInfo(Asset const& asset, MeshAssetInfo& outMeshAssetInfo) {
     nlohmann::json json = nlohmann::json::parse(asset.json);
     outMeshAssetInfo.unpackedSize = json[unpackedSizeJsonName];
     outMeshAssetInfo.compressionMode = json[compressionModeJsonName];
+    outMeshAssetInfo.vertexCount = json[vertexCountJsonName];
     outMeshAssetInfo.hasNormals = json[hasNormalsJsonName];
     outMeshAssetInfo.hasColors = json[hasColorsJsonName];
     outMeshAssetInfo.hasUV = json[hasUVJsonName];
@@ -44,6 +46,7 @@ bool packMeshAsset(MeshAssetInfo const& meshAssetInfo,
     nlohmann::json json;
     json[unpackedSizeJsonName] = meshAssetInfo.unpackedSize;
     json[compressionModeJsonName] = meshAssetInfo.compressionMode;
+    json[vertexCountJsonName] = meshAssetInfo.vertexCount;
     json[hasNormalsJsonName] = meshAssetInfo.hasNormals;
     json[hasColorsJsonName] = meshAssetInfo.hasColors;
     json[hasUVJsonName] = meshAssetInfo.hasUV;

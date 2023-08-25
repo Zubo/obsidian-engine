@@ -92,6 +92,7 @@ bool convertObjToAsset(fs::path const& srcPath, fs::path const& dstPath) {
     return false;
   }
 
+  meshAssetInfo.vertexCount = attrib.vertices.size() / 3;
   meshAssetInfo.hasNormals = attrib.normals.size();
   meshAssetInfo.hasColors = attrib.colors.size();
   meshAssetInfo.hasUV = attrib.colors.size();
