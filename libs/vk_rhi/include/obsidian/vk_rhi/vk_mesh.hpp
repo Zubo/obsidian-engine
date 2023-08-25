@@ -24,8 +24,6 @@ struct Vertex {
 struct Mesh {
   VkDeviceSize vertexCount;
   AllocatedBuffer vertexBuffer;
-
-  bool load(char const* filePath);
 };
 
 } /*namespace obsidian::vk_rhi*/

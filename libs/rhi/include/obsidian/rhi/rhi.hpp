@@ -40,6 +40,8 @@ public:
   virtual void init(WindowExtentRHI extent,
                     ISurfaceProviderRHI const& surfaceProvider) = 0;
 
+  virtual void initResources(InitResourcesRHI const& initResources) = 0;
+
   virtual void cleanup() = 0;
 
   virtual void draw(rhi::SceneGlobalParams const& sceneGlobalParams) = 0;

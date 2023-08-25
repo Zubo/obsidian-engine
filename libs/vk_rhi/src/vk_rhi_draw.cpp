@@ -38,18 +38,6 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
                                    VK_NULL_HANDLE, &swapchainImageIndex));
   }
 
-  void* data;
-  vmaMapMemory(_vmaAllocator, currentFrameData.vkObjectDataBuffer.allocation,
-               &data);
-
-  GPUObjectData* objectData = reinterpret_cast<GPUObjectData*>(data);
-
-  for (int i = 0; i < _renderObjects.size(); ++i) {
-    objectData[i].modelMat = _renderObjects[i].transformMatrix;
-  }
-
-  vmaUnmapMemory(_vmaAllocator, currentFrameData.vkObjectDataBuffer.allocation);
-
   VkCommandBuffer cmd = currentFrameData.vkCommandBuffer;
 
   VK_CHECK(vkResetCommandBuffer(cmd, 0));
@@ -245,7 +233,7 @@ void VulkanRHI::drawObjects(VkCommandBuffer cmd, VKDrawCall* first, int count,
                                      getPaddedBufferSize(sizeof(GPUSceneData))),
           static_cast<std::uint32_t>(
               frameInd * getPaddedBufferSize(sizeof(GPUCameraData)))};
-      vkCmdBindPipeline(cmd, pipelineBindPoint, _vkLitMeshPipeline);
+      vkCmdBindPipeline(cmd, pipelineBindPoint, material.vkPipeline);
 
       std::array<VkDescriptorSet, 4> const descriptorSets{
           _vkGlobalDescriptorSet,
@@ -261,7 +249,7 @@ void VulkanRHI::drawObjects(VkCommandBuffer cmd, VKDrawCall* first, int count,
     vkCmdPushConstants(cmd, drawCall.material->vkPipelineLayout,
                        VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants),
                        &drawCall.model);
-    vkCmdDraw(cmd, mesh.vertexCount * 3, 1, 0, i);
+    vkCmdDraw(cmd, mesh.vertexCount, 1, 0, i);
   }
 }
 
@@ -327,6 +315,6 @@ void VulkanRHI::drawShadowPass(
     vkCmdPushConstants(cmd, drawCall.material->vkPipelineLayout,
                        VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants),
                        &drawCall.model);
-    vkCmdDraw(cmd, mesh.vertexCount * 3, 1u, 0u, i);
+    vkCmdDraw(cmd, mesh.vertexCount, 1u, 0u, i);
   }
 }

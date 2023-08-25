@@ -14,7 +14,6 @@
 
 #include <array>
 #include <cstdint>
-#include <filesystem>
 #include <functional>
 #include <string_view>
 #include <unordered_map>
@@ -35,6 +34,10 @@ public:
 
   void init(rhi::WindowExtentRHI extent,
             rhi::ISurfaceProviderRHI const& surfaceProvider) override;
+
+  void initResources(rhi::InitResourcesRHI const& initResources) override;
+
+  void initResources();
 
   void cleanup() override;
 
@@ -89,17 +92,11 @@ private:
   VkPipelineLayout _vkMeshPipelineLayout;
   VkPipelineLayout _vkLitMeshPipelineLayout;
   VkPipelineLayout _vkShadowPassPipelineLayout;
-  VkPipeline _vkMeshPipeline;
-  VkPipeline _vkLitMeshPipeline;
   VkPipeline _vkShadowPassPipeline;
   DeletionQueue _deletionQueue;
   DeletionQueue _swapchainDeletionQueue;
   VmaAllocator _vmaAllocator;
   VkFormat _depthFormat = VK_FORMAT_D32_SFLOAT;
-  std::vector<RenderObject> _renderObjects;
-  std::unordered_map<std::string, Material> _materials;
-  std::unordered_map<std::string, Mesh> _meshes;
-  std::unordered_map<std::string, Texture> _loadedTextures;
   DescriptorLayoutCache _descriptorLayoutCache;
   DescriptorAllocator _descriptorAllocator;
   VkDescriptorSetLayout _vkGlobalDescriptorSetLayout;
@@ -119,11 +116,13 @@ private:
   VkExtent2D _windowExtent;
   bool _skipFrame = false;
   rhi::ResourceIdRHI _nextResourceId = 0;
-  std::unordered_map<rhi::ResourceIdRHI, Texture> _texturesNew;
-  std::unordered_map<rhi::ResourceIdRHI, Mesh> _meshesNew;
+  std::unordered_map<rhi::ResourceIdRHI, Texture> _textures;
+  std::unordered_map<rhi::ResourceIdRHI, Mesh> _meshes;
   std::unordered_map<rhi::ResourceIdRHI, VkShaderModule> _shaderModules;
   std::unordered_map<core::MaterialType, PipelineBuilder> _pipelineBuilders;
-  std::unordered_map<rhi::ResourceIdRHI, Material> _materialsNew;
+  std::unordered_map<rhi::ResourceIdRHI, Material> _materials;
+  rhi::ResourceIdRHI _shadowVertShaderId;
+  rhi::ResourceIdRHI _emptyFragShaderId;
   std::vector<VKDrawCall> _drawCallQueue;
 
   void initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider);
@@ -134,27 +133,18 @@ private:
   void initFramebuffers();
   void initShadowPassFramebuffers();
   void initSyncStructures();
-  bool loadShaderModule(char const* filePath, VkShaderModule* outShaderModule);
-  void initDefaultPipelines();
+  void initDefaultPipelineLayouts();
   void initShadowPassPipeline();
   void initScene();
   void initDescriptors();
   void initShadowPassDescriptors();
   void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
-  void loadTexture(std::string_view textureName,
-                   std::filesystem::path const& texturePath);
-  void loadTextures();
-  void loadMeshes();
   void uploadMesh(Mesh& mesh);
   FrameData& getCurrentFrameData();
   void drawObjects(VkCommandBuffer cmd, VKDrawCall* first, int count,
                    rhi::SceneGlobalParams const& sceneParams);
   void drawShadowPass(VkCommandBuffer, VKDrawCall* first, int count,
                       rhi::SceneGlobalParams const& sceneGlobalParams);
-  Material* createMaterial(VkPipeline pipeline, VkPipelineLayout pipelineLayout,
-                           std::string const& name,
-                           std::string const& albedoTexName = "default");
-  Material* getMaterial(std::string const& name);
   Mesh* getMesh(std::string const& name);
   AllocatedBuffer
   createBuffer(std::size_t bufferSize, VkBufferUsageFlags usage,

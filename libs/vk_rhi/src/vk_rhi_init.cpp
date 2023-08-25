@@ -39,22 +39,31 @@ void VulkanRHI::init(rhi::WindowExtentRHI extent,
 
   initSyncStructures();
 
-  loadTextures();
-
   initDescriptors();
 
   initShadowPassDescriptors();
 
-  initDefaultPipelines();
-
-  initShadowPassPipeline();
-
-  loadMeshes();
-
-  initScene();
+  initDefaultPipelineLayouts();
 
   IsInitialized = true;
 }
+
+void VulkanRHI::initResources(rhi::InitResourcesRHI const& initResources) {
+  assert(IsInitialized);
+
+  _shadowVertShaderId = uploadShader(initResources.shadowPassVert);
+  _emptyFragShaderId = uploadShader(initResources.shadowPassFrag);
+
+  _deletionQueue.pushFunction([this]() {
+    vkDestroyShaderModule(_vkDevice, _shaderModules[_shadowVertShaderId],
+                          nullptr);
+    vkDestroyShaderModule(_vkDevice, _shaderModules[_emptyFragShaderId],
+                          nullptr);
+  });
+
+  initShadowPassPipeline();
+}
+
 void VulkanRHI::initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider) {
   vkb::InstanceBuilder builder;
 
@@ -466,7 +475,7 @@ void VulkanRHI::initSyncStructures() {
   });
 }
 
-void VulkanRHI::initDefaultPipelines() {
+void VulkanRHI::initDefaultPipelineLayouts() {
   PipelineBuilder pipelineBuilder;
 
   pipelineBuilder._vkInputAssemblyCreateInfo =
@@ -520,41 +529,6 @@ void VulkanRHI::initDefaultPipelines() {
 
   _pipelineBuilders[core::MaterialType::unlit] = pipelineBuilder;
 
-  VkShaderModule meshVertShader;
-
-  if (!loadShaderModule("shaders/mesh-vert.spv", &meshVertShader)) {
-    OBS_LOG_ERR("Failed to build the mesh vertex shader module");
-  } else {
-    OBS_LOG_MSG("Mesh vertex shader successfully loaded");
-  }
-
-  VkShaderModule meshFragShader;
-
-  if (!loadShaderModule("shaders/mesh-frag.spv", &meshFragShader)) {
-    OBS_LOG_ERR("Failed to build the mesh fragment shader module")
-  } else {
-    OBS_LOG_MSG("Mesh fragment shader successfully loaded");
-  }
-
-  pipelineBuilder._vkShaderStageCreateInfo.push_back(
-      vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT,
-                                            meshVertShader));
-
-  pipelineBuilder._vkShaderStageCreateInfo.push_back(
-      vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT,
-                                            meshFragShader));
-
-  _vkMeshPipeline =
-      pipelineBuilder.buildPipeline(_vkDevice, _vkDefaultRenderPass);
-
-  // createMaterial(_vkMeshPipeline, _vkMeshPipelineLayout, "defaultmesh");
-
-  vkDestroyShaderModule(_vkDevice, meshVertShader, nullptr);
-  vkDestroyShaderModule(_vkDevice, meshFragShader, nullptr);
-
-  _swapchainDeletionQueue.pushFunction(
-      [this] { vkDestroyPipeline(_vkDevice, _vkMeshPipeline, nullptr); });
-
   pipelineBuilder._vkShaderStageCreateInfo.clear();
 
   _swapchainDeletionQueue.pushFunction([this] {
@@ -587,44 +561,6 @@ void VulkanRHI::initDefaultPipelines() {
   pipelineBuilder._vkPipelineLayout = _vkLitMeshPipelineLayout;
 
   _pipelineBuilders[core::MaterialType::lit] = pipelineBuilder;
-
-  VkShaderModule litMeshVertShader;
-
-  if (!loadShaderModule("shaders/mesh-light-vert-dbg.spv",
-                        &litMeshVertShader)) {
-    OBS_LOG_ERR("Failed to build the lit mesh vertex shader module");
-  } else {
-    OBS_LOG_MSG("Lit mesh vertex shader successfully loaded");
-  }
-
-  VkShaderModule litMeshFragShader;
-
-  if (!loadShaderModule("shaders/mesh-light-frag-dbg.spv",
-                        &litMeshFragShader)) {
-    OBS_LOG_ERR("Failed to build the lit mesh fragment shader module");
-  } else {
-    OBS_LOG_MSG("Lit mesh fragment shader successfully loaded");
-  }
-
-  pipelineBuilder._vkShaderStageCreateInfo.push_back(
-      vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT,
-                                            litMeshVertShader));
-
-  pipelineBuilder._vkShaderStageCreateInfo.push_back(
-      vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT,
-                                            litMeshFragShader));
-
-  _vkLitMeshPipeline =
-      pipelineBuilder.buildPipeline(_vkDevice, _vkDefaultRenderPass);
-
-  // createMaterial(_vkLitMeshPipeline, _vkMeshPipelineLayout, "lit-mesh",
-  //                "lost-empire");
-
-  vkDestroyShaderModule(_vkDevice, litMeshVertShader, nullptr);
-  vkDestroyShaderModule(_vkDevice, litMeshFragShader, nullptr);
-
-  _swapchainDeletionQueue.pushFunction(
-      [this] { vkDestroyPipeline(_vkDevice, _vkLitMeshPipeline, nullptr); });
 
   pipelineBuilder._vkShaderStageCreateInfo.clear();
 }
@@ -661,30 +597,13 @@ void VulkanRHI::initShadowPassPipeline() {
   VertexInputDescription shadowPassVertexInputDescription =
       Vertex::getVertexInputDescription(true, false, false, false);
 
-  VkShaderModule shadowPassVertShader;
-
-  if (!loadShaderModule("shaders/shadow-pass-vert.spv",
-                        &shadowPassVertShader)) {
-    OBS_LOG_ERR("Failed to build the shadow pass vertex shader module");
-  } else {
-    OBS_LOG_MSG("Shadow pass vertex shader successfully loaded");
-  }
-
-  VkShaderModule shadowPassFragShader;
-
-  if (!loadShaderModule("shaders/empty-frag.spv", &shadowPassFragShader)) {
-    OBS_LOG_ERR("Failed to build the empty fragment shader module");
-  } else {
-    OBS_LOG_MSG("Empty fragment shader successfully loaded");
-  }
+  pipelineBuilder._vkShaderStageCreateInfo.push_back(
+      vkinit::pipelineShaderStageCreateInfo(
+          VK_SHADER_STAGE_VERTEX_BIT, _shaderModules[_shadowVertShaderId]));
 
   pipelineBuilder._vkShaderStageCreateInfo.push_back(
-      vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT,
-                                            shadowPassVertShader));
-
-  pipelineBuilder._vkShaderStageCreateInfo.push_back(
-      vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT,
-                                            shadowPassFragShader));
+      vkinit::pipelineShaderStageCreateInfo(
+          VK_SHADER_STAGE_FRAGMENT_BIT, _shaderModules[_emptyFragShaderId]));
 
   VkPipelineLayoutCreateInfo vkShadowPassPipelineLayoutCreateInfo = {};
   vkShadowPassPipelineLayoutCreateInfo.sType =
@@ -724,39 +643,6 @@ void VulkanRHI::initShadowPassPipeline() {
   _deletionQueue.pushFunction([this]() {
     vkDestroyPipeline(_vkDevice, _vkShadowPassPipeline, nullptr);
   });
-
-  vkDestroyShaderModule(_vkDevice, shadowPassVertShader, nullptr);
-  vkDestroyShaderModule(_vkDevice, shadowPassFragShader, nullptr);
-}
-
-void VulkanRHI::initScene() {
-  return;
-  RenderObject& monkey = _renderObjects.emplace_back();
-  monkey.mesh = getMesh("monkey");
-  monkey.material = getMaterial("defaultmesh");
-  monkey.transformMatrix = glm::mat4{1.0f};
-
-  RenderObject& lostEmpire = _renderObjects.emplace_back();
-  lostEmpire.mesh = getMesh("lost-empire");
-  lostEmpire.material = getMaterial("lit-mesh");
-  lostEmpire.transformMatrix = glm::mat4{1.f};
-
-  for (int x = -20; x <= 20; ++x) {
-    for (int y = -20; y <= 20; ++y) {
-      RenderObject triangle;
-
-      triangle.mesh = getMesh("triangle");
-      triangle.material = getMaterial("defaultmesh");
-
-      glm::mat4 const translation =
-          glm::translate(glm::mat4{1.0}, glm::vec3(x, 0, y));
-      glm::mat4 const scale =
-          glm::scale(glm::mat4{1.0}, glm::vec3(0.2, 0.2, 0.2));
-      triangle.transformMatrix = translation * scale;
-
-      _renderObjects.push_back(triangle);
-    }
-  }
 }
 
 void VulkanRHI::initDescriptors() {
@@ -871,22 +757,6 @@ void VulkanRHI::initDescriptors() {
                     VK_SHADER_STAGE_FRAGMENT_BIT)
         .build(frameData.vkDefaultRenderPassDescriptorSet,
                _vkLitMeshrenderPassDescriptorSetLayout);
-
-    frameData.vkObjectDataBuffer =
-        createBuffer(maxNumberOfObjects * sizeof(GPUObjectData),
-                     VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_AUTO,
-                     VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
-
-    _deletionQueue.pushFunction([this, frameData]() {
-      AllocatedBuffer const& buffer = frameData.vkObjectDataBuffer;
-      vmaDestroyBuffer(_vmaAllocator, buffer.buffer, buffer.allocation);
-    });
-
-    // VkDescriptorBufferInfo objectDataDescriptorBufferInfo = {};
-    // objectDataDescriptorBufferInfo.buffer =
-    // frameData.vkObjectDataBuffer.buffer;
-    // objectDataDescriptorBufferInfo.offset = 0;
-    // objectDataDescriptorBufferInfo.range = VK_WHOLE_SIZE;
 
     DescriptorBuilder::begin(_vkDevice, _descriptorAllocator,
                              _descriptorLayoutCache)

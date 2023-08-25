@@ -90,7 +90,6 @@ struct FrameData {
   VkCommandPool vkCommandPool;
   VkCommandBuffer vkCommandBuffer;
 
-  AllocatedBuffer vkObjectDataBuffer;
   VkDescriptorSet vkObjectDataDescriptorSet;
   VkDescriptorSet vkDefaultRenderPassDescriptorSet;
 

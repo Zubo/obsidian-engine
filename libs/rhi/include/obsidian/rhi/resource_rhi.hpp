@@ -37,4 +37,9 @@ struct UploadMaterialRHI {
   ResourceIdRHI albedoTextureId;
 };
 
+struct InitResourcesRHI {
+  rhi::UploadShaderRHI shadowPassVert;
+  rhi::UploadShaderRHI shadowPassFrag;
+};
+
 } /*namespace obsidian::rhi*/

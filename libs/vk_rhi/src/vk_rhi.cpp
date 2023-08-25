@@ -19,7 +19,6 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
-#include <fstream>
 
 using namespace obsidian;
 using namespace obsidian::vk_rhi;
@@ -44,7 +43,7 @@ VulkanRHI::uploadTexture(rhi::UploadTextureRHI const& uploadTextureInfoRHI) {
   vmaUnmapMemory(_vmaAllocator, stagingBuffer.allocation);
 
   rhi::ResourceIdRHI const newResourceId = consumeNewResourceId();
-  Texture& newTexture = _texturesNew[newResourceId];
+  Texture& newTexture = _textures[newResourceId];
 
   VkImageUsageFlags const imageUsageFlags =
       VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
@@ -135,12 +134,14 @@ VulkanRHI::uploadTexture(rhi::UploadTextureRHI const& uploadTextureInfoRHI) {
 }
 
 void VulkanRHI::unloadTexture(rhi::ResourceIdRHI resourceIdRHI) {
-  Texture& tex = _texturesNew[resourceIdRHI];
+  vkDeviceWaitIdle(_vkDevice);
+
+  Texture& tex = _textures[resourceIdRHI];
 
   vkDestroyImageView(_vkDevice, tex.imageView, nullptr);
   vmaDestroyImage(_vmaAllocator, tex.image.vkImage, tex.image.allocation);
 
-  _texturesNew.erase(resourceIdRHI);
+  _textures.erase(resourceIdRHI);
 }
 
 rhi::ResourceIdRHI VulkanRHI::uploadMesh(rhi::UploadMeshRHI const& meshInfo) {
@@ -158,7 +159,7 @@ rhi::ResourceIdRHI VulkanRHI::uploadMesh(rhi::UploadMeshRHI const& meshInfo) {
   vmaUnmapMemory(_vmaAllocator, stagingBuffer.allocation);
 
   rhi::ResourceIdRHI const newResourceId = consumeNewResourceId();
-  Mesh& mesh = _meshesNew[newResourceId];
+  Mesh& mesh = _meshes[newResourceId];
 
   mesh.vertexBuffer = createBuffer(bufferSize,
                                    VK_BUFFER_USAGE_TRANSFER_DST_BIT |
@@ -183,12 +184,12 @@ rhi::ResourceIdRHI VulkanRHI::uploadMesh(rhi::UploadMeshRHI const& meshInfo) {
 }
 
 void VulkanRHI::unloadMesh(rhi::ResourceIdRHI resourceIdRHI) {
-  Mesh& tex = _meshesNew[resourceIdRHI];
+  Mesh& tex = _meshes[resourceIdRHI];
 
   vmaDestroyBuffer(_vmaAllocator, tex.vertexBuffer.buffer,
                    tex.vertexBuffer.allocation);
 
-  _meshesNew.erase(resourceIdRHI);
+  _meshes.erase(resourceIdRHI);
 }
 
 rhi::ResourceIdRHI
@@ -242,12 +243,12 @@ VulkanRHI::uploadMaterial(rhi::UploadMaterialRHI const& uploadMaterial) {
                                             fragmentShaderModule));
 
   rhi::ResourceIdRHI const newResourceId = consumeNewResourceId();
-  Material& newMaterial = _materialsNew[newResourceId];
+  Material& newMaterial = _materials[newResourceId];
   newMaterial.vkPipelineLayout = pipelineBuilder._vkPipelineLayout;
   newMaterial.vkPipeline =
       pipelineBuilder.buildPipeline(_vkDevice, _vkDefaultRenderPass);
 
-  Texture const& albedoTexture = _texturesNew[uploadMaterial.albedoTextureId];
+  Texture const& albedoTexture = _textures[uploadMaterial.albedoTextureId];
 
   VkDescriptorImageInfo albedoTexImageInfo;
   albedoTexImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -265,7 +266,7 @@ VulkanRHI::uploadMaterial(rhi::UploadMaterialRHI const& uploadMaterial) {
 }
 
 void VulkanRHI::unloadMaterial(rhi::ResourceIdRHI resourceIdRHI) {
-  Material& material = _materialsNew[resourceIdRHI];
+  Material& material = _materials[resourceIdRHI];
 
   vkDeviceWaitIdle(_vkDevice);
 
@@ -275,8 +276,8 @@ void VulkanRHI::unloadMaterial(rhi::ResourceIdRHI resourceIdRHI) {
 void VulkanRHI::submitDrawCall(rhi::DrawCall const& drawCall) {
   VKDrawCall& vkDrawCall = _drawCallQueue.emplace_back();
   vkDrawCall.model = drawCall.transform;
-  vkDrawCall.mesh = &_meshesNew[drawCall.meshId];
-  vkDrawCall.material = &_materialsNew[drawCall.materialId];
+  vkDrawCall.mesh = &_meshes[drawCall.meshId];
+  vkDrawCall.material = &_materials[drawCall.materialId];
 }
 
 VkInstance VulkanRHI::getInstance() const { return _vkInstance; }
@@ -295,39 +296,7 @@ void VulkanRHI::updateExtent(rhi::WindowExtentRHI newExtent) {
   initSwapchain();
   initDefaultRenderPass();
   initFramebuffers();
-  initDefaultPipelines();
-}
-
-bool VulkanRHI::loadShaderModule(char const* filePath,
-                                 VkShaderModule* outShaderModule) {
-  std::ifstream file{filePath, std::ios::ate | std::ios::binary};
-
-  if (!file.is_open()) {
-    return false;
-  }
-
-  std::size_t const fileSize = static_cast<std::size_t>(file.tellg());
-  std::vector<std::uint32_t> buffer((fileSize + sizeof(std::uint32_t) - 1) /
-                                    sizeof(std::uint32_t));
-
-  file.seekg(0);
-
-  file.read(reinterpret_cast<char*>(buffer.data()), fileSize);
-
-  file.close();
-
-  VkShaderModuleCreateInfo shaderModuleCreateInfo = {};
-  shaderModuleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-  shaderModuleCreateInfo.pNext = nullptr;
-  shaderModuleCreateInfo.codeSize = fileSize;
-  shaderModuleCreateInfo.pCode = buffer.data();
-
-  if (vkCreateShaderModule(_vkDevice, &shaderModuleCreateInfo, nullptr,
-                           outShaderModule)) {
-    return false;
-  }
-
-  return true;
+  initDefaultPipelineLayouts();
 }
 
 void VulkanRHI::immediateSubmit(
@@ -356,145 +325,9 @@ void VulkanRHI::immediateSubmit(
       vkResetCommandPool(_vkDevice, _immediateSubmitContext.vkCommandPool, 0));
 }
 
-void VulkanRHI::loadTexture(std::string_view textureName,
-                            std::filesystem::path const& texturePath) {
-  Texture& lostEmpireTexture = _loadedTextures[std::string{textureName}];
-  bool const lostEmpImageLoaded =
-      loadImage(texturePath.c_str(), lostEmpireTexture.image);
-  assert(lostEmpImageLoaded);
-
-  VkImageViewCreateInfo lostEmpImgViewCreateInfo = vkinit::imageViewCreateInfo(
-      lostEmpireTexture.image.vkImage, VK_FORMAT_R8G8B8A8_SRGB,
-      VK_IMAGE_ASPECT_COLOR_BIT);
-
-  vkCreateImageView(_vkDevice, &lostEmpImgViewCreateInfo, nullptr,
-                    &lostEmpireTexture.imageView);
-
-  _deletionQueue.pushFunction([this, lostEmpireTexture]() {
-    vkDestroyImageView(_vkDevice, lostEmpireTexture.imageView, nullptr);
-  });
-}
-
-void VulkanRHI::loadTextures() {
-  return;
-  loadTexture("default", {"assets/default-texture.obstex"});
-  loadTexture("lost-empire", {"assets/lost_empire-RGBA.obstex"});
-}
-
-void VulkanRHI::loadMeshes() {
-  return;
-  Mesh& triangleMesh = _meshes["triangle"];
-  triangleMesh.vertices.resize(3);
-  triangleMesh.vertices[0].position = {1.0f, 1.0f, 0.0f};
-  triangleMesh.vertices[1].position = {-1.0f, 1.0f, 0.0f};
-  triangleMesh.vertices[2].position = {0.0f, -1.0f, 0.0f};
-
-  triangleMesh.vertices[0].color = {0.0f, 1.0f, 0.0f};
-  triangleMesh.vertices[1].color = {0.0f, 1.0f, 0.0f};
-  triangleMesh.vertices[2].color = {0.7f, 0.5f, 0.1f};
-
-  uploadMesh(triangleMesh);
-
-  Mesh& monkeyMesh = _meshes["monkey"];
-  monkeyMesh.load("assets/monkey_smooth.obsmesh");
-  uploadMesh(monkeyMesh);
-
-  Mesh& lostEmpire = _meshes["lost-empire"];
-  lostEmpire.load("assets/lost_empire.obsmesh");
-  uploadMesh(lostEmpire);
-}
-
-void VulkanRHI::uploadMesh(Mesh& mesh) {
-  size_t const bufferSize =
-      mesh.vertices.size() * sizeof(decltype(mesh.vertices)::value_type);
-
-  AllocatedBuffer stagingBuffer =
-      createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                   VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
-                   VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
-
-  void* mappedMemory;
-  vmaMapMemory(_vmaAllocator, stagingBuffer.allocation, &mappedMemory);
-
-  std::memcpy(mappedMemory, mesh.vertices.data(), bufferSize);
-
-  vmaUnmapMemory(_vmaAllocator, stagingBuffer.allocation);
-
-  mesh.vertexBuffer = createBuffer(bufferSize,
-                                   VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-                                       VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                                   VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0);
-
-  _deletionQueue.pushFunction([this, mesh] {
-    vmaDestroyBuffer(_vmaAllocator, mesh.vertexBuffer.buffer,
-                     mesh.vertexBuffer.allocation);
-  });
-
-  immediateSubmit(
-      [this, &stagingBuffer, &mesh, bufferSize](VkCommandBuffer cmd) {
-        VkBufferCopy vkBufferCopy = {};
-        vkBufferCopy.srcOffset = 0;
-        vkBufferCopy.dstOffset = 0;
-        vkBufferCopy.size = bufferSize;
-        vkCmdCopyBuffer(cmd, stagingBuffer.buffer, mesh.vertexBuffer.buffer, 1,
-                        &vkBufferCopy);
-      });
-
-  vmaDestroyBuffer(_vmaAllocator, stagingBuffer.buffer,
-                   stagingBuffer.allocation);
-}
-
 FrameData& VulkanRHI::getCurrentFrameData() {
   std::size_t const currentFrameDataInd = _frameNumber % frameOverlap;
   return _frameDataArray[currentFrameDataInd];
-}
-
-Material* VulkanRHI::createMaterial(VkPipeline pipeline,
-                                    VkPipelineLayout pipelineLayout,
-                                    std::string const& name,
-                                    std::string const& albedoTexName) {
-  Material mat;
-  mat.vkPipeline = pipeline;
-  mat.vkPipelineLayout = pipelineLayout;
-
-  auto const albedoTexIter = _loadedTextures.find(albedoTexName);
-
-  assert(albedoTexIter != _loadedTextures.cend() && "Error: Missing texture");
-
-  VkDescriptorImageInfo albedoTexDescriptorImgInfo = {};
-  albedoTexDescriptorImgInfo.imageLayout =
-      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-  albedoTexDescriptorImgInfo.imageView = albedoTexIter->second.imageView;
-  albedoTexDescriptorImgInfo.sampler = _vkSampler;
-  DescriptorBuilder::begin(_vkDevice, _descriptorAllocator,
-                           _descriptorLayoutCache)
-      .bindImage(0, albedoTexDescriptorImgInfo,
-                 VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                 VK_SHADER_STAGE_FRAGMENT_BIT)
-      .build(mat.vkDescriptorSet, _vkTexturedMaterialDescriptorSetLayout);
-
-  Material& result = (_materials[name] = mat);
-  return &result;
-}
-
-Material* VulkanRHI::getMaterial(std::string const& name) {
-  auto const matIter = _materials.find(name);
-
-  if (matIter == _materials.cend()) {
-    return nullptr;
-  }
-
-  return &matIter->second;
-}
-
-Mesh* VulkanRHI::getMesh(std::string const& name) {
-  auto const meshIter = _meshes.find(name);
-
-  if (meshIter == _meshes.cend()) {
-    return nullptr;
-  }
-
-  return &meshIter->second;
 }
 
 AllocatedBuffer

@@ -22,6 +22,8 @@ public:
 
   void init(rhi::RHI& rhi, std::filesystem::path rootPath);
 
+  void uploadInitRHIResources();
+
   void cleanup();
 
   RuntimeResource& getResource(std::filesystem::path const& path);

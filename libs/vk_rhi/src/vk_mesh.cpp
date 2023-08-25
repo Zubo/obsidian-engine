@@ -66,23 +66,3 @@ VertexInputDescription Vertex::getVertexInputDescription(bool bindPosition,
 
   return description;
 }
-
-bool Mesh::load(char const* filePath) {
-  asset::Asset meshAsset;
-  asset::MeshAssetInfo meshAssetInfo;
-
-  bool const meshAssetLoaded =
-      asset::loadFromFile(filePath, meshAsset) &&
-      asset::readMeshAssetInfo(meshAsset, meshAssetInfo);
-
-  if (!meshAssetLoaded) {
-    return false;
-  }
-
-  vertices.resize(meshAssetInfo.unpackedSize /
-                  sizeof(decltype(vertices)::value_type));
-
-  return asset::unpackAsset(meshAssetInfo, meshAsset.binaryBlob.data(),
-                            meshAsset.binaryBlob.size(),
-                            reinterpret_cast<char*>(vertices.data()));
-}
