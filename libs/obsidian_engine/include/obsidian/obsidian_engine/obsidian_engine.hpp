@@ -1,6 +1,8 @@
 #pragma once
 
 #include <obsidian/input/input_context.hpp>
+#include <obsidian/runtime_resource/runtime_resource.hpp>
+#include <obsidian/runtime_resource/runtime_resource_manager.hpp>
 #include <obsidian/scene/scene.hpp>
 #include <obsidian/vk_rhi/vk_rhi.hpp>
 #include <obsidian/window/window.hpp>
@@ -21,6 +23,7 @@ struct ObsidianEngineContext {
   scene::Scene scene;
   input::InputContext inputContext;
   window::Window window;
+  runtime_resource::RuntimeResourceManager resourceManager;
 };
 
 class ObsidianEngine {

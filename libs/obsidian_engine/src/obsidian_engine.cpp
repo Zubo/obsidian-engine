@@ -44,6 +44,7 @@ void ObsidianEngine::init(IWindowBackendProvider const& windowBackendProvider) {
       });
 
   _context.scene.init(_context.inputContext);
+  _context.resourceManager.init(_context.vulkanRHI);
 }
 
 void ObsidianEngine::cleanup() {

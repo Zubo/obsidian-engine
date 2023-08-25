@@ -42,6 +42,46 @@ static obsidian::project::Project project;
 namespace fs = std::filesystem;
 
 static scene::GameObject* selectedGameObject = nullptr;
+static std::vector<fs::path> texturesInProj;
+static std::vector<fs::path> shadersInProj;
+static std::vector<fs::path> materialsInProj;
+static std::vector<fs::path> meshesInProj;
+static std::vector<char const*> texturePathStringPtrs;
+static std::vector<char const*> shaderPathStringPtrs;
+static std::vector<char const*> materialPathStringPtrs;
+static std::vector<char const*> meshesPathStringPtrs;
+static bool assetListDirty = false;
+static char const* materialTypes[] = {"lit", "unlit"};
+
+void refreshAssetLists() {
+  texturesInProj = project.getAllFilesWithExtension(".obstex");
+  texturePathStringPtrs.clear();
+
+  for (auto const& tex : texturesInProj) {
+    texturePathStringPtrs.push_back(tex.c_str());
+  }
+
+  shaderPathStringPtrs.clear();
+  shadersInProj = project.getAllFilesWithExtension(".obsshad");
+
+  for (auto const& shad : shadersInProj) {
+    shaderPathStringPtrs.push_back(shad.c_str());
+  }
+
+  materialPathStringPtrs.clear();
+  materialsInProj = project.getAllFilesWithExtension(".obsmat");
+
+  for (auto const& mat : materialsInProj) {
+    materialPathStringPtrs.push_back(mat.c_str());
+  }
+
+  meshesPathStringPtrs.clear();
+  meshesInProj = project.getAllFilesWithExtension(".obsmesh");
+
+  for (auto const& mesh : meshesInProj) {
+    meshesPathStringPtrs.push_back(mesh.c_str());
+  }
+}
 
 void gameObjectHierarchy(scene::GameObject& gameObject,
                          scene::SceneState& sceneState) {
@@ -51,6 +91,10 @@ void gameObjectHierarchy(scene::GameObject& gameObject,
     ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0, 255, 0, 255));
   }
   if (ImGui::TreeNode(gameObject.name.c_str())) {
+    if (ImGui::IsItemClicked()) {
+      selectedGameObject = &gameObject;
+    }
+
     if (selected) {
       ImGui::PopStyleColor();
     }
@@ -83,12 +127,6 @@ void gameObjectHierarchy(scene::GameObject& gameObject,
           deleted = true;
         }
       }
-    }
-
-    ImGui::SameLine();
-
-    if (ImGui::Button("Select")) {
-      selectedGameObject = &gameObject;
     }
 
     ImGui::PopID();
@@ -159,6 +197,34 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
           glm::vec3 pos = selectedGameObject->getPosition();
           ImGui::InputScalarN("Position", ImGuiDataType_Float, &pos, 3);
           selectedGameObject->setPosition(pos);
+
+          static int selectedObjectMesh = 0;
+          if (ImGui::Combo("Available Meshes", &selectedObjectMesh,
+                           meshesPathStringPtrs.data(),
+                           meshesPathStringPtrs.size())) {
+          }
+
+          ImGui::SameLine();
+
+          if (ImGui::Button("Apply Mesh")) {
+            selectedGameObject->meshResource =
+                &engine.getContext().resourceManager.getResource(
+                    meshesInProj[selectedObjectMesh]);
+          }
+
+          static int selectedMaterial = 0;
+          if (ImGui::Combo("Available Materials", &selectedMaterial,
+                           materialPathStringPtrs.data(),
+                           materialPathStringPtrs.size())) {
+          }
+
+          ImGui::SameLine();
+
+          if (ImGui::Button("Apply Material")) {
+            selectedGameObject->meshResource =
+                &engine.getContext().resourceManager.getResource(
+                    materialsInProj[selectedMaterial]);
+          }
         }
       }
     } else {
@@ -167,6 +233,7 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
         engineStarted = true;
       }
     }
+
     ImGui::EndTabItem();
   }
 }
@@ -193,32 +260,14 @@ void materialCreatorTab() {
 
   if (ImGui::BeginTabItem("Material Creator")) {
     static int selectedMaterialType = 0;
-    static char const* materialTypes[] = {"lit", "unlit"};
     static int selectedAlbedoTex = 0;
-    static std::vector<fs::path> texturesInProj;
     static int selectedVertexShad = 0;
     static int selectedFragmentShad = 0;
-    static std::vector<fs::path> shadersInProj;
-    static std::vector<char const*> texturePathStringPtrs;
-    static std::vector<char const*> shaderPathStringPtrs;
 
     bool justOpened = !isOpen;
     isOpen = true;
 
     if (justOpened) {
-      texturesInProj = project.getAllFilesWithExtension(".obstex");
-      texturePathStringPtrs.clear();
-
-      for (auto const& tex : texturesInProj) {
-        texturePathStringPtrs.push_back(tex.c_str());
-      }
-
-      shaderPathStringPtrs.clear();
-      shadersInProj = project.getAllFilesWithExtension(".obsshad");
-
-      for (auto const& shad : shadersInProj) {
-        shaderPathStringPtrs.push_back(shad.c_str());
-      }
     }
 
     bool canCreateMat = true;
@@ -280,6 +329,7 @@ void materialCreatorTab() {
         fs::path matPath = matName;
         matPath.replace_extension(".obsmat");
         asset::saveToFile(project.getAbsolutePath(matPath), materialAsset);
+        assetListDirty = true;
       }
 
       if (disabled) {
@@ -314,6 +364,7 @@ void projectTab() {
     if (ImGui::Button("Open")) {
       project.open(projPathBuf);
       setLastOpenProject(projPathBuf);
+      assetListDirty = true;
     }
 
     if (disabled) {
@@ -329,6 +380,7 @@ void projectTab() {
           project.open(lastOpenProject);
           std::strncpy(projPathBuf, lastOpenProject.c_str(),
                        lastOpenProject.string().size());
+          assetListDirty = true;
         }
       }
     } else {
@@ -345,6 +397,11 @@ void projectTab() {
 
 void editor(SDL_Renderer& renderer, ImGuiIO& imguiIO, DataContext& context,
             ObsidianEngine& engine, bool& engineStarted) {
+  if (assetListDirty) {
+    refreshAssetLists();
+    assetListDirty = false;
+  }
+
   ImGui_ImplSDLRenderer2_NewFrame();
   ImGui_ImplSDL2_NewFrame();
   ImGui::NewFrame();
@@ -389,6 +446,8 @@ void fileDropped(const char* file) {
   fs::path destPath = project.getAbsolutePath(srcPath.filename());
   destPath.replace_extension("");
   obsidian::asset_converter::convertAsset(srcPath, destPath);
+
+  assetListDirty = true;
 }
 
 } /*namespace obsidian::editor*/
