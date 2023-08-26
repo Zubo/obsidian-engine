@@ -200,7 +200,8 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
           selectedGameObject->setPosition(pos);
 
           glm::vec3 euler = selectedGameObject->getEuler();
-          ImGui::InputScalarN("Euler Rotation", ImGuiDataType_Float, &euler, 3);
+          ImGui::SliderFloat3("Euler Rotation",
+                              reinterpret_cast<float*>(&euler), -180.0f, 180.f);
           selectedGameObject->setEuler(euler);
 
           glm::vec3 scale = selectedGameObject->getScale();
@@ -267,12 +268,6 @@ void materialCreatorTab() {
     static int selectedVertexShad = 0;
     static int selectedFragmentShad = 0;
 
-    bool justOpened = !isOpen;
-    isOpen = true;
-
-    if (justOpened) {
-    }
-
     bool canCreateMat = true;
     if (!texturesInProj.size()) {
       ImGui::Text("No textures in the project");
@@ -329,7 +324,7 @@ void materialCreatorTab() {
 
         asset::Asset materialAsset;
         asset::packMaterial(mtlAssetInfo, {}, materialAsset);
-        fs::path matPath = matName;
+        fs::path matPath = project.getAbsolutePath(matName);
         matPath.replace_extension(".obsmat");
         asset::saveToFile(matPath, materialAsset);
         assetListDirty = true;
