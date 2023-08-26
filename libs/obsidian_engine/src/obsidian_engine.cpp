@@ -5,6 +5,7 @@
 #include <obsidian/window/window.hpp>
 #include <obsidian/window/window_backend.hpp>
 
+#include <tracy/Tracy.hpp>
 #include <vulkan/vulkan.h>
 
 #include <utility>
@@ -78,9 +79,12 @@ void submitDrawCalls(scene::GameObject const& gameObject, rhi::RHI& rhi,
 
 void ObsidianEngine::processFrame() {
   scene::SceneState const& sceneState = _context.scene.getState();
-
-  for (scene::GameObject const& gameObject : sceneState.gameObjects) {
-    submitDrawCalls(gameObject, _context.vulkanRHI, glm::mat4{1.0f});
+  ZoneScoped;
+  {
+    ZoneScopedN("Draw call recursion");
+    for (scene::GameObject const& gameObject : sceneState.gameObjects) {
+      submitDrawCalls(gameObject, _context.vulkanRHI, glm::mat4{1.0f});
+    }
   }
 
   rhi::SceneGlobalParams sceneGlobalParams;
@@ -90,7 +94,10 @@ void ObsidianEngine::processFrame() {
   sceneGlobalParams.cameraPos = sceneState.camera.pos;
   sceneGlobalParams.cameraRotationRad = sceneState.camera.rotationRad;
 
-  _context.vulkanRHI.draw(sceneGlobalParams);
+  {
+    ZoneScopedN("RHI draw");
+    _context.vulkanRHI.draw(sceneGlobalParams);
+  }
 }
 
 ObsidianEngineContext& ObsidianEngine::getContext() { return _context; }

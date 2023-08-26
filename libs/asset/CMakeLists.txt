@@ -28,4 +28,5 @@ target_link_libraries(Asset
         Core
         nlohmann_json::nlohmann_json
         lz4_static
+        TracyClient
 )

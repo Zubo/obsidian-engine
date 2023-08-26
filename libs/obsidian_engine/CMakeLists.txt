@@ -18,4 +18,5 @@ target_link_libraries(ObsidianEngine
         Scene
         RuntimeResource
         Project
+        TracyClient
 )
