@@ -10,6 +10,7 @@
 #include <obsidian/asset/asset_io.hpp>
 #include <obsidian/asset/material_asset_info.hpp>
 #include <obsidian/asset_converter/asset_converter.hpp>
+#include <obsidian/core/file_extensions.hpp>
 #include <obsidian/core/logging.hpp>
 #include <obsidian/core/material.hpp>
 #include <obsidian/editor/data.hpp>
@@ -54,7 +55,7 @@ static bool assetListDirty = false;
 static char const* materialTypes[] = {"lit", "unlit"};
 
 void refreshAssetLists() {
-  texturesInProj = project.getAllFilesWithExtension(".obstex");
+  texturesInProj = project.getAllFilesWithExtension(core::textureAssetExt);
   texturePathStringPtrs.clear();
 
   for (auto const& tex : texturesInProj) {
@@ -62,21 +63,21 @@ void refreshAssetLists() {
   }
 
   shaderPathStringPtrs.clear();
-  shadersInProj = project.getAllFilesWithExtension(".obsshad");
+  shadersInProj = project.getAllFilesWithExtension(core::shaderAssetExt);
 
   for (auto const& shad : shadersInProj) {
     shaderPathStringPtrs.push_back(shad.c_str());
   }
 
   materialPathStringPtrs.clear();
-  materialsInProj = project.getAllFilesWithExtension(".obsmat");
+  materialsInProj = project.getAllFilesWithExtension(core::materialAssetExt);
 
   for (auto const& mat : materialsInProj) {
     materialPathStringPtrs.push_back(mat.c_str());
   }
 
   meshesPathStringPtrs.clear();
-  meshesInProj = project.getAllFilesWithExtension(".obsmesh");
+  meshesInProj = project.getAllFilesWithExtension(core::meshAssetExt);
 
   for (auto const& mesh : meshesInProj) {
     meshesPathStringPtrs.push_back(mesh.c_str());

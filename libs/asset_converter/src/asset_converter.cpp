@@ -4,6 +4,7 @@
 #include <obsidian/asset/shader_asset_info.hpp>
 #include <obsidian/asset/texture_asset_info.hpp>
 #include <obsidian/asset_converter/asset_converter.hpp>
+#include <obsidian/core/file_extensions.hpp>
 #include <obsidian/core/logging.hpp>
 #include <obsidian/core/texture_format.hpp>
 
@@ -21,7 +22,9 @@ namespace fs = std::filesystem;
 namespace obsidian::asset_converter {
 
 std::unordered_map<std::string, std::string> extensionMap = {
-    {".png", ".obstex"}, {".obj", ".obsmesh"}, {".spv", ".obsshad"}};
+    {".png", core::textureAssetExt},
+    {".obj", core::meshAssetExt},
+    {".spv", core::shaderAssetExt}};
 
 bool saveAsset(fs::path const& srcPath, fs::path const& dstPath,
                asset::Asset const& textureAsset) {
