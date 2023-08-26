@@ -3,6 +3,7 @@
 #include <obsidian/editor/data.hpp>
 #include <obsidian/editor/editor_windows.hpp>
 #include <obsidian/obsidian_engine/obsidian_engine.hpp>
+#include <obsidian/platform/environment.hpp>
 #include <obsidian/rhi/rhi.hpp>
 #include <obsidian/scene/scene.hpp>
 #include <obsidian/sdl_wrapper/sdl_backend.hpp>

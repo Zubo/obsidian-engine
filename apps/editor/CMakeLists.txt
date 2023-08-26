@@ -23,5 +23,7 @@ target_link_libraries(ObsidianEditor
         DearImgui
         TracyClient
         Core
+        Globals
+        Platform
         nlohmann_json::nlohmann_json
 )

@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.24)
 
 add_subdirectory(core)
 add_subdirectory(project)
+add_subdirectory(globals)
+add_subdirectory(platform)
 add_subdirectory(asset)
 add_subdirectory(asset_converter)
 add_subdirectory(runtime_resource)
