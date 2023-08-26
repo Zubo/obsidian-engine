@@ -153,7 +153,6 @@ private:
                VmaAllocationInfo* outAllocationInfo = nullptr) const;
   std::size_t getPaddedBufferSize(std::size_t originalSize) const;
 
-  bool loadImage(char const* filePath, AllocatedImage& outAllocatedImage);
   rhi::ResourceIdRHI consumeNewResourceId();
 };
 

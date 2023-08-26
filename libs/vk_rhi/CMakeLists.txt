@@ -33,7 +33,6 @@ target_link_libraries(VulkanRHI
         VulkanMemoryAllocator
     PRIVATE
         Core
-        Asset
         vk-bootstrap::vk-bootstrap
         HashLibrary
         Renderdoc

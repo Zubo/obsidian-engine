@@ -1,7 +1,3 @@
-#include <obsidian/asset/asset.hpp>
-#include <obsidian/asset/asset_info.hpp>
-#include <obsidian/asset/asset_io.hpp>
-#include <obsidian/asset/mesh_asset_info.hpp>
 #include <obsidian/vk_rhi/vk_mesh.hpp>
 
 #include <vulkan/vulkan.h>

@@ -92,10 +92,10 @@ bool convertObjToAsset(fs::path const& srcPath, fs::path const& dstPath) {
     return false;
   }
 
-  meshAssetInfo.vertexCount = attrib.vertices.size() / 3;
   meshAssetInfo.hasNormals = attrib.normals.size();
   meshAssetInfo.hasColors = attrib.colors.size();
   meshAssetInfo.hasUV = attrib.colors.size();
+  meshAssetInfo.vertexCount = 0;
   std::size_t const vertexSize = asset::getVertexSize(meshAssetInfo);
 
   std::vector<char> meshData;
@@ -113,6 +113,8 @@ bool convertObjToAsset(fs::path const& srcPath, fs::path const& dstPath) {
 
       for (std::size_t v = 0; v < vertexCount; ++v) {
         tinyobj::index_t const idx = shape.mesh.indices[faceIndOffset + v];
+
+        ++meshAssetInfo.vertexCount;
 
         glm::vec3 const pos = {attrib.vertices[3 * idx.vertex_index + 0],
                                attrib.vertices[3 * idx.vertex_index + 1],
