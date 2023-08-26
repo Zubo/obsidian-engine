@@ -199,6 +199,14 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
           ImGui::InputScalarN("Position", ImGuiDataType_Float, &pos, 3);
           selectedGameObject->setPosition(pos);
 
+          glm::vec3 euler = selectedGameObject->getEuler();
+          ImGui::InputScalarN("Euler Rotation", ImGuiDataType_Float, &euler, 3);
+          selectedGameObject->setEuler(euler);
+
+          glm::vec3 scale = selectedGameObject->getScale();
+          ImGui::InputScalarN("Scale", ImGuiDataType_Float, &scale, 3);
+          selectedGameObject->setScale(scale);
+
           static int selectedObjectMesh = 0;
           if (ImGui::Combo("Available Meshes", &selectedObjectMesh,
                            meshesPathStringPtrs.data(),

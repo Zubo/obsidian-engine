@@ -4,8 +4,8 @@
 
 #include <glm/glm.hpp>
 
+#include <deque>
 #include <string>
-#include <vector>
 
 namespace obsidian::scene {
 
@@ -37,8 +37,8 @@ public:
 
   void destroyChild(GameObjectId id);
 
-  std::vector<GameObject> const& getChildren() const;
-  std::vector<GameObject>& getChildren();
+  std::deque<GameObject> const& getChildren() const;
+  std::deque<GameObject>& getChildren();
 
   std::string name;
   runtime_resource::RuntimeResource* materialResource = nullptr;
@@ -54,12 +54,13 @@ private:
   glm::vec3 _scale = {1.0f, 1.0f, 1.0f};
   glm::mat4 _transform{1.0f};
 
-  std::vector<GameObject> _children;
+  // TODO: use better data structure to store GameObjects
+  std::deque<GameObject> _children;
 
   static GameObjectId _idCounter;
 };
 
-inline void forEachGameObjAndChildren(std::vector<GameObject>& gameObjects,
+inline void forEachGameObjAndChildren(std::deque<GameObject>& gameObjects,
                                       void (*f)(GameObject&)) {
   for (auto& obj : gameObjects) {
     f(obj);
@@ -68,9 +69,8 @@ inline void forEachGameObjAndChildren(std::vector<GameObject>& gameObjects,
   }
 }
 
-inline void
-forEachGameObjAndChildren(std::vector<GameObject> const& gameObjects,
-                          void (*f)(GameObject const&)) {
+inline void forEachGameObjAndChildren(std::deque<GameObject> const& gameObjects,
+                                      void (*f)(GameObject const&)) {
   for (auto& obj : gameObjects) {
     f(obj);
 

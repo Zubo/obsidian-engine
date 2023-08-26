@@ -1,13 +1,15 @@
-#include <algorithm>
 #include <glm/gtx/transform.hpp>
+
 #include <obsidian/scene/game_object.hpp>
+
+#include <algorithm>
 
 using namespace obsidian::scene;
 
 GameObject::GameObjectId GameObject::_idCounter = 0;
 
 GameObject::GameObject() : _objectId{_idCounter++} {
-  name = std::string("GameObject") + std::to_string(_objectId);
+  name = "GameObject" + std::to_string(_objectId);
 }
 
 GameObject::GameObjectId GameObject::getId() const { return _objectId; }
@@ -38,7 +40,7 @@ glm::mat4 const& GameObject::getTransform() const { return _transform; }
 void GameObject::updateTransform() {
   _transform = glm::mat4{1.0f};
 
-  _transform *= glm::scale(_scale);
+  _transform *= glm::translate(_position);
 
   _transform *=
       glm::rotate(glm::radians(_euler.x), glm::vec3{1.0f, 0.0f, 0.0f});
@@ -47,7 +49,7 @@ void GameObject::updateTransform() {
   _transform *=
       glm::rotate(glm::radians(_euler.z), glm::vec3{0.0f, 0.0f, 1.0f});
 
-  _transform *= glm::translate(_position);
+  _transform *= glm::scale(_scale);
 }
 
 GameObject& GameObject::createChild() {
@@ -68,8 +70,8 @@ void GameObject::destroyChild(GameObjectId id) {
   }
 }
 
-std::vector<GameObject> const& GameObject::getChildren() const {
+std::deque<GameObject> const& GameObject::getChildren() const {
   return _children;
 }
 
-std::vector<GameObject>& GameObject::getChildren() { return _children; }
+std::deque<GameObject>& GameObject::getChildren() { return _children; }
