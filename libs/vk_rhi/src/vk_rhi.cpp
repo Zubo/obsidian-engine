@@ -142,49 +142,65 @@ void VulkanRHI::unloadTexture(rhi::ResourceIdRHI resourceIdRHI) {
 }
 
 rhi::ResourceIdRHI VulkanRHI::uploadMesh(rhi::UploadMeshRHI const& meshInfo) {
-  std::size_t const bufferSize = meshInfo.meshSize;
-  AllocatedBuffer stagingBuffer =
-      createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                   VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
-                   VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+  AllocatedBuffer vertexStagingBuffer = createBuffer(
+      meshInfo.vertexBufferSize + meshInfo.indexBufferSize,
+      VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
+      VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
 
   void* mappedMemory;
-  vmaMapMemory(_vmaAllocator, stagingBuffer.allocation, &mappedMemory);
+  vmaMapMemory(_vmaAllocator, vertexStagingBuffer.allocation, &mappedMemory);
 
   meshInfo.unpackFunc(reinterpret_cast<char*>(mappedMemory));
 
-  vmaUnmapMemory(_vmaAllocator, stagingBuffer.allocation);
+  vmaUnmapMemory(_vmaAllocator, vertexStagingBuffer.allocation);
 
   rhi::ResourceIdRHI const newResourceId = consumeNewResourceId();
   Mesh& mesh = _meshes[newResourceId];
 
-  mesh.vertexBuffer = createBuffer(bufferSize,
+  mesh.vertexBuffer = createBuffer(meshInfo.vertexBufferSize,
                                    VK_BUFFER_USAGE_TRANSFER_DST_BIT |
                                        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                                    VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0);
   mesh.vertexCount = meshInfo.vertexCount;
 
+  mesh.indexBuffer = createBuffer(meshInfo.indexBufferSize,
+                                  VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                                      VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                                  VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0);
+  mesh.indexCount = meshInfo.indexCount;
+
   immediateSubmit(
-      [this, &stagingBuffer, &mesh, bufferSize](VkCommandBuffer cmd) {
-        VkBufferCopy vkBufferCopy = {};
-        vkBufferCopy.srcOffset = 0;
-        vkBufferCopy.dstOffset = 0;
-        vkBufferCopy.size = bufferSize;
-        vkCmdCopyBuffer(cmd, stagingBuffer.buffer, mesh.vertexBuffer.buffer, 1,
-                        &vkBufferCopy);
+      [this, &vertexStagingBuffer, &mesh, meshInfo](VkCommandBuffer cmd) {
+        VkBufferCopy vkVertexBufferCopy = {};
+        vkVertexBufferCopy.srcOffset = 0;
+        vkVertexBufferCopy.dstOffset = 0;
+        vkVertexBufferCopy.size = meshInfo.vertexBufferSize;
+        vkCmdCopyBuffer(cmd, vertexStagingBuffer.buffer,
+                        mesh.vertexBuffer.buffer, 1, &vkVertexBufferCopy);
+
+        VkBufferCopy vkIndexBufferCopy = {};
+        vkIndexBufferCopy.srcOffset = meshInfo.vertexBufferSize;
+        vkIndexBufferCopy.dstOffset = 0;
+        vkIndexBufferCopy.size = meshInfo.indexBufferSize;
+
+        vkCmdCopyBuffer(cmd, vertexStagingBuffer.buffer,
+                        mesh.indexBuffer.buffer, 1, &vkIndexBufferCopy);
       });
 
-  vmaDestroyBuffer(_vmaAllocator, stagingBuffer.buffer,
-                   stagingBuffer.allocation);
+  vmaDestroyBuffer(_vmaAllocator, vertexStagingBuffer.buffer,
+                   vertexStagingBuffer.allocation);
 
   return newResourceId;
 }
 
 void VulkanRHI::unloadMesh(rhi::ResourceIdRHI resourceIdRHI) {
-  Mesh& tex = _meshes[resourceIdRHI];
+  Mesh& mesh = _meshes[resourceIdRHI];
 
-  vmaDestroyBuffer(_vmaAllocator, tex.vertexBuffer.buffer,
-                   tex.vertexBuffer.allocation);
+  vmaDestroyBuffer(_vmaAllocator, mesh.vertexBuffer.buffer,
+                   mesh.vertexBuffer.allocation);
+
+  vmaDestroyBuffer(_vmaAllocator, mesh.indexBuffer.buffer,
+                   mesh.indexBuffer.allocation);
 
   _meshes.erase(resourceIdRHI);
 }

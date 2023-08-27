@@ -24,6 +24,8 @@ struct Vertex {
 struct Mesh {
   VkDeviceSize vertexCount;
   AllocatedBuffer vertexBuffer;
+  VkDeviceSize indexCount;
+  AllocatedBuffer indexBuffer;
 };
 
 } /*namespace obsidian::vk_rhi*/

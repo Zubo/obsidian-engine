@@ -13,6 +13,9 @@
 namespace obsidian::asset {
 
 constexpr char const* vertexCountJsonName = "vertexCount";
+constexpr char const* vertexBufferSizeJsonName = "vertexBufferSize";
+constexpr char const* indexCountJsonName = "indexCount";
+constexpr char const* indexBufferSizeJsonName = "indexBufferSize";
 constexpr char const* hasNormalsJsonName = "hasNormals";
 constexpr char const* hasUVJsonName = "hasUV";
 constexpr char const* hasColorsJsonName = "hasColors";
@@ -24,6 +27,9 @@ bool readMeshAssetInfo(Asset const& asset, MeshAssetInfo& outMeshAssetInfo) {
     outMeshAssetInfo.unpackedSize = json[unpackedSizeJsonName];
     outMeshAssetInfo.compressionMode = json[compressionModeJsonName];
     outMeshAssetInfo.vertexCount = json[vertexCountJsonName];
+    outMeshAssetInfo.vertexBufferSize = json[vertexBufferSizeJsonName];
+    outMeshAssetInfo.indexCount = json[indexCountJsonName];
+    outMeshAssetInfo.indexBufferSize = json[indexBufferSizeJsonName];
     outMeshAssetInfo.hasNormals = json[hasNormalsJsonName];
     outMeshAssetInfo.hasColors = json[hasColorsJsonName];
     outMeshAssetInfo.hasUV = json[hasUVJsonName];
@@ -50,6 +56,9 @@ bool packMeshAsset(MeshAssetInfo const& meshAssetInfo,
     json[unpackedSizeJsonName] = meshAssetInfo.unpackedSize;
     json[compressionModeJsonName] = meshAssetInfo.compressionMode;
     json[vertexCountJsonName] = meshAssetInfo.vertexCount;
+    json[vertexBufferSizeJsonName] = meshAssetInfo.vertexBufferSize;
+    json[indexCountJsonName] = meshAssetInfo.indexCount;
+    json[indexBufferSizeJsonName] = meshAssetInfo.indexBufferSize;
     json[hasNormalsJsonName] = meshAssetInfo.hasNormals;
     json[hasColorsJsonName] = meshAssetInfo.hasColors;
     json[hasUVJsonName] = meshAssetInfo.hasUV;
@@ -59,13 +68,13 @@ bool packMeshAsset(MeshAssetInfo const& meshAssetInfo,
     if (meshAssetInfo.compressionMode == CompressionMode::none) {
       outAsset.binaryBlob = std::move(meshData);
     } else if (meshAssetInfo.compressionMode == CompressionMode::LZ4) {
-      std::size_t compressedSize =
+      std::size_t compressedBufferSize =
           LZ4_compressBound(meshAssetInfo.unpackedSize);
 
-      outAsset.binaryBlob.resize(compressedSize);
+      outAsset.binaryBlob.resize(compressedBufferSize);
 
       LZ4_compress_default(meshData.data(), outAsset.binaryBlob.data(),
-                           meshAssetInfo.unpackedSize, compressedSize);
+                           meshAssetInfo.unpackedSize, compressedBufferSize);
     } else {
       OBS_LOG_ERR("Error: Unknown compression mode.");
       return false;

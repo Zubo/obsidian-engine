@@ -5,6 +5,7 @@ add_library(Core
     "include/obsidian/core/logging.hpp"
     "include/obsidian/core/texture_format.hpp"
     "include/obsidian/core/material.hpp"
+    "include/obsidian/core/vertex_type.hpp"
     "src/texture_format.cpp"
 )
 

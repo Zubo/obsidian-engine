@@ -20,8 +20,10 @@ struct UploadTextureRHI {
 };
 
 struct UploadMeshRHI {
-  std::size_t meshSize;
   std::size_t vertexCount;
+  std::size_t vertexBufferSize;
+  std::size_t indexCount;
+  std::size_t indexBufferSize;
   std::function<void(char*)> unpackFunc;
 };
 

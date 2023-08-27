@@ -1,3 +1,4 @@
+#include <cassert>
 #include <obsidian/asset/asset.hpp>
 #include <obsidian/asset/asset_io.hpp>
 #include <obsidian/asset/mesh_asset_info.hpp>
@@ -6,6 +7,7 @@
 #include <obsidian/asset_converter/asset_converter.hpp>
 #include <obsidian/core/logging.hpp>
 #include <obsidian/core/texture_format.hpp>
+#include <obsidian/core/vertex_type.hpp>
 #include <obsidian/globals/file_extensions.hpp>
 
 #include <glm/vec2.hpp>
@@ -14,8 +16,10 @@
 #include <tiny_obj_loader.h>
 
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <fstream>
+#include <unordered_map>
 
 namespace fs = std::filesystem;
 
@@ -68,9 +72,87 @@ bool convertPngToAsset(fs::path const& srcPath, fs::path const& dstPath) {
 }
 
 template <typename V>
-std::size_t appendVec(V const& vec, char* dst, std::size_t offset) {
-  std::memcpy(dst + offset, reinterpret_cast<char const*>(&vec), sizeof(vec));
-  return offset + sizeof(vec);
+std::size_t generateVertices(tinyobj::attrib_t const& attrib,
+                             std::vector<tinyobj::shape_t> const& shapes,
+                             std::vector<char>& outVertices,
+                             std::vector<core::MeshIndexType>& outIndices) {
+  using Vertex = typename V::Vertex;
+  assert(!outVertices.size() && !outIndices.size() &&
+         "Error: outVertices and outIndices have to be empty.");
+
+  struct Ind {
+    int v;
+    int n;
+    int t;
+
+    bool operator==(Ind const& other) const = default;
+
+    struct hash {
+      std::size_t operator()(Ind k) const {
+        return ((std::uint64_t)k.v << 42) | ((std::uint64_t)k.n << 21) | k.t;
+      }
+    };
+  };
+
+  std::unordered_map<Ind, std::size_t, typename Ind::hash> uniqueIdx;
+
+  for (std::size_t s = 0; s < shapes.size(); ++s) {
+    tinyobj::shape_t const& shape = shapes[s];
+
+    std::size_t faceIndOffset = 0;
+
+    for (std::size_t f = 0; f < shape.mesh.num_face_vertices.size(); ++f) {
+      unsigned char const vertexCount = shape.mesh.num_face_vertices[f];
+
+      for (std::size_t v = 0; v < vertexCount; ++v) {
+        tinyobj::index_t const idx = shape.mesh.indices[faceIndOffset + v];
+
+        auto insertResult = uniqueIdx.emplace(
+            Ind{idx.vertex_index, idx.normal_index, idx.texcoord_index},
+            outVertices.size() / sizeof(Vertex));
+
+        if (insertResult.second) {
+          // New vertex detected
+          outIndices.push_back(outVertices.size() / sizeof(Vertex));
+          std::size_t const newVertOffset = outVertices.size();
+          outVertices.resize(outVertices.size() + sizeof(Vertex));
+
+          Vertex* const vertexPtr =
+              reinterpret_cast<Vertex*>(outVertices.data() + newVertOffset);
+
+          vertexPtr->pos = {attrib.vertices[3 * idx.vertex_index + 0],
+                            attrib.vertices[3 * idx.vertex_index + 1],
+                            attrib.vertices[3 * idx.vertex_index + 2]};
+
+          if constexpr (V::hasNormal) {
+            vertexPtr->normal = {attrib.normals[3 * idx.normal_index + 0],
+                                 attrib.normals[3 * idx.normal_index + 1],
+                                 attrib.normals[3 * idx.normal_index + 2]};
+          }
+
+          if constexpr (V::hasColor) {
+            vertexPtr->color = {attrib.colors[3 * idx.vertex_index + 0],
+                                attrib.colors[3 * idx.vertex_index + 1],
+                                attrib.colors[3 * idx.vertex_index + 2]};
+          }
+
+          if constexpr (V::hasUV) {
+            vertexPtr->uv = {attrib.texcoords[2 * idx.texcoord_index + 0],
+                             1.f -
+                                 attrib.texcoords[2 * idx.texcoord_index + 1]};
+          }
+
+        } else {
+          // Insert the index of already added vertex
+          outIndices.push_back(insertResult.first->second);
+        }
+      }
+
+      faceIndOffset += vertexCount;
+    }
+  }
+
+  return outVertices.size() / sizeof(Vertex);
 }
 
 bool convertObjToAsset(fs::path const& srcPath, fs::path const& dstPath) {
@@ -97,66 +179,43 @@ bool convertObjToAsset(fs::path const& srcPath, fs::path const& dstPath) {
 
   meshAssetInfo.hasNormals = attrib.normals.size();
   meshAssetInfo.hasColors = attrib.colors.size();
-  meshAssetInfo.hasUV = attrib.colors.size();
-  meshAssetInfo.vertexCount = 0;
-  std::size_t const vertexSize = asset::getVertexSize(meshAssetInfo);
-
-  std::vector<char> meshData;
-
-  for (std::size_t s = 0; s < shapes.size(); ++s) {
-    tinyobj::shape_t const& shape = shapes[s];
-
-    std::size_t faceIndOffset = 0;
-
-    for (std::size_t f = 0; f < shape.mesh.num_face_vertices.size(); ++f) {
-      unsigned char const vertexCount = shape.mesh.num_face_vertices[f];
-
-      std::size_t blobOffset = meshData.size();
-      meshData.resize(meshData.size() + vertexCount * vertexSize);
-
-      for (std::size_t v = 0; v < vertexCount; ++v) {
-        tinyobj::index_t const idx = shape.mesh.indices[faceIndOffset + v];
-
-        ++meshAssetInfo.vertexCount;
-
-        glm::vec3 const pos = {attrib.vertices[3 * idx.vertex_index + 0],
-                               attrib.vertices[3 * idx.vertex_index + 1],
-                               attrib.vertices[3 * idx.vertex_index + 2]};
-        blobOffset = appendVec(pos, meshData.data(), blobOffset);
-
-        if (meshAssetInfo.hasNormals) {
-          glm::vec3 const normals = {attrib.normals[3 * idx.normal_index + 0],
-                                     attrib.normals[3 * idx.normal_index + 1],
-                                     attrib.normals[3 * idx.normal_index + 2]};
-          blobOffset = appendVec(normals, meshData.data(), blobOffset);
-        }
-
-        if (meshAssetInfo.hasColors) {
-          glm::vec3 const col = {attrib.colors[3 * idx.vertex_index + 0],
-                                 attrib.colors[3 * idx.vertex_index + 1],
-                                 attrib.colors[3 * idx.vertex_index + 2]};
-          blobOffset = appendVec(col, meshData.data(), blobOffset);
-        }
-
-        if (meshAssetInfo.hasUV) {
-          glm::vec2 const uv = {
-              attrib.texcoords[2 * idx.texcoord_index + 0],
-              1.f - attrib.texcoords[2 * idx.texcoord_index + 1]};
-          blobOffset = appendVec(uv, meshData.data(), blobOffset);
-        }
-      }
-
-      faceIndOffset += vertexCount;
-    }
-  }
-
-  meshAssetInfo.unpackedSize = meshData.size();
+  meshAssetInfo.hasUV = attrib.texcoords.size();
 
   asset::Asset meshAsset;
-  if (!asset::packMeshAsset(meshAssetInfo, std::move(meshData), meshAsset)) {
-    return false;
+
+  std::vector<char> outVertices;
+  std::vector<core::MeshIndexType> outIndices;
+
+  std::size_t vertexCount;
+  if (meshAssetInfo.hasNormals && meshAssetInfo.hasColors &&
+      meshAssetInfo.hasUV) {
+    vertexCount = generateVertices<core::VertexType<true, true, true>>(
+        attrib, shapes, outVertices, outIndices);
+  } else if (meshAssetInfo.hasNormals && meshAssetInfo.hasColors) {
+    vertexCount = generateVertices<core::VertexType<true, true, false>>(
+        attrib, shapes, outVertices, outIndices);
+  } else if (meshAssetInfo.hasNormals) {
+    vertexCount = generateVertices<core::VertexType<true, false, false>>(
+        attrib, shapes, outVertices, outIndices);
+  } else {
+    vertexCount = generateVertices<core::VertexType<false, false, false>>(
+        attrib, shapes, outVertices, outIndices);
   }
 
+  meshAssetInfo.vertexCount = vertexCount;
+  meshAssetInfo.vertexBufferSize = outVertices.size();
+  meshAssetInfo.indexCount = outIndices.size();
+  meshAssetInfo.indexBufferSize = sizeof(int) * meshAssetInfo.indexCount;
+  meshAssetInfo.unpackedSize =
+      meshAssetInfo.vertexBufferSize + meshAssetInfo.indexBufferSize;
+
+  outVertices.resize(outVertices.size() + meshAssetInfo.indexBufferSize);
+  std::memcpy(outVertices.data() + meshAssetInfo.vertexBufferSize,
+              outIndices.data(), meshAssetInfo.indexBufferSize);
+
+  if (!asset::packMeshAsset(meshAssetInfo, std::move(outVertices), meshAsset)) {
+    return false;
+  }
   return saveAsset(srcPath, dstPath, meshAsset);
 } // namespace obsidian::asset_converter
 

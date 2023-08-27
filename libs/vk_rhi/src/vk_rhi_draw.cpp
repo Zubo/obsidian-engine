@@ -246,10 +246,11 @@ void VulkanRHI::drawObjects(VkCommandBuffer cmd, VKDrawCall* first, int count,
 
     VkDeviceSize const bufferOffset = 0;
     vkCmdBindVertexBuffers(cmd, 0, 1, &mesh.vertexBuffer.buffer, &bufferOffset);
+    vkCmdBindIndexBuffer(cmd, mesh.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
     vkCmdPushConstants(cmd, drawCall.material->vkPipelineLayout,
                        VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants),
                        &drawCall.model);
-    vkCmdDraw(cmd, mesh.vertexCount, 1, 0, i);
+    vkCmdDrawIndexed(cmd, mesh.indexCount, 1, 0, 0, 0);
   }
 }
 
@@ -312,9 +313,10 @@ void VulkanRHI::drawShadowPass(
 
     VkDeviceSize const bufferOffset = 0;
     vkCmdBindVertexBuffers(cmd, 0, 1, &mesh.vertexBuffer.buffer, &bufferOffset);
+    vkCmdBindIndexBuffer(cmd, mesh.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
     vkCmdPushConstants(cmd, drawCall.material->vkPipelineLayout,
                        VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants),
                        &drawCall.model);
-    vkCmdDraw(cmd, mesh.vertexCount, 1u, 0u, i);
+    vkCmdDrawIndexed(cmd, mesh.indexCount, 1, 0, 0, 0);
   }
 }
