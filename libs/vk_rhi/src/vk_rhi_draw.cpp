@@ -166,7 +166,7 @@ void VulkanRHI::drawObjects(VkCommandBuffer cmd, VKDrawCall* first, int count,
   glm::mat4 proj = glm::perspective(glm::radians(60.f),
                                     static_cast<float>(_windowExtent.width) /
                                         _windowExtent.height,
-                                    0.1f, 200.f);
+                                    0.1f, 400.f);
   proj[1][1] *= -1;
 
   // Map NDC from [-1, 1] to [0, 1]

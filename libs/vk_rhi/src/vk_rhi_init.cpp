@@ -710,7 +710,7 @@ void VulkanRHI::initDescriptors() {
 
   VkSamplerCreateInfo vkSamplerCreateInfo = vkinit::samplerCreateInfo(
       VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_NEAREST,
-      VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
+      VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, 2.0f);
 
   VK_CHECK(
       vkCreateSampler(_vkDevice, &vkSamplerCreateInfo, nullptr, &_vkSampler));
@@ -722,7 +722,7 @@ void VulkanRHI::initDescriptors() {
     FrameData& frameData = _frameDataArray[i];
 
     VkSamplerCreateInfo const vkShadowMapSamplerCreateInfo =
-        vkinit::samplerCreateInfo(VK_FILTER_NEAREST,
+        vkinit::samplerCreateInfo(VK_FILTER_LINEAR,
                                   VK_SAMPLER_MIPMAP_MODE_NEAREST,
                                   VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
 

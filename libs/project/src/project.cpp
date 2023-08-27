@@ -18,7 +18,9 @@ bool exportInitialProjectFiles(fs::path const& projectPath) {
   fs::path const initialAssetsPath = getInitialAssetsPath();
 
   try {
-    fs::copy(initialAssetsPath, projectPath, fs::copy_options::recursive);
+    fs::copy(initialAssetsPath, projectPath,
+             fs::copy_options::recursive |
+                 fs ::copy_options::overwrite_existing);
   } catch (std::exception const& e) {
     OBS_LOG_ERR(e.what());
     return false;
@@ -38,8 +40,13 @@ bool Project::open(fs::path projectRootPath) {
     fs::create_directory(projectRootPath);
   }
 
-  if (!fs::exists(getInitialAssetsPath()) &&
-      !exportInitialProjectFiles(projectRootPath)) {
+  if (!fs::exists(getInitialAssetsPath())) {
+    OBS_LOG_ERR("The initial assets are missing on path " +
+                getInitialAssetsPath().string());
+    return false;
+  }
+
+  if (!exportInitialProjectFiles(projectRootPath)) {
     return false;
   }
 

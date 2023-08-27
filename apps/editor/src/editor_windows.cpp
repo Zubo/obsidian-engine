@@ -186,49 +186,63 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
         }
       }
 
-      if (ImGui::CollapsingHeader("Game Object")) {
-        if (selectedGameObject) {
-          char gameObjectName[maxGameObjectNameSize];
-          std::strncpy(gameObjectName, selectedGameObject->name.c_str(),
-                       selectedGameObject->name.size() + 1);
+      if (selectedGameObject) {
+        ImGui::SeparatorText("Edit Object");
 
-          ImGui::InputText("Name", gameObjectName, std::size(gameObjectName));
+        char gameObjectName[maxGameObjectNameSize];
+        std::strncpy(gameObjectName, selectedGameObject->name.c_str(),
+                     selectedGameObject->name.size() + 1);
 
-          selectedGameObject->name = gameObjectName;
+        ImGui::InputText("Name", gameObjectName, std::size(gameObjectName));
 
-          glm::vec3 pos = selectedGameObject->getPosition();
-          ImGui::InputScalarN("Position", ImGuiDataType_Float, &pos, 3);
-          selectedGameObject->setPosition(pos);
+        selectedGameObject->name = gameObjectName;
 
-          glm::vec3 euler = selectedGameObject->getEuler();
-          ImGui::SliderFloat3("Euler Rotation",
-                              reinterpret_cast<float*>(&euler), -180.0f, 180.f);
-          selectedGameObject->setEuler(euler);
+        glm::vec3 pos = selectedGameObject->getPosition();
+        ImGui::InputScalarN("Position", ImGuiDataType_Float, &pos, 3);
+        selectedGameObject->setPosition(pos);
 
-          glm::vec3 scale = selectedGameObject->getScale();
-          ImGui::InputScalarN("Scale", ImGuiDataType_Float, &scale, 3);
-          selectedGameObject->setScale(scale);
+        glm::vec3 euler = selectedGameObject->getEuler();
+        ImGui::SliderFloat3("Euler Rotation", reinterpret_cast<float*>(&euler),
+                            -180.0f, 180.f);
+        selectedGameObject->setEuler(euler);
 
-          static int selectedObjectMesh = 0;
-          if (ImGui::Combo("Available Meshes", &selectedObjectMesh,
-                           meshesPathStringPtrs.data(),
-                           meshesPathStringPtrs.size())) {
-          }
+        glm::vec3 scale = selectedGameObject->getScale();
+        ImGui::InputScalarN("Scale", ImGuiDataType_Float, &scale, 3);
+        selectedGameObject->setScale(scale);
 
-          static int selectedMaterial = 0;
-          if (ImGui::Combo("Available Materials", &selectedMaterial,
-                           materialPathStringPtrs.data(),
-                           materialPathStringPtrs.size())) {
-          }
+        static int selectedObjectMesh = 0;
+        if (ImGui::Combo("Mesh", &selectedObjectMesh,
+                         meshesPathStringPtrs.data(),
+                         meshesPathStringPtrs.size())) {
+        }
 
-          if (ImGui::Button("Apply Mesh and Material")) {
-            selectedGameObject->meshResource =
-                &engine.getContext().resourceManager.getResource(
-                    meshesInProj[selectedObjectMesh]);
-            selectedGameObject->materialResource =
-                &engine.getContext().resourceManager.getResource(
-                    project.getAbsolutePath(materialsInProj[selectedMaterial]));
-          }
+        static int selectedMaterial = 0;
+        if (ImGui::Combo("Material", &selectedMaterial,
+                         materialPathStringPtrs.data(),
+                         materialPathStringPtrs.size())) {
+        }
+
+        bool disabled =
+            materialPathStringPtrs.empty() || meshesPathStringPtrs.empty();
+
+        if (disabled) {
+          ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+          ImGui::PushStyleVar(ImGuiStyleVar_Alpha,
+                              ImGui::GetStyle().Alpha * 0.5f);
+        }
+
+        if (ImGui::Button("Apply Mesh and Material")) {
+          selectedGameObject->meshResource =
+              &engine.getContext().resourceManager.getResource(
+                  meshesInProj[selectedObjectMesh]);
+          selectedGameObject->materialResource =
+              &engine.getContext().resourceManager.getResource(
+                  project.getAbsolutePath(materialsInProj[selectedMaterial]));
+        }
+
+        if (disabled) {
+          ImGui::PopItemFlag();
+          ImGui::PopStyleVar();
         }
       }
     } else {
@@ -242,7 +256,7 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
   }
 }
 
-void assetsTab() {
+void importTab() {
   if (ImGui::BeginTabItem("Import")) {
     static char srcFilePath[maxPathSize];
     ImGui::InputText("Src file path", srcFilePath, std::size(srcFilePath));
@@ -373,8 +387,8 @@ void projectTab() {
       }
     } else {
       if (ImGui::BeginTabBar("EditorTabBar")) {
-        assetsTab();
         materialCreatorTab();
+        importTab();
         ImGui::EndTabBar();
       }
     }
