@@ -2,6 +2,7 @@
 #include <obsidian/asset/asset_info.hpp>
 #include <obsidian/asset/asset_io.hpp>
 #include <obsidian/asset/shader_asset_info.hpp>
+#include <obsidian/project/project.hpp>
 #include <obsidian/rhi/resource_rhi.hpp>
 #include <obsidian/rhi/rhi.hpp>
 #include <obsidian/runtime_resource/runtime_resource_manager.hpp>
@@ -16,17 +17,18 @@ using namespace obsidian::runtime_resource;
 
 namespace fs = std::filesystem;
 
-void RuntimeResourceManager::init(rhi::RHI& rhi,
-                                  std::filesystem::path rootPath) {
+void RuntimeResourceManager::init(rhi::RHI& rhi, project::Project& project) {
   _rhi = &rhi;
-  _rootPath = std::move(rootPath);
+  _project = &project;
 }
 
 void RuntimeResourceManager::uploadInitRHIResources() {
   rhi::InitResourcesRHI initResources;
 
   asset::Asset shaderAsset;
-  asset::loadFromFile(_rootPath / "shadow-pass.obsshad", shaderAsset);
+  asset::loadFromFile(
+      _project->getAbsolutePath("obsidian/shaders/shadow-pass.obsshad"),
+      shaderAsset);
   asset::ShaderAssetInfo shadowPassShaderAssetInfo;
   asset::readShaderAssetInfo(shaderAsset, shadowPassShaderAssetInfo);
 
@@ -51,7 +53,7 @@ RuntimeResource& RuntimeResourceManager::getResource(fs::path const& path) {
   if (resourceIter == _runtimeResources.cend()) {
     auto const result = _runtimeResources.emplace(
         std::piecewise_construct, std::forward_as_tuple(path),
-        std::forward_as_tuple(_rootPath / path, *this, *_rhi));
+        std::forward_as_tuple(_project->getAbsolutePath(path), *this, *_rhi));
 
     return (*result.first).second;
   }

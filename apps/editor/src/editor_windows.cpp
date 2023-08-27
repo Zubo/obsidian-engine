@@ -233,9 +233,8 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
       }
     } else {
       if (ImGui::Button("Start Engine")) {
-        engine.init(sdl_wrapper::SDLBackend::instance(),
-                    project.getOpenProjectPath());
-        engineStarted = true;
+        engineStarted = engine.init(sdl_wrapper::SDLBackend::instance(),
+                                    project.getOpenProjectPath());
       }
     }
 

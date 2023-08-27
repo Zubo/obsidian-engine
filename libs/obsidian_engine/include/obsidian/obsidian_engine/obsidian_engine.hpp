@@ -37,8 +37,8 @@ public:
   ObsidianEngine() = default;
   ObsidianEngine(ObsidianEngine const& other) = delete;
 
-  void init(IWindowBackendProvider const& windowBackendProvider,
-            std::filesystem::path rootPath);
+  bool init(IWindowBackendProvider const& windowBackendProvider,
+            std::filesystem::path projectPath);
   void cleanup();
   void processFrame();
   ObsidianEngineContext& getContext();

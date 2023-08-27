@@ -1,11 +1,31 @@
+#include <exception>
 #include <obsidian/core/logging.hpp>
+#include <obsidian/platform/environment.hpp>
 #include <obsidian/project/project.hpp>
 
 #include <filesystem>
 
+using namespace obsidian;
 using namespace obsidian::project;
 
 namespace fs = std::filesystem;
+
+fs::path getInitialAssetsPath() {
+  return platform::getExecutableDirectoryPath() / "assets";
+}
+
+bool exportInitialProjectFiles(fs::path const& projectPath) {
+  fs::path const initialAssetsPath = getInitialAssetsPath();
+
+  try {
+    fs::copy(initialAssetsPath, projectPath, fs::copy_options::recursive);
+  } catch (std::exception const& e) {
+    OBS_LOG_ERR(e.what());
+    return false;
+  }
+
+  return true;
+}
 
 bool Project::open(fs::path projectRootPath) {
   if (fs::exists(projectRootPath) && !fs::is_directory(projectRootPath)) {
@@ -16,6 +36,11 @@ bool Project::open(fs::path projectRootPath) {
 
   if (!fs::exists(projectRootPath)) {
     fs::create_directory(projectRootPath);
+  }
+
+  if (!fs::exists(getInitialAssetsPath()) &&
+      !exportInitialProjectFiles(projectRootPath)) {
+    return false;
   }
 
   _projectRootPath = std::move(projectRootPath);

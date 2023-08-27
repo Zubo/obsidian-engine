@@ -1,16 +1,23 @@
 #pragma once
 
+#include <obsidian/project/project.hpp>
 #include <obsidian/rhi/resource_rhi.hpp>
 #include <obsidian/runtime_resource/runtime_resource.hpp>
 
 #include <filesystem>
 #include <unordered_map>
 
-namespace obsidian::RHI {
+namespace obsidian::rhi {
 
 class RHI;
 
-} /*namespace obsidian::RHI*/
+} // namespace obsidian::rhi
+
+namespace obsidian::project {
+
+class Project;
+
+} /*namespace obsidian::project */
 
 namespace obsidian::runtime_resource {
 
@@ -20,7 +27,7 @@ public:
 
   RuntimeResourceManager(RuntimeResourceManager const& other) = delete;
 
-  void init(rhi::RHI& rhi, std::filesystem::path rootPath);
+  void init(rhi::RHI& rhi, project::Project& project);
 
   void uploadInitRHIResources();
 
@@ -33,7 +40,7 @@ public:
 
 private:
   rhi::RHI* _rhi = nullptr;
-  std::filesystem::path _rootPath;
+  project::Project* _project = nullptr;
   std::unordered_map<std::filesystem::path, RuntimeResource> _runtimeResources;
 };
 

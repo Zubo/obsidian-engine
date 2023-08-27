@@ -13,4 +13,5 @@ target_include_directories(Project
 target_link_libraries(Project
     PRIVATE
         Core
+        Platform
 )

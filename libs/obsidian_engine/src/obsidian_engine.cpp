@@ -1,3 +1,4 @@
+#include <obsidian/core/logging.hpp>
 #include <obsidian/obsidian_engine/obsidian_engine.hpp>
 #include <obsidian/rhi/rhi.hpp>
 #include <obsidian/scene/game_object.hpp>
@@ -12,8 +13,13 @@
 
 using namespace obsidian;
 
-void ObsidianEngine::init(IWindowBackendProvider const& windowBackendProvider,
-                          std::filesystem::path rootPath) {
+bool ObsidianEngine::init(IWindowBackendProvider const& windowBackendProvider,
+                          std::filesystem::path projectPath) {
+  if (!_context.project.open(projectPath)) {
+    OBS_LOG_ERR("Failed to open project at path " + projectPath.string());
+    return false;
+  }
+
   // create window
 
   IWindowBackendProvider::CreateWindowParams windowParams;
@@ -48,8 +54,10 @@ void ObsidianEngine::init(IWindowBackendProvider const& windowBackendProvider,
       });
 
   _context.scene.init(_context.inputContext);
-  _context.resourceManager.init(_context.vulkanRHI, std::move(rootPath));
+  _context.resourceManager.init(_context.vulkanRHI, _context.project);
   _context.resourceManager.uploadInitRHIResources();
+
+  return true;
 }
 
 void ObsidianEngine::cleanup() {
