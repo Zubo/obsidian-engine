@@ -19,5 +19,5 @@ def compileShaders(shader_src_dir, shader_output_dir):
         subprocess.check_output(["glslc", "-c", f"{shader_src_path}", "--target-env=vulkan1.2", "-Werror", "-o", f"{shader_output_dir}/{shader_out_name}.spv"])
         subprocess.check_output(["glslc", "-c", f"{shader_src_path}", "--target-env=vulkan1.2", "-Werror", "-g", "-O0", "-o", f"{shader_output_dir}/{shader_out_name}-dbg.spv"])
 
-compileShaders("../shaders", args.output)
-compileShaders("../shaders/built-in", f"{args.output}/built-in")
+compileShaders("../shaders/src", args.output)
+compileShaders("../shaders/src/built-in", f"{args.output}/built-in")
