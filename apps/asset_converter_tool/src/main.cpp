@@ -51,10 +51,11 @@ int main(int argc, char** argv) {
       return -1;
     }
   } else {
-    if (!fs::create_directory(*dstPath))
+    if (!fs::create_directories(*dstPath)) {
       OBS_LOG_ERR("Error: Couldn't create directory at path " +
                   dstPath->string());
-    return -1;
+      return -1;
+    }
   }
 
   for (auto const& entry : fs::directory_iterator(*srcPath)) {

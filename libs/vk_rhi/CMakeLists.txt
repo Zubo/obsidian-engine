@@ -40,7 +40,7 @@ target_link_libraries(VulkanRHI
         TracyClient
 )
 
-add_dependencies(VulkanRHI Shaders)
+add_dependencies(VulkanRHI ShaderAssets)
 
 if (${FORCE_VALIDATION_LAYERS} OR ${CMAKE_BUILD_TYPE} STREQUAL "Debug")
     target_compile_definitions(VulkanRHI

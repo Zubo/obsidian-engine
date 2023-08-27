@@ -27,3 +27,13 @@ target_link_libraries(ObsidianEditor
         Platform
         nlohmann_json::nlohmann_json
 )
+
+get_target_property(EDITOR_OUTPUT_DIR ObsidianEditor BINARY_DIR)
+
+
+add_custom_target(CopyAssetsToEditorDir
+${CMAKE_COMMAND} -E copy_directory ${GENERATED_ASSETS_DIR} ${EDITOR_OUTPUT_DIR}/assets
+)
+
+add_dependencies(CopyAssetsToEditorDir GeneratedAssets)
+add_dependencies(ObsidianEditor CopyAssetsToEditorDir)
