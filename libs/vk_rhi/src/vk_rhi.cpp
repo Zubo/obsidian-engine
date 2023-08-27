@@ -224,20 +224,16 @@ VulkanRHI::uploadMaterial(rhi::UploadMaterialRHI const& uploadMaterial) {
   PipelineBuilder& pipelineBuilder =
       _pipelineBuilders[uploadMaterial.materialType];
 
-  VkShaderModule vertexShaderModule =
-      _shaderModules[uploadMaterial.vertexShaderId];
+  VkShaderModule shaderModule = _shaderModules[uploadMaterial.shaderId];
 
   pipelineBuilder._vkShaderStageCreateInfo.clear();
   pipelineBuilder._vkShaderStageCreateInfo.push_back(
       vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT,
-                                            vertexShaderModule));
-
-  VkShaderModule fragmentShaderModule =
-      _shaderModules[uploadMaterial.fragmentShaderId];
+                                            shaderModule));
 
   pipelineBuilder._vkShaderStageCreateInfo.push_back(
       vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT,
-                                            fragmentShaderModule));
+                                            shaderModule));
 
   rhi::ResourceIdRHI const newResourceId = consumeNewResourceId();
   Material& newMaterial = _materials[newResourceId];

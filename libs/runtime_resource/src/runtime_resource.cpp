@@ -110,12 +110,8 @@ rhi::ResourceIdRHI RuntimeResource::uploadToRHI() {
     uploadMaterial.albedoTextureId =
         _runtimeResourceManager.getResource(info.albedoTexturePath)
             .uploadToRHI();
-    uploadMaterial.vertexShaderId =
-        _runtimeResourceManager.getResource(info.vertexShaderPath)
-            .uploadToRHI();
-    uploadMaterial.fragmentShaderId =
-        _runtimeResourceManager.getResource(info.fragmentShaderPath)
-            .uploadToRHI();
+    uploadMaterial.shaderId =
+        _runtimeResourceManager.getResource(info.shaderPath).uploadToRHI();
 
     _resourceIdRHI = _rhi.uploadMaterial(uploadMaterial);
     _releaseFunc = [](rhi::RHI& rhi, rhi::ResourceIdRHI id) {

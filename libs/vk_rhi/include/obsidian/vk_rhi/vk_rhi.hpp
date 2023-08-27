@@ -121,7 +121,7 @@ private:
   std::unordered_map<rhi::ResourceIdRHI, VkShaderModule> _shaderModules;
   std::unordered_map<core::MaterialType, PipelineBuilder> _pipelineBuilders;
   std::unordered_map<rhi::ResourceIdRHI, Material> _materials;
-  rhi::ResourceIdRHI _shadowVertShaderId;
+  rhi::ResourceIdRHI _shadowPassShaderId;
   rhi::ResourceIdRHI _emptyFragShaderId;
   std::vector<VKDrawCall> _drawCallQueue;
 

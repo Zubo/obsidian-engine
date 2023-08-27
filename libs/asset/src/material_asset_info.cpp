@@ -7,8 +7,7 @@
 namespace obsidian::asset {
 
 constexpr char const* materialTypeJsonName = "materialType";
-constexpr char const* vertexShaderJsonName = "vertexShader";
-constexpr char const* fragmentShaderJsonName = "fragmentShader";
+constexpr char const* shaderJsonName = "shader";
 constexpr char const* albedoTextureJsonName = "albedoTex";
 
 bool readMaterialAssetInfo(Asset const& asset,
@@ -18,8 +17,7 @@ bool readMaterialAssetInfo(Asset const& asset,
     outMaterialAssetInfo.unpackedSize = json[unpackedSizeJsonName];
     outMaterialAssetInfo.compressionMode = json[compressionModeJsonName];
     outMaterialAssetInfo.materialType = json[materialTypeJsonName];
-    outMaterialAssetInfo.vertexShaderPath = json[vertexShaderJsonName];
-    outMaterialAssetInfo.fragmentShaderPath = json[fragmentShaderJsonName];
+    outMaterialAssetInfo.shaderPath = json[shaderJsonName];
     outMaterialAssetInfo.albedoTexturePath = json[albedoTextureJsonName];
   } catch (std::exception const& e) {
     OBS_LOG_ERR(e.what());
@@ -43,8 +41,7 @@ bool packMaterial(MaterialAssetInfo const& materialAssetInfo,
     json[unpackedSizeJsonName] = materialAssetInfo.unpackedSize;
     json[compressionModeJsonName] = materialAssetInfo.compressionMode;
     json[materialTypeJsonName] = materialAssetInfo.materialType;
-    json[vertexShaderJsonName] = materialAssetInfo.vertexShaderPath;
-    json[fragmentShaderJsonName] = materialAssetInfo.fragmentShaderPath;
+    json[shaderJsonName] = materialAssetInfo.shaderPath;
     json[albedoTextureJsonName] = materialAssetInfo.albedoTexturePath;
 
     outAsset.json = json.dump();

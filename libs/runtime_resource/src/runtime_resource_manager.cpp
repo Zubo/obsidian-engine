@@ -25,32 +25,19 @@ void RuntimeResourceManager::init(rhi::RHI& rhi,
 void RuntimeResourceManager::uploadInitRHIResources() {
   rhi::InitResourcesRHI initResources;
 
-  asset::Asset vertShaderAsset;
-  asset::loadFromFile(_rootPath / "shadow-pass-vert.obsshad", vertShaderAsset);
-  asset::ShaderAssetInfo shadowVertShaderAssetInfo;
-  asset::readShaderAssetInfo(vertShaderAsset, shadowVertShaderAssetInfo);
+  asset::Asset shaderAsset;
+  asset::loadFromFile(_rootPath / "shadow-pass.obsshad", shaderAsset);
+  asset::ShaderAssetInfo shadowPassShaderAssetInfo;
+  asset::readShaderAssetInfo(shaderAsset, shadowPassShaderAssetInfo);
 
-  initResources.shadowPassVert.shaderDataSize =
-      shadowVertShaderAssetInfo.unpackedSize;
-  initResources.shadowPassVert.unpackFunc =
-      [&vertShaderAsset, &shadowVertShaderAssetInfo](char* dst) {
-        asset::unpackAsset(shadowVertShaderAssetInfo,
-                           vertShaderAsset.binaryBlob.data(),
-                           vertShaderAsset.binaryBlob.size(), dst);
+  initResources.shadowPassShader.shaderDataSize =
+      shadowPassShaderAssetInfo.unpackedSize;
+  initResources.shadowPassShader.unpackFunc =
+      [&shaderAsset, &shadowPassShaderAssetInfo](char* dst) {
+        asset::unpackAsset(shadowPassShaderAssetInfo,
+                           shaderAsset.binaryBlob.data(),
+                           shaderAsset.binaryBlob.size(), dst);
       };
-
-  asset::Asset emptyShaderAsset;
-  asset::loadFromFile(_rootPath / "empty-frag.obsshad", emptyShaderAsset);
-  asset::ShaderAssetInfo emptyShaderAssetInfo;
-  asset::readShaderAssetInfo(emptyShaderAsset, emptyShaderAssetInfo);
-
-  initResources.shadowPassFrag.shaderDataSize =
-      emptyShaderAssetInfo.unpackedSize;
-  initResources.shadowPassFrag.unpackFunc = [&emptyShaderAsset,
-                                             &emptyShaderAssetInfo](char* dst) {
-    asset::unpackAsset(emptyShaderAssetInfo, emptyShaderAsset.binaryBlob.data(),
-                       emptyShaderAsset.binaryBlob.size(), dst);
-  };
 
   _rhi->initResources(initResources);
 }

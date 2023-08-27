@@ -51,13 +51,10 @@ void VulkanRHI::init(rhi::WindowExtentRHI extent,
 void VulkanRHI::initResources(rhi::InitResourcesRHI const& initResources) {
   assert(IsInitialized);
 
-  _shadowVertShaderId = uploadShader(initResources.shadowPassVert);
-  _emptyFragShaderId = uploadShader(initResources.shadowPassFrag);
+  _shadowPassShaderId = uploadShader(initResources.shadowPassShader);
 
   _deletionQueue.pushFunction([this]() {
-    vkDestroyShaderModule(_vkDevice, _shaderModules[_shadowVertShaderId],
-                          nullptr);
-    vkDestroyShaderModule(_vkDevice, _shaderModules[_emptyFragShaderId],
+    vkDestroyShaderModule(_vkDevice, _shaderModules[_shadowPassShaderId],
                           nullptr);
   });
 
@@ -597,13 +594,14 @@ void VulkanRHI::initShadowPassPipeline() {
   VertexInputDescription shadowPassVertexInputDescription =
       Vertex::getVertexInputDescription(true, false, false, false);
 
+  VkShaderModule const shaderModule = _shaderModules[_shadowPassShaderId];
   pipelineBuilder._vkShaderStageCreateInfo.push_back(
-      vkinit::pipelineShaderStageCreateInfo(
-          VK_SHADER_STAGE_VERTEX_BIT, _shaderModules[_shadowVertShaderId]));
+      vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT,
+                                            shaderModule));
 
   pipelineBuilder._vkShaderStageCreateInfo.push_back(
-      vkinit::pipelineShaderStageCreateInfo(
-          VK_SHADER_STAGE_FRAGMENT_BIT, _shaderModules[_emptyFragShaderId]));
+      vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT,
+                                            shaderModule));
 
   VkPipelineLayoutCreateInfo vkShadowPassPipelineLayoutCreateInfo = {};
   vkShadowPassPipelineLayoutCreateInfo.sType =

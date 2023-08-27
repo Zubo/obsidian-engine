@@ -266,8 +266,7 @@ void materialCreatorTab() {
   if (ImGui::BeginTabItem("Material Creator")) {
     static int selectedMaterialType = 0;
     static int selectedAlbedoTex = 0;
-    static int selectedVertexShad = 0;
-    static int selectedFragmentShad = 0;
+    static int selectedShader = 0;
 
     bool canCreateMat = true;
     if (!texturesInProj.size()) {
@@ -287,13 +286,7 @@ void materialCreatorTab() {
                        std::size(materialTypes))) {
       }
 
-      if (ImGui::Combo("Vertex Shader", &selectedVertexShad,
-                       shaderPathStringPtrs.data(),
-                       shaderPathStringPtrs.size())) {
-      }
-
-      if (ImGui::Combo("Fragment Shader", &selectedFragmentShad,
-                       shaderPathStringPtrs.data(),
+      if (ImGui::Combo("Shader", &selectedShader, shaderPathStringPtrs.data(),
                        shaderPathStringPtrs.size())) {
       }
 
@@ -316,10 +309,7 @@ void materialCreatorTab() {
         mtlAssetInfo.compressionMode = asset::CompressionMode::none;
         mtlAssetInfo.materialType =
             static_cast<core::MaterialType>(selectedMaterialType);
-        mtlAssetInfo.vertexShaderPath =
-            shaderPathStringPtrs[selectedVertexShad];
-        mtlAssetInfo.fragmentShaderPath =
-            shaderPathStringPtrs[selectedFragmentShad];
+        mtlAssetInfo.shaderPath = shaderPathStringPtrs[selectedShader];
         mtlAssetInfo.albedoTexturePath =
             texturePathStringPtrs[selectedAlbedoTex];
 

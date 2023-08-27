@@ -11,8 +11,7 @@ namespace obsidian::asset {
 
 struct MaterialAssetInfo : public AssetInfo {
   core::MaterialType materialType;
-  std::string vertexShaderPath;
-  std::string fragmentShaderPath;
+  std::string shaderPath;
   std::string albedoTexturePath;
 };
 

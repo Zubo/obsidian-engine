@@ -32,14 +32,12 @@ struct UploadShaderRHI {
 
 struct UploadMaterialRHI {
   core::MaterialType materialType;
-  ResourceIdRHI vertexShaderId;
-  ResourceIdRHI fragmentShaderId;
+  ResourceIdRHI shaderId;
   ResourceIdRHI albedoTextureId;
 };
 
 struct InitResourcesRHI {
-  rhi::UploadShaderRHI shadowPassVert;
-  rhi::UploadShaderRHI shadowPassFrag;
+  rhi::UploadShaderRHI shadowPassShader;
 };
 
 } /*namespace obsidian::rhi*/
