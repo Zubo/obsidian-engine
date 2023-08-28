@@ -16,9 +16,12 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <vulkan/vulkan_core.h>
 
 using namespace obsidian;
 using namespace obsidian::vk_rhi;
+
+void VulkanRHI::waitDeviceIdle() const { vkDeviceWaitIdle(_vkDevice); }
 
 rhi::ResourceIdRHI
 VulkanRHI::uploadTexture(rhi::UploadTextureRHI const& uploadTextureInfoRHI) {

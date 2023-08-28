@@ -44,7 +44,10 @@ void RuntimeResourceManager::uploadInitRHIResources() {
   _rhi->initResources(initResources);
 }
 
-void RuntimeResourceManager::cleanup() { _runtimeResources.clear(); }
+void RuntimeResourceManager::cleanup() {
+  _rhi->waitDeviceIdle();
+  _runtimeResources.clear();
+}
 
 RuntimeResource& RuntimeResourceManager::getResource(fs::path const& path) {
   assert(_rhi && "Error: RuntimeResourceManager is not initialized.");

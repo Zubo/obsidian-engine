@@ -42,6 +42,8 @@ public:
 
   virtual void initResources(InitResourcesRHI const& initResources) = 0;
 
+  virtual void waitDeviceIdle() const = 0;
+
   virtual void cleanup() = 0;
 
   virtual void draw(rhi::SceneGlobalParams const& sceneGlobalParams) = 0;

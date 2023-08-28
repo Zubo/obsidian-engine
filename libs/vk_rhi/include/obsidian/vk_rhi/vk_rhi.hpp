@@ -39,6 +39,8 @@ public:
 
   void initResources();
 
+  void waitDeviceIdle() const override;
+
   void cleanup() override;
 
   void draw(rhi::SceneGlobalParams const& sceneParams) override;
