@@ -26,6 +26,8 @@ namespace fs = std::filesystem;
 namespace obsidian::asset_converter {
 
 std::unordered_map<std::string, std::string> extensionMap = {
+    {".bmp", globals::textureAssetExt},
+    {".jpg", globals::textureAssetExt},
     {".png", globals::textureAssetExt},
     {".obj", globals::meshAssetExt},
     {".spv", globals::shaderAssetExt}};
@@ -44,7 +46,7 @@ bool saveAsset(fs::path const& srcPath, fs::path const& dstPath,
   return asset::saveToFile(dstPath, textureAsset);
 }
 
-bool convertPngToAsset(fs::path const& srcPath, fs::path const& dstPath) {
+bool convertImgToAsset(fs::path const& srcPath, fs::path const& dstPath) {
   int w, h, channelCnt;
 
   unsigned char* data =
@@ -205,7 +207,8 @@ bool convertObjToAsset(fs::path const& srcPath, fs::path const& dstPath) {
   meshAssetInfo.vertexCount = vertexCount;
   meshAssetInfo.vertexBufferSize = outVertices.size();
   meshAssetInfo.indexCount = outIndices.size();
-  meshAssetInfo.indexBufferSize = sizeof(int) * meshAssetInfo.indexCount;
+  meshAssetInfo.indexBufferSize =
+      sizeof(core::MeshIndexType) * meshAssetInfo.indexCount;
   meshAssetInfo.unpackedSize =
       meshAssetInfo.vertexBufferSize + meshAssetInfo.indexBufferSize;
 
@@ -261,8 +264,8 @@ bool convertAsset(fs::path const& srcPath, fs::path const& dstPath) {
     return false;
   }
 
-  if (extension == ".png") {
-    return convertPngToAsset(srcPath, dstPath);
+  if (extension == ".png" || extension == ".jpg" || extension == ".bmp") {
+    return convertImgToAsset(srcPath, dstPath);
   } else if (extension == ".obj") {
     return convertObjToAsset(srcPath, dstPath);
   } else if (extension == ".spv") {

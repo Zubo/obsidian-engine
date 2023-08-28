@@ -40,5 +40,5 @@ def compileShaders(shader_src_dir, shader_out_dir):
             f"{shader_out_dir}/{shader_file}-dbg.spv"])
     shutil.rmtree(shader_temp_dir)
 
-compileShaders("../shaders/src", args.output)
-compileShaders("../shaders/src/built-in", f"{args.output}/built-in")
+compileShaders("../assets/shaders/src", args.output)
+compileShaders("../assets/shaders/src/built-in", f"{args.output}/built-in")

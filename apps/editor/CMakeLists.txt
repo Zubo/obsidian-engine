@@ -30,7 +30,6 @@ target_link_libraries(ObsidianEditor
 
 get_target_property(EDITOR_OUTPUT_DIR ObsidianEditor BINARY_DIR)
 
-
 add_custom_target(CopyAssetsToEditorDir
 ${CMAKE_COMMAND} -E copy_directory ${GENERATED_ASSETS_DIR} ${EDITOR_OUTPUT_DIR}/assets
 )
