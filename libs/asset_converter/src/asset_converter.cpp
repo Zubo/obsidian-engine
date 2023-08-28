@@ -1,4 +1,3 @@
-#include <cassert>
 #include <obsidian/asset/asset.hpp>
 #include <obsidian/asset/asset_io.hpp>
 #include <obsidian/asset/mesh_asset_info.hpp>
@@ -15,6 +14,8 @@
 #include <stb/stb_image.h>
 #include <tiny_obj_loader.h>
 
+#include <cassert>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>

@@ -7,7 +7,7 @@
 
 namespace obsidian::core {
 
-using MeshIndexType = std::int32_t;
+using MeshIndexType = std::uint32_t;
 
 template <bool HasNormal, bool HasColor, bool HasUV> struct VertexAttr {
   static constexpr bool hasNormal = HasNormal;

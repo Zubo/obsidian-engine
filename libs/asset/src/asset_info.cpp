@@ -1,4 +1,5 @@
 #include <obsidian/asset/asset_info.hpp>
+#include <obsidian/core/logging.hpp>
 
 #include <lz4.h>
 
@@ -17,8 +18,14 @@ bool unpackAsset(AssetInfo const& assetInfo, char const* src,
   }
   case CompressionMode::LZ4: {
     ZoneScopedN("unpackAsset - LZ4 compression");
-    LZ4_decompress_safe(src, dst, srcSize, assetInfo.unpackedSize);
-    return true;
+    int const ret =
+        LZ4_decompress_safe(src, dst, srcSize, assetInfo.unpackedSize);
+
+    bool const unpackingSuceeded = ret >= 0;
+    if (!unpackingSuceeded) {
+      OBS_LOG_ERR("LZ4 decompression failed with code " + std::to_string(ret));
+    }
+    return unpackingSuceeded;
   }
   default:
     return false;

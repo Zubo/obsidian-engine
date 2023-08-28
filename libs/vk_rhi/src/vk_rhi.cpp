@@ -142,17 +142,17 @@ void VulkanRHI::unloadTexture(rhi::ResourceIdRHI resourceIdRHI) {
 }
 
 rhi::ResourceIdRHI VulkanRHI::uploadMesh(rhi::UploadMeshRHI const& meshInfo) {
-  AllocatedBuffer vertexStagingBuffer = createBuffer(
+  AllocatedBuffer stagingBuffer = createBuffer(
       meshInfo.vertexBufferSize + meshInfo.indexBufferSize,
       VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
       VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
 
   void* mappedMemory;
-  vmaMapMemory(_vmaAllocator, vertexStagingBuffer.allocation, &mappedMemory);
+  vmaMapMemory(_vmaAllocator, stagingBuffer.allocation, &mappedMemory);
 
   meshInfo.unpackFunc(reinterpret_cast<char*>(mappedMemory));
 
-  vmaUnmapMemory(_vmaAllocator, vertexStagingBuffer.allocation);
+  vmaUnmapMemory(_vmaAllocator, stagingBuffer.allocation);
 
   rhi::ResourceIdRHI const newResourceId = consumeNewResourceId();
   Mesh& mesh = _meshes[newResourceId];
@@ -169,26 +169,25 @@ rhi::ResourceIdRHI VulkanRHI::uploadMesh(rhi::UploadMeshRHI const& meshInfo) {
                                   VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0);
   mesh.indexCount = meshInfo.indexCount;
 
-  immediateSubmit(
-      [this, &vertexStagingBuffer, &mesh, meshInfo](VkCommandBuffer cmd) {
-        VkBufferCopy vkVertexBufferCopy = {};
-        vkVertexBufferCopy.srcOffset = 0;
-        vkVertexBufferCopy.dstOffset = 0;
-        vkVertexBufferCopy.size = meshInfo.vertexBufferSize;
-        vkCmdCopyBuffer(cmd, vertexStagingBuffer.buffer,
-                        mesh.vertexBuffer.buffer, 1, &vkVertexBufferCopy);
+  immediateSubmit([this, &stagingBuffer, &mesh, meshInfo](VkCommandBuffer cmd) {
+    VkBufferCopy vkVertexBufferCopy = {};
+    vkVertexBufferCopy.srcOffset = 0;
+    vkVertexBufferCopy.dstOffset = 0;
+    vkVertexBufferCopy.size = meshInfo.vertexBufferSize;
+    vkCmdCopyBuffer(cmd, stagingBuffer.buffer, mesh.vertexBuffer.buffer, 1,
+                    &vkVertexBufferCopy);
 
-        VkBufferCopy vkIndexBufferCopy = {};
-        vkIndexBufferCopy.srcOffset = meshInfo.vertexBufferSize;
-        vkIndexBufferCopy.dstOffset = 0;
-        vkIndexBufferCopy.size = meshInfo.indexBufferSize;
+    VkBufferCopy vkIndexBufferCopy = {};
+    vkIndexBufferCopy.srcOffset = meshInfo.vertexBufferSize;
+    vkIndexBufferCopy.dstOffset = 0;
+    vkIndexBufferCopy.size = meshInfo.indexBufferSize;
 
-        vkCmdCopyBuffer(cmd, vertexStagingBuffer.buffer,
-                        mesh.indexBuffer.buffer, 1, &vkIndexBufferCopy);
-      });
+    vkCmdCopyBuffer(cmd, stagingBuffer.buffer, mesh.indexBuffer.buffer, 1,
+                    &vkIndexBufferCopy);
+  });
 
-  vmaDestroyBuffer(_vmaAllocator, vertexStagingBuffer.buffer,
-                   vertexStagingBuffer.allocation);
+  vmaDestroyBuffer(_vmaAllocator, stagingBuffer.buffer,
+                   stagingBuffer.allocation);
 
   return newResourceId;
 }
