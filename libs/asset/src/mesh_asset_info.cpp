@@ -68,22 +68,21 @@ bool packMeshAsset(MeshAssetInfo const& meshAssetInfo,
     if (meshAssetInfo.compressionMode == CompressionMode::none) {
       outAsset.binaryBlob = std::move(meshData);
     } else if (meshAssetInfo.compressionMode == CompressionMode::LZ4) {
-      std::size_t compressedBufferSize =
+      std::size_t maxCompressedSize =
           LZ4_compressBound(meshAssetInfo.unpackedSize);
 
-      outAsset.binaryBlob.resize(compressedBufferSize);
+      outAsset.binaryBlob.resize(maxCompressedSize);
 
-      int const ret = LZ4_compress_default(
-          meshData.data(), outAsset.binaryBlob.data(),
-          meshAssetInfo.unpackedSize, compressedBufferSize);
+      int const actualCompressedSize =
+          LZ4_compress_default(meshData.data(), outAsset.binaryBlob.data(),
+                               meshAssetInfo.unpackedSize, maxCompressedSize);
 
-      if (ret < 0) {
-        OBS_LOG_ERR("LZ4 compression failed with error code " +
-                    std::to_string(ret));
+      if (actualCompressedSize < 0) {
+        OBS_LOG_ERR("LZ4 compression failed with error code ");
         return false;
       }
 
-      outAsset.binaryBlob.resize(ret);
+      outAsset.binaryBlob.resize(actualCompressedSize);
     } else {
       OBS_LOG_ERR("Error: Unknown compression mode.");
       return false;
