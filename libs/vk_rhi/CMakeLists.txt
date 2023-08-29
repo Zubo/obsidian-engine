@@ -11,6 +11,7 @@ add_library(VulkanRHI
     "src/vk_pipeline_builder.cpp"
     "src/vk_mesh.cpp"
     "src/vk_descriptors.cpp"
+    "src/vk_types.cpp"
     "include/obsidian/vk_rhi/vk_rhi.hpp"
     "include/obsidian/vk_rhi/vk_check.hpp"
     "include/obsidian/vk_rhi/vk_types.hpp"

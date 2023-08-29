@@ -52,7 +52,7 @@ VulkanRHI::uploadTexture(rhi::UploadTextureRHI const& uploadTextureInfoRHI) {
   extent.width = uploadTextureInfoRHI.width;
   extent.height = uploadTextureInfoRHI.height;
   extent.depth = 1;
-  VkFormat const format = VK_FORMAT_R8G8B8A8_SRGB;
+  VkFormat const format = getVkTextureFormat(uploadTextureInfoRHI.format);
 
   VkImageCreateInfo vkImgCreateInfo =
       vkinit::imageCreateInfo(imageUsageFlags, extent, format);
@@ -60,9 +60,9 @@ VulkanRHI::uploadTexture(rhi::UploadTextureRHI const& uploadTextureInfoRHI) {
   VmaAllocationCreateInfo imgAllocationCreateInfo = {};
   imgAllocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
 
-  vmaCreateImage(_vmaAllocator, &vkImgCreateInfo, &imgAllocationCreateInfo,
-                 &newTexture.image.vkImage, &newTexture.image.allocation,
-                 nullptr);
+  VK_CHECK(vmaCreateImage(_vmaAllocator, &vkImgCreateInfo,
+                          &imgAllocationCreateInfo, &newTexture.image.vkImage,
+                          &newTexture.image.allocation, nullptr));
 
   immediateSubmit([this, &extent, &newTexture,
                    &stagingBuffer](VkCommandBuffer cmd) {
@@ -124,7 +124,7 @@ VulkanRHI::uploadTexture(rhi::UploadTextureRHI const& uploadTextureInfoRHI) {
                    stagingBuffer.allocation);
 
   VkImageViewCreateInfo imageViewCreateInfo = vkinit::imageViewCreateInfo(
-      newTexture.image.vkImage, VK_FORMAT_R8G8B8A8_SRGB,
+      newTexture.image.vkImage, getVkTextureFormat(uploadTextureInfoRHI.format),
       VK_IMAGE_ASPECT_COLOR_BIT);
 
   vkCreateImageView(_vkDevice, &imageViewCreateInfo, nullptr,

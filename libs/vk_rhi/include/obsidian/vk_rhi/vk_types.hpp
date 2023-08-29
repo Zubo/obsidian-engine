@@ -1,5 +1,7 @@
 #pragma once
 
+#include <obsidian/core/texture_format.hpp>
+
 #include <glm/matrix.hpp>
 #include <glm/vec4.hpp>
 #include <vk_mem_alloc.h>
@@ -98,5 +100,7 @@ struct FrameData {
   VkImageView shadowMapImageView;
   VkSampler shadowMapSampler;
 };
+
+VkFormat getVkTextureFormat(core::TextureFormat format);
 
 } /*namespace obsidian::vk_rhi*/

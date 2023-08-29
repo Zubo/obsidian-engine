@@ -5,13 +5,22 @@ namespace obsidian::core {
 
 std::size_t getFormatPixelSize(TextureFormat format) {
   switch (format) {
-  case TextureFormat::R8G8B8:
-    return 3;
-  case TextureFormat::R8G8B8A8:
+  case TextureFormat::R8G8B8A8_SRGB:
     return 4;
   default: {
-    OBS_LOG_WARN("Unknown texture format.");
+    OBS_LOG_WARN("Unsupported texture format.");
     return 0;
+  }
+  }
+}
+
+TextureFormat getDefaultFormatForChannelCount(std::size_t channelCount) {
+  switch (channelCount) {
+  case 4:
+    return TextureFormat::R8G8B8A8_SRGB;
+  default: {
+    OBS_LOG_WARN("Unsupported texture format.");
+    return TextureFormat::unknown;
   }
   }
 }

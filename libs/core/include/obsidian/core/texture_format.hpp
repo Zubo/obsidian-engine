@@ -5,12 +5,9 @@
 
 namespace obsidian::core {
 
-enum class TextureFormat : std::uint32_t {
-  unknown = 0,
-  R8G8B8 = 1,
-  R8G8B8A8 = 2
-};
+enum class TextureFormat : std::uint32_t { unknown = 0, R8G8B8A8_SRGB = 1 };
 
 std::size_t getFormatPixelSize(TextureFormat format);
+TextureFormat getDefaultFormatForChannelCount(std::size_t channelCount);
 
 } /*namespace obsidian::core*/

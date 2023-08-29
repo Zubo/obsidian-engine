@@ -57,7 +57,13 @@ bool convertImgToAsset(fs::path const& srcPath, fs::path const& dstPath) {
   asset::TextureAssetInfo textureAssetInfo;
   textureAssetInfo.unpackedSize = w * h * channelCnt;
   textureAssetInfo.compressionMode = asset::CompressionMode::LZ4;
-  textureAssetInfo.format = core::TextureFormat::R8G8B8A8;
+  textureAssetInfo.format = core::getDefaultFormatForChannelCount(channelCnt);
+
+  if (textureAssetInfo.format == core::TextureFormat::unknown) {
+    OBS_LOG_ERR("Failed to convert image to asset. Unsupported image format.");
+    return false;
+  }
+
   textureAssetInfo.width = w;
   textureAssetInfo.height = h;
 
@@ -168,8 +174,9 @@ bool convertObjToAsset(fs::path const& srcPath, fs::path const& dstPath) {
 
   std::string warning, error;
 
+  fs::path const srcDirPath = srcPath.parent_path();
   tinyobj::LoadObj(&attrib, &shapes, &materials, &warning, &error,
-                   srcPath.c_str(), "assets");
+                   srcPath.c_str(), srcDirPath.c_str());
 
   if (!warning.empty()) {
     OBS_LOG_WARN("tinyobj warning: " + warning);
