@@ -16,7 +16,6 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
-#include <vulkan/vulkan_core.h>
 
 using namespace obsidian;
 using namespace obsidian::vk_rhi;

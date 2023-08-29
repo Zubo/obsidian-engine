@@ -702,7 +702,7 @@ void VulkanRHI::initDescriptors() {
                            _descriptorLayoutCache)
       .bindBuffer(0, cameraDescriptorBufferInfo,
                   VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-                  VK_SHADER_STAGE_VERTEX_BIT)
+                  VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
       .bindBuffer(1, sceneDescriptorBufferInfo,
                   VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
                   VK_SHADER_STAGE_FRAGMENT_BIT)

@@ -6,6 +6,13 @@ layout(location = 2) in vec3 inNormals;
 layout(location = 3) in vec2 inUV;
 layout(location = 0) out vec4 outFragColor;
 
+layout(set = 0, binding = 0) uniform CameraBuffer {
+  mat4 view;
+  mat4 proj;
+  mat4 viewProj;
+}
+cameraData;
+
 layout(set = 0, binding = 1) uniform SceneData {
   vec4 fogColor;
   vec4 fogDistance;
@@ -27,9 +34,19 @@ lightCameraData;
 layout(set = 2, binding = 0) uniform sampler2D albedoTex;
 
 void main() {
-  float lightIntensity = clamp(
+  float diffuseSunIntensity = clamp(
       dot(normalize(-sceneData.sunlightDirection.xyz), normalize(inNormals)),
       0.0f, 1.0f);
+  mat4 inverseView = inverse(cameraData.view);
+  vec3 fragToCameraDirection =
+      normalize(vec3(inverseView[3][0], inverseView[3][1], inverseView[3][2]) -
+                inWorldPos);
+  vec3 reflectedSunDirection =
+      normalize(reflect(sceneData.sunlightDirection.xyz, inNormals));
+
+  float specularIntensity = pow(
+      clamp(dot(fragToCameraDirection, reflectedSunDirection), 0.0f, 1.0), 32);
+
   vec3 sampledColor = texture(albedoTex, inUV).xyz;
 
   vec4 depthSpacePos = lightCameraData.viewProj * vec4(inWorldPos, 1.0f);
@@ -58,9 +75,8 @@ void main() {
 
   shadowMultiplier /= ((2 * pcfCount + 1) * (2 * pcfCount + 1));
 
-  outFragColor = vec4(shadowMultiplier *
-                          (lightIntensity * sceneData.sunlgihtColor.xyz +
-                           sceneData.ambientColor.xyz) *
-                          sampledColor,
-                      1.0f);
+  vec3 finalColor = shadowMultiplier * sampledColor *
+                    sceneData.sunlgihtColor.xyz * sceneData.ambientColor.xyz *
+                    (diffuseSunIntensity + specularIntensity);
+  outFragColor = vec4(finalColor, 1.0f);
 }
