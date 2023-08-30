@@ -1,6 +1,7 @@
 #include <obsidian/core/logging.hpp>
 #include <obsidian/core/material.hpp>
 #include <obsidian/renderdoc/renderdoc.hpp>
+#include <obsidian/rhi/rhi.hpp>
 #include <obsidian/vk_rhi/vk_check.hpp>
 #include <obsidian/vk_rhi/vk_descriptors.hpp>
 #include <obsidian/vk_rhi/vk_initializers.hpp>
@@ -358,78 +359,82 @@ void VulkanRHI::initFramebuffers() {
 
 void VulkanRHI::initShadowPassFramebuffers() {
   for (std::size_t i = 0; i < _frameDataArray.size(); ++i) {
-    AllocatedImage& imageShadowPassAttachment =
-        _frameDataArray[i].shadowMapImage;
+    for (std::size_t j = 0; j < rhi::maxLightsPerDrawPass; ++j) {
+      AllocatedImage& imageShadowPassAttachment =
+          _frameDataArray[i].shadowMapImages[j];
 
-    VkExtent3D vkShadowPassAttachmentExtent = {shadowPassAttachmentWidth,
-                                               shadowPassAttachmentHeight, 1};
-    VkImageCreateInfo const vkImageShadowPassAttachmentCreateInfo =
-        vkinit::imageCreateInfo(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
-                                    VK_IMAGE_USAGE_SAMPLED_BIT,
-                                vkShadowPassAttachmentExtent, _depthFormat);
+      VkExtent3D vkShadowPassAttachmentExtent = {shadowPassAttachmentWidth,
+                                                 shadowPassAttachmentHeight, 1};
+      VkImageCreateInfo const vkImageShadowPassAttachmentCreateInfo =
+          vkinit::imageCreateInfo(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
+                                      VK_IMAGE_USAGE_SAMPLED_BIT,
+                                  vkShadowPassAttachmentExtent, _depthFormat);
 
-    VmaAllocationCreateInfo allocationCreateInfo = {};
-    allocationCreateInfo.flags = 0;
-    allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
-    VK_CHECK(vmaCreateImage(
-        _vmaAllocator, &vkImageShadowPassAttachmentCreateInfo,
-        &allocationCreateInfo, &imageShadowPassAttachment.vkImage,
-        &imageShadowPassAttachment.allocation, nullptr));
+      VmaAllocationCreateInfo allocationCreateInfo = {};
+      allocationCreateInfo.flags = 0;
+      allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+      VK_CHECK(vmaCreateImage(
+          _vmaAllocator, &vkImageShadowPassAttachmentCreateInfo,
+          &allocationCreateInfo, &imageShadowPassAttachment.vkImage,
+          &imageShadowPassAttachment.allocation, nullptr));
 
-    _deletionQueue.pushFunction([this, imageShadowPassAttachment]() {
-      vmaDestroyImage(_vmaAllocator, imageShadowPassAttachment.vkImage,
-                      imageShadowPassAttachment.allocation);
-    });
+      _deletionQueue.pushFunction([this, imageShadowPassAttachment]() {
+        vmaDestroyImage(_vmaAllocator, imageShadowPassAttachment.vkImage,
+                        imageShadowPassAttachment.allocation);
+      });
 
-    VkImageViewCreateInfo shadowMapImageViewCreateInfo =
-        vkinit::imageViewCreateInfo(imageShadowPassAttachment.vkImage,
-                                    _depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
-    VK_CHECK(vkCreateImageView(_vkDevice, &shadowMapImageViewCreateInfo,
-                               nullptr,
-                               &_frameDataArray[i].shadowMapImageView));
+      VkImageViewCreateInfo shadowMapImageViewCreateInfo =
+          vkinit::imageViewCreateInfo(imageShadowPassAttachment.vkImage,
+                                      _depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+      VkImageView& vkShadowMapImageView =
+          _frameDataArray[i].shadowMapImageViews[j];
+      VK_CHECK(vkCreateImageView(_vkDevice, &shadowMapImageViewCreateInfo,
+                                 nullptr, &vkShadowMapImageView));
 
-    _deletionQueue.pushFunction(
-        [this, view = _frameDataArray[i].shadowMapImageView]() {
-          vkDestroyImageView(_vkDevice, view, nullptr);
-        });
+      _deletionQueue.pushFunction([this, vkShadowMapImageView]() {
+        vkDestroyImageView(_vkDevice, vkShadowMapImageView, nullptr);
+      });
 
-    VkImageView vkShadowPassAttachmentImgView;
+      // VkImageView vkShadowPassAttachmentImgView;
 
-    VkImageViewCreateInfo vkImageViewCreateInfo = {};
-    vkImageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    vkImageViewCreateInfo.pNext = nullptr;
+      // VkImageViewCreateInfo vkImageViewCreateInfo = {};
+      // vkImageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+      // vkImageViewCreateInfo.pNext = nullptr;
 
-    vkImageViewCreateInfo.image = imageShadowPassAttachment.vkImage;
-    vkImageViewCreateInfo =
-        vkinit::imageViewCreateInfo(imageShadowPassAttachment.vkImage,
-                                    _depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+      // vkImageViewCreateInfo.image = imageShadowPassAttachment.vkImage;
+      // vkImageViewCreateInfo =
+      //     vkinit::imageViewCreateInfo(imageShadowPassAttachment.vkImage,
+      //                                 _depthFormat,
+      //                                 VK_IMAGE_ASPECT_DEPTH_BIT);
 
-    VK_CHECK(vkCreateImageView(_vkDevice, &vkImageViewCreateInfo, nullptr,
-                               &vkShadowPassAttachmentImgView));
+      // VK_CHECK(vkCreateImageView(_vkDevice, &vkImageViewCreateInfo, nullptr,
+      //                            &vkShadowPassAttachmentImgView));
 
-    _deletionQueue.pushFunction([this, vkShadowPassAttachmentImgView]() {
-      vkDestroyImageView(_vkDevice, vkShadowPassAttachmentImgView, nullptr);
-    });
+      // _deletionQueue.pushFunction([this, vkShadowPassAttachmentImgView]() {
+      //   vkDestroyImageView(_vkDevice, vkShadowPassAttachmentImgView,
+      //   nullptr);
+      // });
 
-    VkFramebufferCreateInfo vkFramebufferCreateInfo = {};
+      VkFramebufferCreateInfo vkFramebufferCreateInfo = {};
 
-    vkFramebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-    vkFramebufferCreateInfo.pNext = nullptr;
+      vkFramebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+      vkFramebufferCreateInfo.pNext = nullptr;
 
-    vkFramebufferCreateInfo.renderPass = _vkShadowRenderPass;
-    vkFramebufferCreateInfo.attachmentCount = 1;
-    vkFramebufferCreateInfo.pAttachments = &vkShadowPassAttachmentImgView;
-    vkFramebufferCreateInfo.width = shadowPassAttachmentWidth;
-    vkFramebufferCreateInfo.height = shadowPassAttachmentHeight;
-    vkFramebufferCreateInfo.layers = 1;
+      vkFramebufferCreateInfo.renderPass = _vkShadowRenderPass;
+      vkFramebufferCreateInfo.attachmentCount = 1;
+      vkFramebufferCreateInfo.pAttachments = &vkShadowMapImageView;
+      vkFramebufferCreateInfo.width = shadowPassAttachmentWidth;
+      vkFramebufferCreateInfo.height = shadowPassAttachmentHeight;
+      vkFramebufferCreateInfo.layers = 1;
 
-    VK_CHECK(vkCreateFramebuffer(_vkDevice, &vkFramebufferCreateInfo, nullptr,
-                                 &_frameDataArray[i].shadowFrameBuffer));
+      VK_CHECK(vkCreateFramebuffer(_vkDevice, &vkFramebufferCreateInfo, nullptr,
+                                   &_frameDataArray[i].shadowFrameBuffers[j]));
 
-    _deletionQueue.pushFunction(
-        [this, fb = _frameDataArray[i].shadowFrameBuffer]() {
-          vkDestroyFramebuffer(_vkDevice, fb, nullptr);
-        });
+      _deletionQueue.pushFunction(
+          [this, fb = _frameDataArray[i].shadowFrameBuffers[j]]() {
+            vkDestroyFramebuffer(_vkDevice, fb, nullptr);
+          });
+    }
   }
 }
 
@@ -505,7 +510,7 @@ void VulkanRHI::initDefaultPipelineLayouts() {
       vkinit::pipelineLayoutCreateInfo();
 
   std::array<VkDescriptorSetLayout, 4> const meshDescriptorSetLayouts = {
-      _vkGlobalDescriptorSetLayout, _vkLitMeshrenderPassDescriptorSetLayout,
+      _vkGlobalDescriptorSetLayout, _vkLitMeshRenderPassDescriptorSetLayout,
       _vkTexturedMaterialDescriptorSetLayout, _vkObjectDataDescriptorSetLayout};
 
   meshPipelineLayoutInfo.setLayoutCount = meshDescriptorSetLayouts.size();
@@ -538,7 +543,7 @@ void VulkanRHI::initDefaultPipelineLayouts() {
 
   std::array<VkDescriptorSetLayout, 4> vkLitMeshPipelineLayouts = {
       _vkGlobalDescriptorSetLayout,
-      _vkLitMeshrenderPassDescriptorSetLayout,
+      _vkLitMeshRenderPassDescriptorSetLayout,
       _vkTexturedMaterialDescriptorSetLayout,
       _vkObjectDataDescriptorSetLayout,
   };
@@ -679,7 +684,8 @@ void VulkanRHI::initDescriptors() {
   });
 
   _shadowPassCameraBuffer =
-      createBuffer(frameOverlap * getPaddedBufferSize(sizeof(GPUCameraData)),
+      createBuffer(frameOverlap * rhi::maxLightsPerDrawPass *
+                       getPaddedBufferSize(sizeof(GPUCameraData)),
                    VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_AUTO,
                    VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
 
@@ -712,49 +718,63 @@ void VulkanRHI::initDescriptors() {
       VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_NEAREST,
       VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
 
-  VK_CHECK(
-      vkCreateSampler(_vkDevice, &vkSamplerCreateInfo, nullptr, &_vkSampler));
+  VK_CHECK(vkCreateSampler(_vkDevice, &vkSamplerCreateInfo, nullptr,
+                           &_vkAlbedoTextureSampler));
+
+  _deletionQueue.pushFunction([this]() {
+    vkDestroySampler(_vkDevice, _vkAlbedoTextureSampler, nullptr);
+  });
+
+  VkSamplerCreateInfo const vkShadowMapSamplerCreateInfo =
+      vkinit::samplerCreateInfo(VK_FILTER_LINEAR,
+                                VK_SAMPLER_MIPMAP_MODE_NEAREST,
+                                VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
+
+  VK_CHECK(vkCreateSampler(_vkDevice, &vkShadowMapSamplerCreateInfo, nullptr,
+                           &_vkShadowMapSampler));
 
   _deletionQueue.pushFunction(
-      [this]() { vkDestroySampler(_vkDevice, _vkSampler, nullptr); });
+      [this]() { vkDestroySampler(_vkDevice, _vkShadowMapSampler, nullptr); });
+
+  _lightDataBuffer = createBuffer(
+      frameOverlap * getPaddedBufferSize(sizeof(GPULightData)),
+      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+      VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+
+  _deletionQueue.pushFunction([this]() {
+    vmaDestroyBuffer(_vmaAllocator, _lightDataBuffer.buffer,
+                     _lightDataBuffer.allocation);
+  });
 
   for (int i = 0; i < frameOverlap; ++i) {
     FrameData& frameData = _frameDataArray[i];
 
-    VkSamplerCreateInfo const vkShadowMapSamplerCreateInfo =
-        vkinit::samplerCreateInfo(VK_FILTER_LINEAR,
-                                  VK_SAMPLER_MIPMAP_MODE_NEAREST,
-                                  VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
+    std::vector<VkDescriptorImageInfo> vkShadowMapDescriptorImageInfos{
+        rhi::maxLightsPerDrawPass};
 
-    VK_CHECK(vkCreateSampler(_vkDevice, &vkShadowMapSamplerCreateInfo, nullptr,
-                             &frameData.shadowMapSampler));
+    for (std::size_t j = 0; j < vkShadowMapDescriptorImageInfos.size(); ++j) {
+      vkShadowMapDescriptorImageInfos[j].imageLayout =
+          VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+      vkShadowMapDescriptorImageInfos[j].imageView =
+          frameData.shadowMapImageViews[j];
+      vkShadowMapDescriptorImageInfos[j].sampler = _vkShadowMapSampler;
+    }
 
-    _deletionQueue.pushFunction([this, frameData]() {
-      vkDestroySampler(_vkDevice, frameData.shadowMapSampler, nullptr);
-    });
-
-    VkDescriptorImageInfo vkShadowMapDescriptorImageInfo = {};
-    vkShadowMapDescriptorImageInfo.imageLayout =
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    vkShadowMapDescriptorImageInfo.imageView = frameData.shadowMapImageView;
-    vkShadowMapDescriptorImageInfo.sampler = frameData.shadowMapSampler;
-
-    VkDescriptorBufferInfo vkShadowCameraDataBufferInfo = {};
-    vkShadowCameraDataBufferInfo.buffer = _shadowPassCameraBuffer.buffer;
-    vkShadowCameraDataBufferInfo.offset = 0;
-    vkShadowCameraDataBufferInfo.range =
-        getPaddedBufferSize(sizeof(GPUCameraData));
+    VkDescriptorBufferInfo vkLightDataBufferInfo = {};
+    vkLightDataBufferInfo.buffer = _lightDataBuffer.buffer;
+    vkLightDataBufferInfo.offset = 0;
+    vkLightDataBufferInfo.range = sizeof(GPULightData);
 
     DescriptorBuilder::begin(_vkDevice, _descriptorAllocator,
                              _descriptorLayoutCache)
-        .bindImage(0, vkShadowMapDescriptorImageInfo,
-                   VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                   VK_SHADER_STAGE_FRAGMENT_BIT)
-        .bindBuffer(1, vkShadowCameraDataBufferInfo,
+        .bindImages(0, vkShadowMapDescriptorImageInfos,
+                    VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                    VK_SHADER_STAGE_FRAGMENT_BIT)
+        .bindBuffer(1, vkLightDataBufferInfo,
                     VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
                     VK_SHADER_STAGE_FRAGMENT_BIT)
         .build(frameData.vkDefaultRenderPassDescriptorSet,
-               _vkLitMeshrenderPassDescriptorSetLayout);
+               _vkLitMeshRenderPassDescriptorSetLayout);
 
     DescriptorBuilder::begin(_vkDevice, _descriptorAllocator,
                              _descriptorLayoutCache)

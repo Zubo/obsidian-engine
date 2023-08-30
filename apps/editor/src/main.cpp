@@ -113,8 +113,6 @@ int main(int, char**) {
       engineContext.window.pollEvents();
       scene::SceneState& sceneState = engineContext.scene.getState();
       sceneState.ambientColor = dataContext.sceneData.ambientColor;
-      sceneState.sunColor = dataContext.sceneData.sunlightColor;
-      sceneState.sunDirection = dataContext.sceneData.sunlightDirection;
 
       engine.processFrame();
     }

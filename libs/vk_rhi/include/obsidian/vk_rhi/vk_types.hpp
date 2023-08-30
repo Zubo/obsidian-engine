@@ -1,12 +1,14 @@
 #pragma once
 
 #include <obsidian/core/texture_format.hpp>
+#include <obsidian/rhi/rhi.hpp>
 
 #include <glm/matrix.hpp>
 #include <glm/vec4.hpp>
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
 
+#include <cstdint>
 #include <vector>
 
 namespace obsidian::vk_rhi {
@@ -47,12 +49,20 @@ struct GPUCameraData {
   glm::mat4 viewProj;
 };
 
+struct GPUDirectionalLightData {
+  glm::mat4 viewProjection;
+  glm::vec4 direction;
+  glm::vec4 color;
+  glm::vec4 intensity;
+};
+
+struct GPULightData {
+  GPUDirectionalLightData directionalLights[rhi::maxLightsPerDrawPass];
+  std::uint32_t directionalLightCount;
+};
+
 struct GPUSceneData {
-  glm::vec4 fogColor;
-  glm::vec4 fogDistance;
   glm::vec4 ambientColor;
-  glm::vec4 sunlightDirection;
-  glm::vec4 sunlightColor;
 };
 
 struct GPUObjectData {
@@ -63,6 +73,11 @@ struct VKDrawCall {
   glm::mat4 model;
   Mesh* mesh;
   Material* material;
+};
+
+struct ShadowPassParams {
+  GPUCameraData gpuCameraData;
+  int shadowMapIndex;
 };
 
 struct ImmediateSubmitContext {
@@ -95,12 +110,13 @@ struct FrameData {
   VkDescriptorSet vkObjectDataDescriptorSet;
   VkDescriptorSet vkDefaultRenderPassDescriptorSet;
 
-  VkFramebuffer shadowFrameBuffer;
-  AllocatedImage shadowMapImage;
-  VkImageView shadowMapImageView;
-  VkSampler shadowMapSampler;
+  std::array<VkFramebuffer, rhi::maxLightsPerDrawPass> shadowFrameBuffers;
+  std::array<AllocatedImage, rhi::maxLightsPerDrawPass> shadowMapImages;
+  std::array<VkImageView, rhi::maxLightsPerDrawPass> shadowMapImageViews;
 };
 
 VkFormat getVkTextureFormat(core::TextureFormat format);
+
+GPUCameraData getDirectionalLightCameraData(glm::vec3 direction);
 
 } /*namespace obsidian::vk_rhi*/

@@ -150,20 +150,6 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
   if (ImGui::BeginTabItem("Engine")) {
     if (engineStarted) {
       if (ImGui::CollapsingHeader("Global Scene Params")) {
-        ImGui::SliderFloat("Sun direction X", &sceneData.sunlightDirection.x,
-                           -1.f, 1.f);
-        ImGui::SliderFloat("Sun direction Y", &sceneData.sunlightDirection.y,
-                           -1.f, 1.f);
-        ImGui::SliderFloat("Sun direction Z", &sceneData.sunlightDirection.z,
-                           -1.f, 1.f);
-
-        ImGui::SliderFloat("Sun color r", &sceneData.sunlightColor.r, 0.f,
-                           10.f);
-        ImGui::SliderFloat("Sun color g", &sceneData.sunlightColor.g, 0.f,
-                           10.f);
-        ImGui::SliderFloat("Sun color b", &sceneData.sunlightColor.b, 0.f,
-                           10.f);
-
         ImGui::SliderFloat("Ambient light color r", &sceneData.ambientColor.r,
                            0.f, 1.f);
         ImGui::SliderFloat("Ambient light color g", &sceneData.ambientColor.g,
@@ -243,6 +229,27 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
         if (disabled) {
           ImGui::PopItemFlag();
           ImGui::PopStyleVar();
+        }
+
+        if (!selectedGameObject->directionalLight) {
+          if (ImGui::Button("Add directional light")) {
+            selectedGameObject->directionalLight.emplace();
+          }
+        } else {
+          ImGui::SliderFloat3(
+              "Direction",
+              reinterpret_cast<float*>(
+                  &selectedGameObject->directionalLight->direction),
+              -1.0f, 1.0f);
+
+          ImGui::SliderFloat3("Color",
+                              reinterpret_cast<float*>(
+                                  &selectedGameObject->directionalLight->color),
+                              0.0f, 1.0f);
+
+          ImGui::SliderFloat("Intensity",
+                             &selectedGameObject->directionalLight->intensity,
+                             0.0f, 10.0f);
         }
       }
     } else {

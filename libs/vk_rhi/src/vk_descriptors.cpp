@@ -265,6 +265,33 @@ DescriptorBuilder& DescriptorBuilder::bindImage(
   return *this;
 }
 
+DescriptorBuilder& DescriptorBuilder::bindImages(
+    uint32_t binding, std::vector<VkDescriptorImageInfo> const& imageInfos,
+    VkDescriptorType descriptorType, VkShaderStageFlags stageFlags,
+    const VkSampler* pImmutableSamplers) {
+
+  VkDescriptorSetLayoutBinding& vkDescriptorSetLayoutBinding =
+      _bindings.emplace_back();
+  vkDescriptorSetLayoutBinding = {};
+  vkDescriptorSetLayoutBinding.binding = binding;
+  vkDescriptorSetLayoutBinding.descriptorType = descriptorType;
+  vkDescriptorSetLayoutBinding.descriptorCount = imageInfos.size();
+  vkDescriptorSetLayoutBinding.stageFlags = stageFlags;
+  vkDescriptorSetLayoutBinding.pImmutableSamplers = pImmutableSamplers;
+
+  VkWriteDescriptorSet& vkWriteDescriptorSet = _writes.emplace_back();
+  vkWriteDescriptorSet = {};
+  vkWriteDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+  vkWriteDescriptorSet.pNext = nullptr;
+  vkWriteDescriptorSet.dstBinding = binding;
+  vkWriteDescriptorSet.dstArrayElement = 0;
+  vkWriteDescriptorSet.descriptorCount = imageInfos.size();
+  vkWriteDescriptorSet.descriptorType = descriptorType;
+  vkWriteDescriptorSet.pImageInfo = imageInfos.data();
+
+  return *this;
+}
+
 bool DescriptorBuilder::build(VkDescriptorSet& outVkDescriptorSet) {
   VkDescriptorSetLayout layout;
   return build(outVkDescriptorSet, layout);

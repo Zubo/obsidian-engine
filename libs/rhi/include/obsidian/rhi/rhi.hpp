@@ -1,11 +1,9 @@
 #pragma once
 
-#include <cstdint>
 #include <obsidian/rhi/resource_rhi.hpp>
+#include <obsidian/rhi/submit_types_rhi.hpp>
 
-#include <glm/mat4x4.hpp>
-#include <glm/vec2.hpp>
-#include <glm/vec3.hpp>
+#include <cstdint>
 
 namespace obsidian::rhi {
 
@@ -14,22 +12,9 @@ struct WindowExtentRHI {
   std::uint32_t height;
 };
 
-struct SceneGlobalParams {
-  glm::vec3 cameraPos;
-  glm::vec2 cameraRotationRad;
-
-  glm::vec3 ambientColor;
-  glm::vec3 sunDirection;
-  glm::vec3 sunColor;
-};
-
-struct DrawCall {
-  glm::mat4 transform;
-  ResourceIdRHI materialId;
-  ResourceIdRHI meshId;
-};
-
 enum class RHIBackends { vulkan = 1 };
+
+constexpr std::size_t maxLightsPerDrawPass = 8;
 
 class ISurfaceProviderRHI;
 
@@ -66,6 +51,8 @@ public:
   virtual void unloadMaterial(rhi::ResourceIdRHI) = 0;
 
   virtual void submitDrawCall(DrawCall const& drawCall) = 0;
+
+  virtual void submitLight(LightSubmitParams const& light) = 0;
 };
 
 class ISurfaceProviderRHI {

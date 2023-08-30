@@ -3,6 +3,7 @@
 #include <obsidian/core/material.hpp>
 #include <obsidian/rhi/resource_rhi.hpp>
 #include <obsidian/rhi/rhi.hpp>
+#include <obsidian/rhi/submit_types_rhi.hpp>
 #include <obsidian/vk_rhi/vk_deletion_queue.hpp>
 #include <obsidian/vk_rhi/vk_descriptors.hpp>
 #include <obsidian/vk_rhi/vk_mesh.hpp>
@@ -68,6 +69,8 @@ public:
 
   void submitDrawCall(rhi::DrawCall const& drawCall) override;
 
+  void submitLight(rhi::LightSubmitParams const& lightSubmitParams) override;
+
   VkInstance getInstance() const;
 
   void setSurface(VkSurfaceKHR surface);
@@ -104,17 +107,19 @@ private:
   VkDescriptorSetLayout _vkGlobalDescriptorSetLayout;
   VkDescriptorSetLayout _vkObjectDataDescriptorSetLayout;
   VkDescriptorSetLayout _vkShadowPassGlobalDescriptorSetLayout;
-  VkDescriptorSetLayout _vkLitMeshrenderPassDescriptorSetLayout;
+  VkDescriptorSetLayout _vkLitMeshRenderPassDescriptorSetLayout;
   VkDescriptorSetLayout _vkEmptyDescriptorSetLayout;
   VkDescriptorSetLayout _vkTexturedMaterialDescriptorSetLayout;
   AllocatedBuffer _sceneDataBuffer;
   AllocatedBuffer _cameraBuffer;
   AllocatedBuffer _shadowPassCameraBuffer;
+  AllocatedBuffer _lightDataBuffer;
   VkDescriptorSet _vkGlobalDescriptorSet;
   VkDescriptorSet _vkShadowPassGlobalDescriptorSet;
   VkDescriptorSet _emptyDescriptorSet;
   ImmediateSubmitContext _immediateSubmitContext;
-  VkSampler _vkSampler;
+  VkSampler _vkAlbedoTextureSampler;
+  VkSampler _vkShadowMapSampler;
   VkExtent2D _windowExtent;
   bool _skipFrame = false;
   rhi::ResourceIdRHI _nextResourceId = 0;
@@ -126,6 +131,7 @@ private:
   rhi::ResourceIdRHI _shadowPassShaderId;
   rhi::ResourceIdRHI _emptyFragShaderId;
   std::vector<VKDrawCall> _drawCallQueue;
+  std::vector<rhi::DirectionalLight> _submittedDirectionalLights;
 
   void initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider);
   void initSwapchain();
@@ -146,7 +152,8 @@ private:
   void drawObjects(VkCommandBuffer cmd, VKDrawCall* first, int count,
                    rhi::SceneGlobalParams const& sceneParams);
   void drawShadowPass(VkCommandBuffer, VKDrawCall* first, int count,
-                      rhi::SceneGlobalParams const& sceneGlobalParams);
+                      rhi::SceneGlobalParams const& sceneGlobalParams,
+                      ShadowPassParams const& shadowPassParams);
   Mesh* getMesh(std::string const& name);
   AllocatedBuffer
   createBuffer(std::size_t bufferSize, VkBufferUsageFlags usage,
@@ -156,6 +163,10 @@ private:
   std::size_t getPaddedBufferSize(std::size_t originalSize) const;
 
   rhi::ResourceIdRHI consumeNewResourceId();
+  int getNextAvailableShadowMapIndex();
+  void submitLight(rhi::DirectionalLightParams const& directionalLight);
+  std::vector<ShadowPassParams> getSubmittedShadowPassParams() const;
+  GPULightData getGPULightData() const;
 };
 
 } /*namespace obsidian::vk_rhi*/

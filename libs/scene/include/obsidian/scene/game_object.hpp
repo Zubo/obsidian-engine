@@ -1,10 +1,12 @@
 #pragma once
 
+#include <obsidian/core/light_types.hpp>
 #include <obsidian/runtime_resource/runtime_resource.hpp>
 
 #include <glm/glm.hpp>
 
 #include <deque>
+#include <optional>
 #include <string>
 
 namespace obsidian::scene {
@@ -43,6 +45,7 @@ public:
   std::string name;
   runtime_resource::RuntimeResource* materialResource = nullptr;
   runtime_resource::RuntimeResource* meshResource = nullptr;
+  std::optional<core::DirectionalLight> directionalLight;
   GameObject* parent = nullptr;
 
 private:

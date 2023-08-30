@@ -85,6 +85,11 @@ public:
                                VkDescriptorType descriptorType,
                                VkShaderStageFlags stageFlags,
                                const VkSampler* pImmutableSamplers = nullptr);
+  DescriptorBuilder&
+  bindImages(uint32_t binding,
+             std::vector<VkDescriptorImageInfo> const& imageInfo,
+             VkDescriptorType descriptorType, VkShaderStageFlags stageFlags,
+             const VkSampler* pImmutableSamplers = nullptr);
 
   bool build(VkDescriptorSet& outVkDescriptorSet);
   bool build(VkDescriptorSet& outVkDescriptorSet,

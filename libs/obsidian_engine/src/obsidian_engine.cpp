@@ -80,6 +80,10 @@ void submitDrawCalls(scene::GameObject const& gameObject, rhi::RHI& rhi,
     rhi.submitDrawCall(drawCall);
   }
 
+  if (gameObject.directionalLight) {
+    rhi.submitLight(*gameObject.directionalLight);
+  }
+
   for (scene::GameObject const& child : gameObject.getChildren()) {
     submitDrawCalls(child, rhi, transform);
   }
@@ -97,8 +101,6 @@ void ObsidianEngine::processFrame() {
 
   rhi::SceneGlobalParams sceneGlobalParams;
   sceneGlobalParams.ambientColor = sceneState.ambientColor;
-  sceneGlobalParams.sunColor = sceneState.sunColor;
-  sceneGlobalParams.sunDirection = sceneState.sunDirection;
   sceneGlobalParams.cameraPos = sceneState.camera.pos;
   sceneGlobalParams.cameraRotationRad = sceneState.camera.rotationRad;
 

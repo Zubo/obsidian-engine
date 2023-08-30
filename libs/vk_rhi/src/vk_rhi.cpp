@@ -2,6 +2,7 @@
 #include <obsidian/core/texture_format.hpp>
 #include <obsidian/rhi/resource_rhi.hpp>
 #include <obsidian/rhi/rhi.hpp>
+#include <obsidian/rhi/submit_types_rhi.hpp>
 #include <obsidian/vk_rhi/vk_check.hpp>
 #include <obsidian/vk_rhi/vk_descriptors.hpp>
 #include <obsidian/vk_rhi/vk_initializers.hpp>
@@ -9,6 +10,10 @@
 #include <obsidian/vk_rhi/vk_rhi.hpp>
 #include <obsidian/vk_rhi/vk_types.hpp>
 
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/transform.hpp>
+#include <glm/mat4x4.hpp>
+#include <glm/vec3.hpp>
 #include <tracy/Tracy.hpp>
 #include <vk_mem_alloc.h>
 
@@ -16,6 +21,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <variant>
 
 using namespace obsidian;
 using namespace obsidian::vk_rhi;
@@ -263,7 +269,7 @@ VulkanRHI::uploadMaterial(rhi::UploadMaterialRHI const& uploadMaterial) {
   VkDescriptorImageInfo albedoTexImageInfo;
   albedoTexImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
   albedoTexImageInfo.imageView = albedoTexture.imageView;
-  albedoTexImageInfo.sampler = _vkSampler;
+  albedoTexImageInfo.sampler = _vkAlbedoTextureSampler;
 
   DescriptorBuilder::begin(_vkDevice, _descriptorAllocator,
                            _descriptorLayoutCache)
@@ -288,6 +294,11 @@ void VulkanRHI::submitDrawCall(rhi::DrawCall const& drawCall) {
   vkDrawCall.model = drawCall.transform;
   vkDrawCall.mesh = &_meshes[drawCall.meshId];
   vkDrawCall.material = &_materials[drawCall.materialId];
+}
+
+void VulkanRHI::submitLight(rhi::LightSubmitParams const& light) {
+  std::visit([this](rhi::DirectionalLightParams const& l) { submitLight(l); },
+             light);
 }
 
 VkInstance VulkanRHI::getInstance() const { return _vkInstance; }
@@ -374,4 +385,62 @@ std::size_t VulkanRHI::getPaddedBufferSize(std::size_t originalSize) const {
 
 rhi::ResourceIdRHI VulkanRHI::consumeNewResourceId() {
   return _nextResourceId++;
+}
+int VulkanRHI::getNextAvailableShadowMapIndex() {
+  int next = _submittedDirectionalLights.size();
+
+  if (next > rhi::maxLightsPerDrawPass) {
+    return -1;
+  }
+
+  return next;
+}
+
+void VulkanRHI::submitLight(
+    rhi::DirectionalLightParams const& directionalLight) {
+  _submittedDirectionalLights.push_back(
+      {directionalLight, getNextAvailableShadowMapIndex()});
+}
+
+std::vector<ShadowPassParams> VulkanRHI::getSubmittedShadowPassParams() const {
+  std::vector<ShadowPassParams> result;
+
+  for (rhi::DirectionalLight const& dirLight : _submittedDirectionalLights) {
+    if (dirLight.assignedShadowMapInd < 0) {
+      continue;
+    }
+
+    ShadowPassParams& param = result.emplace_back();
+    param.shadowMapIndex = dirLight.assignedShadowMapInd;
+    param.gpuCameraData =
+        getDirectionalLightCameraData(dirLight.directionalLight.direction);
+  }
+
+  return result;
+}
+
+GPULightData VulkanRHI::getGPULightData() const {
+  GPULightData lightData;
+
+  for (std::size_t i = 0; i < _submittedDirectionalLights.size(); ++i) {
+    if (_submittedDirectionalLights[i].assignedShadowMapInd < 0) {
+      continue;
+    }
+    lightData.directionalLights[i].direction = {
+        _submittedDirectionalLights[i].directionalLight.direction, 1.0f};
+    lightData.directionalLights[i].color = {
+        _submittedDirectionalLights[i].directionalLight.color, 1.0f};
+
+    GPUCameraData const cameraData = getDirectionalLightCameraData(
+        _submittedDirectionalLights[i].directionalLight.direction);
+    lightData.directionalLights[i].viewProjection = cameraData.viewProj;
+    float const intensity =
+        _submittedDirectionalLights[i].directionalLight.intensity;
+    lightData.directionalLights[i].intensity = {intensity, intensity, intensity,
+                                                1.0f};
+  }
+
+  lightData.directionalLightCount = _submittedDirectionalLights.size();
+
+  return lightData;
 }

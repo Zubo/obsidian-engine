@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.24)
 add_library(RHI INTERFACE
     "include/obsidian/rhi/rhi.hpp"
     "include/obsidian/rhi/resource_rhi.hpp"
+    "include/obsidian/rhi/submit_types_rhi.hpp"
 )
 
 target_include_directories(RHI
