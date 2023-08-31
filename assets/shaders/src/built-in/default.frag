@@ -37,7 +37,9 @@ struct Spotlight {
 
 layout(std140, set = 1, binding = 1) uniform LightCameraData {
   DirectionalLight directionalLights[MAX_LIGHT_COUNT];
+  uint directionalLightShadowMapIndices[MAX_LIGHT_COUNT];
   Spotlight spotlights[MAX_LIGHT_COUNT];
+  uint spotlightShadowMapIndices[MAX_LIGHT_COUNT];
   uint directionalLightCount;
   uint spotlightCount;
 }
@@ -66,7 +68,7 @@ LightingResult calculateSpotlights() {
     vec4 depthSpacePos =
         lights.spotlights[lightIdx].viewProj * vec4(inWorldPos, 1.0f);
 
-    const uint mapIdx = lights.directionalLightCount + lightIdx;
+    const uint mapIdx = lights.spotlightShadowMapIndices[lightIdx];
     float shadowMultiplier = 0.0f;
 
     const float bias =
@@ -141,13 +143,16 @@ LightingResult calculateDirectionalLighting() {
              dot(normalize(lights.directionalLights[lightIdx].direction.xyz),
                  normalize(inNormals))));
 
-    vec2 texelSize = 1.0f / textureSize(shadowMap[lightIdx], 0);
+    const uint shadowMapIdx = lights.directionalLightShadowMapIndices[lightIdx];
+
+    vec2 texelSize = 1.0f / textureSize(shadowMap[shadowMapIdx], 0);
     const int pcfCount = 2;
     for (int x = -pcfCount; x <= pcfCount; ++x) {
       for (int y = -pcfCount; y <= pcfCount; ++y) {
         vec2 shadowUV = (depthSpacePos.xy + vec2(1.0f, 1.0f)) / 2.0f;
-        float shadowmapDepth =
-            texture(shadowMap[lightIdx], shadowUV + vec2(x, y) * texelSize.r).r;
+        float shadowmapDepth = texture(shadowMap[shadowMapIdx],
+                                       shadowUV + vec2(x, y) * texelSize.r)
+                                   .r;
 
         if (depthSpacePos.z > shadowmapDepth + bias) {
           shadowMultiplier += 0.1f;

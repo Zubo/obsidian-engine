@@ -459,6 +459,8 @@ GPULightData VulkanRHI::getGPULightData() const {
         _submittedDirectionalLights[i].directionalLight.intensity;
     lightData.directionalLights[i].intensity = {intensity, intensity, intensity,
                                                 1.0f};
+    lightData.directionalLightShadowMapIndices[i].value =
+        _submittedDirectionalLights[i].assignedShadowMapInd;
   }
 
   lightData.directionalLightCount = _submittedDirectionalLights.size();
@@ -470,10 +472,8 @@ GPULightData VulkanRHI::getGPULightData() const {
 
     lightData.spotlights[i].direction = {
         _submittedSpotlights[i].spotlight.direction, 1.0f};
-
     lightData.spotlights[i].position = {
         _submittedSpotlights[i].spotlight.position, 1.0f};
-
     lightData.spotlights[i].color = {_submittedSpotlights[i].spotlight.color,
                                      1.0f};
 
@@ -490,6 +490,8 @@ GPULightData VulkanRHI::getGPULightData() const {
         std::cos(_submittedSpotlights[i].spotlight.cutoffAngleRad);
     lightData.spotlights[i].params.z =
         std::cos(_submittedSpotlights[i].spotlight.fadeoutAngleRad);
+    lightData.spotlightShadowMapIndices[i].value =
+        _submittedSpotlights[i].assignedShadowMapInd;
   }
 
   lightData.spotlightCount = _submittedSpotlights.size();

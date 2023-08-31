@@ -64,9 +64,19 @@ struct GPUSpotlight {
   glm::vec4 params;
 };
 
+// used for arrays with std140 alignment
+struct PaddedUInt32 {
+  std::uint32_t value;
+
+private:
+  const std::uint32_t padding[3] = {0};
+};
+
 struct GPULightData {
   GPUDirectionalLightData directionalLights[rhi::maxLightsPerDrawPass];
+  PaddedUInt32 directionalLightShadowMapIndices[rhi::maxLightsPerDrawPass];
   GPUSpotlight spotlights[rhi::maxLightsPerDrawPass];
+  PaddedUInt32 spotlightShadowMapIndices[rhi::maxLightsPerDrawPass];
   std::uint32_t directionalLightCount;
   std::uint32_t spotlightCount;
 };
