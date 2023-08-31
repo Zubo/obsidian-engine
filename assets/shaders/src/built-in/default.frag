@@ -27,9 +27,19 @@ struct DirectionalLight {
   vec4 intensity;
 };
 
+struct Spotlight {
+  mat4 viewProj;
+  vec4 direction;
+  vec4 position;
+  vec4 color;
+  vec4 params; // x = intensity, y = cos of cutoff angle
+};
+
 layout(std140, set = 1, binding = 1) uniform LightCameraData {
   DirectionalLight directionalLights[MAX_LIGHT_COUNT];
+  Spotlight spotlights[MAX_LIGHT_COUNT];
   uint directionalLightCount;
+  uint spotlightCount;
 }
 lights;
 
@@ -40,12 +50,32 @@ struct LightingResult {
   vec3 specular;
 };
 
+LightingResult calculateSpotlights() {
+  LightingResult result = {{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
+
+  for (int lightIdx = 0; lightIdx < lights.spotlightCount; ++lightIdx) {
+    float intensity = lights.spotlights[lightIdx].params.x;
+
+    float cosCutoffAngle = lights.spotlights[lightIdx].params.y;
+
+    float cosAngle =
+        dot(normalize(inWorldPos - lights.spotlights[lightIdx].position.xyz),
+            normalize(lights.spotlights[lightIdx].direction.xyz));
+
+    if (cosAngle > cosCutoffAngle) {
+      result.diffuse += intensity * lights.spotlights[lightIdx].color.xyz;
+    }
+  }
+
+  return result;
+}
+
 LightingResult calculateDirectionalLighting() {
 
   LightingResult result = {{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
 
   for (int lightIdx = 0; lightIdx < lights.directionalLightCount; ++lightIdx) {
-    vec4 intensity = lights.directionalLights[lightIdx].intensity;
+    vec3 intensity = lights.directionalLights[lightIdx].intensity.xyz;
     float diffuseIntensity =
         clamp(dot(normalize(-lights.directionalLights[lightIdx].direction.xyz),
                   normalize(inNormals)),
@@ -106,10 +136,13 @@ void main() {
   vec3 sampledColor = texture(albedoTex, inUV).xyz;
 
   LightingResult directionalLightResult = calculateDirectionalLighting();
+  LightingResult spotlightReuslt = calculateSpotlights();
 
-  vec3 finalColor = sampledColor * (directionalLightResult.diffuse +
-                                    directionalLightResult.specular +
-                                    sceneData.ambientColor.xyz);
+  vec3 finalColor =
+      sampledColor *
+      (spotlightReuslt.diffuse + directionalLightResult.diffuse +
+       spotlightReuslt.specular + directionalLightResult.specular +
+       sceneData.ambientColor.xyz);
 
   outFragColor = vec4(finalColor, 1.0f);
 }

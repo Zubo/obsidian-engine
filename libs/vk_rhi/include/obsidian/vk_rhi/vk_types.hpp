@@ -56,9 +56,19 @@ struct GPUDirectionalLightData {
   glm::vec4 intensity;
 };
 
+struct GPUSpotlight {
+  glm::mat4 viewProjection;
+  glm::vec4 direction;
+  glm::vec4 position;
+  glm::vec4 color;
+  glm::vec4 params;
+};
+
 struct GPULightData {
   GPUDirectionalLightData directionalLights[rhi::maxLightsPerDrawPass];
+  GPUSpotlight spotlights[rhi::maxLightsPerDrawPass];
   std::uint32_t directionalLightCount;
+  std::uint32_t spotlightCount;
 };
 
 struct GPUSceneData {
@@ -118,5 +128,6 @@ struct FrameData {
 VkFormat getVkTextureFormat(core::TextureFormat format);
 
 GPUCameraData getDirectionalLightCameraData(glm::vec3 direction);
+GPUCameraData getSpotlightCameraData(glm::vec3 direction, float cutoffAngleRad);
 
 } /*namespace obsidian::vk_rhi*/

@@ -46,6 +46,7 @@ public:
   runtime_resource::RuntimeResource* materialResource = nullptr;
   runtime_resource::RuntimeResource* meshResource = nullptr;
   std::optional<core::DirectionalLight> directionalLight;
+  std::optional<core::Spotlight> spotlight;
   GameObject* parent = nullptr;
 
 private:

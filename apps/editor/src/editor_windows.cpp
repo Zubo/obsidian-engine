@@ -236,6 +236,8 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
             selectedGameObject->directionalLight.emplace();
           }
         } else {
+          ImGui::PushID("DirectionalLight");
+
           ImGui::SliderFloat3(
               "Direction",
               reinterpret_cast<float*>(
@@ -250,6 +252,44 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
           ImGui::SliderFloat("Intensity",
                              &selectedGameObject->directionalLight->intensity,
                              0.0f, 10.0f);
+
+          if (ImGui::Button("Remove")) {
+            selectedGameObject->directionalLight.reset();
+          }
+
+          ImGui::PopID();
+        }
+
+        if (!selectedGameObject->spotlight) {
+          if (ImGui::Button("Add spotlight")) {
+            selectedGameObject->spotlight.emplace();
+          }
+        } else {
+          ImGui::PushID("Spotlight");
+
+          ImGui::SliderFloat3("Direction",
+                              reinterpret_cast<float*>(
+                                  &selectedGameObject->spotlight->direction),
+                              -1.0f, 1.0f);
+
+          ImGui::SliderFloat3(
+              "Color",
+              reinterpret_cast<float*>(&selectedGameObject->spotlight->color),
+              0.0f, 1.0f);
+
+          ImGui::SliderFloat("Intensity",
+                             &selectedGameObject->spotlight->intensity, 0.0f,
+                             10.0f);
+
+          ImGui::SliderFloat("Cutoff angle",
+                             &selectedGameObject->spotlight->cutoffAngleRad,
+                             0.01f, 3.14f);
+
+          if (ImGui::Button("Remove")) {
+            selectedGameObject->spotlight.reset();
+          }
+
+          ImGui::PopID();
         }
       }
     } else {

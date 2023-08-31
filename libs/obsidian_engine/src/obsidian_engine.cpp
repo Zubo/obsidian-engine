@@ -1,3 +1,4 @@
+#include <obsidian/core/light_types.hpp>
 #include <obsidian/core/logging.hpp>
 #include <obsidian/obsidian_engine/obsidian_engine.hpp>
 #include <obsidian/rhi/rhi.hpp>
@@ -82,6 +83,13 @@ void submitDrawCalls(scene::GameObject const& gameObject, rhi::RHI& rhi,
 
   if (gameObject.directionalLight) {
     rhi.submitLight(*gameObject.directionalLight);
+  }
+
+  if (gameObject.spotlight) {
+    core::Spotlight spotlight = *gameObject.spotlight;
+    spotlight.position =
+        parentTransform * glm::vec4{gameObject.getPosition(), 1.0f};
+    rhi.submitLight(spotlight);
   }
 
   for (scene::GameObject const& child : gameObject.getChildren()) {

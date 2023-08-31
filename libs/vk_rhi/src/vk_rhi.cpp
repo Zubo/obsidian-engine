@@ -1,5 +1,6 @@
 #include <obsidian/core/logging.hpp>
 #include <obsidian/core/texture_format.hpp>
+#include <obsidian/core/utils/visitor.hpp>
 #include <obsidian/rhi/resource_rhi.hpp>
 #include <obsidian/rhi/rhi.hpp>
 #include <obsidian/rhi/submit_types_rhi.hpp>
@@ -297,8 +298,11 @@ void VulkanRHI::submitDrawCall(rhi::DrawCall const& drawCall) {
 }
 
 void VulkanRHI::submitLight(rhi::LightSubmitParams const& light) {
-  std::visit([this](rhi::DirectionalLightParams const& l) { submitLight(l); },
-             light);
+  std::visit(
+      core::visitor(
+          [this](rhi::DirectionalLightParams const& l) { submitLight(l); },
+          [this](rhi::SpotlightParams const& l) { submitLight(l); }),
+      light);
 }
 
 VkInstance VulkanRHI::getInstance() const { return _vkInstance; }
@@ -402,6 +406,10 @@ void VulkanRHI::submitLight(
       {directionalLight, getNextAvailableShadowMapIndex()});
 }
 
+void VulkanRHI::submitLight(rhi::SpotlightParams const& spotlight) {
+  _submittedSpotlights.push_back({spotlight, getNextAvailableShadowMapIndex()});
+}
+
 std::vector<ShadowPassParams> VulkanRHI::getSubmittedShadowPassParams() const {
   std::vector<ShadowPassParams> result;
 
@@ -414,6 +422,17 @@ std::vector<ShadowPassParams> VulkanRHI::getSubmittedShadowPassParams() const {
     param.shadowMapIndex = dirLight.assignedShadowMapInd;
     param.gpuCameraData =
         getDirectionalLightCameraData(dirLight.directionalLight.direction);
+  }
+
+  for (rhi::Spotlight const& spotlight : _submittedSpotlights) {
+    if (spotlight.assignedShadowMapInd < 0) {
+      continue;
+    }
+
+    ShadowPassParams& param = result.emplace_back();
+    param.shadowMapIndex = spotlight.assignedShadowMapInd;
+    param.gpuCameraData = getSpotlightCameraData(
+        spotlight.spotlight.direction, spotlight.spotlight.cutoffAngleRad);
   }
 
   return result;
@@ -433,6 +452,7 @@ GPULightData VulkanRHI::getGPULightData() const {
 
     GPUCameraData const cameraData = getDirectionalLightCameraData(
         _submittedDirectionalLights[i].directionalLight.direction);
+
     lightData.directionalLights[i].viewProjection = cameraData.viewProj;
     float const intensity =
         _submittedDirectionalLights[i].directionalLight.intensity;
@@ -441,6 +461,34 @@ GPULightData VulkanRHI::getGPULightData() const {
   }
 
   lightData.directionalLightCount = _submittedDirectionalLights.size();
+
+  for (std::size_t i = 0; i < _submittedSpotlights.size(); ++i) {
+    if (_submittedSpotlights[i].assignedShadowMapInd < 0) {
+      continue;
+    }
+
+    lightData.spotlights[i].direction = {
+        _submittedSpotlights[i].spotlight.direction, 1.0f};
+
+    lightData.spotlights[i].position = {
+        _submittedSpotlights[i].spotlight.position, 1.0f};
+
+    lightData.spotlights[i].color = {_submittedSpotlights[i].spotlight.color,
+                                     1.0f};
+
+    GPUCameraData const cameraData = getSpotlightCameraData(
+        _submittedSpotlights[i].spotlight.direction,
+        _submittedSpotlights[i].spotlight.cutoffAngleRad);
+
+    lightData.spotlights[i].viewProjection = cameraData.viewProj;
+
+    float const intensity = _submittedSpotlights[i].spotlight.intensity;
+    lightData.spotlights[i].params.x = intensity;
+    lightData.spotlights[i].params.y =
+        std::cos(_submittedSpotlights[i].spotlight.cutoffAngleRad);
+  }
+
+  lightData.spotlightCount = _submittedSpotlights.size();
 
   return lightData;
 }

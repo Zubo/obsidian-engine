@@ -12,6 +12,14 @@ struct DirectionalLight {
   float intensity = 1.0f;
 };
 
-using Light = std::variant<DirectionalLight>;
+struct Spotlight {
+  glm::vec3 direction;
+  glm::vec3 position;
+  glm::vec3 color;
+  float intensity = 1.0f;
+  float cutoffAngleRad = 3.14f / 4;
+};
+
+using Light = std::variant<DirectionalLight, Spotlight>;
 
 } /*namespace obsidian::core*/

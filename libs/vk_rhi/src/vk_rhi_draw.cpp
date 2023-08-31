@@ -167,6 +167,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   }
 
   _submittedDirectionalLights.clear();
+  _submittedSpotlights.clear();
   _drawCallQueue.clear();
   ++_frameNumber;
 

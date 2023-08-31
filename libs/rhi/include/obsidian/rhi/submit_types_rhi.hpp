@@ -24,9 +24,15 @@ struct DrawCall {
 
 using LightSubmitParams = core::Light;
 using DirectionalLightParams = core::DirectionalLight;
+using SpotlightParams = core::Spotlight;
 
 struct DirectionalLight {
   DirectionalLightParams directionalLight;
+  int assignedShadowMapInd = -1;
+};
+
+struct Spotlight {
+  SpotlightParams spotlight;
   int assignedShadowMapInd = -1;
 };
 

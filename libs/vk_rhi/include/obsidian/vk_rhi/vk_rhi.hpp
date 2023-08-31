@@ -132,6 +132,7 @@ private:
   rhi::ResourceIdRHI _emptyFragShaderId;
   std::vector<VKDrawCall> _drawCallQueue;
   std::vector<rhi::DirectionalLight> _submittedDirectionalLights;
+  std::vector<rhi::Spotlight> _submittedSpotlights;
 
   void initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider);
   void initSwapchain();
@@ -165,6 +166,7 @@ private:
   rhi::ResourceIdRHI consumeNewResourceId();
   int getNextAvailableShadowMapIndex();
   void submitLight(rhi::DirectionalLightParams const& directionalLight);
+  void submitLight(rhi::SpotlightParams const& spotlight);
   std::vector<ShadowPassParams> getSubmittedShadowPassParams() const;
   GPULightData getGPULightData() const;
 };
