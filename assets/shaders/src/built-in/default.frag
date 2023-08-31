@@ -35,11 +35,14 @@ lights;
 
 layout(set = 2, binding = 0) uniform sampler2D albedoTex;
 
-void main() {
-  vec3 sampledColor = texture(albedoTex, inUV).xyz;
+struct LightingResult {
+  vec3 diffuse;
+  vec3 specular;
+};
 
-  vec3 diffuseColor = {0.0f, 0.0f, 0.0f};
-  vec3 specularColor = {0.0f, 0.0f, 0.0f};
+LightingResult calculateDirectionalLighting() {
+
+  LightingResult result = {{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
 
   for (int lightIdx = 0; lightIdx < lights.directionalLightCount; ++lightIdx) {
     vec4 intensity = lights.directionalLights[lightIdx].intensity;
@@ -88,16 +91,25 @@ void main() {
     shadowMultiplier /= ((2 * pcfCount + 1) * (2 * pcfCount + 1));
 
     if (shadowMultiplier < 0.0001f) {
-      specularColor += specularIntensity * intensity.xyz *
-                       lights.directionalLights[lightIdx].color.xyz;
+      result.specular += specularIntensity * intensity.xyz *
+                         lights.directionalLights[lightIdx].color.xyz;
     }
 
-    diffuseColor += shadowMultiplier * intensity.xyz * diffuseIntensity *
-                    lights.directionalLights[lightIdx].color.xyz;
+    result.diffuse += shadowMultiplier * intensity.xyz * diffuseIntensity *
+                      lights.directionalLights[lightIdx].color.xyz;
   }
 
-  vec3 finalColor = sampledColor *
-                    (diffuseColor + specularColor + sceneData.ambientColor.xyz);
+  return result;
+}
+
+void main() {
+  vec3 sampledColor = texture(albedoTex, inUV).xyz;
+
+  LightingResult directionalLightResult = calculateDirectionalLighting();
+
+  vec3 finalColor = sampledColor * (directionalLightResult.diffuse +
+                                    directionalLightResult.specular +
+                                    sceneData.ambientColor.xyz);
 
   outFragColor = vec4(finalColor, 1.0f);
 }

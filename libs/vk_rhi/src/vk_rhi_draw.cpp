@@ -50,9 +50,11 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
 
   VK_CHECK(vkBeginCommandBuffer(cmd, &vkCommandBufferBeginInfo));
 
-  for (ShadowPassParams const& shadowPassParams :
-       getSubmittedShadowPassParams()) {
-    assert(shadowPassParams.shadowMapIndex >= 0);
+  std::vector<ShadowPassParams> submittedParams =
+      getSubmittedShadowPassParams();
+
+  for (ShadowPassParams const& shadowPass : submittedParams) {
+    assert(shadowPass.shadowMapIndex >= 0);
 
     VkRenderPassBeginInfo vkShadowRenderPassBeginInfo = {};
     vkShadowRenderPassBeginInfo.sType =
@@ -60,7 +62,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
     vkShadowRenderPassBeginInfo.pNext = nullptr;
     vkShadowRenderPassBeginInfo.renderPass = _vkShadowRenderPass;
     vkShadowRenderPassBeginInfo.framebuffer =
-        currentFrameData.shadowFrameBuffers[shadowPassParams.shadowMapIndex];
+        currentFrameData.shadowFrameBuffers[shadowPass.shadowMapIndex];
     vkShadowRenderPassBeginInfo.renderArea.offset = {0, 0};
     vkShadowRenderPassBeginInfo.renderArea.extent = {
         shadowPassAttachmentWidth, shadowPassAttachmentHeight};
@@ -74,7 +76,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
                          VK_SUBPASS_CONTENTS_INLINE);
 
     drawShadowPass(cmd, _drawCallQueue.data(), _drawCallQueue.size(),
-                   sceneParams, shadowPassParams);
+                   sceneParams, shadowPass);
 
     vkCmdEndRenderPass(cmd);
   }
@@ -85,8 +87,12 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
     vkShadowMapImageMemoryBarrier.sType =
         VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     vkShadowMapImageMemoryBarrier.pNext = nullptr;
+
+    bool const depthAttachmentUsed = i < submittedParams.size();
     vkShadowMapImageMemoryBarrier.oldLayout =
-        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        depthAttachmentUsed ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+                            : VK_IMAGE_LAYOUT_UNDEFINED;
+
     vkShadowMapImageMemoryBarrier.newLayout =
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     vkShadowMapImageMemoryBarrier.image =
