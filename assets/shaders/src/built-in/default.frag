@@ -95,6 +95,18 @@ LightingResult calculateSpotlights() {
     const vec4 depthSpacePos =
         lights.spotlights[lightIdx].viewProj * vec4(inWorldPos, 1.0f);
 
+    const mat4 inverseView = inverse(cameraData.view);
+    const vec3 fragToCameraDirection = normalize(
+        vec3(inverseView[3][0], inverseView[3][1], inverseView[3][2]) -
+        inWorldPos);
+
+    const vec3 reflectedLightDirection = normalize(
+        reflect(lights.spotlights[lightIdx].direction.xyz, inNormals));
+
+    const float specularIntensity = pow(
+        clamp(dot(fragToCameraDirection, reflectedLightDirection), 0.0f, 1.0),
+        32);
+
     const uint shadowMapIdx = lights.spotlightShadowMapIndices[lightIdx];
 
     const float bias =
@@ -103,11 +115,17 @@ LightingResult calculateSpotlights() {
                        dot(normalize(lights.spotlights[lightIdx].direction.xyz),
                            normalize(inNormals))));
 
-    float shadowMultiplier = calculatePCF(shadowMapIdx, depthSpacePos, bias);
+    const float shadowMultiplier =
+        calculatePCF(shadowMapIdx, depthSpacePos, bias);
 
     if (cosAngle > cosCutoffAngle) {
       result.diffuse +=
           shadowMultiplier * intensity * lights.spotlights[lightIdx].color.xyz;
+
+      if (shadowMultiplier > 0.0001f) {
+        result.specular += specularIntensity * intensity *
+                           lights.spotlights[lightIdx].color.xyz;
+      }
     } else {
       result.diffuse += shadowMultiplier * intensity *
                         clamp((cosAngle - cosFadeoutAngle) /
@@ -130,18 +148,20 @@ LightingResult calculateDirectionalLighting() {
         clamp(dot(normalize(-lights.directionalLights[lightIdx].direction.xyz),
                   normalize(inNormals)),
               0.0f, 1.0f);
-    mat4 inverseView = inverse(cameraData.view);
-    vec3 fragToCameraDirection = normalize(
+
+    const mat4 inverseView = inverse(cameraData.view);
+    const vec3 fragToCameraDirection = normalize(
         vec3(inverseView[3][0], inverseView[3][1], inverseView[3][2]) -
         inWorldPos);
-    vec3 reflectedSunDirection = normalize(
+
+    const vec3 reflectedLightDirection = normalize(
         reflect(lights.directionalLights[lightIdx].direction.xyz, inNormals));
 
-    float specularIntensity =
-        pow(clamp(dot(fragToCameraDirection, reflectedSunDirection), 0.0f, 1.0),
-            32);
+    const float specularIntensity = pow(
+        clamp(dot(fragToCameraDirection, reflectedLightDirection), 0.0f, 1.0),
+        32);
 
-    vec4 depthSpacePos =
+    const vec4 depthSpacePos =
         lights.directionalLights[lightIdx].viewProj * vec4(inWorldPos, 1.0f);
 
     const float bias = max(
@@ -156,7 +176,7 @@ LightingResult calculateDirectionalLighting() {
     const float shadowMultiplier =
         calculatePCF(shadowMapIdx, depthSpacePos, bias);
 
-    if (shadowMultiplier < 0.0001f) {
+    if (shadowMultiplier > 0.0001f) {
       result.specular += specularIntensity * intensity.xyz *
                          lights.directionalLights[lightIdx].color.xyz;
     }
