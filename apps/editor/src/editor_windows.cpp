@@ -238,12 +238,6 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
         } else {
           ImGui::PushID("DirectionalLight");
 
-          ImGui::SliderFloat3(
-              "Direction",
-              reinterpret_cast<float*>(
-                  &selectedGameObject->directionalLight->direction),
-              -1.0f, 1.0f);
-
           ImGui::SliderFloat3("Color",
                               reinterpret_cast<float*>(
                                   &selectedGameObject->directionalLight->color),
@@ -267,11 +261,6 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
         } else {
           ImGui::PushID("Spotlight");
 
-          ImGui::SliderFloat3("Direction",
-                              reinterpret_cast<float*>(
-                                  &selectedGameObject->spotlight->direction),
-                              -1.0f, 1.0f);
-
           ImGui::SliderFloat3(
               "Color",
               reinterpret_cast<float*>(&selectedGameObject->spotlight->color),
@@ -284,6 +273,10 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
           ImGui::SliderFloat("Cutoff angle",
                              &selectedGameObject->spotlight->cutoffAngleRad,
                              0.01f, 3.14f);
+
+          ImGui::SliderFloat(
+              "Fadeout angle", &selectedGameObject->spotlight->fadeoutAngleRad,
+              selectedGameObject->spotlight->cutoffAngleRad, 3.14f);
 
           if (ImGui::Button("Remove")) {
             selectedGameObject->spotlight.reset();

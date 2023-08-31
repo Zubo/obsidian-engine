@@ -18,8 +18,7 @@ VkFormat getVkTextureFormat(core::TextureFormat format) {
 GPUCameraData getDirectionalLightCameraData(glm::vec3 direction) {
   GPUCameraData gpuCameraData;
 
-  gpuCameraData.view =
-      glm::lookAt({}, glm::normalize(direction), {0.f, 1.f, 0.f});
+  gpuCameraData.view = glm::lookAt({}, direction, {0.f, 1.f, 0.f});
   gpuCameraData.proj = glm::ortho(-200.f, 200.f, -200.f, 200.f, -200.f, 200.f);
   gpuCameraData.proj[1][1] *= -1;
 
@@ -33,13 +32,15 @@ GPUCameraData getDirectionalLightCameraData(glm::vec3 direction) {
   return gpuCameraData;
 }
 
-GPUCameraData getSpotlightCameraData(glm::vec3 direction,
-                                     float cutoffAngleRad) {
+GPUCameraData getSpotlightCameraData(glm::vec3 const& position,
+                                     glm::vec3 const& direction,
+                                     float fadeoutAngleRad) {
   GPUCameraData gpuCameraData;
 
   gpuCameraData.view =
-      glm::lookAt({}, glm::normalize(direction), {0.f, 1.f, 0.f});
-  gpuCameraData.proj = glm::perspective(cutoffAngleRad, 1.0f, 0.1f, 300.0f);
+      glm::lookAt(position, position + direction, {0.f, 1.f, 0.f});
+  gpuCameraData.proj =
+      glm::perspective(2 * fadeoutAngleRad, 1.0f, 0.1f, 200.0f);
   gpuCameraData.proj[1][1] *= -1;
 
   // Map NDC from [-1, 1] to [0, 1]

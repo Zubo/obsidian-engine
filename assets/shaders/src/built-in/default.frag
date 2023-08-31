@@ -57,13 +57,52 @@ LightingResult calculateSpotlights() {
     float intensity = lights.spotlights[lightIdx].params.x;
 
     float cosCutoffAngle = lights.spotlights[lightIdx].params.y;
+    float cosFadeoutAngle = lights.spotlights[lightIdx].params.z;
 
     float cosAngle =
         dot(normalize(inWorldPos - lights.spotlights[lightIdx].position.xyz),
             normalize(lights.spotlights[lightIdx].direction.xyz));
 
+    vec4 depthSpacePos =
+        lights.spotlights[lightIdx].viewProj * vec4(inWorldPos, 1.0f);
+
+    const uint mapIdx = lights.directionalLightCount + lightIdx;
+    float shadowMultiplier = 0.0f;
+
+    const float bias =
+        max(0.000025f,
+            0.00005 * (1.0f -
+                       dot(normalize(lights.spotlights[lightIdx].direction.xyz),
+                           normalize(inNormals))));
+
+    vec2 texelSize = 1.0f / textureSize(shadowMap[mapIdx], 0);
+    const int pcfCount = 2;
+    for (int x = -pcfCount; x <= pcfCount; ++x) {
+      for (int y = -pcfCount; y <= pcfCount; ++y) {
+        vec2 shadowUV =
+            (depthSpacePos.xy / depthSpacePos.w + vec2(1.0f, 1.0f)) / 2.0f;
+        float shadowmapDepth =
+            texture(shadowMap[mapIdx], shadowUV + vec2(x, y) * texelSize.r).r;
+
+        if (depthSpacePos.z / depthSpacePos.w > shadowmapDepth + bias) {
+          shadowMultiplier += 0.1f;
+        } else {
+          shadowMultiplier += 1.0f;
+        }
+      }
+    }
+
+    shadowMultiplier /= ((2 * pcfCount + 1) * (2 * pcfCount + 1));
+
     if (cosAngle > cosCutoffAngle) {
-      result.diffuse += intensity * lights.spotlights[lightIdx].color.xyz;
+      result.diffuse +=
+          shadowMultiplier * intensity * lights.spotlights[lightIdx].color.xyz;
+    } else {
+      result.diffuse += shadowMultiplier * intensity *
+                        clamp((cosAngle - cosFadeoutAngle) /
+                                  (cosCutoffAngle - cosFadeoutAngle),
+                              0.0f, 1.0f) *
+                        lights.spotlights[lightIdx].color.xyz;
     }
   }
 
@@ -107,10 +146,10 @@ LightingResult calculateDirectionalLighting() {
     for (int x = -pcfCount; x <= pcfCount; ++x) {
       for (int y = -pcfCount; y <= pcfCount; ++y) {
         vec2 shadowUV = (depthSpacePos.xy + vec2(1.0f, 1.0f)) / 2.0f;
-        float shadowMapValue =
+        float shadowmapDepth =
             texture(shadowMap[lightIdx], shadowUV + vec2(x, y) * texelSize.r).r;
 
-        if (depthSpacePos.z > shadowMapValue + bias) {
+        if (depthSpacePos.z > shadowmapDepth + bias) {
           shadowMultiplier += 0.1f;
         } else {
           shadowMultiplier += 1.0f;
@@ -136,12 +175,12 @@ void main() {
   vec3 sampledColor = texture(albedoTex, inUV).xyz;
 
   LightingResult directionalLightResult = calculateDirectionalLighting();
-  LightingResult spotlightReuslt = calculateSpotlights();
+  LightingResult spotlightResult = calculateSpotlights();
 
   vec3 finalColor =
       sampledColor *
-      (spotlightReuslt.diffuse + directionalLightResult.diffuse +
-       spotlightReuslt.specular + directionalLightResult.specular +
+      (spotlightResult.diffuse + directionalLightResult.diffuse +
+       spotlightResult.specular + directionalLightResult.specular +
        sceneData.ambientColor.xyz);
 
   outFragColor = vec4(finalColor, 1.0f);

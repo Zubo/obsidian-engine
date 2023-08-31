@@ -391,7 +391,7 @@ rhi::ResourceIdRHI VulkanRHI::consumeNewResourceId() {
   return _nextResourceId++;
 }
 int VulkanRHI::getNextAvailableShadowMapIndex() {
-  int next = _submittedDirectionalLights.size();
+  int next = _submittedDirectionalLights.size() + _submittedSpotlights.size();
 
   if (next > rhi::maxLightsPerDrawPass) {
     return -1;
@@ -432,7 +432,8 @@ std::vector<ShadowPassParams> VulkanRHI::getSubmittedShadowPassParams() const {
     ShadowPassParams& param = result.emplace_back();
     param.shadowMapIndex = spotlight.assignedShadowMapInd;
     param.gpuCameraData = getSpotlightCameraData(
-        spotlight.spotlight.direction, spotlight.spotlight.cutoffAngleRad);
+        spotlight.spotlight.position, spotlight.spotlight.direction,
+        spotlight.spotlight.fadeoutAngleRad);
   }
 
   return result;
@@ -477,8 +478,9 @@ GPULightData VulkanRHI::getGPULightData() const {
                                      1.0f};
 
     GPUCameraData const cameraData = getSpotlightCameraData(
+        _submittedSpotlights[i].spotlight.position,
         _submittedSpotlights[i].spotlight.direction,
-        _submittedSpotlights[i].spotlight.cutoffAngleRad);
+        _submittedSpotlights[i].spotlight.fadeoutAngleRad);
 
     lightData.spotlights[i].viewProjection = cameraData.viewProj;
 
@@ -486,6 +488,8 @@ GPULightData VulkanRHI::getGPULightData() const {
     lightData.spotlights[i].params.x = intensity;
     lightData.spotlights[i].params.y =
         std::cos(_submittedSpotlights[i].spotlight.cutoffAngleRad);
+    lightData.spotlights[i].params.z =
+        std::cos(_submittedSpotlights[i].spotlight.fadeoutAngleRad);
   }
 
   lightData.spotlightCount = _submittedSpotlights.size();

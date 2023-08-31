@@ -7,6 +7,9 @@
 #include <obsidian/window/window.hpp>
 #include <obsidian/window/window_backend.hpp>
 
+#include <glm/mat4x4.hpp>
+#include <glm/vec3.hpp>
+#include <glm/vec4.hpp>
 #include <tracy/Tracy.hpp>
 #include <vulkan/vulkan.h>
 
@@ -82,13 +85,17 @@ void submitDrawCalls(scene::GameObject const& gameObject, rhi::RHI& rhi,
   }
 
   if (gameObject.directionalLight) {
-    rhi.submitLight(*gameObject.directionalLight);
+    core::DirectionalLight directionalLight = *gameObject.directionalLight;
+    directionalLight.direction = glm::normalize(
+        transform * glm::vec4{0.0f, 0.0f, 1.0f, /*no translation:*/ 0.0f});
+    rhi.submitLight(directionalLight);
   }
 
   if (gameObject.spotlight) {
     core::Spotlight spotlight = *gameObject.spotlight;
-    spotlight.position =
-        parentTransform * glm::vec4{gameObject.getPosition(), 1.0f};
+    spotlight.position = gameObject.getPosition();
+    spotlight.direction = glm::normalize(
+        transform * glm::vec4{0.0f, 0.0f, 1.0f, /*no translation*/ 0.0f});
     rhi.submitLight(spotlight);
   }
 

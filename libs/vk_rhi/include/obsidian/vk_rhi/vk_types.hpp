@@ -128,6 +128,8 @@ struct FrameData {
 VkFormat getVkTextureFormat(core::TextureFormat format);
 
 GPUCameraData getDirectionalLightCameraData(glm::vec3 direction);
-GPUCameraData getSpotlightCameraData(glm::vec3 direction, float cutoffAngleRad);
+GPUCameraData getSpotlightCameraData(glm::vec3 const& position,
+                                     glm::vec3 const& direction,
+                                     float cutoffAngleRad);
 
 } /*namespace obsidian::vk_rhi*/
