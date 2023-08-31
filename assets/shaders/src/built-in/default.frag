@@ -52,24 +52,50 @@ struct LightingResult {
   vec3 specular;
 };
 
+float calculatePCF(uint shadowMapIdx, vec4 depthSpacePos, float bias) {
+  float shadowMultiplier = 0.0f;
+
+  const vec2 texelSize = 1.0f / textureSize(shadowMap[shadowMapIdx], 0);
+
+  const int pcfCount = 2;
+  for (int x = -pcfCount; x <= pcfCount; ++x) {
+    for (int y = -pcfCount; y <= pcfCount; ++y) {
+      const vec2 shadowUV =
+          (depthSpacePos.xy / depthSpacePos.w + vec2(1.0f, 1.0f)) / 2.0f;
+      const float shadowmapDepth =
+          texture(shadowMap[shadowMapIdx], shadowUV + vec2(x, y) * texelSize.r)
+              .r;
+
+      if (depthSpacePos.z / depthSpacePos.w > shadowmapDepth + bias) {
+        shadowMultiplier += 0.1f;
+      } else {
+        shadowMultiplier += 1.0f;
+      }
+    }
+  }
+
+  shadowMultiplier /= ((2 * pcfCount + 1) * (2 * pcfCount + 1));
+
+  return shadowMultiplier;
+}
+
 LightingResult calculateSpotlights() {
   LightingResult result = {{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
 
   for (int lightIdx = 0; lightIdx < lights.spotlightCount; ++lightIdx) {
-    float intensity = lights.spotlights[lightIdx].params.x;
+    const float intensity = lights.spotlights[lightIdx].params.x;
 
-    float cosCutoffAngle = lights.spotlights[lightIdx].params.y;
-    float cosFadeoutAngle = lights.spotlights[lightIdx].params.z;
+    const float cosCutoffAngle = lights.spotlights[lightIdx].params.y;
+    const float cosFadeoutAngle = lights.spotlights[lightIdx].params.z;
 
-    float cosAngle =
+    const float cosAngle =
         dot(normalize(inWorldPos - lights.spotlights[lightIdx].position.xyz),
             normalize(lights.spotlights[lightIdx].direction.xyz));
 
-    vec4 depthSpacePos =
+    const vec4 depthSpacePos =
         lights.spotlights[lightIdx].viewProj * vec4(inWorldPos, 1.0f);
 
-    const uint mapIdx = lights.spotlightShadowMapIndices[lightIdx];
-    float shadowMultiplier = 0.0f;
+    const uint shadowMapIdx = lights.spotlightShadowMapIndices[lightIdx];
 
     const float bias =
         max(0.000025f,
@@ -77,24 +103,7 @@ LightingResult calculateSpotlights() {
                        dot(normalize(lights.spotlights[lightIdx].direction.xyz),
                            normalize(inNormals))));
 
-    vec2 texelSize = 1.0f / textureSize(shadowMap[mapIdx], 0);
-    const int pcfCount = 2;
-    for (int x = -pcfCount; x <= pcfCount; ++x) {
-      for (int y = -pcfCount; y <= pcfCount; ++y) {
-        vec2 shadowUV =
-            (depthSpacePos.xy / depthSpacePos.w + vec2(1.0f, 1.0f)) / 2.0f;
-        float shadowmapDepth =
-            texture(shadowMap[mapIdx], shadowUV + vec2(x, y) * texelSize.r).r;
-
-        if (depthSpacePos.z / depthSpacePos.w > shadowmapDepth + bias) {
-          shadowMultiplier += 0.1f;
-        } else {
-          shadowMultiplier += 1.0f;
-        }
-      }
-    }
-
-    shadowMultiplier /= ((2 * pcfCount + 1) * (2 * pcfCount + 1));
+    float shadowMultiplier = calculatePCF(shadowMapIdx, depthSpacePos, bias);
 
     if (cosAngle > cosCutoffAngle) {
       result.diffuse +=
@@ -135,8 +144,7 @@ LightingResult calculateDirectionalLighting() {
     vec4 depthSpacePos =
         lights.directionalLights[lightIdx].viewProj * vec4(inWorldPos, 1.0f);
 
-    float shadowMultiplier = 0.0f;
-    float bias = max(
+    const float bias = max(
         0.005f,
         0.005 *
             (1.0 -
@@ -145,24 +153,8 @@ LightingResult calculateDirectionalLighting() {
 
     const uint shadowMapIdx = lights.directionalLightShadowMapIndices[lightIdx];
 
-    vec2 texelSize = 1.0f / textureSize(shadowMap[shadowMapIdx], 0);
-    const int pcfCount = 2;
-    for (int x = -pcfCount; x <= pcfCount; ++x) {
-      for (int y = -pcfCount; y <= pcfCount; ++y) {
-        vec2 shadowUV = (depthSpacePos.xy + vec2(1.0f, 1.0f)) / 2.0f;
-        float shadowmapDepth = texture(shadowMap[shadowMapIdx],
-                                       shadowUV + vec2(x, y) * texelSize.r)
-                                   .r;
-
-        if (depthSpacePos.z > shadowmapDepth + bias) {
-          shadowMultiplier += 0.1f;
-        } else {
-          shadowMultiplier += 1.0f;
-        }
-      }
-    }
-
-    shadowMultiplier /= ((2 * pcfCount + 1) * (2 * pcfCount + 1));
+    const float shadowMultiplier =
+        calculatePCF(shadowMapIdx, depthSpacePos, bias);
 
     if (shadowMultiplier < 0.0001f) {
       result.specular += specularIntensity * intensity.xyz *
