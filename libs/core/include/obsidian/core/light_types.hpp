@@ -19,6 +19,8 @@ struct Spotlight {
   float intensity = 1.0f;
   float cutoffAngleRad = 3.14f / 4;
   float fadeoutAngleRad = cutoffAngleRad + 0.1f;
+  float linearAttenuation = 0.1f;
+  float quadraticAttenuation = 0.01f;
 };
 
 using Light = std::variant<DirectionalLight, Spotlight>;

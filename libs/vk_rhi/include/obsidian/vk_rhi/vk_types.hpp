@@ -62,6 +62,7 @@ struct GPUSpotlight {
   glm::vec4 position;
   glm::vec4 color;
   glm::vec4 params;
+  glm::vec4 attenuation;
 };
 
 // used for arrays with std140 alignment

@@ -278,6 +278,14 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
               "Fadeout angle", &selectedGameObject->spotlight->fadeoutAngleRad,
               selectedGameObject->spotlight->cutoffAngleRad, 3.14f);
 
+          ImGui::SliderFloat("Linear attenuation",
+                             &selectedGameObject->spotlight->linearAttenuation,
+                             0.0f, 1.0f);
+
+          ImGui::SliderFloat(
+              "Quadratic attenuation",
+              &selectedGameObject->spotlight->quadraticAttenuation, 0.0f, 1.0f);
+
           if (ImGui::Button("Remove")) {
             selectedGameObject->spotlight.reset();
           }

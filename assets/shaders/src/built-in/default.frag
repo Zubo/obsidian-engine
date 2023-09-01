@@ -32,7 +32,9 @@ struct Spotlight {
   vec4 direction;
   vec4 position;
   vec4 color;
-  vec4 params; // x = intensity, y = cos of cutoff angle
+  vec4 params; // x = intensity, y = cos of cutoff angle, z = cos of fadeout
+               // angle
+  vec4 attenuation; // x = linear attenuation, y = quadratic attenuation
 };
 
 layout(std140, set = 1, binding = 1) uniform LightCameraData {
@@ -83,7 +85,13 @@ LightingResult calculateSpotlights() {
   LightingResult result = {{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
 
   for (int lightIdx = 0; lightIdx < lights.spotlightCount; ++lightIdx) {
-    const float intensity = lights.spotlights[lightIdx].params.x;
+    const float d =
+        length(inWorldPos - lights.spotlights[lightIdx].position.xyz);
+    const float attenuation =
+        1 / (1.0f + lights.spotlights[lightIdx].attenuation.x * d +
+             lights.spotlights[lightIdx].attenuation.y * d * d);
+
+    const float intensity = attenuation * lights.spotlights[lightIdx].params.x;
 
     const float cosCutoffAngle = lights.spotlights[lightIdx].params.y;
     const float cosFadeoutAngle = lights.spotlights[lightIdx].params.z;

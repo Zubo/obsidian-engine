@@ -490,6 +490,10 @@ GPULightData VulkanRHI::getGPULightData() const {
         std::cos(_submittedSpotlights[i].spotlight.cutoffAngleRad);
     lightData.spotlights[i].params.z =
         std::cos(_submittedSpotlights[i].spotlight.fadeoutAngleRad);
+    lightData.spotlights[i].attenuation.x =
+        _submittedSpotlights[i].spotlight.linearAttenuation;
+    lightData.spotlights[i].attenuation.y =
+        _submittedSpotlights[i].spotlight.quadraticAttenuation;
     lightData.spotlightShadowMapIndices[i].value =
         _submittedSpotlights[i].assignedShadowMapInd;
   }
