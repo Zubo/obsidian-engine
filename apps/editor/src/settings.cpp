@@ -54,6 +54,11 @@ void saveJson() {
 fs::path getLastOpenProject() {
   try {
     nlohmann::json& json = getJson();
+
+    if (!json.contains(lastOpenProjectJsonName)) {
+      return {};
+    }
+
     std::string proj = json[lastOpenProjectJsonName];
     return proj;
   } catch (std::exception const& e) {
