@@ -108,12 +108,14 @@ LightingResult calculateSpotlights() {
         vec3(inverseView[3][0], inverseView[3][1], inverseView[3][2]) -
         inWorldPos);
 
-    const vec3 reflectedLightDirection = normalize(
-        reflect(lights.spotlights[lightIdx].direction.xyz, inNormals));
+    const vec3 fragToLightDirection =
+        normalize(lights.spotlights[lightIdx].position.xyz - inWorldPos);
 
-    const float specularIntensity = pow(
-        clamp(dot(fragToCameraDirection, reflectedLightDirection), 0.0f, 1.0),
-        32);
+    const vec3 halfwayVec =
+        normalize(fragToCameraDirection + fragToLightDirection);
+
+    const float specularIntensity =
+        pow(max(dot(inNormals, halfwayVec), 0.0f), 32);
 
     const uint shadowMapIdx = lights.spotlightShadowMapIndices[lightIdx];
 
