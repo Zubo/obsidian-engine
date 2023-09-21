@@ -9,11 +9,11 @@
 #include <obsidian/core/vertex_type.hpp>
 #include <obsidian/globals/file_extensions.hpp>
 
-#include <glm/vec2.hpp>
-#include <glm/vec3.hpp>
+#include <glm/glm.hpp>
 #include <stb/stb_image.h>
 #include <tiny_obj_loader.h>
 
+#include <array>
 #include <cassert>
 #include <cmath>
 #include <cstddef>
@@ -93,8 +93,15 @@ std::size_t generateVertices(tinyobj::attrib_t const& attrib,
     int v;
     int n;
     int t;
+    glm::vec3 tangent = {};
 
-    bool operator==(Ind const& other) const = default;
+    bool operator==(Ind const& other) const {
+      constexpr const float tangentEpsilon = 0.001;
+      return other.v == v && other.n == n && other.t == t &&
+             (!V::hasTangent ||
+              std::abs(1.0f - glm::dot(other.tangent, tangent)) <
+                  tangentEpsilon);
+    };
 
     struct hash {
       std::size_t operator()(Ind k) const {
@@ -113,12 +120,42 @@ std::size_t generateVertices(tinyobj::attrib_t const& attrib,
     for (std::size_t f = 0; f < shape.mesh.num_face_vertices.size(); ++f) {
       unsigned char const vertexCount = shape.mesh.num_face_vertices[f];
 
+      glm::vec3 tangent;
+
+      if constexpr (V::hasTangent) {
+        std::array<glm::vec3, 3> facePositions = {};
+        std::array<glm::vec2, 3> faceUVs = {};
+
+        for (std::size_t i = 0; i < 3; ++i) {
+          tinyobj::index_t const idx = shape.mesh.indices[faceIndOffset + i];
+          facePositions[i] = {attrib.vertices[3 * idx.vertex_index + 0],
+                              attrib.vertices[3 * idx.vertex_index + 1],
+                              attrib.vertices[3 * idx.vertex_index + 2]};
+
+          faceUVs[i] = {attrib.texcoords[2 * idx.texcoord_index + 0],
+                        1.f - attrib.texcoords[2 * idx.texcoord_index + 1]};
+        }
+
+        glm::mat2x3 const edgeMat = {facePositions[0] - facePositions[1],
+                                     facePositions[2] - facePositions[1]};
+        glm::vec2 const deltaUV0 = faceUVs[0] - faceUVs[1];
+        glm::vec2 const deltaUV1 = faceUVs[2] - faceUVs[1];
+
+        // factor for determinant of delta UV values matrix:
+        float const f =
+            1 / (deltaUV0[0] * deltaUV1[1] - deltaUV1[0] * deltaUV0[1]);
+
+        tangent = f * edgeMat * glm::vec2{deltaUV1[1], -deltaUV0[1]};
+        tangent = glm::normalize(tangent);
+      }
+
       for (std::size_t v = 0; v < vertexCount; ++v) {
         tinyobj::index_t const idx = shape.mesh.indices[faceIndOffset + v];
 
-        auto insertResult = uniqueIdx.emplace(
-            Ind{idx.vertex_index, idx.normal_index, idx.texcoord_index},
-            outVertices.size() / sizeof(Vertex));
+        auto insertResult =
+            uniqueIdx.emplace(Ind{idx.vertex_index, idx.normal_index,
+                                  idx.texcoord_index, tangent},
+                              outVertices.size() / sizeof(Vertex));
 
         if (insertResult.second) {
           // New vertex detected
@@ -149,6 +186,10 @@ std::size_t generateVertices(tinyobj::attrib_t const& attrib,
             vertexPtr->uv = {attrib.texcoords[2 * idx.texcoord_index + 0],
                              1.f -
                                  attrib.texcoords[2 * idx.texcoord_index + 1]};
+          }
+
+          if constexpr (V::hasTangent) {
+            vertexPtr->tangent = tangent;
           }
 
         } else {

@@ -13,6 +13,7 @@ template <bool HasNormal, bool HasColor, bool HasUV> struct VertexAttr {
   static constexpr bool hasNormal = HasNormal;
   static constexpr bool hasColor = HasColor;
   static constexpr bool hasUV = HasUV;
+  static constexpr bool hasTangent = HasNormal && HasUV;
 };
 
 template <bool HasNormal, bool HasColor, bool HasUV> struct VertexType {};
@@ -48,6 +49,7 @@ struct VertexType<true, true, true> : public VertexAttr<true, true, true> {
     glm::vec3 pos;
     glm::vec3 normal;
     glm::vec3 color;
+    glm::vec3 tangent;
     glm::vec2 uv;
   };
 };
