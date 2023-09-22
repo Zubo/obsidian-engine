@@ -134,6 +134,9 @@ struct FrameData {
   std::array<VkFramebuffer, rhi::maxLightsPerDrawPass> shadowFrameBuffers;
   std::array<AllocatedImage, rhi::maxLightsPerDrawPass> shadowMapImages;
   std::array<VkImageView, rhi::maxLightsPerDrawPass> shadowMapImageViews;
+
+  AllocatedImage depthPrepassImage;
+  VkFramebuffer vkDepthPrepassFramebuffer;
 };
 
 VkFormat getVkTextureFormat(core::TextureFormat format);

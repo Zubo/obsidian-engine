@@ -32,11 +32,13 @@ void VulkanRHI::init(rhi::WindowExtentRHI extent,
 
   initDefaultRenderPass();
 
-  initShadowRenderPass();
+  initDepthRenderPass();
 
   initFramebuffers();
 
   initShadowPassFramebuffers();
+
+  initDepthPrepassFramebuffers();
 
   initSyncStructures();
 
@@ -145,27 +147,13 @@ void VulkanRHI::initSwapchain() {
     vkDestroySwapchainKHR(_vkDevice, _vkSwapchain, nullptr);
   });
 
-  VkImageUsageFlags depthUsageFlags =
-      VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-  VkExtent3D const depthExtent{_windowExtent.width, _windowExtent.height, 1};
-
   _vkFramebuffers.resize(swapchainSize);
 
-  _depthFormat = VK_FORMAT_D32_SFLOAT;
-  VkImageCreateInfo const depthBufferImageCreateInfo =
-      vkinit::imageCreateInfo(depthUsageFlags, depthExtent, _depthFormat);
+  createDepthImage(_depthBufferAttachmentImage);
 
-  VmaAllocationCreateInfo depthImageAllocInfo = {};
-  depthImageAllocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-  depthImageAllocInfo.requiredFlags =
-      VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-  vmaCreateImage(_vmaAllocator, &depthBufferImageCreateInfo,
-                 &depthImageAllocInfo, &_depthImage.vkImage,
-                 &_depthImage.allocation, nullptr);
-
-  VkImageViewCreateInfo imageViewCreateInfo = vkinit::imageViewCreateInfo(
-      _depthImage.vkImage, _depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+  VkImageViewCreateInfo depthImageViewCreateInfo =
+      vkinit::imageViewCreateInfo(_depthBufferAttachmentImage.vkImage,
+                                  _depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
 
   for (int i = 0; i < swapchainSize; ++i) {
     FramebufferImageViews& swapchainImageViews = _vkFramebufferImageViews.at(i);
@@ -175,7 +163,7 @@ void VulkanRHI::initSwapchain() {
     VkImageView& depthImageView =
         swapchainImageViews.vkImageViews.emplace_back();
 
-    VK_CHECK(vkCreateImageView(_vkDevice, &imageViewCreateInfo, nullptr,
+    VK_CHECK(vkCreateImageView(_vkDevice, &depthImageViewCreateInfo, nullptr,
                                &depthImageView));
 
     _swapchainDeletionQueue.pushFunction([this, depthImageView]() {
@@ -185,7 +173,8 @@ void VulkanRHI::initSwapchain() {
   _swapchainDeletionQueue.pushFunction([this]() {
     _vkFramebufferImageViews.clear();
     _vkFramebuffers.clear();
-    vmaDestroyImage(_vmaAllocator, _depthImage.vkImage, _depthImage.allocation);
+    vmaDestroyImage(_vmaAllocator, _depthBufferAttachmentImage.vkImage,
+                    _depthBufferAttachmentImage.allocation);
   });
 }
 
@@ -289,7 +278,7 @@ void VulkanRHI::initDefaultRenderPass() {
   });
 }
 
-void VulkanRHI::initShadowRenderPass() {
+void VulkanRHI::initDepthRenderPass() {
   VkRenderPassCreateInfo vkRenderPassCreateInfo = {};
   vkRenderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
   vkRenderPassCreateInfo.pNext = nullptr;
@@ -325,10 +314,10 @@ void VulkanRHI::initShadowRenderPass() {
   vkRenderPassCreateInfo.pSubpasses = &vkSubpassDescription;
 
   VK_CHECK(vkCreateRenderPass(_vkDevice, &vkRenderPassCreateInfo, nullptr,
-                              &_vkShadowRenderPass));
+                              &_vkDepthRenderPass));
 
   _deletionQueue.pushFunction([this]() {
-    vkDestroyRenderPass(_vkDevice, _vkShadowRenderPass, nullptr);
+    vkDestroyRenderPass(_vkDevice, _vkDepthRenderPass, nullptr);
   });
 }
 
@@ -354,6 +343,59 @@ void VulkanRHI::initFramebuffers() {
 
     _swapchainDeletionQueue.pushFunction([this, i]() {
       vkDestroyFramebuffer(_vkDevice, _vkFramebuffers[i], nullptr);
+    });
+  }
+}
+
+void VulkanRHI::initDepthPrepassFramebuffers() {
+  for (FrameData& frameData : _frameDataArray) {
+    createDepthImage(frameData.depthPrepassImage);
+    _deletionQueue.pushFunction([this, &frameData]() {
+      vmaDestroyImage(_vmaAllocator, frameData.depthPrepassImage.vkImage,
+                      frameData.depthPrepassImage.allocation);
+    });
+
+    VkImageViewCreateInfo depthPassImageViewCreateInfo = {};
+    depthPassImageViewCreateInfo.sType =
+        VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    depthPassImageViewCreateInfo.pNext = nullptr;
+
+    depthPassImageViewCreateInfo.image = frameData.depthPrepassImage.vkImage;
+    depthPassImageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    depthPassImageViewCreateInfo.format = _depthFormat;
+    depthPassImageViewCreateInfo.subresourceRange.aspectMask =
+        VK_IMAGE_ASPECT_DEPTH_BIT;
+    depthPassImageViewCreateInfo.subresourceRange.baseMipLevel = 0;
+    depthPassImageViewCreateInfo.subresourceRange.levelCount = 1;
+    depthPassImageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
+    depthPassImageViewCreateInfo.subresourceRange.layerCount = 1;
+
+    VkImageView depthPassImageView;
+    vkCreateImageView(_vkDevice, &depthPassImageViewCreateInfo, nullptr,
+                      &depthPassImageView);
+
+    _deletionQueue.pushFunction([this, depthPassImageView]() {
+      vkDestroyImageView(_vkDevice, depthPassImageView, nullptr);
+    });
+
+    VkFramebufferCreateInfo framebufferCreateInfo = {};
+    framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    framebufferCreateInfo.pNext = nullptr;
+
+    framebufferCreateInfo.flags = 0;
+    framebufferCreateInfo.renderPass = _vkDepthRenderPass;
+    framebufferCreateInfo.attachmentCount = 1;
+    framebufferCreateInfo.pAttachments = &depthPassImageView;
+    framebufferCreateInfo.width = _windowExtent.width;
+    framebufferCreateInfo.height = _windowExtent.height;
+    framebufferCreateInfo.layers = 1;
+
+    vkCreateFramebuffer(_vkDevice, &framebufferCreateInfo, nullptr,
+                        &frameData.vkDepthPrepassFramebuffer);
+
+    _deletionQueue.pushFunction([this, &frameData]() {
+      vkDestroyFramebuffer(_vkDevice, frameData.vkDepthPrepassFramebuffer,
+                           nullptr);
     });
   }
 }
@@ -396,32 +438,12 @@ void VulkanRHI::initShadowPassFramebuffers() {
         vkDestroyImageView(_vkDevice, vkShadowMapImageView, nullptr);
       });
 
-      // VkImageView vkShadowPassAttachmentImgView;
-
-      // VkImageViewCreateInfo vkImageViewCreateInfo = {};
-      // vkImageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-      // vkImageViewCreateInfo.pNext = nullptr;
-
-      // vkImageViewCreateInfo.image = imageShadowPassAttachment.vkImage;
-      // vkImageViewCreateInfo =
-      //     vkinit::imageViewCreateInfo(imageShadowPassAttachment.vkImage,
-      //                                 _depthFormat,
-      //                                 VK_IMAGE_ASPECT_DEPTH_BIT);
-
-      // VK_CHECK(vkCreateImageView(_vkDevice, &vkImageViewCreateInfo, nullptr,
-      //                            &vkShadowPassAttachmentImgView));
-
-      // _deletionQueue.pushFunction([this, vkShadowPassAttachmentImgView]() {
-      //   vkDestroyImageView(_vkDevice, vkShadowPassAttachmentImgView,
-      //   nullptr);
-      // });
-
       VkFramebufferCreateInfo vkFramebufferCreateInfo = {};
 
       vkFramebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
       vkFramebufferCreateInfo.pNext = nullptr;
 
-      vkFramebufferCreateInfo.renderPass = _vkShadowRenderPass;
+      vkFramebufferCreateInfo.renderPass = _vkDepthRenderPass;
       vkFramebufferCreateInfo.attachmentCount = 1;
       vkFramebufferCreateInfo.pAttachments = &vkShadowMapImageView;
       vkFramebufferCreateInfo.width = shadowPassAttachmentWidth;
@@ -642,7 +664,7 @@ void VulkanRHI::initShadowPassPipeline() {
   pipelineBuilder._vkPipelineLayout = _vkShadowPassPipelineLayout;
 
   _vkShadowPassPipeline =
-      pipelineBuilder.buildPipeline(_vkDevice, _vkShadowRenderPass);
+      pipelineBuilder.buildPipeline(_vkDevice, _vkDepthRenderPass);
 
   _deletionQueue.pushFunction([this]() {
     vkDestroyPipeline(_vkDevice, _vkShadowPassPipeline, nullptr);
@@ -726,16 +748,16 @@ void VulkanRHI::initDescriptors() {
     vkDestroySampler(_vkDevice, _vkAlbedoTextureSampler, nullptr);
   });
 
-  VkSamplerCreateInfo const vkShadowMapSamplerCreateInfo =
+  VkSamplerCreateInfo const vkDepthSamplerCreateInfo =
       vkinit::samplerCreateInfo(VK_FILTER_LINEAR,
                                 VK_SAMPLER_MIPMAP_MODE_NEAREST,
                                 VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
 
-  VK_CHECK(vkCreateSampler(_vkDevice, &vkShadowMapSamplerCreateInfo, nullptr,
-                           &_vkShadowMapSampler));
+  VK_CHECK(vkCreateSampler(_vkDevice, &vkDepthSamplerCreateInfo, nullptr,
+                           &_vkDepthSampler));
 
   _deletionQueue.pushFunction(
-      [this]() { vkDestroySampler(_vkDevice, _vkShadowMapSampler, nullptr); });
+      [this]() { vkDestroySampler(_vkDevice, _vkDepthSampler, nullptr); });
 
   _lightDataBuffer = createBuffer(
       frameOverlap * getPaddedBufferSize(sizeof(GPULightData)),
@@ -758,7 +780,7 @@ void VulkanRHI::initDescriptors() {
           VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
       vkShadowMapDescriptorImageInfos[j].imageView =
           frameData.shadowMapImageViews[j];
-      vkShadowMapDescriptorImageInfos[j].sampler = _vkShadowMapSampler;
+      vkShadowMapDescriptorImageInfos[j].sampler = _vkDepthSampler;
     }
 
     VkDescriptorBufferInfo vkLightDataBufferInfo = {};
@@ -810,4 +832,22 @@ void VulkanRHI::initShadowPassDescriptors() {
                   VK_SHADER_STAGE_VERTEX_BIT)
       .build(_vkShadowPassGlobalDescriptorSet,
              _vkShadowPassGlobalDescriptorSetLayout);
+}
+
+void VulkanRHI::createDepthImage(AllocatedImage& outImage) const {
+  VkImageUsageFlags depthUsageFlags =
+      VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+  VkExtent3D const depthExtent{_windowExtent.width, _windowExtent.height, 1};
+
+  VkImageCreateInfo const depthBufferImageCreateInfo =
+      vkinit::imageCreateInfo(depthUsageFlags, depthExtent, _depthFormat);
+
+  VmaAllocationCreateInfo depthImageAllocInfo = {};
+  depthImageAllocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+  depthImageAllocInfo.requiredFlags =
+      VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+  vmaCreateImage(_vmaAllocator, &depthBufferImageCreateInfo,
+                 &depthImageAllocInfo, &outImage.vkImage, &outImage.allocation,
+                 nullptr);
 }

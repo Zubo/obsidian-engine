@@ -60,7 +60,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
     vkShadowRenderPassBeginInfo.sType =
         VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     vkShadowRenderPassBeginInfo.pNext = nullptr;
-    vkShadowRenderPassBeginInfo.renderPass = _vkShadowRenderPass;
+    vkShadowRenderPassBeginInfo.renderPass = _vkDepthRenderPass;
     vkShadowRenderPassBeginInfo.framebuffer =
         currentFrameData.shadowFrameBuffers[shadowPass.shadowMapIndex];
     vkShadowRenderPassBeginInfo.renderArea.offset = {0, 0};

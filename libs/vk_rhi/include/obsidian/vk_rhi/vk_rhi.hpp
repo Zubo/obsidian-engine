@@ -86,11 +86,11 @@ private:
   VkFormat _vkSwapchainImageFormat;
   std::vector<FramebufferImageViews> _vkFramebufferImageViews;
   std::vector<VkImage> _vkSwapchainImages;
-  AllocatedImage _depthImage;
+  AllocatedImage _depthBufferAttachmentImage;
   VkQueue _vkGraphicsQueue;
   std::uint32_t _graphicsQueueFamilyIndex;
   VkRenderPass _vkDefaultRenderPass;
-  VkRenderPass _vkShadowRenderPass;
+  VkRenderPass _vkDepthRenderPass;
   std::vector<VkFramebuffer> _vkFramebuffers;
   std::array<FrameData, 2> _frameDataArray;
   std::uint32_t _frameNumber = 0;
@@ -119,7 +119,7 @@ private:
   VkDescriptorSet _emptyDescriptorSet;
   ImmediateSubmitContext _immediateSubmitContext;
   VkSampler _vkAlbedoTextureSampler;
-  VkSampler _vkShadowMapSampler;
+  VkSampler _vkDepthSampler;
   VkExtent2D _windowExtent;
   bool _skipFrame = false;
   rhi::ResourceIdRHI _nextResourceId = 0;
@@ -138,8 +138,9 @@ private:
   void initSwapchain();
   void initCommands();
   void initDefaultRenderPass();
-  void initShadowRenderPass();
+  void initDepthRenderPass();
   void initFramebuffers();
+  void initDepthPrepassFramebuffers();
   void initShadowPassFramebuffers();
   void initSyncStructures();
   void initDefaultPipelineLayouts();
@@ -169,6 +170,7 @@ private:
   void submitLight(rhi::SpotlightParams const& spotlight);
   std::vector<ShadowPassParams> getSubmittedShadowPassParams() const;
   GPULightData getGPULightData() const;
+  void createDepthImage(AllocatedImage& outImage) const;
 };
 
 } /*namespace obsidian::vk_rhi*/
