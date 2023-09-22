@@ -71,11 +71,12 @@ void VulkanRHI::initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider) {
   constexpr bool enable_validation_layers = false;
 #endif
 
-  auto const builderReturn = builder.set_app_name("Obsidian Engine")
-                                 .request_validation_layers(true)
-                                 .require_api_version(1, 2, 0)
-                                 .use_default_debug_messenger()
-                                 .build();
+  auto const builderReturn =
+      builder.set_app_name("Obsidian Engine")
+          .request_validation_layers(enable_validation_layers)
+          .require_api_version(1, 2, 0)
+          .use_default_debug_messenger()
+          .build();
 
   vkb::Instance vkbInstance = builderReturn.value();
 
