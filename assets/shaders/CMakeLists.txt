@@ -5,8 +5,8 @@ set(SHADER_SRC_FILES
     "built-in/default-unlit.vert"
     "built-in/default.frag"
     "built-in/default.vert"
-    "built-in/shadow-pass.vert"
-    "built-in/shadow-pass.frag"
+    "built-in/depth-only.vert"
+    "built-in/depth-only.frag"
 )
 
 set(SHADER_OUTPUT_DIR "${CMAKE_BINARY_DIR}/shaders")

@@ -27,7 +27,7 @@ void RuntimeResourceManager::uploadInitRHIResources() {
 
   asset::Asset shaderAsset;
   asset::loadFromFile(
-      _project->getAbsolutePath("obsidian/shaders/shadow-pass.obsshad"),
+      _project->getAbsolutePath("obsidian/shaders/depth-only.obsshad"),
       shaderAsset);
   asset::ShaderAssetInfo shadowPassShaderAssetInfo;
   asset::readShaderAssetInfo(shaderAsset, shadowPassShaderAssetInfo);
