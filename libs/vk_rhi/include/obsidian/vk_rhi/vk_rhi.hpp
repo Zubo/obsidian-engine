@@ -177,7 +177,8 @@ private:
   GPUCameraData
   getSceneCameraData(rhi::SceneGlobalParams const& sceneParams) const;
   GPULightData getGPULightData() const;
-  void createDepthImage(AllocatedImage& outImage) const;
+  void createDepthImage(AllocatedImage& outImage,
+                        VkImageUsageFlags flags) const;
 };
 
 } /*namespace obsidian::vk_rhi*/

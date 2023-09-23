@@ -151,7 +151,8 @@ void VulkanRHI::initSwapchain() {
 
   _vkFramebuffers.resize(swapchainSize);
 
-  createDepthImage(_depthBufferAttachmentImage);
+  createDepthImage(_depthBufferAttachmentImage,
+                   VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
 
   VkImageViewCreateInfo depthImageViewCreateInfo =
       vkinit::imageViewCreateInfo(_depthBufferAttachmentImage.vkImage,
@@ -351,7 +352,9 @@ void VulkanRHI::initFramebuffers() {
 
 void VulkanRHI::initDepthPrepassFramebuffers() {
   for (FrameData& frameData : _frameDataArray) {
-    createDepthImage(frameData.depthPrepassImage);
+    createDepthImage(frameData.depthPrepassImage,
+                     VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
+                         VK_IMAGE_USAGE_SAMPLED_BIT);
     _deletionQueue.pushFunction([this, &frameData]() {
       vmaDestroyImage(_vmaAllocator, frameData.depthPrepassImage.vkImage,
                       frameData.depthPrepassImage.allocation);
@@ -418,6 +421,7 @@ void VulkanRHI::initShadowPassFramebuffers() {
       VmaAllocationCreateInfo allocationCreateInfo = {};
       allocationCreateInfo.flags = 0;
       allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+      allocationCreateInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
       VK_CHECK(vmaCreateImage(
           _vmaAllocator, &vkImageShadowPassAttachmentCreateInfo,
           &allocationCreateInfo, &imageShadowPassAttachment.vkImage,
@@ -830,11 +834,10 @@ void VulkanRHI::initDescriptors() {
 }
 
 void VulkanRHI::initDepthPrepassDescriptors() {
-
   VkDescriptorBufferInfo bufferInfo;
   bufferInfo.buffer = _cameraBuffer.buffer;
   bufferInfo.offset = 0;
-  bufferInfo.range = frameOverlap * getPaddedBufferSize(sizeof(GPUCameraData));
+  bufferInfo.range = getPaddedBufferSize(sizeof(GPUCameraData));
 
   DescriptorBuilder::begin(_vkDevice, _descriptorAllocator,
                            _descriptorLayoutCache)
@@ -857,16 +860,15 @@ void VulkanRHI::initShadowPassDescriptors() {
              _vkShadowPassGlobalDescriptorSetLayout);
 }
 
-void VulkanRHI::createDepthImage(AllocatedImage& outImage) const {
-  VkImageUsageFlags depthUsageFlags =
-      VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+void VulkanRHI::createDepthImage(AllocatedImage& outImage,
+                                 VkImageUsageFlags flags) const {
   VkExtent3D const depthExtent{_windowExtent.width, _windowExtent.height, 1};
 
   VkImageCreateInfo const depthBufferImageCreateInfo =
-      vkinit::imageCreateInfo(depthUsageFlags, depthExtent, _depthFormat);
+      vkinit::imageCreateInfo(flags, depthExtent, _depthFormat);
 
   VmaAllocationCreateInfo depthImageAllocInfo = {};
-  depthImageAllocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+  depthImageAllocInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
   depthImageAllocInfo.requiredFlags =
       VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 

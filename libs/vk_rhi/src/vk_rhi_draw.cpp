@@ -79,6 +79,24 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
 
   vkCmdEndRenderPass(cmd);
 
+  VkImageMemoryBarrier depthImageMemoryBarrier = {};
+  depthImageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+  depthImageMemoryBarrier.pNext = nullptr;
+  depthImageMemoryBarrier.oldLayout =
+      VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+  depthImageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  depthImageMemoryBarrier.image = currentFrameData.depthPrepassImage.vkImage;
+  depthImageMemoryBarrier.subresourceRange.aspectMask =
+      VK_IMAGE_ASPECT_DEPTH_BIT;
+  depthImageMemoryBarrier.subresourceRange.baseMipLevel = 0;
+  depthImageMemoryBarrier.subresourceRange.levelCount = 1;
+  depthImageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
+  depthImageMemoryBarrier.subresourceRange.layerCount = 1;
+
+  vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                       VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, 0, 0, nullptr, 0,
+                       nullptr, 1, &depthImageMemoryBarrier);
+
   // Shadow passes:
   std::vector<ShadowPassParams> submittedParams =
       getSubmittedShadowPassParams();
@@ -105,31 +123,15 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   }
 
   for (std::size_t i = 0; i < currentFrameData.shadowMapImages.size(); ++i) {
-
-    VkImageMemoryBarrier vkShadowMapImageMemoryBarrier = {};
-    vkShadowMapImageMemoryBarrier.sType =
-        VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    vkShadowMapImageMemoryBarrier.pNext = nullptr;
-
     bool const depthAttachmentUsed = i < submittedParams.size();
-    vkShadowMapImageMemoryBarrier.oldLayout =
+    depthImageMemoryBarrier.oldLayout =
         depthAttachmentUsed ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
                             : VK_IMAGE_LAYOUT_UNDEFINED;
-
-    vkShadowMapImageMemoryBarrier.newLayout =
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    vkShadowMapImageMemoryBarrier.image =
-        currentFrameData.shadowMapImages[i].vkImage;
-    vkShadowMapImageMemoryBarrier.subresourceRange.aspectMask =
-        VK_IMAGE_ASPECT_DEPTH_BIT;
-    vkShadowMapImageMemoryBarrier.subresourceRange.baseMipLevel = 0;
-    vkShadowMapImageMemoryBarrier.subresourceRange.levelCount = 1;
-    vkShadowMapImageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
-    vkShadowMapImageMemoryBarrier.subresourceRange.layerCount = 1;
+    depthImageMemoryBarrier.image = currentFrameData.shadowMapImages[i].vkImage;
 
     vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
                          VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr,
-                         0, nullptr, 1, &vkShadowMapImageMemoryBarrier);
+                         0, nullptr, 1, &depthImageMemoryBarrier);
   }
 
   // Color pass:
