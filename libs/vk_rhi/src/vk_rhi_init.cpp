@@ -1,3 +1,5 @@
+#include "glm/ext/vector_float3.hpp"
+#include "obsidian/rhi/resource_rhi.hpp"
 #include <obsidian/core/logging.hpp>
 #include <obsidian/core/material.hpp>
 #include <obsidian/renderdoc/renderdoc.hpp>
@@ -12,8 +14,11 @@
 #include <VkBootstrap.h>
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
+#include <random>
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
+
+#include <numeric>
 
 using namespace obsidian::vk_rhi;
 
@@ -49,6 +54,8 @@ void VulkanRHI::init(rhi::WindowExtentRHI extent,
   initShadowPassDescriptors();
 
   initDefaultPipelineLayouts();
+
+  initSSAOSamplesAndNoise();
 
   IsInitialized = true;
 }
@@ -875,4 +882,62 @@ void VulkanRHI::createDepthImage(AllocatedImage& outImage,
   vmaCreateImage(_vmaAllocator, &depthBufferImageCreateInfo,
                  &depthImageAllocInfo, &outImage.vkImage, &outImage.allocation,
                  nullptr);
+}
+
+void VulkanRHI::initSSAOSamplesAndNoise() {
+  constexpr const std::size_t sampleCount = 64;
+  constexpr const std::size_t noiseCount = 16;
+
+  _ssaoSamplesBuffer = createBuffer(
+      sampleCount * sizeof(glm::vec3), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+      VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+      VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+
+  void* data;
+
+  VK_CHECK(vmaMapMemory(_vmaAllocator, _ssaoSamplesBuffer.allocation, &data));
+
+  std::random_device randomDevice;
+  std::uniform_real_distribution<float> uniformDistribution{0.0001f, 1.0f};
+
+  glm::vec3* const samples = static_cast<glm::vec3*>(data);
+
+  for (std::size_t i = 0; i < sampleCount; ++i) {
+    samples[i] = {uniformDistribution(randomDevice) * 2.0f - 1.0f,
+                  uniformDistribution(randomDevice) * 2.0 - 1.0f,
+                  uniformDistribution(randomDevice)};
+  }
+
+  vmaUnmapMemory(_vmaAllocator, _ssaoSamplesBuffer.allocation);
+
+  _deletionQueue.pushFunction([this]() {
+    vmaDestroyBuffer(_vmaAllocator, _ssaoSamplesBuffer.buffer,
+                     _ssaoSamplesBuffer.allocation);
+  });
+
+  // Using glm::vec2 because the z is assumed to be 0. The reason is because we
+  // are using the noise vector to create otrhonormal basis with normal as the z
+  // axis. That orthonormal basis will be used as the tangent space for the
+  // fragment when calculating ambient occlusion.
+  std::vector<glm::vec2> noiseVectors;
+  noiseVectors.reserve(noiseCount);
+
+  for (std::size_t i = 0; i < noiseCount; ++i) {
+    noiseVectors.push_back(
+        {uniformDistribution(randomDevice), uniformDistribution(randomDevice)});
+  }
+
+  rhi::UploadTextureRHI uploadTextureRHI;
+  uploadTextureRHI.format = core::TextureFormat::R32G32_SFLOAT;
+  uploadTextureRHI.width = 4;
+  uploadTextureRHI.height = 4;
+  uploadTextureRHI.unpackFunc = [&noiseVectors](char* dst) {
+    std::memcpy(dst, reinterpret_cast<char*>(noiseVectors.data()),
+                noiseVectors.size() *
+                    sizeof(decltype(noiseVectors)::value_type));
+  };
+
+  _ssaoNoiseTextureID = uploadTexture(uploadTextureRHI);
+
+  _deletionQueue.pushFunction([this]() { unloadTexture(_ssaoNoiseTextureID); });
 }

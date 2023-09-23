@@ -115,6 +115,8 @@ private:
   AllocatedBuffer _cameraBuffer;
   AllocatedBuffer _shadowPassCameraBuffer;
   AllocatedBuffer _lightDataBuffer;
+  AllocatedBuffer _ssaoSamplesBuffer;
+  rhi::ResourceIdRHI _ssaoNoiseTextureID;
   VkDescriptorSet _vkGlobalDescriptorSet;
   VkDescriptorSet _vkShadowPassGlobalDescriptorSet;
   VkDescriptorSet _emptyDescriptorSet;
@@ -151,6 +153,7 @@ private:
   void initDescriptors();
   void initDepthPrepassDescriptors();
   void initShadowPassDescriptors();
+  void initSSAOSamplesAndNoise();
   void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
   void uploadMesh(Mesh& mesh);
   FrameData& getCurrentFrameData();
