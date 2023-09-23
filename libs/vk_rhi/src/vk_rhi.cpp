@@ -11,10 +11,8 @@
 #include <obsidian/vk_rhi/vk_rhi.hpp>
 #include <obsidian/vk_rhi/vk_types.hpp>
 
+#include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtx/transform.hpp>
-#include <glm/mat4x4.hpp>
-#include <glm/vec3.hpp>
 #include <tracy/Tracy.hpp>
 #include <vk_mem_alloc.h>
 
@@ -437,6 +435,32 @@ std::vector<ShadowPassParams> VulkanRHI::getSubmittedShadowPassParams() const {
   }
 
   return result;
+}
+
+GPUCameraData
+VulkanRHI::getSceneCameraData(rhi::SceneGlobalParams const& sceneParams) const {
+  glm::mat4 view = glm::mat4{1.f};
+  view = glm::rotate(view, -sceneParams.cameraRotationRad.x, {1.f, 0.f, 0.f});
+  view = glm::rotate(view, -sceneParams.cameraRotationRad.y, {0.f, 1.f, 0.f});
+  view = glm::translate(view, -sceneParams.cameraPos);
+
+  glm::mat4 proj = glm::perspective(glm::radians(60.f),
+                                    static_cast<float>(_windowExtent.width) /
+                                        _windowExtent.height,
+                                    0.1f, 400.f);
+  proj[1][1] *= -1;
+
+  // Map NDC from [-1, 1] to [0, 1]
+  proj = glm::scale(glm::mat4{1.0f}, glm::vec3{1.f, 1.f, 0.5f}) *
+         glm::translate(glm::mat4{1.0f}, glm::vec3{0.f, 0.f, 1.f}) * proj;
+  glm::mat4 const viewProjection = proj * view;
+
+  GPUCameraData gpuCameraData;
+  gpuCameraData.view = view;
+  gpuCameraData.proj = proj;
+  gpuCameraData.viewProj = proj * view;
+
+  return gpuCameraData;
 }
 
 GPULightData VulkanRHI::getGPULightData() const {

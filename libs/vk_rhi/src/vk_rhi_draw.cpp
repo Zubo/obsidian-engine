@@ -50,33 +50,56 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
 
   VK_CHECK(vkBeginCommandBuffer(cmd, &vkCommandBufferBeginInfo));
 
+  VkClearValue depthClearValue;
+  depthClearValue.depthStencil.depth = 1.0f;
+
+  VkRenderPassBeginInfo depthPassBeginInfo = {};
+  depthPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+  depthPassBeginInfo.pNext = nullptr;
+  depthPassBeginInfo.renderPass = _vkDepthRenderPass;
+  depthPassBeginInfo.renderArea.offset = {0, 0};
+  depthPassBeginInfo.clearValueCount = 1;
+  depthPassBeginInfo.pClearValues = &depthClearValue;
+
+  // Depth prepass:
+  std::size_t const frameInd = _frameNumber % frameOverlap;
+
+  depthPassBeginInfo.renderArea.extent = {_windowExtent.width,
+                                          _windowExtent.height};
+  depthPassBeginInfo.framebuffer =
+      _frameDataArray[frameInd].vkDepthPrepassFramebuffer;
+
+  vkCmdBeginRenderPass(cmd, &depthPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+  GPUCameraData sceneCameraData = getSceneCameraData(sceneParams);
+
+  drawDepthPass(cmd, _drawCallQueue.data(), _drawCallQueue.size(),
+                _vkDepthPrepassPipeline, _depthPrepassGlobalDescriptorSet,
+                _cameraBuffer, frameInd, sceneCameraData);
+
+  vkCmdEndRenderPass(cmd);
+
+  // Shadow passes:
   std::vector<ShadowPassParams> submittedParams =
       getSubmittedShadowPassParams();
+
+  depthPassBeginInfo.renderArea.extent = {shadowPassAttachmentWidth,
+                                          shadowPassAttachmentHeight};
 
   for (ShadowPassParams const& shadowPass : submittedParams) {
     assert(shadowPass.shadowMapIndex >= 0);
 
-    VkRenderPassBeginInfo vkShadowRenderPassBeginInfo = {};
-    vkShadowRenderPassBeginInfo.sType =
-        VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    vkShadowRenderPassBeginInfo.pNext = nullptr;
-    vkShadowRenderPassBeginInfo.renderPass = _vkDepthRenderPass;
-    vkShadowRenderPassBeginInfo.framebuffer =
+    depthPassBeginInfo.framebuffer =
         currentFrameData.shadowFrameBuffers[shadowPass.shadowMapIndex];
-    vkShadowRenderPassBeginInfo.renderArea.offset = {0, 0};
-    vkShadowRenderPassBeginInfo.renderArea.extent = {
-        shadowPassAttachmentWidth, shadowPassAttachmentHeight};
-    VkClearValue depthClearValue;
-    depthClearValue.depthStencil.depth = 1.0f;
 
-    vkShadowRenderPassBeginInfo.clearValueCount = 1;
-    vkShadowRenderPassBeginInfo.pClearValues = &depthClearValue;
+    vkCmdBeginRenderPass(cmd, &depthPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    vkCmdBeginRenderPass(cmd, &vkShadowRenderPassBeginInfo,
-                         VK_SUBPASS_CONTENTS_INLINE);
-
-    drawShadowPass(cmd, _drawCallQueue.data(), _drawCallQueue.size(),
-                   sceneParams, shadowPass);
+    std::size_t const cameraBufferInd =
+        frameInd * rhi::maxLightsPerDrawPass + shadowPass.shadowMapIndex;
+    drawDepthPass(cmd, _drawCallQueue.data(), _drawCallQueue.size(),
+                  _vkShadowPassPipeline, _vkShadowPassGlobalDescriptorSet,
+                  _shadowPassCameraBuffer, cameraBufferInd,
+                  shadowPass.gpuCameraData);
 
     vkCmdEndRenderPass(cmd);
   }
@@ -109,6 +132,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
                          0, nullptr, 1, &vkShadowMapImageMemoryBarrier);
   }
 
+  // Color pass:
   std::array<VkClearValue, 2> clearValues;
   clearValues[0].color = {{0.0f, 0.0f, 1.0f, 1.0f}};
   clearValues[1].depthStencil.depth = 1.0f;
@@ -177,26 +201,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
 void VulkanRHI::drawObjects(VkCommandBuffer cmd, VKDrawCall* first, int count,
                             rhi::SceneGlobalParams const& sceneParams) {
   ZoneScoped;
-  glm::mat4 view = glm::mat4{1.f};
-  view = glm::rotate(view, -sceneParams.cameraRotationRad.x, {1.f, 0.f, 0.f});
-  view = glm::rotate(view, -sceneParams.cameraRotationRad.y, {0.f, 1.f, 0.f});
-  view = glm::translate(view, -sceneParams.cameraPos);
-
-  glm::mat4 proj = glm::perspective(glm::radians(60.f),
-                                    static_cast<float>(_windowExtent.width) /
-                                        _windowExtent.height,
-                                    0.1f, 400.f);
-  proj[1][1] *= -1;
-
-  // Map NDC from [-1, 1] to [0, 1]
-  proj = glm::scale(glm::vec3{1.f, 1.f, 0.5f}) *
-         glm::translate(glm::vec3{0.f, 0.f, 1.f}) * proj;
-  glm::mat4 const viewProjection = proj * view;
-
-  GPUCameraData gpuCameraData;
-  gpuCameraData.view = view;
-  gpuCameraData.proj = proj;
-  gpuCameraData.viewProj = proj * view;
+  GPUCameraData gpuCameraData = getSceneCameraData(sceneParams);
 
   std::size_t const frameInd = _frameNumber % frameOverlap;
 
@@ -285,42 +290,37 @@ void VulkanRHI::drawObjects(VkCommandBuffer cmd, VKDrawCall* first, int count,
   }
 }
 
-void VulkanRHI::drawShadowPass(VkCommandBuffer cmd, VKDrawCall* first,
-                               int count,
-                               rhi::SceneGlobalParams const& sceneGlobalParams,
-                               ShadowPassParams const& shadowPassParams) {
+void VulkanRHI::drawDepthPass(VkCommandBuffer cmd, VKDrawCall* first, int count,
+                              VkPipeline pipeline,
+                              VkDescriptorSet globalDescriptorSet,
+                              AllocatedBuffer const& cameraBuffer,
+                              std::size_t cameraDataInd,
+                              GPUCameraData const& gpuCameraData) {
   ZoneScoped;
 
   void* data;
-  VK_CHECK(
-      vmaMapMemory(_vmaAllocator, _shadowPassCameraBuffer.allocation, &data));
+  VK_CHECK(vmaMapMemory(_vmaAllocator, cameraBuffer.allocation, &data));
 
   assert(data);
 
-  std::size_t const frameInd = _frameNumber % frameOverlap;
-
   std::uint32_t const gpuCameraDataDynamicOffset =
-      (frameInd * rhi::maxLightsPerDrawPass + shadowPassParams.shadowMapIndex) *
-      getPaddedBufferSize(sizeof(GPUCameraData));
+      cameraDataInd * getPaddedBufferSize(sizeof(GPUCameraData));
   char* const shadowPassGpuCameraDataBegin =
       static_cast<char*>(data) + gpuCameraDataDynamicOffset;
 
-  std::memcpy(shadowPassGpuCameraDataBegin, &shadowPassParams.gpuCameraData,
-              sizeof(shadowPassParams.gpuCameraData));
+  std::memcpy(shadowPassGpuCameraDataBegin, &gpuCameraData,
+              sizeof(GPUCameraData));
 
-  vmaUnmapMemory(_vmaAllocator, _shadowPassCameraBuffer.allocation);
+  vmaUnmapMemory(_vmaAllocator, cameraBuffer.allocation);
 
-  vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                    _vkShadowPassPipeline);
-
-  FrameData& currentFrameData = getCurrentFrameData();
+  vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
   std::array<VkDescriptorSet, 4> shadowPassDescriptorSets = {
-      _vkShadowPassGlobalDescriptorSet, _emptyDescriptorSet,
-      _emptyDescriptorSet, currentFrameData.vkObjectDataDescriptorSet};
+      globalDescriptorSet, _emptyDescriptorSet, _emptyDescriptorSet,
+      _emptyDescriptorSet};
 
   vkCmdBindDescriptorSets(
-      cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _vkShadowPassPipelineLayout, 0,
+      cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _vkDepthPipelineLayout, 0,
       shadowPassDescriptorSets.size(), shadowPassDescriptorSets.data(), 1,
       &gpuCameraDataDynamicOffset);
 

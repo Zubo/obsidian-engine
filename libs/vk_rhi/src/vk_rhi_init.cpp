@@ -44,6 +44,8 @@ void VulkanRHI::init(rhi::WindowExtentRHI extent,
 
   initDescriptors();
 
+  initDepthPrepassDescriptors();
+
   initShadowPassDescriptors();
 
   initDefaultPipelineLayouts();
@@ -631,43 +633,50 @@ void VulkanRHI::initShadowPassPipeline() {
       vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT,
                                             shaderModule));
 
-  VkPipelineLayoutCreateInfo vkShadowPassPipelineLayoutCreateInfo = {};
-  vkShadowPassPipelineLayoutCreateInfo.sType =
+  VkPipelineLayoutCreateInfo vkDepthPipelineLayoutCreateInfo = {};
+  vkDepthPipelineLayoutCreateInfo.sType =
       VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-  vkShadowPassPipelineLayoutCreateInfo.pNext = nullptr;
+  vkDepthPipelineLayoutCreateInfo.pNext = nullptr;
 
-  std::array<VkDescriptorSetLayout, 4> shadowPassDescriptorSetLayouts = {
+  std::array<VkDescriptorSetLayout, 4> depthDescriptorSetLayouts = {
       _vkShadowPassGlobalDescriptorSetLayout, _vkEmptyDescriptorSetLayout,
-      _vkEmptyDescriptorSetLayout, _vkObjectDataDescriptorSetLayout};
+      _vkEmptyDescriptorSetLayout, _vkEmptyDescriptorSetLayout};
 
-  vkShadowPassPipelineLayoutCreateInfo.setLayoutCount =
-      shadowPassDescriptorSetLayouts.size();
-  vkShadowPassPipelineLayoutCreateInfo.pSetLayouts =
-      shadowPassDescriptorSetLayouts.data();
+  vkDepthPipelineLayoutCreateInfo.setLayoutCount =
+      depthDescriptorSetLayouts.size();
+  vkDepthPipelineLayoutCreateInfo.pSetLayouts =
+      depthDescriptorSetLayouts.data();
 
   VkPushConstantRange vkPushConstantRange;
   vkPushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
   vkPushConstantRange.offset = 0;
   vkPushConstantRange.size = sizeof(MeshPushConstants);
-  vkShadowPassPipelineLayoutCreateInfo.pushConstantRangeCount = 1;
-  vkShadowPassPipelineLayoutCreateInfo.pPushConstantRanges =
-      &vkPushConstantRange;
+  vkDepthPipelineLayoutCreateInfo.pushConstantRangeCount = 1;
+  vkDepthPipelineLayoutCreateInfo.pPushConstantRanges = &vkPushConstantRange;
 
-  VK_CHECK(vkCreatePipelineLayout(_vkDevice,
-                                  &vkShadowPassPipelineLayoutCreateInfo,
-                                  nullptr, &_vkShadowPassPipelineLayout));
+  VK_CHECK(vkCreatePipelineLayout(_vkDevice, &vkDepthPipelineLayoutCreateInfo,
+                                  nullptr, &_vkDepthPipelineLayout));
 
   _deletionQueue.pushFunction([this]() {
-    vkDestroyPipelineLayout(_vkDevice, _vkShadowPassPipelineLayout, nullptr);
+    vkDestroyPipelineLayout(_vkDevice, _vkDepthPipelineLayout, nullptr);
   });
 
-  pipelineBuilder._vkPipelineLayout = _vkShadowPassPipelineLayout;
+  pipelineBuilder._vkPipelineLayout = _vkDepthPipelineLayout;
 
   _vkShadowPassPipeline =
       pipelineBuilder.buildPipeline(_vkDevice, _vkDepthRenderPass);
 
   _deletionQueue.pushFunction([this]() {
     vkDestroyPipeline(_vkDevice, _vkShadowPassPipeline, nullptr);
+  });
+
+  pipelineBuilder._vkViewport.width = _windowExtent.width;
+  pipelineBuilder._vkViewport.height = _windowExtent.height;
+  _vkDepthPrepassPipeline =
+      pipelineBuilder.buildPipeline(_vkDevice, _vkDepthRenderPass);
+
+  _deletionQueue.pushFunction([this] {
+    vkDestroyPipeline(_vkDevice, _vkDepthPrepassPipeline, nullptr);
   });
 }
 
@@ -818,6 +827,20 @@ void VulkanRHI::initDescriptors() {
   texMatDescriptorSetLayoutCreateInfo.pBindings = &albedoTexBinding;
   _vkTexturedMaterialDescriptorSetLayout =
       _descriptorLayoutCache.getLayout(texMatDescriptorSetLayoutCreateInfo);
+}
+
+void VulkanRHI::initDepthPrepassDescriptors() {
+
+  VkDescriptorBufferInfo bufferInfo;
+  bufferInfo.buffer = _cameraBuffer.buffer;
+  bufferInfo.offset = 0;
+  bufferInfo.range = frameOverlap * getPaddedBufferSize(sizeof(GPUCameraData));
+
+  DescriptorBuilder::begin(_vkDevice, _descriptorAllocator,
+                           _descriptorLayoutCache)
+      .bindBuffer(0, bufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+                  VK_SHADER_STAGE_VERTEX_BIT)
+      .build(_depthPrepassGlobalDescriptorSet);
 }
 
 void VulkanRHI::initShadowPassDescriptors() {

@@ -92,12 +92,13 @@ private:
   VkRenderPass _vkDefaultRenderPass;
   VkRenderPass _vkDepthRenderPass;
   std::vector<VkFramebuffer> _vkFramebuffers;
-  std::array<FrameData, 2> _frameDataArray;
+  std::array<FrameData, frameOverlap> _frameDataArray;
   std::uint32_t _frameNumber = 0;
   VkPipelineLayout _vkMeshPipelineLayout;
   VkPipelineLayout _vkLitMeshPipelineLayout;
-  VkPipelineLayout _vkShadowPassPipelineLayout;
+  VkPipelineLayout _vkDepthPipelineLayout;
   VkPipeline _vkShadowPassPipeline;
+  VkPipeline _vkDepthPrepassPipeline;
   DeletionQueue _deletionQueue;
   DeletionQueue _swapchainDeletionQueue;
   VmaAllocator _vmaAllocator;
@@ -117,6 +118,7 @@ private:
   VkDescriptorSet _vkGlobalDescriptorSet;
   VkDescriptorSet _vkShadowPassGlobalDescriptorSet;
   VkDescriptorSet _emptyDescriptorSet;
+  VkDescriptorSet _depthPrepassGlobalDescriptorSet;
   ImmediateSubmitContext _immediateSubmitContext;
   VkSampler _vkAlbedoTextureSampler;
   VkSampler _vkDepthSampler;
@@ -147,15 +149,18 @@ private:
   void initShadowPassPipeline();
   void initScene();
   void initDescriptors();
+  void initDepthPrepassDescriptors();
   void initShadowPassDescriptors();
   void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
   void uploadMesh(Mesh& mesh);
   FrameData& getCurrentFrameData();
   void drawObjects(VkCommandBuffer cmd, VKDrawCall* first, int count,
                    rhi::SceneGlobalParams const& sceneParams);
-  void drawShadowPass(VkCommandBuffer, VKDrawCall* first, int count,
-                      rhi::SceneGlobalParams const& sceneGlobalParams,
-                      ShadowPassParams const& shadowPassParams);
+  void drawDepthPass(VkCommandBuffer, VKDrawCall* first, int count,
+                     VkPipeline pipeline, VkDescriptorSet globalDescriptorSet,
+                     AllocatedBuffer const& cameraBuffer,
+                     std::size_t cameraDataInd,
+                     GPUCameraData const& cameraData);
   Mesh* getMesh(std::string const& name);
   AllocatedBuffer
   createBuffer(std::size_t bufferSize, VkBufferUsageFlags usage,
@@ -169,6 +174,8 @@ private:
   void submitLight(rhi::DirectionalLightParams const& directionalLight);
   void submitLight(rhi::SpotlightParams const& spotlight);
   std::vector<ShadowPassParams> getSubmittedShadowPassParams() const;
+  GPUCameraData
+  getSceneCameraData(rhi::SceneGlobalParams const& sceneParams) const;
   GPULightData getGPULightData() const;
   void createDepthImage(AllocatedImage& outImage) const;
 };
