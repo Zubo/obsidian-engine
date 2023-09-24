@@ -1,4 +1,5 @@
 #include <obsidian/core/logging.hpp>
+#include <obsidian/vk_rhi/vk_check.hpp>
 #include <obsidian/vk_rhi/vk_initializers.hpp>
 #include <obsidian/vk_rhi/vk_pipeline_builder.hpp>
 
@@ -34,13 +35,20 @@ VkPipeline PipelineBuilder::buildPipeline(VkDevice device, VkRenderPass pass) {
   colorBlendingCreateInfo.attachmentCount = 1;
   colorBlendingCreateInfo.pAttachments = &_vkColorBlendAttachmentState;
 
+  VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo = {};
+  dynamicStateCreateInfo.sType =
+      VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+  dynamicStateCreateInfo.pNext = nullptr;
+  dynamicStateCreateInfo.dynamicStateCount = _vkDynamicStates.size();
+  dynamicStateCreateInfo.pDynamicStates = _vkDynamicStates.data();
+
   VkGraphicsPipelineCreateInfo graphicsPipelineCreateInfo = {};
   graphicsPipelineCreateInfo.sType =
       VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
   graphicsPipelineCreateInfo.pNext = nullptr;
 
-  graphicsPipelineCreateInfo.stageCount = _vkShaderStageCreateInfo.size();
-  graphicsPipelineCreateInfo.pStages = _vkShaderStageCreateInfo.data();
+  graphicsPipelineCreateInfo.stageCount = _vkShaderStageCreateInfos.size();
+  graphicsPipelineCreateInfo.pStages = _vkShaderStageCreateInfos.data();
   graphicsPipelineCreateInfo.pVertexInputState = &vkVertexInputInfo;
   graphicsPipelineCreateInfo.pInputAssemblyState = &_vkInputAssemblyCreateInfo;
   graphicsPipelineCreateInfo.pTessellationState = nullptr;
@@ -50,7 +58,7 @@ VkPipeline PipelineBuilder::buildPipeline(VkDevice device, VkRenderPass pass) {
   graphicsPipelineCreateInfo.pDepthStencilState =
       &_vkDepthStencilStateCreateInfo;
   graphicsPipelineCreateInfo.pColorBlendState = &colorBlendingCreateInfo;
-  graphicsPipelineCreateInfo.pDynamicState = nullptr;
+  graphicsPipelineCreateInfo.pDynamicState = &dynamicStateCreateInfo;
   graphicsPipelineCreateInfo.layout = _vkPipelineLayout;
   graphicsPipelineCreateInfo.renderPass = pass;
   graphicsPipelineCreateInfo.subpass = 0;
@@ -58,12 +66,9 @@ VkPipeline PipelineBuilder::buildPipeline(VkDevice device, VkRenderPass pass) {
 
   VkPipeline newPipeline;
 
-  if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1,
-                                &graphicsPipelineCreateInfo, nullptr,
-                                &newPipeline) != VK_SUCCESS) {
-    OBS_LOG_ERR("Failed to create pipeline.");
-    return VK_NULL_HANDLE;
-  }
+  VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1,
+                                     &graphicsPipelineCreateInfo, nullptr,
+                                     &newPipeline));
 
   return newPipeline;
 }

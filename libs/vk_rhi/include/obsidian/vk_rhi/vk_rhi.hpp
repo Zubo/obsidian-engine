@@ -16,6 +16,7 @@
 #include <array>
 #include <cstdint>
 #include <functional>
+#include <optional>
 #include <string_view>
 #include <unordered_map>
 #include <utility>
@@ -107,7 +108,7 @@ private:
   DescriptorAllocator _descriptorAllocator;
   VkDescriptorSetLayout _vkGlobalDescriptorSetLayout;
   VkDescriptorSetLayout _vkObjectDataDescriptorSetLayout;
-  VkDescriptorSetLayout _vkShadowPassGlobalDescriptorSetLayout;
+  VkDescriptorSetLayout _vkDepthPassGlobalDescriptorSetLayout;
   VkDescriptorSetLayout _vkLitMeshRenderPassDescriptorSetLayout;
   VkDescriptorSetLayout _vkEmptyDescriptorSetLayout;
   VkDescriptorSetLayout _vkTexturedMaterialDescriptorSetLayout;
@@ -132,14 +133,14 @@ private:
   std::unordered_map<rhi::ResourceIdRHI, VkShaderModule> _shaderModules;
   std::unordered_map<core::MaterialType, PipelineBuilder> _pipelineBuilders;
   std::unordered_map<rhi::ResourceIdRHI, Material> _materials;
-  rhi::ResourceIdRHI _shadowPassShaderId;
+  rhi::ResourceIdRHI _depthPassShaderId;
   rhi::ResourceIdRHI _emptyFragShaderId;
   std::vector<VKDrawCall> _drawCallQueue;
   std::vector<rhi::DirectionalLight> _submittedDirectionalLights;
   std::vector<rhi::Spotlight> _submittedSpotlights;
 
   void initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider);
-  void initSwapchain();
+  void initSwapchain(VkSwapchainKHR oldSwapchain = VK_NULL_HANDLE);
   void initCommands();
   void initDefaultRenderPass();
   void initDepthRenderPass();
@@ -147,8 +148,10 @@ private:
   void initDepthPrepassFramebuffers();
   void initShadowPassFramebuffers();
   void initSyncStructures();
-  void initDefaultPipelineLayouts();
+  void initDefaultPipelineAndLayouts();
+  void initDepthPassPipelineLayout();
   void initShadowPassPipeline();
+  void initDepthPrepassPipeline();
   void initScene();
   void initDescriptors();
   void initDepthPrepassDescriptors();
@@ -162,8 +165,9 @@ private:
   void drawDepthPass(VkCommandBuffer, VKDrawCall* first, int count,
                      VkPipeline pipeline, VkDescriptorSet globalDescriptorSet,
                      AllocatedBuffer const& cameraBuffer,
-                     std::size_t cameraDataInd,
-                     GPUCameraData const& cameraData);
+                     std::size_t cameraDataInd, GPUCameraData const& cameraData,
+                     std::optional<VkViewport> dynamicViewport = std::nullopt,
+                     std::optional<VkRect2D> dynamicScissor = std::nullopt);
   Mesh* getMesh(std::string const& name);
   AllocatedBuffer
   createBuffer(std::size_t bufferSize, VkBufferUsageFlags usage,

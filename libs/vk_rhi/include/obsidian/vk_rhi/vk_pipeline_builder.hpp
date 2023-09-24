@@ -10,7 +10,7 @@ namespace obsidian::vk_rhi {
 
 class PipelineBuilder {
 public:
-  std::vector<VkPipelineShaderStageCreateInfo> _vkShaderStageCreateInfo;
+  std::vector<VkPipelineShaderStageCreateInfo> _vkShaderStageCreateInfos;
   VkPipelineInputAssemblyStateCreateInfo _vkInputAssemblyCreateInfo;
   VkPipelineDepthStencilStateCreateInfo _vkDepthStencilStateCreateInfo;
   VkViewport _vkViewport;
@@ -20,6 +20,7 @@ public:
   VkPipelineMultisampleStateCreateInfo _vkMultisampleStateCreateInfo;
   VkPipelineLayout _vkPipelineLayout;
   VertexInputDescription _vertexInputAttributeDescription;
+  std::vector<VkDynamicState> _vkDynamicStates;
 
   VkPipeline buildPipeline(VkDevice device, VkRenderPass pass);
 };

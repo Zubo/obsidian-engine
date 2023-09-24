@@ -73,9 +73,21 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
 
   GPUCameraData sceneCameraData = getSceneCameraData(sceneParams);
 
+  VkViewport viewport;
+  viewport.x = 0.0f;
+  viewport.y = 0.0f;
+  viewport.width = _windowExtent.width;
+  viewport.height = _windowExtent.height;
+  viewport.minDepth = 0.0f;
+  viewport.maxDepth = 1.0f;
+
+  VkRect2D scissor;
+  scissor.offset = {0, 0};
+  scissor.extent = _windowExtent;
+
   drawDepthPass(cmd, _drawCallQueue.data(), _drawCallQueue.size(),
                 _vkDepthPrepassPipeline, _depthPrepassGlobalDescriptorSet,
-                _cameraBuffer, frameInd, sceneCameraData);
+                _cameraBuffer, frameInd, sceneCameraData, viewport, scissor);
 
   vkCmdEndRenderPass(cmd);
 
@@ -263,6 +275,18 @@ void VulkanRHI::drawObjects(VkCommandBuffer cmd, VKDrawCall* first, int count,
     constexpr VkPipelineBindPoint pipelineBindPoint =
         VK_PIPELINE_BIND_POINT_GRAPHICS;
 
+    VkViewport viewport;
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = _windowExtent.width;
+    viewport.height = _windowExtent.height;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+
+    VkRect2D scissor;
+    scissor.offset = {0, 0};
+    scissor.extent = _windowExtent;
+
     if (&material != lastMaterial) {
       std::array<std::uint32_t, 3> const offsets{
           static_cast<std::uint32_t>(
@@ -272,6 +296,9 @@ void VulkanRHI::drawObjects(VkCommandBuffer cmd, VKDrawCall* first, int count,
           static_cast<std::uint32_t>(
               frameInd * getPaddedBufferSize(sizeof(GPULightData)))};
       vkCmdBindPipeline(cmd, pipelineBindPoint, material.vkPipeline);
+
+      vkCmdSetViewport(cmd, 0, 1, &viewport);
+      vkCmdSetScissor(cmd, 0, 1, &scissor);
 
       std::array<VkDescriptorSet, 4> const descriptorSets{
           _vkGlobalDescriptorSet,
@@ -297,7 +324,9 @@ void VulkanRHI::drawDepthPass(VkCommandBuffer cmd, VKDrawCall* first, int count,
                               VkDescriptorSet globalDescriptorSet,
                               AllocatedBuffer const& cameraBuffer,
                               std::size_t cameraDataInd,
-                              GPUCameraData const& gpuCameraData) {
+                              GPUCameraData const& gpuCameraData,
+                              std::optional<VkViewport> dynamicViewport,
+                              std::optional<VkRect2D> dynamicScissor) {
   ZoneScoped;
 
   void* data;
@@ -316,6 +345,14 @@ void VulkanRHI::drawDepthPass(VkCommandBuffer cmd, VKDrawCall* first, int count,
   vmaUnmapMemory(_vmaAllocator, cameraBuffer.allocation);
 
   vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+
+  if (dynamicViewport) {
+    vkCmdSetViewport(cmd, 0, 1, &dynamicViewport.value());
+  }
+
+  if (dynamicScissor) {
+    vkCmdSetScissor(cmd, 0, 1, &dynamicScissor.value());
+  }
 
   std::array<VkDescriptorSet, 4> shadowPassDescriptorSets = {
       globalDescriptorSet, _emptyDescriptorSet, _emptyDescriptorSet,

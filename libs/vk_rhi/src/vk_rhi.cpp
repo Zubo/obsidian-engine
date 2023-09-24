@@ -248,12 +248,12 @@ VulkanRHI::uploadMaterial(rhi::UploadMaterialRHI const& uploadMaterial) {
 
   VkShaderModule shaderModule = _shaderModules[uploadMaterial.shaderId];
 
-  pipelineBuilder._vkShaderStageCreateInfo.clear();
-  pipelineBuilder._vkShaderStageCreateInfo.push_back(
+  pipelineBuilder._vkShaderStageCreateInfos.clear();
+  pipelineBuilder._vkShaderStageCreateInfos.push_back(
       vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT,
                                             shaderModule));
 
-  pipelineBuilder._vkShaderStageCreateInfo.push_back(
+  pipelineBuilder._vkShaderStageCreateInfos.push_back(
       vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT,
                                             shaderModule));
 
@@ -316,10 +316,10 @@ void VulkanRHI::updateExtent(rhi::WindowExtentRHI newExtent) {
 
   _swapchainDeletionQueue.flush();
 
-  initSwapchain();
+  initSwapchain(_vkSwapchain);
   initDefaultRenderPass();
   initFramebuffers();
-  initDefaultPipelineLayouts();
+  initDepthPrepassFramebuffers();
 }
 
 void VulkanRHI::immediateSubmit(

@@ -53,7 +53,9 @@ void VulkanRHI::init(rhi::WindowExtentRHI extent,
 
   initShadowPassDescriptors();
 
-  initDefaultPipelineLayouts();
+  initDefaultPipelineAndLayouts();
+
+  initDepthPassPipelineLayout();
 
   initSSAOSamplesAndNoise();
 
@@ -63,13 +65,14 @@ void VulkanRHI::init(rhi::WindowExtentRHI extent,
 void VulkanRHI::initResources(rhi::InitResourcesRHI const& initResources) {
   assert(IsInitialized);
 
-  _shadowPassShaderId = uploadShader(initResources.shadowPassShader);
+  _depthPassShaderId = uploadShader(initResources.shadowPassShader);
 
   _deletionQueue.pushFunction([this]() {
-    vkDestroyShaderModule(_vkDevice, _shaderModules[_shadowPassShaderId],
+    vkDestroyShaderModule(_vkDevice, _shaderModules[_depthPassShaderId],
                           nullptr);
   });
 
+  initDepthPrepassPipeline();
   initShadowPassPipeline();
 }
 
@@ -128,15 +131,19 @@ void VulkanRHI::initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider) {
   _deletionQueue.pushFunction([this] { vmaDestroyAllocator(_vmaAllocator); });
 }
 
-void VulkanRHI::initSwapchain() {
+void VulkanRHI::initSwapchain(VkSwapchainKHR oldSwapchain) {
   vkb::SwapchainBuilder swapchainBuilder{_vkPhysicalDevice, _vkDevice,
                                          _vkSurface};
-  vkb::Swapchain vkbSwapchain =
-      swapchainBuilder.use_default_format_selection()
-          .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
-          .set_desired_extent(_windowExtent.width, _windowExtent.height)
-          .build()
-          .value();
+  swapchainBuilder.use_default_format_selection()
+      .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
+      .set_desired_extent(_windowExtent.width, _windowExtent.height);
+
+  if (_vkSwapchain != VK_NULL_HANDLE) {
+    swapchainBuilder.set_old_swapchain(oldSwapchain);
+  }
+
+  vkb::Swapchain vkbSwapchain = swapchainBuilder.build().value();
+
   _vkSwapchain = vkbSwapchain.swapchain;
   _vkSwapchainImages = vkbSwapchain.get_images().value();
   std::vector<VkImageView> swapchainColorImageViews =
@@ -152,9 +159,14 @@ void VulkanRHI::initSwapchain() {
     for (VkImageView const& vkSwapchainImgView : swapchainColorImageViews) {
       vkDestroyImageView(_vkDevice, vkSwapchainImgView, nullptr);
     }
-
-    vkDestroySwapchainKHR(_vkDevice, _vkSwapchain, nullptr);
   });
+
+  if (oldSwapchain == VK_NULL_HANDLE) {
+    _deletionQueue.pushFunction(
+        [this]() { vkDestroySwapchainKHR(_vkDevice, _vkSwapchain, nullptr); });
+  } else {
+    vkDestroySwapchainKHR(_vkDevice, oldSwapchain, nullptr);
+  }
 
   _vkFramebuffers.resize(swapchainSize);
 
@@ -362,7 +374,7 @@ void VulkanRHI::initDepthPrepassFramebuffers() {
     createDepthImage(frameData.depthPrepassImage,
                      VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
                          VK_IMAGE_USAGE_SAMPLED_BIT);
-    _deletionQueue.pushFunction([this, &frameData]() {
+    _swapchainDeletionQueue.pushFunction([this, &frameData]() {
       vmaDestroyImage(_vmaAllocator, frameData.depthPrepassImage.vkImage,
                       frameData.depthPrepassImage.allocation);
     });
@@ -386,7 +398,7 @@ void VulkanRHI::initDepthPrepassFramebuffers() {
     vkCreateImageView(_vkDevice, &depthPassImageViewCreateInfo, nullptr,
                       &depthPassImageView);
 
-    _deletionQueue.pushFunction([this, depthPassImageView]() {
+    _swapchainDeletionQueue.pushFunction([this, depthPassImageView]() {
       vkDestroyImageView(_vkDevice, depthPassImageView, nullptr);
     });
 
@@ -405,7 +417,7 @@ void VulkanRHI::initDepthPrepassFramebuffers() {
     vkCreateFramebuffer(_vkDevice, &framebufferCreateInfo, nullptr,
                         &frameData.vkDepthPrepassFramebuffer);
 
-    _deletionQueue.pushFunction([this, &frameData]() {
+    _swapchainDeletionQueue.pushFunction([this, &frameData]() {
       vkDestroyFramebuffer(_vkDevice, frameData.vkDepthPrepassFramebuffer,
                            nullptr);
     });
@@ -513,7 +525,7 @@ void VulkanRHI::initSyncStructures() {
   });
 }
 
-void VulkanRHI::initDefaultPipelineLayouts() {
+void VulkanRHI::initDefaultPipelineAndLayouts() {
   PipelineBuilder pipelineBuilder;
 
   pipelineBuilder._vkInputAssemblyCreateInfo =
@@ -522,15 +534,8 @@ void VulkanRHI::initDefaultPipelineLayouts() {
   pipelineBuilder._vkDepthStencilStateCreateInfo =
       vkinit::depthStencilStateCreateInfo(VK_TRUE);
 
-  pipelineBuilder._vkViewport.x = 0.0f;
-  pipelineBuilder._vkViewport.y = 0.0f;
-  pipelineBuilder._vkViewport.height = _windowExtent.height;
-  pipelineBuilder._vkViewport.width = _windowExtent.width;
-  pipelineBuilder._vkViewport.minDepth = 0.0f;
-  pipelineBuilder._vkViewport.maxDepth = 1.0f;
-
-  pipelineBuilder._vkScissor.offset = {0, 0};
-  pipelineBuilder._vkScissor.extent = _windowExtent;
+  pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
+  pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
 
   pipelineBuilder._vkRasterizationCreateInfo =
       vkinit::rasterizationCreateInfo(VK_POLYGON_MODE_FILL);
@@ -567,9 +572,9 @@ void VulkanRHI::initDefaultPipelineLayouts() {
 
   _pipelineBuilders[core::MaterialType::unlit] = pipelineBuilder;
 
-  pipelineBuilder._vkShaderStageCreateInfo.clear();
+  pipelineBuilder._vkShaderStageCreateInfos.clear();
 
-  _swapchainDeletionQueue.pushFunction([this] {
+  _deletionQueue.pushFunction([this] {
     vkDestroyPipelineLayout(_vkDevice, _vkMeshPipelineLayout, nullptr);
   });
 
@@ -592,7 +597,7 @@ void VulkanRHI::initDefaultPipelineLayouts() {
   VK_CHECK(vkCreatePipelineLayout(_vkDevice, &litMeshPipelineLayoutCreateInfo,
                                   nullptr, &_vkLitMeshPipelineLayout));
 
-  _swapchainDeletionQueue.pushFunction([this]() {
+  _deletionQueue.pushFunction([this]() {
     vkDestroyPipelineLayout(_vkDevice, _vkLitMeshPipelineLayout, nullptr);
   });
 
@@ -600,7 +605,37 @@ void VulkanRHI::initDefaultPipelineLayouts() {
 
   _pipelineBuilders[core::MaterialType::lit] = pipelineBuilder;
 
-  pipelineBuilder._vkShaderStageCreateInfo.clear();
+  pipelineBuilder._vkShaderStageCreateInfos.clear();
+}
+
+void VulkanRHI::initDepthPassPipelineLayout() {
+  VkPipelineLayoutCreateInfo vkDepthPipelineLayoutCreateInfo = {};
+  vkDepthPipelineLayoutCreateInfo.sType =
+      VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+  vkDepthPipelineLayoutCreateInfo.pNext = nullptr;
+
+  std::array<VkDescriptorSetLayout, 4> depthDescriptorSetLayouts = {
+      _vkDepthPassGlobalDescriptorSetLayout, _vkEmptyDescriptorSetLayout,
+      _vkEmptyDescriptorSetLayout, _vkEmptyDescriptorSetLayout};
+
+  vkDepthPipelineLayoutCreateInfo.setLayoutCount =
+      depthDescriptorSetLayouts.size();
+  vkDepthPipelineLayoutCreateInfo.pSetLayouts =
+      depthDescriptorSetLayouts.data();
+
+  VkPushConstantRange vkPushConstantRange;
+  vkPushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+  vkPushConstantRange.offset = 0;
+  vkPushConstantRange.size = sizeof(MeshPushConstants);
+  vkDepthPipelineLayoutCreateInfo.pushConstantRangeCount = 1;
+  vkDepthPipelineLayoutCreateInfo.pPushConstantRanges = &vkPushConstantRange;
+
+  VK_CHECK(vkCreatePipelineLayout(_vkDevice, &vkDepthPipelineLayoutCreateInfo,
+                                  nullptr, &_vkDepthPipelineLayout));
+
+  _deletionQueue.pushFunction([this]() {
+    vkDestroyPipelineLayout(_vkDevice, _vkDepthPipelineLayout, nullptr);
+  });
 }
 
 void VulkanRHI::initShadowPassPipeline() {
@@ -635,42 +670,14 @@ void VulkanRHI::initShadowPassPipeline() {
   VertexInputDescription shadowPassVertexInputDescription =
       Vertex::getVertexInputDescription(true, false, false, false);
 
-  VkShaderModule const shaderModule = _shaderModules[_shadowPassShaderId];
-  pipelineBuilder._vkShaderStageCreateInfo.push_back(
+  VkShaderModule const shaderModule = _shaderModules[_depthPassShaderId];
+  pipelineBuilder._vkShaderStageCreateInfos.push_back(
       vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT,
                                             shaderModule));
 
-  pipelineBuilder._vkShaderStageCreateInfo.push_back(
+  pipelineBuilder._vkShaderStageCreateInfos.push_back(
       vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT,
                                             shaderModule));
-
-  VkPipelineLayoutCreateInfo vkDepthPipelineLayoutCreateInfo = {};
-  vkDepthPipelineLayoutCreateInfo.sType =
-      VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-  vkDepthPipelineLayoutCreateInfo.pNext = nullptr;
-
-  std::array<VkDescriptorSetLayout, 4> depthDescriptorSetLayouts = {
-      _vkShadowPassGlobalDescriptorSetLayout, _vkEmptyDescriptorSetLayout,
-      _vkEmptyDescriptorSetLayout, _vkEmptyDescriptorSetLayout};
-
-  vkDepthPipelineLayoutCreateInfo.setLayoutCount =
-      depthDescriptorSetLayouts.size();
-  vkDepthPipelineLayoutCreateInfo.pSetLayouts =
-      depthDescriptorSetLayouts.data();
-
-  VkPushConstantRange vkPushConstantRange;
-  vkPushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-  vkPushConstantRange.offset = 0;
-  vkPushConstantRange.size = sizeof(MeshPushConstants);
-  vkDepthPipelineLayoutCreateInfo.pushConstantRangeCount = 1;
-  vkDepthPipelineLayoutCreateInfo.pPushConstantRanges = &vkPushConstantRange;
-
-  VK_CHECK(vkCreatePipelineLayout(_vkDevice, &vkDepthPipelineLayoutCreateInfo,
-                                  nullptr, &_vkDepthPipelineLayout));
-
-  _deletionQueue.pushFunction([this]() {
-    vkDestroyPipelineLayout(_vkDevice, _vkDepthPipelineLayout, nullptr);
-  });
 
   pipelineBuilder._vkPipelineLayout = _vkDepthPipelineLayout;
 
@@ -680,9 +687,40 @@ void VulkanRHI::initShadowPassPipeline() {
   _deletionQueue.pushFunction([this]() {
     vkDestroyPipeline(_vkDevice, _vkShadowPassPipeline, nullptr);
   });
+}
 
-  pipelineBuilder._vkViewport.width = _windowExtent.width;
-  pipelineBuilder._vkViewport.height = _windowExtent.height;
+void VulkanRHI::initDepthPrepassPipeline() {
+  PipelineBuilder pipelineBuilder;
+
+  pipelineBuilder._vkInputAssemblyCreateInfo =
+      vkinit::inputAssemblyCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+
+  pipelineBuilder._vkDepthStencilStateCreateInfo =
+      vkinit::depthStencilStateCreateInfo(VK_TRUE);
+
+  pipelineBuilder._vkRasterizationCreateInfo =
+      vkinit::rasterizationCreateInfo(VK_POLYGON_MODE_FILL);
+
+  pipelineBuilder._vkMultisampleStateCreateInfo =
+      vkinit::multisampleStateCreateInfo();
+
+  pipelineBuilder._vertexInputAttributeDescription =
+      Vertex::getVertexInputDescription(true, false, false, false);
+
+  pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
+  pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
+
+  VkShaderModule const shaderModule = _shaderModules[_depthPassShaderId];
+  pipelineBuilder._vkShaderStageCreateInfos.push_back(
+      vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT,
+                                            shaderModule));
+
+  pipelineBuilder._vkShaderStageCreateInfos.push_back(
+      vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT,
+                                            shaderModule));
+
+  pipelineBuilder._vkPipelineLayout = _vkDepthPipelineLayout;
+
   _vkDepthPrepassPipeline =
       pipelineBuilder.buildPipeline(_vkDevice, _vkDepthRenderPass);
 
@@ -850,7 +888,8 @@ void VulkanRHI::initDepthPrepassDescriptors() {
                            _descriptorLayoutCache)
       .bindBuffer(0, bufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
                   VK_SHADER_STAGE_VERTEX_BIT)
-      .build(_depthPrepassGlobalDescriptorSet);
+      .build(_depthPrepassGlobalDescriptorSet,
+             _vkDepthPassGlobalDescriptorSetLayout);
 }
 
 void VulkanRHI::initShadowPassDescriptors() {
@@ -863,8 +902,7 @@ void VulkanRHI::initShadowPassDescriptors() {
       .bindBuffer(0, vkCameraDatabufferInfo,
                   VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
                   VK_SHADER_STAGE_VERTEX_BIT)
-      .build(_vkShadowPassGlobalDescriptorSet,
-             _vkShadowPassGlobalDescriptorSetLayout);
+      .build(_vkShadowPassGlobalDescriptorSet);
 }
 
 void VulkanRHI::createDepthImage(AllocatedImage& outImage,
