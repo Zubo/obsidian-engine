@@ -48,6 +48,8 @@ void VulkanRHI::init(rhi::WindowExtentRHI extent,
 
   initDepthPrepassFramebuffers();
 
+  initSsaoFramebuffers();
+
   initSyncStructures();
 
   initDescriptors();
@@ -56,7 +58,7 @@ void VulkanRHI::init(rhi::WindowExtentRHI extent,
 
   initShadowPassDescriptors();
 
-  initSSAOSamplesAndNoise();
+  initSsaoSamplesAndNoise();
 
   initSsaoDescriptors();
 
@@ -362,7 +364,7 @@ void VulkanRHI::initSsaoRenderPass() {
   colorAttachmentDescr.samples = VK_SAMPLE_COUNT_1_BIT;
   colorAttachmentDescr.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
   colorAttachmentDescr.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-  colorAttachmentDescr.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+  colorAttachmentDescr.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
   colorAttachmentDescr.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
   VkAttachmentDescription depthAttachmentDescr = attachmentDescriptions[1];
@@ -548,7 +550,8 @@ void VulkanRHI::initShadowPassFramebuffers() {
 void VulkanRHI::initSsaoFramebuffers() {
   VkExtent3D const extent{_windowExtent.width, _windowExtent.height, 1};
   VkImageCreateInfo const colorImageCreateInfo = vkinit::imageCreateInfo(
-      VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, extent, VK_FORMAT_R32_SFLOAT);
+      VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, extent,
+      VK_FORMAT_R32_SFLOAT);
   VkImageViewCreateInfo colorImageViewCreateInfo = vkinit::imageViewCreateInfo(
       VK_NULL_HANDLE, VK_FORMAT_R32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT);
 
@@ -561,24 +564,26 @@ void VulkanRHI::initSsaoFramebuffers() {
   allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
   allocationCreateInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
-  VkFramebufferCreateInfo frameBufferCreateInfo;
+  VkFramebufferCreateInfo frameBufferCreateInfo = {};
   frameBufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
   frameBufferCreateInfo.pNext = nullptr;
   frameBufferCreateInfo.renderPass = _vkSsaoRenderPass;
-  frameBufferCreateInfo.attachmentCount = 2;
+  frameBufferCreateInfo.width = _windowExtent.width;
+  frameBufferCreateInfo.height = _windowExtent.height;
+  frameBufferCreateInfo.layers = 1;
 
   for (FrameData& frameData : _frameDataArray) {
     VK_CHECK(vmaCreateImage(_vmaAllocator, &colorImageCreateInfo,
                             &allocationCreateInfo,
-                            &frameData.ssaoPassImage.vkImage,
-                            &frameData.ssaoPassImage.allocation, nullptr));
+                            &frameData.ssaoPassColorImage.vkImage,
+                            &frameData.ssaoPassColorImage.allocation, nullptr));
 
     _swapchainDeletionQueue.pushFunction([this, &frameData] {
-      vmaDestroyImage(_vmaAllocator, frameData.ssaoPassImage.vkImage,
-                      frameData.ssaoPassImage.allocation);
+      vmaDestroyImage(_vmaAllocator, frameData.ssaoPassColorImage.vkImage,
+                      frameData.ssaoPassColorImage.allocation);
     });
 
-    colorImageViewCreateInfo.image = frameData.ssaoPassImage.vkImage;
+    colorImageViewCreateInfo.image = frameData.ssaoPassColorImage.vkImage;
     VkImageView& colorAttachmentImageView =
         frameData.ssaoFramebufferImageViews[0];
     vkCreateImageView(_vkDevice, &colorImageViewCreateInfo, nullptr,
@@ -586,10 +591,15 @@ void VulkanRHI::initSsaoFramebuffers() {
 
     VK_CHECK(vmaCreateImage(_vmaAllocator, &depthImageCreateInfo,
                             &allocationCreateInfo,
-                            &frameData.ssaoPassImage.vkImage,
-                            &frameData.ssaoPassImage.allocation, nullptr));
+                            &frameData.ssaoPassDepthImage.vkImage,
+                            &frameData.ssaoPassDepthImage.allocation, nullptr));
 
-    depthImageViewCreateInfo.image = frameData.ssaoPassImage.vkImage;
+    _swapchainDeletionQueue.pushFunction([this, &frameData]() {
+      vmaDestroyImage(_vmaAllocator, frameData.ssaoPassDepthImage.vkImage,
+                      frameData.ssaoPassDepthImage.allocation);
+    });
+
+    depthImageViewCreateInfo.image = frameData.ssaoPassDepthImage.vkImage;
 
     vkCreateImageView(_vkDevice, &depthImageViewCreateInfo, nullptr,
                       &frameData.ssaoFramebufferImageViews[1]);
@@ -599,6 +609,18 @@ void VulkanRHI::initSsaoFramebuffers() {
                          nullptr);
       vkDestroyImageView(_vkDevice, frameData.ssaoFramebufferImageViews[1],
                          nullptr);
+    });
+
+    frameBufferCreateInfo.attachmentCount =
+        frameData.ssaoFramebufferImageViews.size();
+    frameBufferCreateInfo.pAttachments =
+        frameData.ssaoFramebufferImageViews.data();
+
+    VK_CHECK(vkCreateFramebuffer(_vkDevice, &frameBufferCreateInfo, nullptr,
+                                 &frameData.vkSsaoFramebuffer));
+
+    _swapchainDeletionQueue.pushFunction([this, &frameData]() {
+      vkDestroyFramebuffer(_vkDevice, frameData.vkSsaoFramebuffer, nullptr);
     });
   }
 }
@@ -1139,7 +1161,7 @@ void VulkanRHI::createDepthImage(AllocatedImage& outImage,
                  nullptr);
 }
 
-void VulkanRHI::initSSAOSamplesAndNoise() {
+void VulkanRHI::initSsaoSamplesAndNoise() {
   constexpr const std::size_t sampleCount = 64;
   constexpr const std::size_t noiseCount = 16;
 

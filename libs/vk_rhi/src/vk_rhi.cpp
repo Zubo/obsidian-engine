@@ -320,6 +320,7 @@ void VulkanRHI::updateExtent(rhi::WindowExtentRHI newExtent) {
   initDefaultRenderPass();
   initFramebuffers();
   initDepthPrepassFramebuffers();
+  initSsaoFramebuffers();
 }
 
 void VulkanRHI::immediateSubmit(

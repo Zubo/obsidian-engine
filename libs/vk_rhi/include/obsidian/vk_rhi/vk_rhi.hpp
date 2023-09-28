@@ -166,11 +166,19 @@ private:
   void initDepthPrepassDescriptors();
   void initShadowPassDescriptors();
   void initSsaoDescriptors();
-  void initSSAOSamplesAndNoise();
+  void initSsaoSamplesAndNoise();
   void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
   void uploadMesh(Mesh& mesh);
   FrameData& getCurrentFrameData();
+  void uploadCurrentFrameCameraData(std::size_t const frameInd,
+                                    rhi::SceneGlobalParams const& sceneParams);
+  void uploadCurrentFrameSceneData(std::size_t const frameInd,
+                                   rhi::SceneGlobalParams const& sceneParams);
+  void uploadCurrentFrameLightData(std::size_t const frameInd,
+                                   GPULightData const& gpuLightData);
   void drawObjects(VkCommandBuffer cmd, VKDrawCall* first, int count,
+                   std::size_t const frameInd,
+                   VkDescriptorSet drawPassDescriptorSet,
                    rhi::SceneGlobalParams const& sceneParams);
   void drawDepthPass(VkCommandBuffer, VKDrawCall* first, int count,
                      VkPipeline pipeline, VkDescriptorSet globalDescriptorSet,

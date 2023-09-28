@@ -139,7 +139,8 @@ struct FrameData {
   VkImageView vkDepthPrepassImageView;
   VkFramebuffer vkDepthPrepassFramebuffer;
 
-  AllocatedImage ssaoPassImage;
+  AllocatedImage ssaoPassColorImage;
+  AllocatedImage ssaoPassDepthImage;
   VkFramebuffer vkSsaoFramebuffer;
   std::array<VkImageView, 2> ssaoFramebufferImageViews;
   VkDescriptorSet vkSsaoRenderPassDescriptorSet;
