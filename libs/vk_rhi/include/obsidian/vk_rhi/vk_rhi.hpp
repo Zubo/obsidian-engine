@@ -99,8 +99,10 @@ private:
   VkPipelineLayout _vkMeshPipelineLayout;
   VkPipelineLayout _vkLitMeshPipelineLayout;
   VkPipelineLayout _vkDepthPipelineLayout;
+  VkPipelineLayout _vkSsaoPipelineLayout;
   VkPipeline _vkShadowPassPipeline;
   VkPipeline _vkDepthPrepassPipeline;
+  VkPipeline _vkSsaoPipeline;
   DeletionQueue _deletionQueue;
   DeletionQueue _swapchainDeletionQueue;
   VmaAllocator _vmaAllocator;
@@ -113,6 +115,7 @@ private:
   VkDescriptorSetLayout _vkLitMeshRenderPassDescriptorSetLayout;
   VkDescriptorSetLayout _vkEmptyDescriptorSetLayout;
   VkDescriptorSetLayout _vkTexturedMaterialDescriptorSetLayout;
+  VkDescriptorSetLayout _vkSsaoDescriptorSetLayout;
   AllocatedBuffer _sceneDataBuffer;
   AllocatedBuffer _cameraBuffer;
   AllocatedBuffer _shadowPassCameraBuffer;
@@ -127,6 +130,7 @@ private:
   VkSampler _vkAlbedoTextureSampler;
   VkSampler _vkDepthSampler;
   VkExtent2D _windowExtent;
+  VkSampler _ssaoNoiseSampler;
   bool _skipFrame = false;
   rhi::ResourceIdRHI _nextResourceId = 0;
   std::unordered_map<rhi::ResourceIdRHI, Texture> _textures;
@@ -135,6 +139,7 @@ private:
   std::unordered_map<core::MaterialType, PipelineBuilder> _pipelineBuilders;
   std::unordered_map<rhi::ResourceIdRHI, Material> _materials;
   rhi::ResourceIdRHI _depthPassShaderId;
+  rhi::ResourceIdRHI _ssaoShaderId;
   rhi::ResourceIdRHI _emptyFragShaderId;
   std::vector<VKDrawCall> _drawCallQueue;
   std::vector<rhi::DirectionalLight> _submittedDirectionalLights;
@@ -154,11 +159,13 @@ private:
   void initDefaultPipelineAndLayouts();
   void initDepthPassPipelineLayout();
   void initShadowPassPipeline();
+  void initSsaoPipeline();
   void initDepthPrepassPipeline();
   void initScene();
   void initDescriptors();
   void initDepthPrepassDescriptors();
   void initShadowPassDescriptors();
+  void initSsaoDescriptors();
   void initSSAOSamplesAndNoise();
   void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
   void uploadMesh(Mesh& mesh);

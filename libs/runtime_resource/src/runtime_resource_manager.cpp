@@ -25,21 +25,36 @@ void RuntimeResourceManager::init(rhi::RHI& rhi, project::Project& project) {
 void RuntimeResourceManager::uploadInitRHIResources() {
   rhi::InitResourcesRHI initResources;
 
-  asset::Asset shaderAsset;
+  asset::Asset depthShaderAsset;
   asset::loadFromFile(
       _project->getAbsolutePath("obsidian/shaders/depth-only.obsshad"),
-      shaderAsset);
-  asset::ShaderAssetInfo shadowPassShaderAssetInfo;
-  asset::readShaderAssetInfo(shaderAsset, shadowPassShaderAssetInfo);
+      depthShaderAsset);
+  asset::ShaderAssetInfo depthShaderAssetInfo;
+  asset::readShaderAssetInfo(depthShaderAsset, depthShaderAssetInfo);
 
   initResources.shadowPassShader.shaderDataSize =
-      shadowPassShaderAssetInfo.unpackedSize;
+      depthShaderAssetInfo.unpackedSize;
   initResources.shadowPassShader.unpackFunc =
-      [&shaderAsset, &shadowPassShaderAssetInfo](char* dst) {
-        asset::unpackAsset(shadowPassShaderAssetInfo,
-                           shaderAsset.binaryBlob.data(),
-                           shaderAsset.binaryBlob.size(), dst);
+      [&depthShaderAsset, &depthShaderAssetInfo](char* dst) {
+        asset::unpackAsset(depthShaderAssetInfo,
+                           depthShaderAsset.binaryBlob.data(),
+                           depthShaderAsset.binaryBlob.size(), dst);
       };
+
+  asset::Asset ssaoShaderAsset;
+  asset::loadFromFile(
+      _project->getAbsolutePath("obsidian/shaders/ssao.obsshad"),
+      ssaoShaderAsset);
+
+  asset::ShaderAssetInfo ssaoShaderAssetInfo;
+  asset::readShaderAssetInfo(ssaoShaderAsset, ssaoShaderAssetInfo);
+
+  initResources.ssaoShader.shaderDataSize = ssaoShaderAssetInfo.unpackedSize;
+  initResources.ssaoShader.unpackFunc = [&ssaoShaderAsset,
+                                         &ssaoShaderAssetInfo](char* dst) {
+    asset::unpackAsset(ssaoShaderAssetInfo, ssaoShaderAsset.binaryBlob.data(),
+                       ssaoShaderAsset.binaryBlob.size(), dst);
+  };
 
   _rhi->initResources(initResources);
 }

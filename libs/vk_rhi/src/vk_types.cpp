@@ -1,3 +1,4 @@
+#include "obsidian/core/texture_format.hpp"
 #include <obsidian/vk_rhi/vk_types.hpp>
 
 #include <glm/gtx/transform.hpp>
@@ -10,6 +11,8 @@ VkFormat getVkTextureFormat(core::TextureFormat format) {
   switch (format) {
   case core::TextureFormat::R8G8B8A8_SRGB:
     return VK_FORMAT_R8G8B8A8_SRGB;
+  case core::TextureFormat::R32G32_SFLOAT:
+    return VK_FORMAT_R32G32_SFLOAT;
   default:
     return VK_FORMAT_R8G8B8A8_SRGB;
   }

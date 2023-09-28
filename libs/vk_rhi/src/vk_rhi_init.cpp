@@ -1,5 +1,6 @@
 #include "glm/ext/vector_float3.hpp"
 #include "obsidian/rhi/resource_rhi.hpp"
+#include "obsidian/vk_rhi/vk_pipeline_builder.hpp"
 #include <obsidian/core/logging.hpp>
 #include <obsidian/core/material.hpp>
 #include <obsidian/renderdoc/renderdoc.hpp>
@@ -55,11 +56,13 @@ void VulkanRHI::init(rhi::WindowExtentRHI extent,
 
   initShadowPassDescriptors();
 
+  initSSAOSamplesAndNoise();
+
+  initSsaoDescriptors();
+
   initDefaultPipelineAndLayouts();
 
   initDepthPassPipelineLayout();
-
-  initSSAOSamplesAndNoise();
 
   IsInitialized = true;
 }
@@ -68,14 +71,17 @@ void VulkanRHI::initResources(rhi::InitResourcesRHI const& initResources) {
   assert(IsInitialized);
 
   _depthPassShaderId = uploadShader(initResources.shadowPassShader);
+  _ssaoShaderId = uploadShader(initResources.ssaoShader);
 
   _deletionQueue.pushFunction([this]() {
     vkDestroyShaderModule(_vkDevice, _shaderModules[_depthPassShaderId],
                           nullptr);
+    vkDestroyShaderModule(_vkDevice, _shaderModules[_ssaoShaderId], nullptr);
   });
 
   initDepthPrepassPipeline();
   initShadowPassPipeline();
+  initSsaoPipeline();
 }
 
 void VulkanRHI::initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider) {
@@ -448,12 +454,11 @@ void VulkanRHI::initDepthPrepassFramebuffers() {
     depthPassImageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
     depthPassImageViewCreateInfo.subresourceRange.layerCount = 1;
 
-    VkImageView depthPassImageView;
     vkCreateImageView(_vkDevice, &depthPassImageViewCreateInfo, nullptr,
-                      &depthPassImageView);
+                      &frameData.vkDepthPrepassImageView);
 
-    _swapchainDeletionQueue.pushFunction([this, depthPassImageView]() {
-      vkDestroyImageView(_vkDevice, depthPassImageView, nullptr);
+    _swapchainDeletionQueue.pushFunction([this, &frameData]() {
+      vkDestroyImageView(_vkDevice, frameData.vkDepthPrepassImageView, nullptr);
     });
 
     VkFramebufferCreateInfo framebufferCreateInfo = {};
@@ -463,7 +468,7 @@ void VulkanRHI::initDepthPrepassFramebuffers() {
     framebufferCreateInfo.flags = 0;
     framebufferCreateInfo.renderPass = _vkDepthRenderPass;
     framebufferCreateInfo.attachmentCount = 1;
-    framebufferCreateInfo.pAttachments = &depthPassImageView;
+    framebufferCreateInfo.pAttachments = &frameData.vkDepthPrepassImageView;
     framebufferCreateInfo.width = _windowExtent.width;
     framebufferCreateInfo.height = _windowExtent.height;
     framebufferCreateInfo.layers = 1;
@@ -841,6 +846,70 @@ void VulkanRHI::initDepthPrepassPipeline() {
   });
 }
 
+void VulkanRHI::initSsaoPipeline() {
+  PipelineBuilder pipelineBuilder = {};
+
+  VkShaderModule const ssaoShaderModule = _shaderModules[_ssaoShaderId];
+
+  pipelineBuilder._vkShaderStageCreateInfos.reserve(2);
+  pipelineBuilder._vkShaderStageCreateInfos.push_back(
+      vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT,
+                                            ssaoShaderModule));
+  pipelineBuilder._vkShaderStageCreateInfos.push_back(
+      vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT,
+                                            ssaoShaderModule));
+  pipelineBuilder._vkInputAssemblyCreateInfo =
+      vkinit::inputAssemblyCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+  pipelineBuilder._vkDepthStencilStateCreateInfo =
+      vkinit::depthStencilStateCreateInfo(true);
+  pipelineBuilder._vkRasterizationCreateInfo =
+      vkinit::rasterizationCreateInfo(VK_POLYGON_MODE_FILL);
+  pipelineBuilder._vkColorBlendAttachmentState.blendEnable = false;
+  pipelineBuilder._vkColorBlendAttachmentState.colorWriteMask =
+      VK_COLOR_COMPONENT_R_BIT;
+  pipelineBuilder._vkMultisampleStateCreateInfo =
+      vkinit::multisampleStateCreateInfo();
+
+  VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {};
+  pipelineLayoutCreateInfo.sType =
+      VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+  pipelineLayoutCreateInfo.pNext = nullptr;
+
+  std::array<VkDescriptorSetLayout, 4> ssaoDescriptorSetLayouts = {
+      _vkGlobalDescriptorSetLayout, _vkSsaoDescriptorSetLayout,
+      _vkEmptyDescriptorSetLayout, _vkEmptyDescriptorSetLayout};
+
+  pipelineLayoutCreateInfo.setLayoutCount = ssaoDescriptorSetLayouts.size();
+  pipelineLayoutCreateInfo.pSetLayouts = ssaoDescriptorSetLayouts.data();
+
+  VkPushConstantRange pushConstantRange;
+  pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+  pushConstantRange.offset = 0;
+  pushConstantRange.size = getPaddedBufferSize(sizeof(GPUObjectData));
+
+  pipelineLayoutCreateInfo.pushConstantRangeCount = 1;
+  pipelineLayoutCreateInfo.pPushConstantRanges = &pushConstantRange;
+
+  VK_CHECK(vkCreatePipelineLayout(_vkDevice, &pipelineLayoutCreateInfo, nullptr,
+                                  &_vkSsaoPipelineLayout));
+
+  _deletionQueue.pushFunction([this]() {
+    vkDestroyPipelineLayout(_vkDevice, _vkSsaoPipelineLayout, nullptr);
+  });
+
+  pipelineBuilder._vkPipelineLayout = _vkSsaoPipelineLayout;
+  pipelineBuilder._vertexInputAttributeDescription =
+      Vertex::getVertexInputDescription(true, true, false, true);
+
+  pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
+  pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
+
+  _vkSsaoPipeline = pipelineBuilder.buildPipeline(_vkDevice, _vkSsaoRenderPass);
+
+  _deletionQueue.pushFunction(
+      [this]() { vkDestroyPipeline(_vkDevice, _vkSsaoPipeline, nullptr); });
+}
+
 void VulkanRHI::initDescriptors() {
   _descriptorLayoutCache.init(_vkDevice);
   _descriptorAllocator.init(_vkDevice);
@@ -1017,6 +1086,42 @@ void VulkanRHI::initShadowPassDescriptors() {
       .build(_vkShadowPassGlobalDescriptorSet);
 }
 
+void VulkanRHI::initSsaoDescriptors() {
+  for (FrameData& frameData : _frameDataArray) {
+    VkDescriptorBufferInfo samplesDescriptorBufferInfo = {};
+    samplesDescriptorBufferInfo.buffer = _ssaoSamplesBuffer.buffer;
+    samplesDescriptorBufferInfo.offset = 0;
+    samplesDescriptorBufferInfo.range = VK_WHOLE_SIZE;
+
+    VkDescriptorImageInfo noiseDescriptorImageInfo = {};
+    noiseDescriptorImageInfo.imageView =
+        _textures[_ssaoNoiseTextureID].imageView;
+    noiseDescriptorImageInfo.imageLayout =
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    noiseDescriptorImageInfo.sampler = _ssaoNoiseSampler;
+
+    VkDescriptorImageInfo depthDescriptorImageInfo = {};
+    depthDescriptorImageInfo.imageView = frameData.vkDepthPrepassImageView;
+    depthDescriptorImageInfo.imageLayout =
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    depthDescriptorImageInfo.sampler = _vkDepthSampler;
+
+    DescriptorBuilder::begin(_vkDevice, _descriptorAllocator,
+                             _descriptorLayoutCache)
+        .bindBuffer(0, samplesDescriptorBufferInfo,
+                    VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                    VK_SHADER_STAGE_FRAGMENT_BIT)
+        .bindImage(1, noiseDescriptorImageInfo,
+                   VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                   VK_SHADER_STAGE_FRAGMENT_BIT)
+        .bindImage(2, depthDescriptorImageInfo,
+                   VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                   VK_SHADER_STAGE_FRAGMENT_BIT)
+        .build(frameData.vkSsaoRenderPassDescriptorSet,
+               _vkSsaoDescriptorSetLayout);
+  }
+}
+
 void VulkanRHI::createDepthImage(AllocatedImage& outImage,
                                  VkImageUsageFlags flags) const {
   VkExtent3D const depthExtent{_windowExtent.width, _windowExtent.height, 1};
@@ -1039,7 +1144,7 @@ void VulkanRHI::initSSAOSamplesAndNoise() {
   constexpr const std::size_t noiseCount = 16;
 
   _ssaoSamplesBuffer = createBuffer(
-      sampleCount * sizeof(glm::vec3), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+      sampleCount * sizeof(glm::vec4), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
       VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
       VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
 
@@ -1050,12 +1155,12 @@ void VulkanRHI::initSSAOSamplesAndNoise() {
   std::random_device randomDevice;
   std::uniform_real_distribution<float> uniformDistribution{0.0001f, 1.0f};
 
-  glm::vec3* const samples = static_cast<glm::vec3*>(data);
+  glm::vec4* const samples = static_cast<glm::vec4*>(data);
 
   for (std::size_t i = 0; i < sampleCount; ++i) {
     samples[i] = {uniformDistribution(randomDevice) * 2.0f - 1.0f,
                   uniformDistribution(randomDevice) * 2.0 - 1.0f,
-                  uniformDistribution(randomDevice)};
+                  uniformDistribution(randomDevice), 0.0f};
   }
 
   vmaUnmapMemory(_vmaAllocator, _ssaoSamplesBuffer.allocation);
@@ -1090,4 +1195,13 @@ void VulkanRHI::initSSAOSamplesAndNoise() {
   _ssaoNoiseTextureID = uploadTexture(uploadTextureRHI);
 
   _deletionQueue.pushFunction([this]() { unloadTexture(_ssaoNoiseTextureID); });
+
+  VkSamplerCreateInfo samplerCreateInfo = vkinit::samplerCreateInfo(
+      VK_FILTER_NEAREST, VK_SAMPLER_MIPMAP_MODE_NEAREST,
+      VK_SAMPLER_ADDRESS_MODE_REPEAT);
+
+  vkCreateSampler(_vkDevice, &samplerCreateInfo, nullptr, &_ssaoNoiseSampler);
+
+  _deletionQueue.pushFunction(
+      [this]() { vkDestroySampler(_vkDevice, _ssaoNoiseSampler, nullptr); });
 }
