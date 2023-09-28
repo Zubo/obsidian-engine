@@ -92,6 +92,7 @@ private:
   std::uint32_t _graphicsQueueFamilyIndex;
   VkRenderPass _vkDefaultRenderPass;
   VkRenderPass _vkDepthRenderPass;
+  VkRenderPass _vkSsaoRenderPass;
   std::vector<VkFramebuffer> _vkFramebuffers;
   std::array<FrameData, frameOverlap> _frameDataArray;
   std::uint32_t _frameNumber = 0;
@@ -144,9 +145,11 @@ private:
   void initCommands();
   void initDefaultRenderPass();
   void initDepthRenderPass();
+  void initSsaoRenderPass();
   void initFramebuffers();
   void initDepthPrepassFramebuffers();
   void initShadowPassFramebuffers();
+  void initSsaoFramebuffers();
   void initSyncStructures();
   void initDefaultPipelineAndLayouts();
   void initDepthPassPipelineLayout();

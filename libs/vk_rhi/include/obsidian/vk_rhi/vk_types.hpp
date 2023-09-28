@@ -137,6 +137,10 @@ struct FrameData {
 
   AllocatedImage depthPrepassImage;
   VkFramebuffer vkDepthPrepassFramebuffer;
+
+  AllocatedImage ssaoPassImage;
+  VkFramebuffer vkSsaoFramebuffer;
+  std::array<VkImageView, 2> ssaoFramebufferImageViews;
 };
 
 VkFormat getVkTextureFormat(core::TextureFormat format);
