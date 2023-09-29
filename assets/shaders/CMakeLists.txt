@@ -7,6 +7,8 @@ set(SHADER_SRC_FILES
     "built-in/default.vert"
     "built-in/depth-only.vert"
     "built-in/depth-only.frag"
+    "built-in/ssao.vert"
+    "built-in/ssao.frag"
 )
 
 set(SHADER_OUTPUT_DIR "${CMAKE_BINARY_DIR}/shaders")
@@ -27,10 +29,10 @@ foreach(SHADER_SRC ${SHADER_SRC_FILES})
     )
 endforeach()
 
-add_custom_target(ShadersSPIRV ALL
-    python3 ${PROJECT_SOURCE_DIR}/scripts/compile_shaders.py -o ${CMAKE_BINARY_DIR}/shaders
+add_custom_command(
+    OUTPUT ${SHADER_OUTPUT_LIST}
+    COMMAND python3 ${PROJECT_SOURCE_DIR}/scripts/compile_shaders.py -o ${CMAKE_BINARY_DIR}/shaders
     DEPENDS ${SHADER_INPUT_LIST}
-    BYPRODUCTS ${SHADER_OUTPUT_LIST}
 )
 
 add_custom_target(ShaderAssets ALL
@@ -38,5 +40,5 @@ add_custom_target(ShaderAssets ALL
     DEPENDS ${SHADER_OUTPUT_LIST}
 )
 
-add_dependencies(ShaderAssets ObsidianAssetConverterTool ShadersSPIRV)
+add_dependencies(ShaderAssets ObsidianAssetConverterTool)
 add_dependencies(GeneratedAssets ShaderAssets)
