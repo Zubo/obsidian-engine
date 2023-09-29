@@ -691,7 +691,7 @@ void VulkanRHI::initDefaultPipelineAndLayouts() {
 
   std::array<VkDescriptorSetLayout, 4> const meshDescriptorSetLayouts = {
       _vkGlobalDescriptorSetLayout, _vkLitMeshRenderPassDescriptorSetLayout,
-      _vkTexturedMaterialDescriptorSetLayout, _vkObjectDataDescriptorSetLayout};
+      _vkTexturedMaterialDescriptorSetLayout, _vkEmptyDescriptorSetLayout};
 
   meshPipelineLayoutInfo.setLayoutCount = meshDescriptorSetLayouts.size();
   meshPipelineLayoutInfo.pSetLayouts = meshDescriptorSetLayouts.data();
@@ -725,7 +725,7 @@ void VulkanRHI::initDefaultPipelineAndLayouts() {
       _vkGlobalDescriptorSetLayout,
       _vkLitMeshRenderPassDescriptorSetLayout,
       _vkTexturedMaterialDescriptorSetLayout,
-      _vkObjectDataDescriptorSetLayout,
+      _vkEmptyDescriptorSetLayout,
   };
 
   litMeshPipelineLayoutCreateInfo.pSetLayouts = vkLitMeshPipelineLayouts.data();
@@ -754,7 +754,7 @@ void VulkanRHI::initDepthPassPipelineLayout() {
   vkDepthPipelineLayoutCreateInfo.pNext = nullptr;
 
   std::array<VkDescriptorSetLayout, 4> depthDescriptorSetLayouts = {
-      _vkDepthPassGlobalDescriptorSetLayout, _vkEmptyDescriptorSetLayout,
+      _vkGlobalDescriptorSetLayout, _vkDetphPassDescriptorSetLayout,
       _vkEmptyDescriptorSetLayout, _vkEmptyDescriptorSetLayout};
 
   vkDepthPipelineLayoutCreateInfo.setLayoutCount =
@@ -1059,11 +1059,6 @@ void VulkanRHI::initDescriptors() {
                     VK_SHADER_STAGE_FRAGMENT_BIT)
         .build(frameData.vkDefaultRenderPassDescriptorSet,
                _vkLitMeshRenderPassDescriptorSetLayout);
-
-    DescriptorBuilder::begin(_vkDevice, _descriptorAllocator,
-                             _descriptorLayoutCache)
-        .build(frameData.vkObjectDataDescriptorSet,
-               _vkObjectDataDescriptorSetLayout);
   }
 
   VkDescriptorSetLayoutBinding albedoTexBinding = {};
@@ -1091,8 +1086,7 @@ void VulkanRHI::initDepthPrepassDescriptors() {
                            _descriptorLayoutCache)
       .bindBuffer(0, bufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
                   VK_SHADER_STAGE_VERTEX_BIT)
-      .build(_depthPrepassGlobalDescriptorSet,
-             _vkDepthPassGlobalDescriptorSetLayout);
+      .build(_depthPrepassDescriptorSet, _vkDetphPassDescriptorSetLayout);
 }
 
 void VulkanRHI::initShadowPassDescriptors() {
@@ -1105,7 +1099,7 @@ void VulkanRHI::initShadowPassDescriptors() {
       .bindBuffer(0, vkCameraDatabufferInfo,
                   VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
                   VK_SHADER_STAGE_VERTEX_BIT)
-      .build(_vkShadowPassGlobalDescriptorSet);
+      .build(_vkShadowPassDescriptorSet);
 }
 
 void VulkanRHI::initSsaoDescriptors() {

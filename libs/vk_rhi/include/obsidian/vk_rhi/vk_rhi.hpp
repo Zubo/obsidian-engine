@@ -21,7 +21,6 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
-#include <vulkan/vulkan_core.h>
 
 namespace obsidian::vk_rhi {
 
@@ -111,8 +110,7 @@ private:
   DescriptorLayoutCache _descriptorLayoutCache;
   DescriptorAllocator _descriptorAllocator;
   VkDescriptorSetLayout _vkGlobalDescriptorSetLayout;
-  VkDescriptorSetLayout _vkObjectDataDescriptorSetLayout;
-  VkDescriptorSetLayout _vkDepthPassGlobalDescriptorSetLayout;
+  VkDescriptorSetLayout _vkDetphPassDescriptorSetLayout;
   VkDescriptorSetLayout _vkLitMeshRenderPassDescriptorSetLayout;
   VkDescriptorSetLayout _vkEmptyDescriptorSetLayout;
   VkDescriptorSetLayout _vkTexturedMaterialDescriptorSetLayout;
@@ -124,9 +122,9 @@ private:
   AllocatedBuffer _ssaoSamplesBuffer;
   rhi::ResourceIdRHI _ssaoNoiseTextureID;
   VkDescriptorSet _vkGlobalDescriptorSet;
-  VkDescriptorSet _vkShadowPassGlobalDescriptorSet;
+  VkDescriptorSet _vkShadowPassDescriptorSet;
   VkDescriptorSet _emptyDescriptorSet;
-  VkDescriptorSet _depthPrepassGlobalDescriptorSet;
+  VkDescriptorSet _depthPrepassDescriptorSet;
   ImmediateSubmitContext _immediateSubmitContext;
   VkSampler _vkAlbedoTextureSampler;
   VkSampler _vkDepthSampler;
@@ -174,17 +172,18 @@ private:
   template <typename T>
   void uploadBufferData(std::size_t const index, T const& value,
                         AllocatedBuffer const& buffer);
-  void drawObjects(VkCommandBuffer cmd, VKDrawCall* first, int count,
-                   std::size_t const frameInd,
-                   VkDescriptorSet drawPassDescriptorSet,
-                   rhi::SceneGlobalParams const& sceneParams);
-  void drawDepthPass(VkCommandBuffer, VKDrawCall* first, int count,
-                     VkPipeline pipeline, VkDescriptorSet globalDescriptorSet,
-                     std::size_t cameraDataInd,
-                     std::optional<VkViewport> dynamicViewport = std::nullopt,
-                     std::optional<VkRect2D> dynamicScissor = std::nullopt);
-  void drawSsao(VkCommandBuffer cmd, VKDrawCall* first, int count,
-                std::size_t frameInd);
+  void drawWithMaterials(VkCommandBuffer cmd, VKDrawCall* first, int count,
+                         std::vector<std::uint32_t> const& dynamicOffsets,
+                         VkDescriptorSet drawPassDescriptorSet,
+                         std::optional<VkViewport> dynamicViewport,
+                         std::optional<VkRect2D> dynamicScissor);
+  void
+  drawPassNoMaterials(VkCommandBuffer, VKDrawCall* first, int count,
+                      VkPipeline pipeline,
+                      std::vector<std::uint32_t> const& dynamicOffsets,
+                      VkDescriptorSet passDescriptorSet,
+                      std::optional<VkViewport> dynamicViewport = std::nullopt,
+                      std::optional<VkRect2D> dynamicScissor = std::nullopt);
   Mesh* getMesh(std::string const& name);
   AllocatedBuffer
   createBuffer(std::size_t bufferSize, VkBufferUsageFlags usage,

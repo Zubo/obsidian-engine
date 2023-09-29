@@ -87,9 +87,15 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   scissor.extent = _windowExtent;
 
   uploadBufferData(frameInd, sceneCameraData, _cameraBuffer);
-  drawDepthPass(cmd, _drawCallQueue.data(), _drawCallQueue.size(),
-                _vkDepthPrepassPipeline, _depthPrepassGlobalDescriptorSet,
-                frameInd, viewport, scissor);
+
+  std::vector<std::uint32_t> const depthPassDynamicOffsets = {
+      0, 0,
+      static_cast<std::uint32_t>(frameInd *
+                                 getPaddedBufferSize(sizeof(GPUCameraData)))};
+
+  drawPassNoMaterials(cmd, _drawCallQueue.data(), _drawCallQueue.size(),
+                      _vkDepthPrepassPipeline, depthPassDynamicOffsets,
+                      _depthPrepassDescriptorSet, viewport, scissor);
 
   vkCmdEndRenderPass(cmd);
 
@@ -134,7 +140,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   vkCmdSetViewport(cmd, 0, 1, &viewport);
   vkCmdSetScissor(cmd, 0, 1, &scissor);
 
-  drawSsao(cmd, _drawCallQueue.data(), _drawCallQueue.size(), frameInd);
+  // draw ssao
 
   vkCmdEndRenderPass(cmd);
 
@@ -158,9 +164,15 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
 
     uploadBufferData(cameraBufferInd, shadowPass.gpuCameraData,
                      _shadowPassCameraBuffer);
-    drawDepthPass(cmd, _drawCallQueue.data(), _drawCallQueue.size(),
-                  _vkShadowPassPipeline, _vkShadowPassGlobalDescriptorSet,
-                  cameraBufferInd);
+
+    std::vector<std::uint32_t> const dynamicOffsets = {
+        0, 0,
+        static_cast<std::uint32_t>(cameraBufferInd *
+                                   getPaddedBufferSize(sizeof(GPUCameraData)))};
+
+    drawPassNoMaterials(cmd, _drawCallQueue.data(), _drawCallQueue.size(),
+                        _vkShadowPassPipeline, dynamicOffsets,
+                        _vkShadowPassDescriptorSet);
 
     vkCmdEndRenderPass(cmd);
   }
@@ -200,8 +212,17 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
 
   vkCmdBeginRenderPass(cmd, &vkRenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-  drawObjects(cmd, _drawCallQueue.data(), _drawCallQueue.size(), frameInd,
-              currentFrameData.vkDefaultRenderPassDescriptorSet, sceneParams);
+  std::vector<std::uint32_t> const defaultDynamicOffsets{
+      static_cast<std::uint32_t>(frameInd *
+                                 getPaddedBufferSize(sizeof(GPUCameraData))),
+      static_cast<std::uint32_t>(frameInd *
+                                 getPaddedBufferSize(sizeof(GPUSceneData))),
+      static_cast<std::uint32_t>(frameInd *
+                                 getPaddedBufferSize(sizeof(GPULightData)))};
+
+  drawWithMaterials(
+      cmd, _drawCallQueue.data(), _drawCallQueue.size(), defaultDynamicOffsets,
+      currentFrameData.vkDefaultRenderPassDescriptorSet, viewport, scissor);
 
   vkCmdEndRenderPass(cmd);
   VK_CHECK(vkEndCommandBuffer(cmd));
@@ -266,13 +287,13 @@ void VulkanRHI::uploadBufferData(std::size_t const index, T const& value,
   vmaUnmapMemory(_vmaAllocator, buffer.allocation);
 }
 
-void VulkanRHI::drawObjects(VkCommandBuffer cmd, VKDrawCall* first, int count,
-                            std::size_t const frameInd,
-                            VkDescriptorSet drawPassDescriptorSet,
-                            rhi::SceneGlobalParams const& sceneParams) {
+void VulkanRHI::drawWithMaterials(
+    VkCommandBuffer cmd, VKDrawCall* first, int count,
+    std::vector<std::uint32_t> const& dynamicOffsets,
+    VkDescriptorSet drawPassDescriptorSet,
+    std::optional<VkViewport> dynamicViewport,
+    std::optional<VkRect2D> dynamicScissor) {
   ZoneScoped;
-
-  FrameData& currentFrameData = _frameDataArray[frameInd];
 
   Material const* lastMaterial;
   for (int i = 0; i < count; ++i) {
@@ -288,37 +309,22 @@ void VulkanRHI::drawObjects(VkCommandBuffer cmd, VKDrawCall* first, int count,
     constexpr VkPipelineBindPoint pipelineBindPoint =
         VK_PIPELINE_BIND_POINT_GRAPHICS;
 
-    VkViewport viewport;
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width = _windowExtent.width;
-    viewport.height = _windowExtent.height;
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-
-    VkRect2D scissor;
-    scissor.offset = {0, 0};
-    scissor.extent = _windowExtent;
-
     if (&material != lastMaterial) {
-      std::array<std::uint32_t, 3> const offsets{
-          static_cast<std::uint32_t>(
-              frameInd * getPaddedBufferSize(sizeof(GPUCameraData))),
-          static_cast<std::uint32_t>(frameInd *
-                                     getPaddedBufferSize(sizeof(GPUSceneData))),
-          static_cast<std::uint32_t>(
-              frameInd * getPaddedBufferSize(sizeof(GPULightData)))};
       vkCmdBindPipeline(cmd, pipelineBindPoint, material.vkPipeline);
 
-      vkCmdSetViewport(cmd, 0, 1, &viewport);
-      vkCmdSetScissor(cmd, 0, 1, &scissor);
+      if (dynamicViewport) {
+        vkCmdSetViewport(cmd, 0, 1, &dynamicViewport.value());
+      }
+
+      if (dynamicScissor)
+        vkCmdSetScissor(cmd, 0, 1, &dynamicScissor.value());
 
       std::array<VkDescriptorSet, 4> const descriptorSets{
           _vkGlobalDescriptorSet, drawPassDescriptorSet,
-          material.vkDescriptorSet, currentFrameData.vkObjectDataDescriptorSet};
+          material.vkDescriptorSet, _emptyDescriptorSet};
       vkCmdBindDescriptorSets(cmd, pipelineBindPoint, _vkLitMeshPipelineLayout,
                               0, descriptorSets.size(), descriptorSets.data(),
-                              offsets.size(), offsets.data());
+                              dynamicOffsets.size(), dynamicOffsets.data());
     }
 
     VkDeviceSize const bufferOffset = 0;
@@ -331,18 +337,18 @@ void VulkanRHI::drawObjects(VkCommandBuffer cmd, VKDrawCall* first, int count,
   }
 }
 
-void VulkanRHI::drawDepthPass(VkCommandBuffer cmd, VKDrawCall* first, int count,
-                              VkPipeline pipeline,
-                              VkDescriptorSet globalDescriptorSet,
-                              std::size_t cameraDataInd,
-                              std::optional<VkViewport> dynamicViewport,
-                              std::optional<VkRect2D> dynamicScissor) {
+void VulkanRHI::drawPassNoMaterials(
+    VkCommandBuffer cmd, VKDrawCall* first, int count, VkPipeline pipeline,
+    std::vector<std::uint32_t> const& dynamicOffsets,
+    VkDescriptorSet passDescriptorSet,
+    std::optional<VkViewport> dynamicViewport,
+    std::optional<VkRect2D> dynamicScissor) {
   ZoneScoped;
 
-  std::uint32_t const gpuCameraDataDynamicOffset =
-      cameraDataInd * getPaddedBufferSize(sizeof(GPUCameraData));
+  constexpr VkPipelineBindPoint pipelineBindPoint =
+      VK_PIPELINE_BIND_POINT_GRAPHICS;
 
-  vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+  vkCmdBindPipeline(cmd, pipelineBindPoint, pipeline);
 
   if (dynamicViewport) {
     vkCmdSetViewport(cmd, 0, 1, &dynamicViewport.value());
@@ -353,13 +359,13 @@ void VulkanRHI::drawDepthPass(VkCommandBuffer cmd, VKDrawCall* first, int count,
   }
 
   std::array<VkDescriptorSet, 4> shadowPassDescriptorSets = {
-      globalDescriptorSet, _emptyDescriptorSet, _emptyDescriptorSet,
+      _vkGlobalDescriptorSet, passDescriptorSet, _emptyDescriptorSet,
       _emptyDescriptorSet};
 
-  vkCmdBindDescriptorSets(
-      cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _vkDepthPipelineLayout, 0,
-      shadowPassDescriptorSets.size(), shadowPassDescriptorSets.data(), 1,
-      &gpuCameraDataDynamicOffset);
+  vkCmdBindDescriptorSets(cmd, pipelineBindPoint, _vkDepthPipelineLayout, 0,
+                          shadowPassDescriptorSets.size(),
+                          shadowPassDescriptorSets.data(),
+                          dynamicOffsets.size(), dynamicOffsets.data());
 
   for (std::size_t i = 0; i < count; ++i) {
     VKDrawCall& drawCall = first[i];
@@ -375,9 +381,4 @@ void VulkanRHI::drawDepthPass(VkCommandBuffer cmd, VKDrawCall* first, int count,
                        &drawCall.model);
     vkCmdDrawIndexed(cmd, mesh.indexCount, 1, 0, 0, 0);
   }
-}
-
-void VulkanRHI::drawSsao(VkCommandBuffer cmd, VKDrawCall* first, int count,
-                         std::size_t frameInd) {
-  ZoneScoped;
 }
