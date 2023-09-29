@@ -173,13 +173,14 @@ private:
   void uploadBufferData(std::size_t const index, T const& value,
                         AllocatedBuffer const& buffer);
   void drawWithMaterials(VkCommandBuffer cmd, VKDrawCall* first, int count,
+                         VkPipelineLayout pipelineLayout,
                          std::vector<std::uint32_t> const& dynamicOffsets,
                          VkDescriptorSet drawPassDescriptorSet,
                          std::optional<VkViewport> dynamicViewport,
                          std::optional<VkRect2D> dynamicScissor);
   void
   drawPassNoMaterials(VkCommandBuffer, VKDrawCall* first, int count,
-                      VkPipeline pipeline,
+                      VkPipeline pipeline, VkPipelineLayout pipelineLayout,
                       std::vector<std::uint32_t> const& dynamicOffsets,
                       VkDescriptorSet passDescriptorSet,
                       std::optional<VkViewport> dynamicViewport = std::nullopt,

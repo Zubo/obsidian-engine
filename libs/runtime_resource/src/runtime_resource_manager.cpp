@@ -27,7 +27,7 @@ void RuntimeResourceManager::uploadInitRHIResources() {
 
   asset::Asset depthShaderAsset;
   asset::loadFromFile(
-      _project->getAbsolutePath("obsidian/shaders/depth-only.obsshad"),
+      _project->getAbsolutePath("obsidian/shaders/depth-only-dbg.obsshad"),
       depthShaderAsset);
   asset::ShaderAssetInfo depthShaderAssetInfo;
   asset::readShaderAssetInfo(depthShaderAsset, depthShaderAssetInfo);
@@ -43,7 +43,7 @@ void RuntimeResourceManager::uploadInitRHIResources() {
 
   asset::Asset ssaoShaderAsset;
   asset::loadFromFile(
-      _project->getAbsolutePath("obsidian/shaders/ssao.obsshad"),
+      _project->getAbsolutePath("obsidian/shaders/ssao-dbg.obsshad"),
       ssaoShaderAsset);
 
   asset::ShaderAssetInfo ssaoShaderAssetInfo;

@@ -94,8 +94,9 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
                                  getPaddedBufferSize(sizeof(GPUCameraData)))};
 
   drawPassNoMaterials(cmd, _drawCallQueue.data(), _drawCallQueue.size(),
-                      _vkDepthPrepassPipeline, depthPassDynamicOffsets,
-                      _depthPrepassDescriptorSet, viewport, scissor);
+                      _vkDepthPrepassPipeline, _vkDepthPipelineLayout,
+                      depthPassDynamicOffsets, _depthPrepassDescriptorSet,
+                      viewport, scissor);
 
   vkCmdEndRenderPass(cmd);
 
@@ -130,7 +131,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   ssaoRenderPassBeginInfo.renderArea.extent = _windowExtent;
   std::array<VkClearValue, 2> ssaoClearValues = {};
   ssaoClearValues[0].color.float32[0] = 0.0f;
-  ssaoClearValues[1].depthStencil.depth = 0.0f;
+  ssaoClearValues[1].depthStencil.depth = 1.0f;
   ssaoRenderPassBeginInfo.clearValueCount = ssaoClearValues.size();
   ssaoRenderPassBeginInfo.pClearValues = ssaoClearValues.data();
 
@@ -140,7 +141,15 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   vkCmdSetViewport(cmd, 0, 1, &viewport);
   vkCmdSetScissor(cmd, 0, 1, &scissor);
 
-  // draw ssao
+  std::vector<std::uint32_t> const ssaoDynamicOffsets{
+      static_cast<std::uint32_t>(frameInd *
+                                 getPaddedBufferSize(sizeof(GPUCameraData))),
+      static_cast<std::uint32_t>(frameInd *
+                                 getPaddedBufferSize(sizeof(GPUSceneData)))};
+  drawPassNoMaterials(
+      cmd, _drawCallQueue.data(), _drawCallQueue.size(), _vkSsaoPipeline,
+      _vkSsaoPipelineLayout, ssaoDynamicOffsets,
+      currentFrameData.vkSsaoRenderPassDescriptorSet, viewport, scissor);
 
   vkCmdEndRenderPass(cmd);
 
@@ -171,8 +180,8 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
                                    getPaddedBufferSize(sizeof(GPUCameraData)))};
 
     drawPassNoMaterials(cmd, _drawCallQueue.data(), _drawCallQueue.size(),
-                        _vkShadowPassPipeline, dynamicOffsets,
-                        _vkShadowPassDescriptorSet);
+                        _vkShadowPassPipeline, _vkDepthPipelineLayout,
+                        dynamicOffsets, _vkShadowPassDescriptorSet);
 
     vkCmdEndRenderPass(cmd);
   }
@@ -220,9 +229,10 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
       static_cast<std::uint32_t>(frameInd *
                                  getPaddedBufferSize(sizeof(GPULightData)))};
 
-  drawWithMaterials(
-      cmd, _drawCallQueue.data(), _drawCallQueue.size(), defaultDynamicOffsets,
-      currentFrameData.vkDefaultRenderPassDescriptorSet, viewport, scissor);
+  drawWithMaterials(cmd, _drawCallQueue.data(), _drawCallQueue.size(),
+                    _vkLitMeshPipelineLayout, defaultDynamicOffsets,
+                    currentFrameData.vkDefaultRenderPassDescriptorSet, viewport,
+                    scissor);
 
   vkCmdEndRenderPass(cmd);
   VK_CHECK(vkEndCommandBuffer(cmd));
@@ -289,6 +299,7 @@ void VulkanRHI::uploadBufferData(std::size_t const index, T const& value,
 
 void VulkanRHI::drawWithMaterials(
     VkCommandBuffer cmd, VKDrawCall* first, int count,
+    VkPipelineLayout pipelineLayout,
     std::vector<std::uint32_t> const& dynamicOffsets,
     VkDescriptorSet drawPassDescriptorSet,
     std::optional<VkViewport> dynamicViewport,
@@ -322,8 +333,8 @@ void VulkanRHI::drawWithMaterials(
       std::array<VkDescriptorSet, 4> const descriptorSets{
           _vkGlobalDescriptorSet, drawPassDescriptorSet,
           material.vkDescriptorSet, _emptyDescriptorSet};
-      vkCmdBindDescriptorSets(cmd, pipelineBindPoint, _vkLitMeshPipelineLayout,
-                              0, descriptorSets.size(), descriptorSets.data(),
+      vkCmdBindDescriptorSets(cmd, pipelineBindPoint, pipelineLayout, 0,
+                              descriptorSets.size(), descriptorSets.data(),
                               dynamicOffsets.size(), dynamicOffsets.data());
     }
 
@@ -339,6 +350,7 @@ void VulkanRHI::drawWithMaterials(
 
 void VulkanRHI::drawPassNoMaterials(
     VkCommandBuffer cmd, VKDrawCall* first, int count, VkPipeline pipeline,
+    VkPipelineLayout pipelineLayout,
     std::vector<std::uint32_t> const& dynamicOffsets,
     VkDescriptorSet passDescriptorSet,
     std::optional<VkViewport> dynamicViewport,
@@ -358,13 +370,12 @@ void VulkanRHI::drawPassNoMaterials(
     vkCmdSetScissor(cmd, 0, 1, &dynamicScissor.value());
   }
 
-  std::array<VkDescriptorSet, 4> shadowPassDescriptorSets = {
+  std::array<VkDescriptorSet, 4> descriptorSets = {
       _vkGlobalDescriptorSet, passDescriptorSet, _emptyDescriptorSet,
       _emptyDescriptorSet};
 
-  vkCmdBindDescriptorSets(cmd, pipelineBindPoint, _vkDepthPipelineLayout, 0,
-                          shadowPassDescriptorSets.size(),
-                          shadowPassDescriptorSets.data(),
+  vkCmdBindDescriptorSets(cmd, pipelineBindPoint, pipelineLayout, 0,
+                          descriptorSets.size(), descriptorSets.data(),
                           dynamicOffsets.size(), dynamicOffsets.data());
 
   for (std::size_t i = 0; i < count; ++i) {
@@ -376,9 +387,8 @@ void VulkanRHI::drawPassNoMaterials(
     VkDeviceSize const bufferOffset = 0;
     vkCmdBindVertexBuffers(cmd, 0, 1, &mesh.vertexBuffer.buffer, &bufferOffset);
     vkCmdBindIndexBuffer(cmd, mesh.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
-    vkCmdPushConstants(cmd, drawCall.material->vkPipelineLayout,
-                       VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants),
-                       &drawCall.model);
+    vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0,
+                       sizeof(MeshPushConstants), &drawCall.model);
     vkCmdDrawIndexed(cmd, mesh.indexCount, 1, 0, 0, 0);
   }
 }

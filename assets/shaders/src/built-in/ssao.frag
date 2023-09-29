@@ -21,28 +21,29 @@ layout(set = 1, binding = 1) uniform sampler2D noise;
 layout(set = 1, binding = 2) uniform sampler2D depth;
 
 void main() {
-  const vec3 sampledNoise = vec3(texture(noise, inUV).xy, 0.0f);
+  const vec3 sampledNoise = vec3(texture(noise, inUV * 800.0f).xy, 0.0f);
   const vec3 normal = normalize(inNormal);
-  const vec3 tangent = normalize(sampledNoise - dot(sampledNoise, normal));
-  const vec3 bitangent = cross(normal, tangent);
+  const vec3 tangent =
+      normalize(sampledNoise - normal * dot(sampledNoise, normal));
+  const vec3 bitangent = normalize(cross(normal, tangent));
 
   const mat3x3 TBN = mat3x3(tangent, bitangent, normal);
 
-  const float currentDepth = gl_FragCoord.z / gl_FragCoord.w;
+  const float currentDepth = gl_FragCoord.z;
+  const float offsetRadius = 3.0f;
 
   float occlusionFactor = 0.0f;
 
   for (int i = 0; i < 64; ++i) {
     const vec3 offsetTangentSpace = SsaoSamples.values[i].xyz;
     const vec3 offsetWorldSpace = TBN * offsetTangentSpace;
-    const vec3 sampleWorldPos = offsetWorldSpace + inWorldPos;
+    const vec3 sampleWorldPos = offsetRadius * offsetWorldSpace + inWorldPos;
     const vec4 samplePosClipSpace =
         cameraData.viewProj * vec4(sampleWorldPos, 1.0f);
     const vec3 samplePosNDC = samplePosClipSpace.xyz / samplePosClipSpace.w;
+    const float sampleDepth = texture(depth, (samplePosNDC.xy * 0.5f + 0.5f)).r;
 
-    if (samplePosNDC.z > currentDepth) {
-      occlusionFactor += samplePosNDC.z - currentDepth;
-    }
+    occlusionFactor += (sampleDepth >= samplePosNDC.z + 0.001f) ? 1.0f : 0.0f;
   }
 
   outFragColor = occlusionFactor;
