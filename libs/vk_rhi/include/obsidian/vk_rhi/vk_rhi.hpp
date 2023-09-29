@@ -21,6 +21,7 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <vulkan/vulkan_core.h>
 
 namespace obsidian::vk_rhi {
 
@@ -170,22 +171,20 @@ private:
   void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
   void uploadMesh(Mesh& mesh);
   FrameData& getCurrentFrameData();
-  void uploadCurrentFrameCameraData(std::size_t const frameInd,
-                                    rhi::SceneGlobalParams const& sceneParams);
-  void uploadCurrentFrameSceneData(std::size_t const frameInd,
-                                   rhi::SceneGlobalParams const& sceneParams);
-  void uploadCurrentFrameLightData(std::size_t const frameInd,
-                                   GPULightData const& gpuLightData);
+  template <typename T>
+  void uploadBufferData(std::size_t const index, T const& value,
+                        AllocatedBuffer const& buffer);
   void drawObjects(VkCommandBuffer cmd, VKDrawCall* first, int count,
                    std::size_t const frameInd,
                    VkDescriptorSet drawPassDescriptorSet,
                    rhi::SceneGlobalParams const& sceneParams);
   void drawDepthPass(VkCommandBuffer, VKDrawCall* first, int count,
                      VkPipeline pipeline, VkDescriptorSet globalDescriptorSet,
-                     AllocatedBuffer const& cameraBuffer,
-                     std::size_t cameraDataInd, GPUCameraData const& cameraData,
+                     std::size_t cameraDataInd,
                      std::optional<VkViewport> dynamicViewport = std::nullopt,
                      std::optional<VkRect2D> dynamicScissor = std::nullopt);
+  void drawSsao(VkCommandBuffer cmd, VKDrawCall* first, int count,
+                std::size_t frameInd);
   Mesh* getMesh(std::string const& name);
   AllocatedBuffer
   createBuffer(std::size_t bufferSize, VkBufferUsageFlags usage,
