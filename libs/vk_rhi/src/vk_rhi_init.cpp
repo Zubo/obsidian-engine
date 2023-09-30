@@ -19,6 +19,7 @@
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
 
+#include <cmath>
 #include <numeric>
 
 using namespace obsidian::vk_rhi;
@@ -1174,9 +1175,11 @@ void VulkanRHI::initSsaoSamplesAndNoise() {
   glm::vec4* const samples = static_cast<glm::vec4*>(data);
 
   for (std::size_t i = 0; i < sampleCount; ++i) {
-    samples[i] = {uniformDistribution(randomDevice) * 2.0f - 1.0f,
-                  uniformDistribution(randomDevice) * 2.0 - 1.0f,
-                  uniformDistribution(randomDevice), 0.0f};
+    float scale = static_cast<float>(i) / sampleCount;
+    scale = std::lerp(0.1f, 1.0f, scale * scale);
+    samples[i] = {scale * (uniformDistribution(randomDevice) * 2.0f - 1.0f),
+                  scale * (uniformDistribution(randomDevice) * 2.0 - 1.0f),
+                  scale * uniformDistribution(randomDevice), 0.0f};
   }
 
   vmaUnmapMemory(_vmaAllocator, _ssaoSamplesBuffer.allocation);

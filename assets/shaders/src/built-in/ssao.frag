@@ -29,8 +29,7 @@ void main() {
 
   const mat3x3 TBN = mat3x3(tangent, bitangent, normal);
 
-  const float currentDepth = gl_FragCoord.z;
-  const float offsetRadius = 3.0f;
+  const float offsetRadius = 5.0f;
 
   float occlusionFactor = 0.0f;
 
@@ -43,7 +42,7 @@ void main() {
     const vec3 samplePosNDC = samplePosClipSpace.xyz / samplePosClipSpace.w;
     const float sampleDepth = texture(depth, (samplePosNDC.xy * 0.5f + 0.5f)).r;
 
-    occlusionFactor += (sampleDepth >= samplePosNDC.z + 0.001f) ? 1.0f : 0.0f;
+    occlusionFactor += (sampleDepth >= samplePosNDC.z + 0.00001f) ? 1.0f : 0.0f;
   }
 
   outFragColor = occlusionFactor;
