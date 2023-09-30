@@ -41,6 +41,7 @@ struct UploadMaterialRHI {
 struct InitResourcesRHI {
   rhi::UploadShaderRHI shadowPassShader;
   rhi::UploadShaderRHI ssaoShader;
+  rhi::UploadShaderRHI postProcessingShader;
 };
 
 } /*namespace obsidian::rhi*/

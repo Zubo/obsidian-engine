@@ -269,7 +269,7 @@ bool convertObjToAsset(fs::path const& srcPath, fs::path const& dstPath) {
     return false;
   }
   return saveAsset(srcPath, dstPath, meshAsset);
-} // namespace obsidian::asset_converter
+}
 
 bool convertSpirvToAsset(fs::path const& srcPath, fs::path const& dstPath) {
   std::ifstream file{srcPath, std::ios::ate | std::ios::binary};

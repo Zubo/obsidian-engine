@@ -21,6 +21,7 @@
 
 #include <cmath>
 #include <numeric>
+#include <vulkan/vulkan_core.h>
 
 using namespace obsidian::vk_rhi;
 
@@ -75,11 +76,14 @@ void VulkanRHI::initResources(rhi::InitResourcesRHI const& initResources) {
 
   _depthPassShaderId = uploadShader(initResources.shadowPassShader);
   _ssaoShaderId = uploadShader(initResources.ssaoShader);
+  _postProcessingShaderId = uploadShader(initResources.postProcessingShader);
 
   _deletionQueue.pushFunction([this]() {
     vkDestroyShaderModule(_vkDevice, _shaderModules[_depthPassShaderId],
                           nullptr);
     vkDestroyShaderModule(_vkDevice, _shaderModules[_ssaoShaderId], nullptr);
+    vkDestroyShaderModule(_vkDevice, _shaderModules[_postProcessingShaderId],
+                          nullptr);
   });
 
   initDepthPrepassPipeline();

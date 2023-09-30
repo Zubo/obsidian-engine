@@ -139,6 +139,7 @@ private:
   std::unordered_map<rhi::ResourceIdRHI, Material> _materials;
   rhi::ResourceIdRHI _depthPassShaderId;
   rhi::ResourceIdRHI _ssaoShaderId;
+  rhi::ResourceIdRHI _postProcessingShaderId;
   rhi::ResourceIdRHI _emptyFragShaderId;
   std::vector<VKDrawCall> _drawCallQueue;
   std::vector<rhi::DirectionalLight> _submittedDirectionalLights;

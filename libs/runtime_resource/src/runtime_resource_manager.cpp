@@ -26,11 +26,16 @@ void RuntimeResourceManager::uploadInitRHIResources() {
   rhi::InitResourcesRHI initResources;
 
   asset::Asset depthShaderAsset;
-  asset::loadFromFile(
+  bool result = asset::loadFromFile(
       _project->getAbsolutePath("obsidian/shaders/depth-only-dbg.obsshad"),
       depthShaderAsset);
+
+  assert(result && "Depth only shader asset failed to load");
+
   asset::ShaderAssetInfo depthShaderAssetInfo;
-  asset::readShaderAssetInfo(depthShaderAsset, depthShaderAssetInfo);
+  result = asset::readShaderAssetInfo(depthShaderAsset, depthShaderAssetInfo);
+
+  assert(result && "Depth only shader asset info failed to load");
 
   initResources.shadowPassShader.shaderDataSize =
       depthShaderAssetInfo.unpackedSize;
@@ -42,12 +47,16 @@ void RuntimeResourceManager::uploadInitRHIResources() {
       };
 
   asset::Asset ssaoShaderAsset;
-  asset::loadFromFile(
+  result = asset::loadFromFile(
       _project->getAbsolutePath("obsidian/shaders/ssao-dbg.obsshad"),
       ssaoShaderAsset);
 
+  assert(result && "Ssao shader asset failed to load");
+
   asset::ShaderAssetInfo ssaoShaderAssetInfo;
-  asset::readShaderAssetInfo(ssaoShaderAsset, ssaoShaderAssetInfo);
+  result = asset::readShaderAssetInfo(ssaoShaderAsset, ssaoShaderAssetInfo);
+
+  assert(result && "Ssao shader asset info failed to load");
 
   initResources.ssaoShader.shaderDataSize = ssaoShaderAssetInfo.unpackedSize;
   initResources.ssaoShader.unpackFunc = [&ssaoShaderAsset,
@@ -55,6 +64,28 @@ void RuntimeResourceManager::uploadInitRHIResources() {
     asset::unpackAsset(ssaoShaderAssetInfo, ssaoShaderAsset.binaryBlob.data(),
                        ssaoShaderAsset.binaryBlob.size(), dst);
   };
+
+  asset::Asset postProcessingShaderAsset;
+  result = asset::loadFromFile(
+      _project->getAbsolutePath("obsidian/shaders/post-processing-dbg.obsshad"),
+      postProcessingShaderAsset);
+
+  assert(result && "Post processing shader asset failed to load");
+
+  asset::ShaderAssetInfo postProcessingShaderAssetInfo;
+  result = asset::readShaderAssetInfo(postProcessingShaderAsset,
+                                      postProcessingShaderAssetInfo);
+
+  assert(result && "Post processing shader asset info failed to load");
+
+  initResources.postProcessingShader.shaderDataSize =
+      postProcessingShaderAssetInfo.unpackedSize;
+  initResources.postProcessingShader.unpackFunc =
+      [&postProcessingShaderAsset, &postProcessingShaderAssetInfo](char* dst) {
+        asset::unpackAsset(postProcessingShaderAssetInfo,
+                           postProcessingShaderAsset.binaryBlob.data(),
+                           postProcessingShaderAsset.binaryBlob.size(), dst);
+      };
 
   _rhi->initResources(initResources);
 }

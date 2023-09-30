@@ -9,6 +9,8 @@ set(SHADER_SRC_FILES
     "built-in/depth-only.frag"
     "built-in/ssao.vert"
     "built-in/ssao.frag"
+    "built-in/post-processing.vert"
+    "built-in/post-processing.frag"
 )
 
 set(SHADER_OUTPUT_DIR "${CMAKE_BINARY_DIR}/shaders")
