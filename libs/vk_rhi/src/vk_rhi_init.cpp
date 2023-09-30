@@ -21,7 +21,6 @@
 
 #include <cmath>
 #include <numeric>
-#include <vulkan/vulkan_core.h>
 
 using namespace obsidian::vk_rhi;
 
@@ -53,6 +52,8 @@ void VulkanRHI::init(rhi::WindowExtentRHI extent,
   initDepthPrepassFramebuffers();
 
   initSsaoFramebuffers();
+
+  initSsaoPostProcessingFramebuffers();
 
   initSyncStructures();
 
@@ -664,6 +665,65 @@ void VulkanRHI::initSsaoFramebuffers() {
 
     _swapchainDeletionQueue.pushFunction([this, &frameData]() {
       vkDestroyFramebuffer(_vkDevice, frameData.vkSsaoFramebuffer, nullptr);
+    });
+  }
+}
+
+void VulkanRHI::initSsaoPostProcessingFramebuffers() {
+  VkFramebufferCreateInfo framebufferCreateInfo = {};
+  framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+  framebufferCreateInfo.pNext = nullptr;
+
+  framebufferCreateInfo.renderPass = _vkPostProcessingRenderPass;
+  framebufferCreateInfo.attachmentCount = 1;
+  framebufferCreateInfo.width = _windowExtent.width;
+  framebufferCreateInfo.height = _windowExtent.height;
+  framebufferCreateInfo.layers = 1;
+
+  VkExtent3D const extent{_windowExtent.width, _windowExtent.height, 1};
+
+  VmaAllocationCreateInfo allocationCreateInfo = {};
+  allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+  allocationCreateInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+  VkImageCreateInfo colorImageCreateInfo = vkinit::imageCreateInfo(
+      VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, extent,
+      _ssaoFormat);
+
+  VkImageViewCreateInfo colorImageViewCreateInfo = vkinit::imageViewCreateInfo(
+      VK_NULL_HANDLE, _ssaoFormat, VK_IMAGE_ASPECT_COLOR_BIT);
+
+  for (FrameData& frameData : _frameDataArray) {
+    VK_CHECK(vmaCreateImage(
+        _vmaAllocator, &colorImageCreateInfo, &allocationCreateInfo,
+        &frameData.ssaoPostProcessingColorImage.vkImage,
+        &frameData.ssaoPostProcessingColorImage.allocation, nullptr));
+
+    _swapchainDeletionQueue.pushFunction([this, &frameData] {
+      vmaDestroyImage(_vmaAllocator,
+                      frameData.ssaoPostProcessingColorImage.vkImage,
+                      frameData.ssaoPostProcessingColorImage.allocation);
+    });
+
+    colorImageViewCreateInfo.image =
+        frameData.ssaoPostProcessingColorImage.vkImage;
+    VK_CHECK(vkCreateImageView(_vkDevice, &colorImageViewCreateInfo, nullptr,
+                               &frameData.ssaoPostProcessingColorImageView));
+
+    _swapchainDeletionQueue.pushFunction([this, &frameData] {
+      vkDestroyImageView(_vkDevice, frameData.ssaoPostProcessingColorImageView,
+                         nullptr);
+    });
+
+    framebufferCreateInfo.pAttachments =
+        &frameData.ssaoPostProcessingColorImageView;
+
+    VK_CHECK(vkCreateFramebuffer(_vkDevice, &framebufferCreateInfo, nullptr,
+                                 &frameData.vkSsaoPostProcessingFramebuffer));
+
+    _swapchainDeletionQueue.pushFunction([this, &frameData]() {
+      vkDestroyFramebuffer(_vkDevice, frameData.vkSsaoPostProcessingFramebuffer,
+                           nullptr);
     });
   }
 }

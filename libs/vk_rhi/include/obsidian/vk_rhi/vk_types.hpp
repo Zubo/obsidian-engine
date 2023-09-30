@@ -143,6 +143,11 @@ struct FrameData {
   VkFramebuffer vkSsaoFramebuffer;
   std::array<VkImageView, 2> ssaoFramebufferImageViews;
   VkDescriptorSet vkSsaoRenderPassDescriptorSet;
+
+  AllocatedImage ssaoPostProcessingColorImage;
+  VkImageView ssaoPostProcessingColorImageView;
+  VkFramebuffer vkSsaoPostProcessingFramebuffer;
+  VkDescriptorSet vkSsaoPostProcessingDescriptorSet;
 };
 
 VkFormat getVkTextureFormat(core::TextureFormat format);

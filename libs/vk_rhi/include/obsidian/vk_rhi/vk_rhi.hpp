@@ -158,6 +158,7 @@ private:
   void initDepthPrepassFramebuffers();
   void initShadowPassFramebuffers();
   void initSsaoFramebuffers();
+  void initSsaoPostProcessingFramebuffers();
   void initSyncStructures();
   void initDefaultPipelineAndLayouts();
   void initDepthPassPipelineLayout();
