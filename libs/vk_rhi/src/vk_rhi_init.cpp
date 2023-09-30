@@ -44,6 +44,8 @@ void VulkanRHI::init(rhi::WindowExtentRHI extent,
 
   initSsaoRenderPass();
 
+  initPostProcessingRenderPass();
+
   initFramebuffers();
 
   initShadowPassFramebuffers();
@@ -365,7 +367,7 @@ void VulkanRHI::initSsaoRenderPass() {
 
   std::array<VkAttachmentDescription, 2> attachmentDescriptions;
   VkAttachmentDescription& colorAttachmentDescr = attachmentDescriptions[0];
-  colorAttachmentDescr.format = VK_FORMAT_R32_SFLOAT;
+  colorAttachmentDescr.format = _ssaoFormat;
   colorAttachmentDescr.samples = VK_SAMPLE_COUNT_1_BIT;
   colorAttachmentDescr.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
   colorAttachmentDescr.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -407,6 +409,42 @@ void VulkanRHI::initSsaoRenderPass() {
 
   _deletionQueue.pushFunction(
       [this]() { vkDestroyRenderPass(_vkDevice, _vkSsaoRenderPass, nullptr); });
+}
+
+void VulkanRHI::initPostProcessingRenderPass() {
+  VkRenderPassCreateInfo renderPassCreateInfo = {};
+  renderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+  renderPassCreateInfo.pNext = nullptr;
+
+  VkAttachmentDescription colorAttachment = {};
+  colorAttachment.format = _ssaoFormat;
+  colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+  colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+  colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+  colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+  colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+  renderPassCreateInfo.attachmentCount = 1;
+  renderPassCreateInfo.pAttachments = &colorAttachment;
+
+  VkAttachmentReference colorAttachmentRef = {};
+  colorAttachmentRef.attachment = 0;
+  colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+  VkSubpassDescription subpassDescription = {};
+  subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+  subpassDescription.colorAttachmentCount = 1;
+  subpassDescription.pColorAttachments = &colorAttachmentRef;
+
+  renderPassCreateInfo.subpassCount = 1;
+  renderPassCreateInfo.pSubpasses = &subpassDescription;
+
+  VK_CHECK(vkCreateRenderPass(_vkDevice, &renderPassCreateInfo, nullptr,
+                              &_vkPostProcessingRenderPass));
+
+  _deletionQueue.pushFunction([this]() {
+    vkDestroyRenderPass(_vkDevice, _vkPostProcessingRenderPass, nullptr);
+  });
 }
 
 void VulkanRHI::initFramebuffers() {
@@ -556,9 +594,9 @@ void VulkanRHI::initSsaoFramebuffers() {
   VkExtent3D const extent{_windowExtent.width, _windowExtent.height, 1};
   VkImageCreateInfo const colorImageCreateInfo = vkinit::imageCreateInfo(
       VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, extent,
-      VK_FORMAT_R32_SFLOAT);
+      _ssaoFormat);
   VkImageViewCreateInfo colorImageViewCreateInfo = vkinit::imageViewCreateInfo(
-      VK_NULL_HANDLE, VK_FORMAT_R32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT);
+      VK_NULL_HANDLE, _ssaoFormat, VK_IMAGE_ASPECT_COLOR_BIT);
 
   VkImageCreateInfo const depthImageCreateInfo = vkinit::imageCreateInfo(
       VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, extent, _depthFormat);

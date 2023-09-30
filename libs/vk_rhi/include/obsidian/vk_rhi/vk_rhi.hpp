@@ -93,6 +93,7 @@ private:
   VkRenderPass _vkDefaultRenderPass;
   VkRenderPass _vkDepthRenderPass;
   VkRenderPass _vkSsaoRenderPass;
+  VkRenderPass _vkPostProcessingRenderPass;
   std::vector<VkFramebuffer> _vkFramebuffers;
   std::array<FrameData, frameOverlap> _frameDataArray;
   std::uint32_t _frameNumber = 0;
@@ -107,6 +108,7 @@ private:
   DeletionQueue _swapchainDeletionQueue;
   VmaAllocator _vmaAllocator;
   VkFormat _depthFormat = VK_FORMAT_D32_SFLOAT;
+  VkFormat _ssaoFormat = VK_FORMAT_R32_SFLOAT;
   DescriptorLayoutCache _descriptorLayoutCache;
   DescriptorAllocator _descriptorAllocator;
   VkDescriptorSetLayout _vkGlobalDescriptorSetLayout;
@@ -151,6 +153,7 @@ private:
   void initDefaultRenderPass();
   void initDepthRenderPass();
   void initSsaoRenderPass();
+  void initPostProcessingRenderPass();
   void initFramebuffers();
   void initDepthPrepassFramebuffers();
   void initShadowPassFramebuffers();
