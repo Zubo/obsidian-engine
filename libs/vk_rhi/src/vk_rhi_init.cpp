@@ -45,6 +45,8 @@ void VulkanRHI::init(rhi::WindowExtentRHI extent,
 
   initPostProcessingRenderPass();
 
+  initPostProcessingSampler();
+
   initFramebuffers();
 
   initShadowPassFramebuffers();
@@ -66,6 +68,8 @@ void VulkanRHI::init(rhi::WindowExtentRHI extent,
   initSsaoSamplesAndNoise();
 
   initSsaoDescriptors();
+
+  initSsaoPostProcessingDescriptors();
 
   initDefaultPipelineAndLayouts();
 
@@ -1325,4 +1329,38 @@ void VulkanRHI::initSsaoSamplesAndNoise() {
 
   _deletionQueue.pushFunction(
       [this]() { vkDestroySampler(_vkDevice, _ssaoNoiseSampler, nullptr); });
+}
+
+void VulkanRHI::initPostProcessingSampler() {
+  VkSamplerCreateInfo samplerCreateInfo = vkinit::samplerCreateInfo(
+      VK_FILTER_NEAREST, VK_SAMPLER_MIPMAP_MODE_NEAREST,
+      VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
+
+  VK_CHECK(vkCreateSampler(_vkDevice, &samplerCreateInfo, nullptr,
+                           &_postProcessingImageSampler));
+
+  _deletionQueue.pushFunction([this]() {
+    vkDestroySampler(_vkDevice, _postProcessingImageSampler, nullptr);
+  });
+}
+
+void VulkanRHI::initSsaoPostProcessingDescriptors() {
+  VkDescriptorImageInfo ssaoResultDescriptorImageInfo = {};
+  ssaoResultDescriptorImageInfo.sampler = _postProcessingImageSampler;
+  ssaoResultDescriptorImageInfo.imageLayout =
+      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+  for (FrameData& frameData : _frameDataArray) {
+    ssaoResultDescriptorImageInfo.imageView =
+        frameData
+            .ssaoFramebufferImageViews[0]; // ssao color attachment image view
+
+    DescriptorBuilder::begin(_vkDevice, _descriptorAllocator,
+                             _descriptorLayoutCache)
+        .bindImage(0, ssaoResultDescriptorImageInfo,
+                   VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                   VK_SHADER_STAGE_FRAGMENT_BIT)
+        .build(frameData.vkSsaoPostProcessingDescriptorSet,
+               _vkSsaoPostProcessingDescriptorSetLayout);
+  }
 }

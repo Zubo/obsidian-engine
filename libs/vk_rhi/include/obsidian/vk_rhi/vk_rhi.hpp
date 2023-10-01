@@ -117,6 +117,7 @@ private:
   VkDescriptorSetLayout _vkEmptyDescriptorSetLayout;
   VkDescriptorSetLayout _vkTexturedMaterialDescriptorSetLayout;
   VkDescriptorSetLayout _vkSsaoDescriptorSetLayout;
+  VkDescriptorSetLayout _vkSsaoPostProcessingDescriptorSetLayout;
   AllocatedBuffer _sceneDataBuffer;
   AllocatedBuffer _cameraBuffer;
   AllocatedBuffer _shadowPassCameraBuffer;
@@ -132,6 +133,7 @@ private:
   VkSampler _vkDepthSampler;
   VkExtent2D _windowExtent;
   VkSampler _ssaoNoiseSampler;
+  VkSampler _postProcessingImageSampler;
   bool _skipFrame = false;
   rhi::ResourceIdRHI _nextResourceId = 0;
   std::unordered_map<rhi::ResourceIdRHI, Texture> _textures;
@@ -171,6 +173,8 @@ private:
   void initShadowPassDescriptors();
   void initSsaoDescriptors();
   void initSsaoSamplesAndNoise();
+  void initPostProcessingSampler();
+  void initSsaoPostProcessingDescriptors();
   void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
   void uploadMesh(Mesh& mesh);
   FrameData& getCurrentFrameData();
