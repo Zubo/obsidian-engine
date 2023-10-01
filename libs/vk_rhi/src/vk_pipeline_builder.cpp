@@ -9,14 +9,14 @@ VkPipeline PipelineBuilder::buildPipeline(VkDevice device, VkRenderPass pass) {
   VkPipelineVertexInputStateCreateInfo vkVertexInputInfo =
       vkinit::vertexInputStateCreateInfo();
   vkVertexInputInfo.vertexBindingDescriptionCount =
-      _vertexInputAttributeDescription.bindings.size();
+      _vertexInputDescription.bindings.size();
   vkVertexInputInfo.pVertexBindingDescriptions =
-      _vertexInputAttributeDescription.bindings.data();
+      _vertexInputDescription.bindings.data();
 
   vkVertexInputInfo.vertexAttributeDescriptionCount =
-      _vertexInputAttributeDescription.attributes.size();
+      _vertexInputDescription.attributes.size();
   vkVertexInputInfo.pVertexAttributeDescriptions =
-      _vertexInputAttributeDescription.attributes.data();
+      _vertexInputDescription.attributes.data();
 
   VkPipelineViewportStateCreateInfo viewportStateCreateInfo = {};
   viewportStateCreateInfo.sType =

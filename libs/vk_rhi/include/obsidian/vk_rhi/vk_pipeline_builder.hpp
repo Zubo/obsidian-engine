@@ -19,7 +19,7 @@ public:
   VkPipelineColorBlendAttachmentState _vkColorBlendAttachmentState;
   VkPipelineMultisampleStateCreateInfo _vkMultisampleStateCreateInfo;
   VkPipelineLayout _vkPipelineLayout;
-  VertexInputDescription _vertexInputAttributeDescription;
+  VertexInputDescription _vertexInputDescription;
   std::vector<VkDynamicState> _vkDynamicStates;
 
   VkPipeline buildPipeline(VkDevice device, VkRenderPass pass);

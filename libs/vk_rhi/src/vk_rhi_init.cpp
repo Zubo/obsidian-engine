@@ -1,3 +1,4 @@
+#include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "obsidian/rhi/resource_rhi.hpp"
 #include "obsidian/vk_rhi/vk_pipeline_builder.hpp"
@@ -96,6 +97,7 @@ void VulkanRHI::initResources(rhi::InitResourcesRHI const& initResources) {
   initDepthPrepassPipeline();
   initShadowPassPipeline();
   initSsaoPipeline();
+  initSsaoPostProcessingPipeline();
 }
 
 void VulkanRHI::initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider) {
@@ -790,8 +792,7 @@ void VulkanRHI::initDefaultPipelineAndLayouts() {
   pipelineBuilder._vkMultisampleStateCreateInfo =
       vkinit::multisampleStateCreateInfo();
 
-  pipelineBuilder._vertexInputAttributeDescription =
-      Vertex::getVertexInputDescription();
+  pipelineBuilder._vertexInputDescription = Vertex::getVertexInputDescription();
 
   VkPipelineLayoutCreateInfo meshPipelineLayoutInfo =
       vkinit::pipelineLayoutCreateInfo();
@@ -899,7 +900,7 @@ void VulkanRHI::initShadowPassPipeline() {
   pipelineBuilder._vkMultisampleStateCreateInfo =
       vkinit::multisampleStateCreateInfo();
 
-  pipelineBuilder._vertexInputAttributeDescription =
+  pipelineBuilder._vertexInputDescription =
       Vertex::getVertexInputDescription(true, false, false, false);
 
   pipelineBuilder._vkViewport.x = 0.f;
@@ -950,7 +951,7 @@ void VulkanRHI::initDepthPrepassPipeline() {
   pipelineBuilder._vkMultisampleStateCreateInfo =
       vkinit::multisampleStateCreateInfo();
 
-  pipelineBuilder._vertexInputAttributeDescription =
+  pipelineBuilder._vertexInputDescription =
       Vertex::getVertexInputDescription(true, false, false, false);
 
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
@@ -1027,7 +1028,7 @@ void VulkanRHI::initSsaoPipeline() {
   });
 
   pipelineBuilder._vkPipelineLayout = _vkSsaoPipelineLayout;
-  pipelineBuilder._vertexInputAttributeDescription =
+  pipelineBuilder._vertexInputDescription =
       Vertex::getVertexInputDescription(true, true, false, true);
 
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
@@ -1037,6 +1038,86 @@ void VulkanRHI::initSsaoPipeline() {
 
   _deletionQueue.pushFunction(
       [this]() { vkDestroyPipeline(_vkDevice, _vkSsaoPipeline, nullptr); });
+}
+
+void VulkanRHI::initSsaoPostProcessingPipeline() {
+  PipelineBuilder pipelineBuilder = {};
+
+  pipelineBuilder._vkShaderStageCreateInfos.push_back(
+      vkinit::pipelineShaderStageCreateInfo(
+          VK_SHADER_STAGE_VERTEX_BIT, _shaderModules[_postProcessingShaderId]));
+  pipelineBuilder._vkShaderStageCreateInfos.push_back(
+      vkinit::pipelineShaderStageCreateInfo(
+          VK_SHADER_STAGE_FRAGMENT_BIT,
+          _shaderModules[_postProcessingShaderId]));
+
+  pipelineBuilder._vkInputAssemblyCreateInfo =
+      vkinit::inputAssemblyCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+
+  pipelineBuilder._vkDepthStencilStateCreateInfo =
+      vkinit::depthStencilStateCreateInfo(false);
+
+  pipelineBuilder._vkRasterizationCreateInfo =
+      vkinit::rasterizationCreateInfo(VK_POLYGON_MODE_FILL);
+
+  pipelineBuilder._vkColorBlendAttachmentState = {};
+  pipelineBuilder._vkColorBlendAttachmentState.blendEnable = VK_FALSE;
+  pipelineBuilder._vkColorBlendAttachmentState.colorWriteMask =
+      VK_COLOR_COMPONENT_R_BIT;
+
+  pipelineBuilder._vkMultisampleStateCreateInfo =
+      vkinit::multisampleStateCreateInfo();
+
+  VkPipelineLayoutCreateInfo layoutCreateInfo =
+      vkinit::pipelineLayoutCreateInfo();
+
+  std::array<VkDescriptorSetLayout, 4> descriptorSetLayouts = {
+      _vkEmptyDescriptorSetLayout, _vkSsaoPostProcessingDescriptorSetLayout,
+      _vkEmptyDescriptorSetLayout, _vkEmptyDescriptorSetLayout};
+  layoutCreateInfo.setLayoutCount = descriptorSetLayouts.size();
+  layoutCreateInfo.pSetLayouts = descriptorSetLayouts.data();
+
+  VkPushConstantRange pushConstantRange;
+  pushConstantRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+  pushConstantRange.offset = 0;
+  pushConstantRange.size =
+      getPaddedBufferSize(sizeof(PostProcessingpushConstants));
+
+  layoutCreateInfo.pushConstantRangeCount = 1;
+  layoutCreateInfo.pPushConstantRanges = &pushConstantRange;
+
+  VK_CHECK(vkCreatePipelineLayout(_vkDevice, &layoutCreateInfo, nullptr,
+                                  &_vkSsaoPostProcessingPipelineLayout));
+
+  _deletionQueue.pushFunction([this]() {
+    vkDestroyPipelineLayout(_vkDevice, _vkSsaoPostProcessingPipelineLayout,
+                            nullptr);
+  });
+
+  pipelineBuilder._vkPipelineLayout = _vkSsaoPostProcessingPipelineLayout;
+
+  VkVertexInputBindingDescription& bindingDescr =
+      pipelineBuilder._vertexInputDescription.bindings.emplace_back();
+  bindingDescr.binding = 0;
+  bindingDescr.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+  bindingDescr.stride = sizeof(glm::vec2);
+
+  VkVertexInputAttributeDescription& attrDescr =
+      pipelineBuilder._vertexInputDescription.attributes.emplace_back();
+  attrDescr.location = 0;
+  attrDescr.binding = 0;
+  attrDescr.format = VK_FORMAT_R32G32_SFLOAT;
+  attrDescr.offset = 0;
+
+  pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
+  pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
+
+  _vkSsaoPostProcessingPipeline =
+      pipelineBuilder.buildPipeline(_vkDevice, _vkPostProcessingRenderPass);
+
+  _deletionQueue.pushFunction([this]() {
+    vkDestroyPipeline(_vkDevice, _vkSsaoPostProcessingPipeline, nullptr);
+  });
 }
 
 void VulkanRHI::initDescriptors() {

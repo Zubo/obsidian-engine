@@ -43,6 +43,10 @@ struct MeshPushConstants {
   glm::mat4 modelMatrix;
 };
 
+struct PostProcessingpushConstants {
+  glm::mat3 kernel;
+};
+
 struct GPUCameraData {
   glm::mat4 view;
   glm::mat4 proj;

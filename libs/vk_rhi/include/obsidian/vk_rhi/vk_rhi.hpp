@@ -101,9 +101,11 @@ private:
   VkPipelineLayout _vkLitMeshPipelineLayout;
   VkPipelineLayout _vkDepthPipelineLayout;
   VkPipelineLayout _vkSsaoPipelineLayout;
+  VkPipelineLayout _vkSsaoPostProcessingPipelineLayout;
   VkPipeline _vkShadowPassPipeline;
   VkPipeline _vkDepthPrepassPipeline;
   VkPipeline _vkSsaoPipeline;
+  VkPipeline _vkSsaoPostProcessingPipeline;
   DeletionQueue _deletionQueue;
   DeletionQueue _swapchainDeletionQueue;
   VmaAllocator _vmaAllocator;
@@ -167,7 +169,7 @@ private:
   void initShadowPassPipeline();
   void initSsaoPipeline();
   void initDepthPrepassPipeline();
-  void initScene();
+  void initSsaoPostProcessingPipeline();
   void initDescriptors();
   void initDepthPrepassDescriptors();
   void initShadowPassDescriptors();
