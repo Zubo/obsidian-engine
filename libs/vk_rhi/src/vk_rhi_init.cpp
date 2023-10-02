@@ -1,27 +1,26 @@
-#include "glm/ext/vector_float2.hpp"
-#include "glm/ext/vector_float3.hpp"
-#include "obsidian/rhi/resource_rhi.hpp"
-#include "obsidian/vk_rhi/vk_pipeline_builder.hpp"
 #include <obsidian/core/logging.hpp>
 #include <obsidian/core/material.hpp>
 #include <obsidian/renderdoc/renderdoc.hpp>
+#include <obsidian/rhi/resource_rhi.hpp>
 #include <obsidian/rhi/rhi.hpp>
 #include <obsidian/vk_rhi/vk_check.hpp>
 #include <obsidian/vk_rhi/vk_descriptors.hpp>
 #include <obsidian/vk_rhi/vk_initializers.hpp>
 #include <obsidian/vk_rhi/vk_mesh.hpp>
+#include <obsidian/vk_rhi/vk_pipeline_builder.hpp>
 #include <obsidian/vk_rhi/vk_rhi.hpp>
 #include <obsidian/vk_rhi/vk_types.hpp>
 
 #include <VkBootstrap.h>
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
-#include <random>
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
 
 #include <cmath>
+#include <cstring>
 #include <numeric>
+#include <random>
 
 using namespace obsidian::vk_rhi;
 
@@ -45,6 +44,8 @@ void VulkanRHI::init(rhi::WindowExtentRHI extent,
   initSsaoRenderPass();
 
   initPostProcessingRenderPass();
+
+  initPostProcessingQuad();
 
   initPostProcessingSampler();
 
@@ -379,7 +380,7 @@ void VulkanRHI::initSsaoRenderPass() {
   colorAttachmentDescr.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
   colorAttachmentDescr.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
   colorAttachmentDescr.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-  colorAttachmentDescr.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  colorAttachmentDescr.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
   VkAttachmentDescription depthAttachmentDescr = attachmentDescriptions[1];
   depthAttachmentDescr.format = _depthFormat;
@@ -1444,4 +1445,28 @@ void VulkanRHI::initSsaoPostProcessingDescriptors() {
         .build(frameData.vkSsaoPostProcessingDescriptorSet,
                _vkSsaoPostProcessingDescriptorSetLayout);
   }
+}
+
+void VulkanRHI::initPostProcessingQuad() {
+  const glm::vec2 quadVertices[6] = {{-1.0f, -1.0f}, {-1.0f, 1.0f},
+                                     {1.0f, -1.0f},  {1.0f, -1.0f},
+                                     {-1.0f, 1.0f},  {1.0f, 1.0f}};
+
+  _postProcessingQuadBuffer =
+      createBuffer(sizeof(quadVertices), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                   VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+                   VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+
+  _deletionQueue.pushFunction([this]() {
+    vmaDestroyBuffer(_vmaAllocator, _postProcessingQuadBuffer.buffer,
+                     _postProcessingQuadBuffer.allocation);
+  });
+
+  void* data;
+  vmaMapMemory(_vmaAllocator, _postProcessingQuadBuffer.allocation, &data);
+
+  std::memcpy(data, reinterpret_cast<char const*>(quadVertices),
+              sizeof(quadVertices));
+
+  vmaUnmapMemory(_vmaAllocator, _postProcessingQuadBuffer.allocation);
 }

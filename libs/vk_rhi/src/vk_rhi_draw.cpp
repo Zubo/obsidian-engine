@@ -153,6 +153,59 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
 
   vkCmdEndRenderPass(cmd);
 
+  VkImageMemoryBarrier ssaoImageMemoryBarrier = {};
+  ssaoImageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+  ssaoImageMemoryBarrier.pNext = nullptr;
+
+  ssaoImageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+  ssaoImageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  ssaoImageMemoryBarrier.image = currentFrameData.ssaoPassColorImage.vkImage;
+  ssaoImageMemoryBarrier.subresourceRange.aspectMask =
+      VK_IMAGE_ASPECT_COLOR_BIT;
+  ssaoImageMemoryBarrier.subresourceRange.baseMipLevel = 0;
+  ssaoImageMemoryBarrier.subresourceRange.levelCount = 1;
+  ssaoImageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
+  ssaoImageMemoryBarrier.subresourceRange.layerCount = 1;
+
+  vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                       VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0,
+                       nullptr, 1, &ssaoImageMemoryBarrier);
+
+  // Ssao post processing
+  VkRenderPassBeginInfo ssaoPostProcessingRenderPassBeginInfo = {};
+  ssaoPostProcessingRenderPassBeginInfo.sType =
+      VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+  ssaoPostProcessingRenderPassBeginInfo.pNext = nullptr;
+
+  ssaoPostProcessingRenderPassBeginInfo.renderPass =
+      _vkPostProcessingRenderPass;
+  ssaoPostProcessingRenderPassBeginInfo.framebuffer =
+      currentFrameData.vkSsaoPostProcessingFramebuffer;
+  ssaoPostProcessingRenderPassBeginInfo.renderArea.offset = {0, 0};
+  ssaoPostProcessingRenderPassBeginInfo.renderArea.extent = _windowExtent;
+
+  VkClearValue ssaoPostProcessingClearColorValue;
+  ssaoPostProcessingClearColorValue.color.float32[0] = 0.0f;
+  ssaoPostProcessingRenderPassBeginInfo.clearValueCount = 1;
+  ssaoPostProcessingRenderPassBeginInfo.pClearValues =
+      &ssaoPostProcessingClearColorValue;
+
+  vkCmdBeginRenderPass(cmd, &ssaoPostProcessingRenderPassBeginInfo,
+                       VK_SUBPASS_CONTENTS_INLINE);
+
+  glm::mat3x3 kernel;
+  for (std::size_t i = 0; i < 3; ++i) {
+    for (std::size_t j = 0; j < 3; ++j) {
+      kernel[i][j] = 1.0f / 9.0f;
+    }
+  }
+
+  drawPostProcessing(
+      cmd, kernel, currentFrameData.vkSsaoPostProcessingFramebuffer,
+      currentFrameData.vkSsaoPostProcessingDescriptorSet, viewport, scissor);
+
+  vkCmdEndRenderPass(cmd);
+
   // Shadow passes:
   std::vector<ShadowPassParams> submittedParams =
       getSubmittedShadowPassParams();
@@ -391,4 +444,42 @@ void VulkanRHI::drawPassNoMaterials(
                        sizeof(MeshPushConstants), &drawCall.model);
     vkCmdDrawIndexed(cmd, mesh.indexCount, 1, 0, 0, 0);
   }
+}
+
+void VulkanRHI::drawPostProcessing(VkCommandBuffer cmd,
+                                   glm::mat3x3 const& kernel,
+                                   VkFramebuffer frameBuffer,
+                                   VkDescriptorSet passDescriptorSet,
+                                   std::optional<VkViewport> dynamicViewport,
+                                   std::optional<VkRect2D> dynamicScissor) {
+  vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                    _vkSsaoPostProcessingPipeline);
+
+  if (dynamicViewport) {
+    vkCmdSetViewport(cmd, 0, 1, &dynamicViewport.value());
+  }
+
+  if (dynamicScissor) {
+    vkCmdSetScissor(cmd, 0, 1, &dynamicScissor.value());
+  }
+
+  std::array<VkDescriptorSet, 4> descriptorSets = {
+      _emptyDescriptorSet, passDescriptorSet, _emptyDescriptorSet,
+      _emptyDescriptorSet};
+
+  vkCmdBindDescriptorSets(
+      cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _vkSsaoPostProcessingPipelineLayout,
+      0, descriptorSets.size(), descriptorSets.data(), 0, nullptr);
+
+  PostProcessingpushConstants ssaoPostProcessingPushConstants;
+  ssaoPostProcessingPushConstants.kernel = kernel;
+
+  vkCmdPushConstants(
+      cmd, _vkSsaoPostProcessingPipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+      sizeof(PostProcessingpushConstants), &ssaoPostProcessingPushConstants);
+
+  VkDeviceSize offset = 0;
+  vkCmdBindVertexBuffers(cmd, 0, 1, &_postProcessingQuadBuffer.buffer, &offset);
+
+  vkCmdDraw(cmd, 6, 1, 0, 0);
 }

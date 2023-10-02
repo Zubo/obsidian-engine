@@ -147,6 +147,7 @@ private:
   rhi::ResourceIdRHI _ssaoShaderId;
   rhi::ResourceIdRHI _postProcessingShaderId;
   rhi::ResourceIdRHI _emptyFragShaderId;
+  AllocatedBuffer _postProcessingQuadBuffer;
   std::vector<VKDrawCall> _drawCallQueue;
   std::vector<rhi::DirectionalLight> _submittedDirectionalLights;
   std::vector<rhi::Spotlight> _submittedSpotlights;
@@ -177,6 +178,7 @@ private:
   void initSsaoSamplesAndNoise();
   void initPostProcessingSampler();
   void initSsaoPostProcessingDescriptors();
+  void initPostProcessingQuad();
   void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
   void uploadMesh(Mesh& mesh);
   FrameData& getCurrentFrameData();
@@ -196,6 +198,12 @@ private:
                       VkDescriptorSet passDescriptorSet,
                       std::optional<VkViewport> dynamicViewport = std::nullopt,
                       std::optional<VkRect2D> dynamicScissor = std::nullopt);
+  void
+  drawPostProcessing(VkCommandBuffer cmd, glm::mat3x3 const& kernel,
+                     VkFramebuffer frameBuffer,
+                     VkDescriptorSet passDescriptorSet,
+                     std::optional<VkViewport> dynamicViewport = std::nullopt,
+                     std::optional<VkRect2D> dynamicScissor = std::nullopt);
   Mesh* getMesh(std::string const& name);
   AllocatedBuffer
   createBuffer(std::size_t bufferSize, VkBufferUsageFlags usage,
