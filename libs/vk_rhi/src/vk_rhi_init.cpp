@@ -1238,6 +1238,11 @@ void VulkanRHI::initDescriptors() {
     vkLightDataBufferInfo.offset = 0;
     vkLightDataBufferInfo.range = sizeof(GPULightData);
 
+    VkDescriptorImageInfo vkSsaoImageInfo = {};
+    vkSsaoImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    vkSsaoImageInfo.sampler = _vkAlbedoTextureSampler;
+    vkSsaoImageInfo.imageView = frameData.ssaoPostProcessingColorImageView;
+
     DescriptorBuilder::begin(_vkDevice, _descriptorAllocator,
                              _descriptorLayoutCache)
         .bindImages(0, vkShadowMapDescriptorImageInfos,
@@ -1246,6 +1251,9 @@ void VulkanRHI::initDescriptors() {
         .bindBuffer(1, vkLightDataBufferInfo,
                     VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
                     VK_SHADER_STAGE_FRAGMENT_BIT)
+        .bindImage(2, vkSsaoImageInfo,
+                   VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                   VK_SHADER_STAGE_FRAGMENT_BIT)
         .build(frameData.vkDefaultRenderPassDescriptorSet,
                _vkLitMeshRenderPassDescriptorSetLayout);
   }

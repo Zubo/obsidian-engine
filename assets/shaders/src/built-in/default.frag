@@ -19,6 +19,7 @@ sceneData;
 #define MAX_LIGHT_COUNT 8
 
 layout(set = 1, binding = 0) uniform sampler2D shadowMap[MAX_LIGHT_COUNT];
+layout(set = 1, binding = 2) uniform sampler2D ssaoMap;
 
 struct DirectionalLight {
   mat4 viewProj;
@@ -198,17 +199,23 @@ LightingResult calculateDirectionalLighting() {
   return result;
 }
 
+float getSsao() {
+  const vec2 uv = gl_FragCoord.xy / textureSize(ssaoMap, 0);
+  return texture(ssaoMap, uv).r;
+}
+
 void main() {
   vec3 sampledColor = texture(albedoTex, inUV).xyz;
 
   LightingResult directionalLightResult = calculateDirectionalLighting();
   LightingResult spotlightResult = calculateSpotlights();
+  const float ssao = getSsao();
 
   vec3 finalColor =
       sampledColor *
       (spotlightResult.diffuse + directionalLightResult.diffuse +
        spotlightResult.specular + directionalLightResult.specular +
-       sceneData.ambientColor.xyz);
+       (ssao / 128.0f) * sceneData.ambientColor.xyz);
 
   outFragColor = vec4(finalColor, 1.0f);
 }

@@ -206,6 +206,27 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
 
   vkCmdEndRenderPass(cmd);
 
+  VkImageMemoryBarrier ssaoPostProcessingBarrier = {};
+  ssaoPostProcessingBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+  ssaoPostProcessingBarrier.pNext = nullptr;
+
+  ssaoPostProcessingBarrier.oldLayout =
+      VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+  ssaoPostProcessingBarrier.newLayout =
+      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  ssaoPostProcessingBarrier.image =
+      currentFrameData.ssaoPostProcessingColorImage.vkImage;
+  ssaoPostProcessingBarrier.subresourceRange.aspectMask =
+      VK_IMAGE_ASPECT_COLOR_BIT;
+  ssaoPostProcessingBarrier.subresourceRange.baseMipLevel = 0;
+  ssaoPostProcessingBarrier.subresourceRange.levelCount = 1;
+  ssaoPostProcessingBarrier.subresourceRange.baseArrayLayer = 0;
+  ssaoPostProcessingBarrier.subresourceRange.layerCount = 1;
+
+  vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                       VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0,
+                       nullptr, 1, &ssaoPostProcessingBarrier);
+
   // Shadow passes:
   std::vector<ShadowPassParams> submittedParams =
       getSubmittedShadowPassParams();
