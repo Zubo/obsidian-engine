@@ -10,8 +10,6 @@ add_library(SDLWrapper
 target_include_directories(SDLWrapper
     PUBLIC
         "include"
-    PRIVATE
-        ${SDL2_INCLUDE_DIRS}
 )
 
 target_link_libraries(SDLWrapper
@@ -19,7 +17,7 @@ target_link_libraries(SDLWrapper
         Window
         Core
         RHI
-        ${SDL2_LIBRARIES}
+        SDL2::SDL2
     PRIVATE
         VulkanRHI
 )

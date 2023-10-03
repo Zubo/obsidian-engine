@@ -1,5 +1,4 @@
 
-find_package(SDL2 REQUIRED)
 find_package(Vulkan REQUIRED)
 
 set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
@@ -7,9 +6,19 @@ set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
 include(FetchContent)
 
 FetchContent_Declare(
+    fetch_sdl
+    GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+    GIT_TAG SDL2
+    GIT_PROGRESS TRUE
+)
+
+FetchContent_MakeAvailable(fetch_sdl)
+
+FetchContent_Declare(
     fetch_vk_bootstrap
     GIT_REPOSITORY https://github.com/charles-lunarg/vk-bootstrap
     GIT_TAG v0.7
+    GIT_PROGRESS TRUE
 )
 
 FetchContent_MakeAvailable(fetch_vk_bootstrap)
@@ -18,20 +27,24 @@ FetchContent_Declare(
     fetch_vulkan_memory_allocator
     GIT_REPOSITORY https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
     GIT_TAG 0e89587db3ebee4d463f191bd296374c5fafc8ea
+    GIT_PROGRESS TRUE
 )
+
 FetchContent_MakeAvailable(fetch_vulkan_memory_allocator)
 
 FetchContent_Declare(fetch_glm
     GIT_REPOSITORY https://github.com/g-truc/glm.git
     GIT_TAG 0.9.9.8
-    
+    GIT_PROGRESS TRUE
 )
+
 FetchContent_MakeAvailable(fetch_glm)
 
 FetchContent_Declare(fetch_tinyobjloader
 
     GIT_REPOSITORY https://github.com/tinyobjloader/tinyobjloader.git
     GIT_TAG v2.0.0rc10
+    GIT_PROGRESS TRUE
 )
 FetchContent_MakeAvailable(fetch_tinyobjloader)
 
@@ -91,7 +104,7 @@ target_include_directories(DearImgui
 target_link_libraries(DearImgui
     PUBLIC
         ${Vulkan_LIBRARIES}
-        ${SDL2_LIBRARIES}
+        SDL2::SDL2
 )
 
 
