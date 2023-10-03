@@ -5,4 +5,4 @@ A vulkan engine developed for education purposes. The only currently supported p
 ## Linux environment setup
 
 Required packages:
-`vulkan-headers vulkan-tools vulkan-validation-layers shaderc sdl2`
+`vulkan-headers vulkan-tools vulkan-validation-layers shaderc sdl2 renderdoc`
