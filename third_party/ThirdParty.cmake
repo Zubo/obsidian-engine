@@ -11,6 +11,7 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/charles-lunarg/vk-bootstrap
     GIT_TAG v0.7
 )
+
 FetchContent_MakeAvailable(fetch_vk_bootstrap)
 
 FetchContent_Declare(
@@ -107,6 +108,26 @@ FetchContent_Declare(fetch_json
     GIT_REPOSITORY https://github.com/nlohmann/json.git
     GIT_TAG v3.11.2
     GIT_PROGRESS TRUE
+)
+
+FetchContent_Declare(fetch_stb
+    GIT_REPOSITORY https://github.com/nothings/stb.git
+    GIT_PROGRESS TRUE
+)
+
+FetchContent_Populate(fetch_stb)
+
+set(STB_INCLUDE_DIR ${fetch_stb_BINARY_DIR})
+file(COPY ${fetch_stb_SOURCE_DIR}/stb_image.h DESTINATION ${STB_INCLUDE_DIR}/stb)
+
+add_library(StbImage
+    INTERFACE
+        ${STB_INCLUDE_DIR}/stb/stb_image.h
+)
+
+target_include_directories(StbImage
+    INTERFACE
+        ${STB_INCLUDE_DIR}/
 )
 
 FetchContent_MakeAvailable(fetch_json)

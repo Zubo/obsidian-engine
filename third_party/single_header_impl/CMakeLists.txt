@@ -8,4 +8,5 @@ add_library(ThirdPartyImpl
 target_link_libraries(ThirdPartyImpl
     PUBLIC
         VulkanMemoryAllocator
+        StbImage
 )

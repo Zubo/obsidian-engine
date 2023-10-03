@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
 include(ThirdParty.cmake)
-include (SystemLibs.cmake)
 
 add_library(VulkanSDK INTERFACE)
 

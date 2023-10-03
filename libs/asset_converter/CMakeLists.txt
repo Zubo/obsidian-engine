@@ -17,4 +17,5 @@ target_link_libraries(AssetConverter
         Globals
         ThirdPartyImpl
         tinyobjloader
+        StbImage
 )
