@@ -269,32 +269,14 @@ void VulkanRHI::initCommands() {
 }
 
 void VulkanRHI::initDefaultRenderPass() {
-  VkAttachmentDescription vkAttachments[2] = {};
-
-  VkAttachmentDescription& vkColorAttachment = vkAttachments[0];
-  vkColorAttachment.format = _vkSwapchainImageFormat;
-  vkColorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-  vkColorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-  vkColorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-  vkColorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-  vkColorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-  vkColorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-  vkColorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+  VkAttachmentDescription vkAttachments[2] = {
+      vkinit::colorAttachmentDescription(_vkSwapchainImageFormat,
+                                         VK_IMAGE_LAYOUT_PRESENT_SRC_KHR),
+      vkinit::depthAttachmentDescription(_depthFormat)};
 
   VkAttachmentReference vkColorAttachmentReference = {};
   vkColorAttachmentReference.attachment = 0;
   vkColorAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-  VkAttachmentDescription& vkDepthAttachment = vkAttachments[1];
-  vkDepthAttachment.format = _depthFormat;
-  vkDepthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-  vkDepthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-  vkDepthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-  vkDepthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-  vkDepthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-  vkDepthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-  vkDepthAttachment.finalLayout =
-      VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
   VkAttachmentReference vkDepthAttachmentReference = {};
   vkDepthAttachmentReference.attachment = 1;
@@ -330,16 +312,8 @@ void VulkanRHI::initDepthRenderPass() {
   vkRenderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
   vkRenderPassCreateInfo.pNext = nullptr;
 
-  VkAttachmentDescription vkAttachmentDescription = {};
-  vkAttachmentDescription.format = _depthFormat;
-  vkAttachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
-  vkAttachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-  vkAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-  vkAttachmentDescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-  vkAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-  vkAttachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-  vkAttachmentDescription.finalLayout =
-      VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+  VkAttachmentDescription vkAttachmentDescription =
+      vkinit::depthAttachmentDescription(_depthFormat);
 
   vkRenderPassCreateInfo.pAttachments = &vkAttachmentDescription;
   vkRenderPassCreateInfo.attachmentCount = 1;
@@ -373,23 +347,10 @@ void VulkanRHI::initSsaoRenderPass() {
   renderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
   renderPassCreateInfo.pNext = nullptr;
 
-  std::array<VkAttachmentDescription, 2> attachmentDescriptions;
-  VkAttachmentDescription& colorAttachmentDescr = attachmentDescriptions[0];
-  colorAttachmentDescr.format = _ssaoFormat;
-  colorAttachmentDescr.samples = VK_SAMPLE_COUNT_1_BIT;
-  colorAttachmentDescr.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-  colorAttachmentDescr.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-  colorAttachmentDescr.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-  colorAttachmentDescr.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-  VkAttachmentDescription depthAttachmentDescr = attachmentDescriptions[1];
-  depthAttachmentDescr.format = _depthFormat;
-  depthAttachmentDescr.samples = VK_SAMPLE_COUNT_1_BIT;
-  depthAttachmentDescr.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-  depthAttachmentDescr.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-  depthAttachmentDescr.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-  depthAttachmentDescr.finalLayout =
-      VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+  std::array<VkAttachmentDescription, 2> attachmentDescriptions = {
+      vkinit::colorAttachmentDescription(
+          _ssaoFormat, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL),
+      vkinit::depthAttachmentDescription(_depthFormat)};
 
   renderPassCreateInfo.attachmentCount = 2;
   renderPassCreateInfo.pAttachments = attachmentDescriptions.data();
@@ -424,13 +385,9 @@ void VulkanRHI::initPostProcessingRenderPass() {
   renderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
   renderPassCreateInfo.pNext = nullptr;
 
-  VkAttachmentDescription colorAttachment = {};
+  VkAttachmentDescription colorAttachment = vkinit::colorAttachmentDescription(
+      _ssaoFormat, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
   colorAttachment.format = _ssaoFormat;
-  colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-  colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-  colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-  colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-  colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
   renderPassCreateInfo.attachmentCount = 1;
   renderPassCreateInfo.pAttachments = &colorAttachment;

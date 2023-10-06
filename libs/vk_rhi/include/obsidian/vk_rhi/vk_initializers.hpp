@@ -68,4 +68,9 @@ VkFramebufferCreateInfo framebufferCreateInfo(VkRenderPass renderPass,
                                               uint32_t width, uint32_t height,
                                               uint32_t layers);
 
+VkAttachmentDescription colorAttachmentDescription(VkFormat format,
+                                                   VkImageLayout finalLayout);
+
+VkAttachmentDescription depthAttachmentDescription(VkFormat format);
+
 } /*namespace obsidian::vk_rhi::vkinit*/

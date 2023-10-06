@@ -292,4 +292,32 @@ VkFramebufferCreateInfo framebufferCreateInfo(VkRenderPass renderPass,
   return framebufferCreateInfo;
 }
 
+VkAttachmentDescription colorAttachmentDescription(VkFormat format,
+                                                   VkImageLayout finalLayout) {
+  VkAttachmentDescription attachmentDescription = {};
+
+  attachmentDescription.format = format;
+  attachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
+  attachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+  attachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+  attachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+  attachmentDescription.finalLayout = finalLayout;
+
+  return attachmentDescription;
+}
+
+VkAttachmentDescription depthAttachmentDescription(VkFormat format) {
+  VkAttachmentDescription attachmentDescription = {};
+
+  attachmentDescription.format = format;
+  attachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
+  attachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+  attachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+  attachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+  attachmentDescription.finalLayout =
+      VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+  return attachmentDescription;
+}
+
 } /*namespace obsidian::vk_rhi::vkinit*/
