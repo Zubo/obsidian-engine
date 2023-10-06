@@ -256,4 +256,23 @@ VkSamplerCreateInfo samplerCreateInfo(VkFilter filter,
   return vkSamplerCreateInfo;
 }
 
+VkImageMemoryBarrier layoutImageBarrier(VkImage image, VkImageLayout oldLayout,
+                                        VkImageLayout newLayout,
+                                        VkImageAspectFlagBits aspectMask) {
+  VkImageMemoryBarrier barrier = {};
+  barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+  barrier.pNext = nullptr;
+
+  barrier.oldLayout = oldLayout;
+  barrier.newLayout = newLayout;
+  barrier.image = image;
+  barrier.subresourceRange.aspectMask = aspectMask;
+  barrier.subresourceRange.baseMipLevel = 0;
+  barrier.subresourceRange.levelCount = 1;
+  barrier.subresourceRange.baseArrayLayer = 0;
+  barrier.subresourceRange.layerCount = 1;
+
+  return barrier;
+}
+
 } /*namespace obsidian::vk_rhi::vkinit*/

@@ -70,23 +70,11 @@ VulkanRHI::uploadTexture(rhi::UploadTextureRHI const& uploadTextureInfoRHI) {
 
   immediateSubmit([this, &extent, &newTexture,
                    &stagingBuffer](VkCommandBuffer cmd) {
-    VkImageMemoryBarrier vkImgBarrierToTransfer = {};
-    vkImgBarrierToTransfer.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    vkImgBarrierToTransfer.pNext = nullptr;
-
+    VkImageMemoryBarrier vkImgBarrierToTransfer = vkinit::layoutImageBarrier(
+        newTexture.image.vkImage, VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vkImgBarrierToTransfer.srcAccessMask = VK_ACCESS_NONE;
     vkImgBarrierToTransfer.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    vkImgBarrierToTransfer.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    vkImgBarrierToTransfer.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    vkImgBarrierToTransfer.image = newTexture.image.vkImage;
-
-    VkImageSubresourceRange& vkImgSubresourceRangeToTransfer =
-        vkImgBarrierToTransfer.subresourceRange;
-    vkImgSubresourceRangeToTransfer.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    vkImgSubresourceRangeToTransfer.baseMipLevel = 0;
-    vkImgSubresourceRangeToTransfer.levelCount = 1;
-    vkImgSubresourceRangeToTransfer.baseArrayLayer = 0;
-    vkImgSubresourceRangeToTransfer.layerCount = 1;
 
     vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
                          VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
@@ -101,23 +89,12 @@ VulkanRHI::uploadTexture(rhi::UploadTextureRHI const& uploadTextureInfoRHI) {
                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1,
                            &vkBufferImgCopy);
 
-    VkImageMemoryBarrier vkImageBarrierToRead = {};
-    vkImageBarrierToRead.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    vkImageBarrierToRead.pNext = nullptr;
+    VkImageMemoryBarrier vkImageBarrierToRead = vkinit::layoutImageBarrier(
+        newTexture.image.vkImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
     vkImageBarrierToRead.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
     vkImageBarrierToRead.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    vkImageBarrierToRead.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    vkImageBarrierToRead.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    vkImageBarrierToRead.image = newTexture.image.vkImage;
-    vkImageBarrierToRead.srcQueueFamilyIndex = 0;
-    vkImageBarrierToRead.dstQueueFamilyIndex = _graphicsQueueFamilyIndex;
-
-    VkImageSubresourceRange& vkImgSubresourceRangeToRead =
-        vkImageBarrierToRead.subresourceRange;
-    vkImgSubresourceRangeToRead.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    vkImgSubresourceRangeToRead.layerCount = 1;
-    vkImgSubresourceRangeToRead.levelCount = 1;
 
     vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
                          VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr,

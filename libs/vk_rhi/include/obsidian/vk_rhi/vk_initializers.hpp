@@ -58,4 +58,8 @@ samplerCreateInfo(VkFilter filter, VkSamplerMipmapMode mipmapMode,
                   VkSamplerAddressMode addressMode,
                   std::optional<float> maxAnisotropy = std::nullopt);
 
+VkImageMemoryBarrier layoutImageBarrier(VkImage image, VkImageLayout oldLayout,
+                                        VkImageLayout newLayout,
+                                        VkImageAspectFlagBits aspectMask);
+
 } /*namespace obsidian::vk_rhi::vkinit*/

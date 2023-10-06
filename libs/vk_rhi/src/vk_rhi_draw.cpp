@@ -100,19 +100,10 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
 
   vkCmdEndRenderPass(cmd);
 
-  VkImageMemoryBarrier depthImageMemoryBarrier = {};
-  depthImageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-  depthImageMemoryBarrier.pNext = nullptr;
-  depthImageMemoryBarrier.oldLayout =
-      VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-  depthImageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-  depthImageMemoryBarrier.image = currentFrameData.depthPrepassImage.vkImage;
-  depthImageMemoryBarrier.subresourceRange.aspectMask =
-      VK_IMAGE_ASPECT_DEPTH_BIT;
-  depthImageMemoryBarrier.subresourceRange.baseMipLevel = 0;
-  depthImageMemoryBarrier.subresourceRange.levelCount = 1;
-  depthImageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
-  depthImageMemoryBarrier.subresourceRange.layerCount = 1;
+  VkImageMemoryBarrier depthImageMemoryBarrier = vkinit::layoutImageBarrier(
+      currentFrameData.depthPrepassImage.vkImage,
+      VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
 
   vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
                        VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, 0, 0, nullptr, 0,
@@ -153,19 +144,10 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
 
   vkCmdEndRenderPass(cmd);
 
-  VkImageMemoryBarrier ssaoImageMemoryBarrier = {};
-  ssaoImageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-  ssaoImageMemoryBarrier.pNext = nullptr;
-
-  ssaoImageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-  ssaoImageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-  ssaoImageMemoryBarrier.image = currentFrameData.ssaoPassColorImage.vkImage;
-  ssaoImageMemoryBarrier.subresourceRange.aspectMask =
-      VK_IMAGE_ASPECT_COLOR_BIT;
-  ssaoImageMemoryBarrier.subresourceRange.baseMipLevel = 0;
-  ssaoImageMemoryBarrier.subresourceRange.levelCount = 1;
-  ssaoImageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
-  ssaoImageMemoryBarrier.subresourceRange.layerCount = 1;
+  VkImageMemoryBarrier ssaoImageMemoryBarrier = vkinit::layoutImageBarrier(
+      currentFrameData.ssaoPassColorImage.vkImage,
+      VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
   vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
                        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0,
@@ -206,22 +188,10 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
 
   vkCmdEndRenderPass(cmd);
 
-  VkImageMemoryBarrier ssaoPostProcessingBarrier = {};
-  ssaoPostProcessingBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-  ssaoPostProcessingBarrier.pNext = nullptr;
-
-  ssaoPostProcessingBarrier.oldLayout =
-      VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-  ssaoPostProcessingBarrier.newLayout =
-      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-  ssaoPostProcessingBarrier.image =
-      currentFrameData.ssaoPostProcessingColorImage.vkImage;
-  ssaoPostProcessingBarrier.subresourceRange.aspectMask =
-      VK_IMAGE_ASPECT_COLOR_BIT;
-  ssaoPostProcessingBarrier.subresourceRange.baseMipLevel = 0;
-  ssaoPostProcessingBarrier.subresourceRange.levelCount = 1;
-  ssaoPostProcessingBarrier.subresourceRange.baseArrayLayer = 0;
-  ssaoPostProcessingBarrier.subresourceRange.layerCount = 1;
+  VkImageMemoryBarrier ssaoPostProcessingBarrier = vkinit::layoutImageBarrier(
+      currentFrameData.ssaoPostProcessingColorImage.vkImage,
+      VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
   vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
                        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0,
