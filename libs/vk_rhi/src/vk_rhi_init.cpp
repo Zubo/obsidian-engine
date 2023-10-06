@@ -457,13 +457,10 @@ void VulkanRHI::initPostProcessingRenderPass() {
 
 void VulkanRHI::initFramebuffers() {
   std::size_t const swapchainImageCount = _vkFramebufferImageViews.size();
-  VkFramebufferCreateInfo vkFramebufferCreateInfo = {};
-  vkFramebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-  vkFramebufferCreateInfo.pNext = nullptr;
-  vkFramebufferCreateInfo.renderPass = _vkDefaultRenderPass;
-  vkFramebufferCreateInfo.width = _windowExtent.width;
-  vkFramebufferCreateInfo.height = _windowExtent.height;
-  vkFramebufferCreateInfo.layers = 1;
+  VkFramebufferCreateInfo vkFramebufferCreateInfo =
+      vkinit::framebufferCreateInfo(_vkDefaultRenderPass, 0, nullptr,
+                                    _windowExtent.width, _windowExtent.height,
+                                    1);
 
   for (int i = 0; i < swapchainImageCount; ++i) {
     FramebufferImageViews& framebufferImageViews =
@@ -483,6 +480,10 @@ void VulkanRHI::initFramebuffers() {
 }
 
 void VulkanRHI::initDepthPrepassFramebuffers() {
+  VkImageViewCreateInfo depthPassImageViewCreateInfo =
+      vkinit::imageViewCreateInfo(VK_NULL_HANDLE, _depthFormat,
+                                  VK_IMAGE_ASPECT_DEPTH_BIT);
+
   for (FrameData& frameData : _frameDataArray) {
     createDepthImage(frameData.depthPrepassImage,
                      VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
@@ -492,20 +493,7 @@ void VulkanRHI::initDepthPrepassFramebuffers() {
                       frameData.depthPrepassImage.allocation);
     });
 
-    VkImageViewCreateInfo depthPassImageViewCreateInfo = {};
-    depthPassImageViewCreateInfo.sType =
-        VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    depthPassImageViewCreateInfo.pNext = nullptr;
-
     depthPassImageViewCreateInfo.image = frameData.depthPrepassImage.vkImage;
-    depthPassImageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    depthPassImageViewCreateInfo.format = _depthFormat;
-    depthPassImageViewCreateInfo.subresourceRange.aspectMask =
-        VK_IMAGE_ASPECT_DEPTH_BIT;
-    depthPassImageViewCreateInfo.subresourceRange.baseMipLevel = 0;
-    depthPassImageViewCreateInfo.subresourceRange.levelCount = 1;
-    depthPassImageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
-    depthPassImageViewCreateInfo.subresourceRange.layerCount = 1;
 
     vkCreateImageView(_vkDevice, &depthPassImageViewCreateInfo, nullptr,
                       &frameData.vkDepthPrepassImageView);
@@ -514,17 +502,10 @@ void VulkanRHI::initDepthPrepassFramebuffers() {
       vkDestroyImageView(_vkDevice, frameData.vkDepthPrepassImageView, nullptr);
     });
 
-    VkFramebufferCreateInfo framebufferCreateInfo = {};
-    framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-    framebufferCreateInfo.pNext = nullptr;
-
-    framebufferCreateInfo.flags = 0;
-    framebufferCreateInfo.renderPass = _vkDepthRenderPass;
-    framebufferCreateInfo.attachmentCount = 1;
-    framebufferCreateInfo.pAttachments = &frameData.vkDepthPrepassImageView;
-    framebufferCreateInfo.width = _windowExtent.width;
-    framebufferCreateInfo.height = _windowExtent.height;
-    framebufferCreateInfo.layers = 1;
+    VkFramebufferCreateInfo framebufferCreateInfo =
+        vkinit::framebufferCreateInfo(
+            _vkDepthRenderPass, 1, &frameData.vkDepthPrepassImageView,
+            _windowExtent.width, _windowExtent.height, 1);
 
     vkCreateFramebuffer(_vkDevice, &framebufferCreateInfo, nullptr,
                         &frameData.vkDepthPrepassFramebuffer);
@@ -575,17 +556,10 @@ void VulkanRHI::initShadowPassFramebuffers() {
         vkDestroyImageView(_vkDevice, vkShadowMapImageView, nullptr);
       });
 
-      VkFramebufferCreateInfo vkFramebufferCreateInfo = {};
-
-      vkFramebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-      vkFramebufferCreateInfo.pNext = nullptr;
-
-      vkFramebufferCreateInfo.renderPass = _vkDepthRenderPass;
-      vkFramebufferCreateInfo.attachmentCount = 1;
-      vkFramebufferCreateInfo.pAttachments = &vkShadowMapImageView;
-      vkFramebufferCreateInfo.width = shadowPassAttachmentWidth;
-      vkFramebufferCreateInfo.height = shadowPassAttachmentHeight;
-      vkFramebufferCreateInfo.layers = 1;
+      VkFramebufferCreateInfo vkFramebufferCreateInfo =
+          vkinit::framebufferCreateInfo(
+              _vkDepthRenderPass, 1, &vkShadowMapImageView,
+              shadowPassAttachmentWidth, shadowPassAttachmentHeight, 1);
 
       VK_CHECK(vkCreateFramebuffer(_vkDevice, &vkFramebufferCreateInfo, nullptr,
                                    &_frameDataArray[i].shadowFrameBuffers[j]));
@@ -615,13 +589,9 @@ void VulkanRHI::initSsaoFramebuffers() {
   allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
   allocationCreateInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
-  VkFramebufferCreateInfo frameBufferCreateInfo = {};
-  frameBufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-  frameBufferCreateInfo.pNext = nullptr;
-  frameBufferCreateInfo.renderPass = _vkSsaoRenderPass;
-  frameBufferCreateInfo.width = _windowExtent.width;
-  frameBufferCreateInfo.height = _windowExtent.height;
-  frameBufferCreateInfo.layers = 1;
+  VkFramebufferCreateInfo frameBufferCreateInfo = vkinit::framebufferCreateInfo(
+      _vkSsaoRenderPass, 0, nullptr, _windowExtent.width, _windowExtent.height,
+      1);
 
   for (FrameData& frameData : _frameDataArray) {
     VK_CHECK(vmaCreateImage(_vmaAllocator, &colorImageCreateInfo,
@@ -677,15 +647,9 @@ void VulkanRHI::initSsaoFramebuffers() {
 }
 
 void VulkanRHI::initSsaoPostProcessingFramebuffers() {
-  VkFramebufferCreateInfo framebufferCreateInfo = {};
-  framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-  framebufferCreateInfo.pNext = nullptr;
-
-  framebufferCreateInfo.renderPass = _vkPostProcessingRenderPass;
-  framebufferCreateInfo.attachmentCount = 1;
-  framebufferCreateInfo.width = _windowExtent.width;
-  framebufferCreateInfo.height = _windowExtent.height;
-  framebufferCreateInfo.layers = 1;
+  VkFramebufferCreateInfo framebufferCreateInfo = vkinit::framebufferCreateInfo(
+      _vkPostProcessingRenderPass, 0, nullptr, _windowExtent.width,
+      _windowExtent.height, 1);
 
   VkExtent3D const extent{_windowExtent.width, _windowExtent.height, 1};
 
@@ -722,6 +686,7 @@ void VulkanRHI::initSsaoPostProcessingFramebuffers() {
                          nullptr);
     });
 
+    framebufferCreateInfo.attachmentCount = 1;
     framebufferCreateInfo.pAttachments =
         &frameData.ssaoPostProcessingColorImageView;
 

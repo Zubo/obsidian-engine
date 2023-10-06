@@ -1,7 +1,5 @@
 #include <obsidian/vk_rhi/vk_initializers.hpp>
 
-#include <cassert>
-
 namespace obsidian::vk_rhi::vkinit {
 
 VkCommandPoolCreateInfo commandPoolCreateInfo(std::uint32_t queueFamilyIndex,
@@ -273,6 +271,25 @@ VkImageMemoryBarrier layoutImageBarrier(VkImage image, VkImageLayout oldLayout,
   barrier.subresourceRange.layerCount = 1;
 
   return barrier;
+}
+
+VkFramebufferCreateInfo framebufferCreateInfo(VkRenderPass renderPass,
+                                              uint32_t attachmentCount,
+                                              VkImageView const* attachments,
+                                              uint32_t width, uint32_t height,
+                                              uint32_t layers) {
+  VkFramebufferCreateInfo framebufferCreateInfo = {};
+  framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+  framebufferCreateInfo.pNext = nullptr;
+
+  framebufferCreateInfo.renderPass = renderPass;
+  framebufferCreateInfo.attachmentCount = attachmentCount;
+  framebufferCreateInfo.pAttachments = attachments;
+  framebufferCreateInfo.width = width;
+  framebufferCreateInfo.height = height;
+  framebufferCreateInfo.layers = layers;
+
+  return framebufferCreateInfo;
 }
 
 } /*namespace obsidian::vk_rhi::vkinit*/
