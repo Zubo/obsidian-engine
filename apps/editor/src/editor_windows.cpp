@@ -396,7 +396,7 @@ void materialCreatorTab() {
   }
 }
 
-void projectTab() {
+void projectTab(ObsidianEngine& engine, bool& engineStarted) {
   if (ImGui::BeginTabItem("Project")) {
     fs::path projPath = project.getOpenProjectPath();
 
@@ -432,6 +432,15 @@ void projectTab() {
                        lastOpenProject.string().size());
           assetListDirty = true;
         }
+        if (ImGui::Button("Load last project and run")) {
+          if (project.open(lastOpenProject)) {
+            std::strncpy(projPathBuf, lastOpenProject.c_str(),
+                         lastOpenProject.string().size());
+            assetListDirty = true;
+            engineStarted = engine.init(sdl_wrapper::SDLBackend::instance(),
+                                        project.getOpenProjectPath());
+          }
+        }
       }
     } else {
       if (ImGui::BeginTabBar("EditorTabBar")) {
@@ -462,7 +471,7 @@ void editor(SDL_Renderer& renderer, ImGuiIO& imguiIO, DataContext& context,
   ImGui::Begin("EditorWindow");
   if (ImGui::BeginTabBar("EditorTabBar")) {
 
-    projectTab();
+    projectTab(engine, engineStarted);
     if (!project.getOpenProjectPath().empty()) {
       engineTab(context.sceneData, engine, engineStarted);
     }
