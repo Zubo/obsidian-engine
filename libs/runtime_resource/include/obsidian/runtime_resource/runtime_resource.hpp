@@ -32,6 +32,7 @@ public:
   rhi::ResourceIdRHI uploadToRHI();
   void unloadFromRHI();
   rhi::ResourceIdRHI getResourceIdRHI() const;
+  std::filesystem::path getRelativePath() const;
 
 private:
   using ReleaseRHIResource = void (*)(rhi::RHI&, rhi::ResourceIdRHI);

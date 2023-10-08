@@ -109,3 +109,8 @@ RuntimeResource& RuntimeResourceManager::getResource(fs::path const& path) {
 
   return resourceIter->second;
 }
+
+project::Project const& RuntimeResourceManager::getProject() const {
+  assert(_project);
+  return *_project;
+}

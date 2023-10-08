@@ -35,6 +35,8 @@ public:
 
   RuntimeResource& getResource(std::filesystem::path const& path);
 
+  project::Project const& getProject() const;
+
   RuntimeResourceManager&
   operator=(RuntimeResourceManager const& other) = delete;
 

@@ -20,6 +20,7 @@
 #include <obsidian/project/project.hpp>
 #include <obsidian/scene/game_object.hpp>
 #include <obsidian/scene/scene.hpp>
+#include <obsidian/scene/serialization.hpp>
 #include <obsidian/sdl_wrapper/sdl_backend.hpp>
 
 #include <SDL2/SDL.h>
@@ -31,6 +32,7 @@
 
 #include <array>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 
 namespace obsidian::editor {
@@ -161,6 +163,33 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
       scene::SceneState& sceneState = engine.getContext().scene.getState();
 
       if (ImGui::CollapsingHeader("Scene")) {
+        static char saveScenePath[maxPathSize] = "scene.json";
+        ImGui::InputText("Save file name", saveScenePath, maxPathSize);
+
+        bool disabled = !std::strlen(saveScenePath);
+
+        if (disabled) {
+          ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+          ImGui::PushStyleVar(ImGuiStyleVar_Alpha,
+                              ImGui::GetStyle().Alpha * 0.5f);
+        }
+        if (ImGui::Button("Save Scene")) {
+          std::ofstream sceneOfstream{project.getAbsolutePath(saveScenePath)};
+
+          if (sceneOfstream) {
+            nlohmann::json sceneJson;
+
+            if (scene::serializeScene(sceneState, sceneJson)) {
+              sceneOfstream << sceneJson.dump(2);
+            }
+          }
+        }
+
+        if (disabled) {
+          ImGui::PopStyleVar();
+          ImGui::PopItemFlag();
+        }
+
         if (ImGui::TreeNode("Object Hierarchy")) {
           if (ImGui::Button("+")) {
             sceneState.gameObjects.emplace_back();

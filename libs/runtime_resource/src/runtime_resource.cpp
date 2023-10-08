@@ -151,3 +151,8 @@ rhi::ResourceIdRHI RuntimeResource::uploadToRHI() {
 rhi::ResourceIdRHI RuntimeResource::getResourceIdRHI() const {
   return _resourceIdRHI;
 }
+
+std::filesystem::path RuntimeResource::getRelativePath() const {
+  return _runtimeResourceManager.getProject().getRelativeToProjectRootPath(
+      _path);
+}
