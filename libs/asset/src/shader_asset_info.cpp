@@ -1,8 +1,11 @@
 #include <obsidian/asset/shader_asset_info.hpp>
+#include <obsidian/asset/utility.hpp>
 #include <obsidian/core/logging.hpp>
 
 #include <lz4.h>
 #include <nlohmann/json.hpp>
+
+#include <cassert>
 
 namespace obsidian::asset {
 
@@ -39,20 +42,15 @@ bool packShader(ShaderAssetInfo const& shaderAssetInfo,
     if (shaderAssetInfo.compressionMode == CompressionMode::none) {
       outAsset.binaryBlob = std::move(shaderData);
     } else if (shaderAssetInfo.compressionMode == CompressionMode::LZ4) {
-      std::size_t compressedSize =
-          LZ4_compressBound(shaderAssetInfo.unpackedSize);
-
-      outAsset.binaryBlob.resize(compressedSize);
-
-      LZ4_compress_default(reinterpret_cast<char const*>(shaderData.data()),
-                           outAsset.binaryBlob.data(),
-                           shaderAssetInfo.unpackedSize, compressedSize);
+      assert(shaderAssetInfo.unpackedSize == shaderData.size());
+      return compress(shaderData, outAsset.binaryBlob);
     } else {
       OBS_LOG_ERR("Error: Unknown compression mode.");
       return false;
     }
   } catch (std::exception const& e) {
     OBS_LOG_ERR(e.what());
+    return false;
   }
 
   return true;

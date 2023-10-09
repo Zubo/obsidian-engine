@@ -1,6 +1,7 @@
 #include <obsidian/asset/asset.hpp>
 #include <obsidian/asset/asset_info.hpp>
 #include <obsidian/asset/texture_asset_info.hpp>
+#include <obsidian/asset/utility.hpp>
 #include <obsidian/core/logging.hpp>
 
 #include <lz4.h>
@@ -51,16 +52,18 @@ bool packTexture(TextureAssetInfo const& textureAssetInfo,
 
     outAsset.json = assetJson.dump();
 
-    std::size_t const compressBound =
-        LZ4_compressBound(textureAssetInfo.unpackedSize);
-
-    outAsset.binaryBlob.resize(compressBound);
-
-    std::size_t compressedSize = LZ4_compress_default(
-        reinterpret_cast<char const*>(pixelData), outAsset.binaryBlob.data(),
-        textureAssetInfo.unpackedSize, outAsset.binaryBlob.size());
-
-    outAsset.binaryBlob.resize(compressedSize);
+    if (textureAssetInfo.compressionMode == CompressionMode::none) {
+      outAsset.binaryBlob.resize(textureAssetInfo.unpackedSize);
+      std::memcpy(outAsset.binaryBlob.data(), pixelData,
+                  outAsset.binaryBlob.size());
+    } else if (textureAssetInfo.compressionMode == CompressionMode::LZ4) {
+      return compress(std::span(reinterpret_cast<char const*>(pixelData),
+                                textureAssetInfo.unpackedSize),
+                      outAsset.binaryBlob);
+    } else {
+      OBS_LOG_ERR("Error: Unknown compression mode.");
+      return false;
+    }
   } catch (std::exception const& e) {
     OBS_LOG_ERR(e.what());
     return false;

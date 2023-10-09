@@ -8,6 +8,8 @@ add_library(Asset
     "src/mesh_asset_info.cpp"
     "src/shader_asset_info.cpp"
     "src/material_asset_info.cpp"
+    "src/scene_asset_info.cpp"
+    "src/utility.cpp"
     "include/obsidian/asset/asset.hpp"
     "include/obsidian/asset/asset_io.hpp"
     "include/obsidian/asset/asset_info.hpp"
@@ -15,7 +17,8 @@ add_library(Asset
     "include/obsidian/asset/mesh_asset_info.hpp"
     "include/obsidian/asset/shader_asset_info.hpp"
     "include/obsidian/asset/material_asset_info.hpp"
-    
+    "include/obsidian/asset/scene_asset_info.hpp"
+    "include/obsidian/asset/utility.hpp"
 )
 
 target_include_directories(Asset
