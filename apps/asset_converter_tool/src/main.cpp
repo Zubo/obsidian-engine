@@ -41,19 +41,18 @@ int main(int argc, char** argv) {
   }
 
   if (!fs::exists(*srcPath)) {
-    OBS_LOG_ERR("Error: the src path " + srcPath->string() + " doesn't exist.");
+    OBS_LOG_ERR("The src path " + srcPath->string() + " doesn't exist.");
     return -1;
   }
 
   if (fs::exists(*dstPath)) {
     if (!fs::is_directory(*dstPath)) {
-      OBS_LOG_ERR("Error: the destination path is not a directory.");
+      OBS_LOG_ERR("The destination path is not a directory.");
       return -1;
     }
   } else {
     if (!fs::create_directories(*dstPath)) {
-      OBS_LOG_ERR("Error: Couldn't create directory at path " +
-                  dstPath->string());
+      OBS_LOG_ERR("Couldn't create directory at path " + dstPath->string());
       return -1;
     }
   }

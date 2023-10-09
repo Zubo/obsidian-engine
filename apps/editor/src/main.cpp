@@ -26,7 +26,7 @@ int main(int, char**) {
   // Setup SDL
   if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_EVENTS |
                SDL_INIT_GAMECONTROLLER) != 0) {
-    OBS_LOG_ERR(std::string("Error: ") + SDL_GetError());
+    OBS_LOG_ERR(SDL_GetError());
     return -1;
   }
 

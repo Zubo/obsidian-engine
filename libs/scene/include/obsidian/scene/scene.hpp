@@ -20,8 +20,6 @@ namespace obsidian::scene {
 
 struct SceneState {
   glm::vec3 ambientColor;
-  glm::vec3 sunDirection;
-  glm::vec3 sunColor;
 
   Camera camera;
   // TODO: use better

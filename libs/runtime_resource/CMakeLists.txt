@@ -16,7 +16,7 @@ target_link_libraries(RuntimeResource
     PUBLIC
         Asset
         RHI
+        Project
     PRIVATE
         VulkanRHI # To be removed when proper interface gets implemented in RHI
-        Project
 )

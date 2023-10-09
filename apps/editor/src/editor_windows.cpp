@@ -6,9 +6,11 @@
  *
  */
 
+#include <obsidian/asset/asset.hpp>
 #include <obsidian/asset/asset_info.hpp>
 #include <obsidian/asset/asset_io.hpp>
 #include <obsidian/asset/material_asset_info.hpp>
+#include <obsidian/asset/scene_asset_info.hpp>
 #include <obsidian/asset_converter/asset_converter.hpp>
 #include <obsidian/core/logging.hpp>
 #include <obsidian/core/material.hpp>
@@ -26,11 +28,12 @@
 #include <SDL2/SDL.h>
 #include <backends/imgui_impl_sdl2.h>
 #include <backends/imgui_impl_sdlrenderer2.h>
-#include <cstring>
 #include <imgui.h>
 #include <imgui_internal.h>
+#include <nlohmann/json.hpp>
 
 #include <array>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -83,6 +86,80 @@ void refreshAssetLists() {
 
   for (auto const& mesh : meshesInProj) {
     meshesPathStringPtrs.push_back(mesh.c_str());
+  }
+}
+
+void loadScene(char const scenePath[], scene::SceneState& sceneState,
+               ObsidianEngine& engine) {
+  asset::Asset sceneAsset;
+  if (!asset::loadFromFile(project.getAbsolutePath(scenePath), sceneAsset)) {
+    OBS_LOG_ERR("Failed to load scene asset.");
+    return;
+  }
+
+  asset::SceneAssetInfo sceneAssetInfo;
+
+  if (!asset::readSceneAssetInfo(sceneAsset, sceneAssetInfo)) {
+    OBS_LOG_ERR("Failed to read scene asset info.");
+    return;
+  }
+
+  std::string sceneJsonStr;
+  sceneJsonStr.resize(sceneAssetInfo.unpackedSize);
+
+  if (!asset::unpackAsset(sceneAssetInfo, sceneAsset.binaryBlob.data(),
+                          sceneAsset.binaryBlob.size(), sceneJsonStr.data())) {
+    OBS_LOG_ERR("Failed to unpack scene asset.");
+    return;
+  }
+
+  nlohmann::json sceneJson;
+  try {
+    sceneJson = nlohmann::json::parse(sceneJsonStr);
+  } catch (std::exception const& e) {
+    OBS_LOG_ERR(e.what());
+    return;
+  }
+
+  sceneState = {};
+
+  if (!scene::deserializeScene(sceneJson, engine.getContext().resourceManager,
+                               sceneState)) {
+    OBS_LOG_ERR("Failed to deserialize scene");
+    return;
+  }
+
+  selectedGameObject = nullptr;
+}
+
+void saveScene(char const scenePath[], scene::SceneState& sceneState) {
+  nlohmann::json sceneJson;
+
+  if (!scene::serializeScene(sceneState, sceneJson)) {
+    OBS_LOG_ERR("Failed to serialize the scene.");
+    return;
+  }
+
+  std::string const sceneJsonStr = sceneJson.dump();
+
+  asset::SceneAssetInfo sceneAssetInfo;
+  sceneAssetInfo.unpackedSize = sceneJsonStr.size();
+  sceneAssetInfo.compressionMode = asset::CompressionMode::LZ4;
+
+  std::vector<char> sceneJsonData;
+  sceneJsonData.resize(sceneAssetInfo.unpackedSize);
+  std::memcpy(sceneJsonData.data(), sceneJsonStr.data(), sceneJsonData.size());
+
+  asset::Asset sceneAsset;
+
+  if (!asset::packSceneAsset(sceneAssetInfo, std::move(sceneJsonData),
+                             sceneAsset)) {
+    OBS_LOG_ERR("Failed to pack scene asset.");
+    return;
+  }
+
+  if (!asset::saveToFile(project.getAbsolutePath(scenePath), sceneAsset)) {
+    OBS_LOG_ERR("Failed to save scene.");
   }
 }
 
@@ -163,26 +240,47 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
       scene::SceneState& sceneState = engine.getContext().scene.getState();
 
       if (ImGui::CollapsingHeader("Scene")) {
-        static char saveScenePath[maxPathSize] = "scene.json";
-        ImGui::InputText("Save file name", saveScenePath, maxPathSize);
+        static char scenePath[maxPathSize] = "scene.obsscene";
+        ImGui::InputText("Save file name", scenePath, maxPathSize);
 
-        bool disabled = !std::strlen(saveScenePath);
+        bool disabled = !std::strlen(scenePath);
 
         if (disabled) {
           ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
           ImGui::PushStyleVar(ImGuiStyleVar_Alpha,
                               ImGui::GetStyle().Alpha * 0.5f);
         }
+
         if (ImGui::Button("Save Scene")) {
-          std::ofstream sceneOfstream{project.getAbsolutePath(saveScenePath)};
-
-          if (sceneOfstream) {
-            nlohmann::json sceneJson;
-
-            if (scene::serializeScene(sceneState, sceneJson)) {
-              sceneOfstream << sceneJson.dump(2);
-            }
+          if (std::filesystem::exists(project.getAbsolutePath(scenePath))) {
+            ImGui::OpenPopup("File already exists");
+          } else {
+            saveScene(scenePath, sceneState);
           }
+        }
+
+        if (ImGui::BeginPopup("File already exists")) {
+          ImGui::Text("File with the same name already exists. Are you sure "
+                      "you want to overwrite the existing file?");
+          ImGui::BeginGroup();
+
+          if (ImGui::Button("Overwrite")) {
+            saveScene(scenePath, sceneState);
+            ImGui::CloseCurrentPopup();
+          }
+
+          ImGui::SameLine();
+
+          if (ImGui::Button("Cancel")) {
+            ImGui::CloseCurrentPopup();
+          }
+
+          ImGui::EndGroup();
+          ImGui::EndPopup();
+        }
+
+        if (ImGui::Button("Load Scene")) {
+          loadScene(scenePath, sceneState, engine);
         }
 
         if (disabled) {

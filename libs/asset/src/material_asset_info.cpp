@@ -54,7 +54,7 @@ bool packMaterial(MaterialAssetInfo const& materialAssetInfo,
       assert(materialAssetInfo.unpackedSize == materialData.size());
       return compress(materialData, outAsset.binaryBlob);
     } else {
-      OBS_LOG_ERR("Error: Unknown compression mode.");
+      OBS_LOG_ERR("Unknown compression mode.");
       return false;
     }
   } catch (std::exception const& e) {

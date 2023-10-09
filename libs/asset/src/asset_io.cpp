@@ -21,7 +21,7 @@ bool loadFromFile(fs::path const& path, Asset& outAsset) {
   }
 
   if (!inputFileStream) {
-    OBS_LOG_ERR("Error: Failed to load file: " + path.string());
+    OBS_LOG_ERR("Failed to load file: " + path.string());
     return false;
   }
 

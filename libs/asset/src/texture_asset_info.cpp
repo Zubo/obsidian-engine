@@ -61,7 +61,7 @@ bool packTexture(TextureAssetInfo const& textureAssetInfo,
                                 textureAssetInfo.unpackedSize),
                       outAsset.binaryBlob);
     } else {
-      OBS_LOG_ERR("Error: Unknown compression mode.");
+      OBS_LOG_ERR("Unknown compression mode.");
       return false;
     }
   } catch (std::exception const& e) {
