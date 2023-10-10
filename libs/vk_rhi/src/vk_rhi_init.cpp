@@ -61,6 +61,10 @@ void VulkanRHI::init(rhi::WindowExtentRHI extent,
 
   initSyncStructures();
 
+  initDescriptorBuilder();
+
+  initDefaultSamplers();
+
   initDescriptors();
 
   initDepthPrepassDescriptors();
@@ -76,6 +80,8 @@ void VulkanRHI::init(rhi::WindowExtentRHI extent,
   initDefaultPipelineAndLayouts();
 
   initDepthPassPipelineLayout();
+
+  waitDeviceIdle();
 
   IsInitialized = true;
 }
@@ -1043,16 +1049,32 @@ void VulkanRHI::initSsaoPostProcessingPipeline() {
   });
 }
 
-void VulkanRHI::initDescriptors() {
+void VulkanRHI::initDescriptorBuilder() {
   _descriptorLayoutCache.init(_vkDevice);
   _descriptorAllocator.init(_vkDevice);
+  _swapchainBoundDescriptorAllocator.init(_vkDevice);
 
   _deletionQueue.pushFunction([this]() {
     _descriptorAllocator.cleanup();
     _descriptorLayoutCache.cleanup();
   });
+}
 
-  DescriptorBuilder::begin(_vkDevice, _descriptorAllocator,
+void VulkanRHI::initDefaultSamplers() {
+  VkSamplerCreateInfo vkSamplerCreateInfo = vkinit::samplerCreateInfo(
+      VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_NEAREST,
+      VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
+
+  VK_CHECK(vkCreateSampler(_vkDevice, &vkSamplerCreateInfo, nullptr,
+                           &_vkAlbedoTextureSampler));
+
+  _deletionQueue.pushFunction([this]() {
+    vkDestroySampler(_vkDevice, _vkAlbedoTextureSampler, nullptr);
+  });
+}
+
+void VulkanRHI::initDescriptors() {
+  DescriptorBuilder::begin(_vkDevice, _swapchainBoundDescriptorAllocator,
                            _descriptorLayoutCache)
       .build(_emptyDescriptorSet, _vkEmptyDescriptorSetLayout);
 
@@ -1064,7 +1086,7 @@ void VulkanRHI::initDescriptors() {
                    VMA_MEMORY_USAGE_AUTO,
                    VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
 
-  _deletionQueue.pushFunction([this]() {
+  _swapchainDeletionQueue.pushFunction([this]() {
     vmaDestroyBuffer(_vmaAllocator, _sceneDataBuffer.buffer,
                      _sceneDataBuffer.allocation);
   });
@@ -1073,20 +1095,10 @@ void VulkanRHI::initDescriptors() {
       createBuffer(frameOverlap * getPaddedBufferSize(sizeof(GPUCameraData)),
                    VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_AUTO,
                    VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
-  _deletionQueue.pushFunction([this]() {
-    AllocatedBuffer const& buffer = _cameraBuffer;
-    vmaDestroyBuffer(_vmaAllocator, buffer.buffer, buffer.allocation);
-  });
-
-  _shadowPassCameraBuffer =
-      createBuffer(frameOverlap * rhi::maxLightsPerDrawPass *
-                       getPaddedBufferSize(sizeof(GPUCameraData)),
-                   VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_AUTO,
-                   VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
-
-  _deletionQueue.pushFunction([this]() {
-    vmaDestroyBuffer(_vmaAllocator, _shadowPassCameraBuffer.buffer,
-                     _shadowPassCameraBuffer.allocation);
+  _swapchainDeletionQueue.pushFunction([this]() {
+    vmaDestroyBuffer(_vmaAllocator, _cameraBuffer.buffer,
+                     _cameraBuffer.allocation);
+    _cameraBuffer = {};
   });
 
   VkDescriptorBufferInfo cameraDescriptorBufferInfo;
@@ -1099,7 +1111,7 @@ void VulkanRHI::initDescriptors() {
   sceneDescriptorBufferInfo.offset = 0;
   sceneDescriptorBufferInfo.range = sizeof(GPUSceneData);
 
-  DescriptorBuilder::begin(_vkDevice, _descriptorAllocator,
+  DescriptorBuilder::begin(_vkDevice, _swapchainBoundDescriptorAllocator,
                            _descriptorLayoutCache)
       .bindBuffer(0, cameraDescriptorBufferInfo,
                   VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
@@ -1109,17 +1121,6 @@ void VulkanRHI::initDescriptors() {
                   VK_SHADER_STAGE_FRAGMENT_BIT)
       .build(_vkGlobalDescriptorSet, _vkGlobalDescriptorSetLayout);
 
-  VkSamplerCreateInfo vkSamplerCreateInfo = vkinit::samplerCreateInfo(
-      VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_NEAREST,
-      VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
-
-  VK_CHECK(vkCreateSampler(_vkDevice, &vkSamplerCreateInfo, nullptr,
-                           &_vkAlbedoTextureSampler));
-
-  _deletionQueue.pushFunction([this]() {
-    vkDestroySampler(_vkDevice, _vkAlbedoTextureSampler, nullptr);
-  });
-
   VkSamplerCreateInfo const vkDepthSamplerCreateInfo =
       vkinit::samplerCreateInfo(VK_FILTER_LINEAR,
                                 VK_SAMPLER_MIPMAP_MODE_NEAREST,
@@ -1128,7 +1129,7 @@ void VulkanRHI::initDescriptors() {
   VK_CHECK(vkCreateSampler(_vkDevice, &vkDepthSamplerCreateInfo, nullptr,
                            &_vkDepthSampler));
 
-  _deletionQueue.pushFunction(
+  _swapchainDeletionQueue.pushFunction(
       [this]() { vkDestroySampler(_vkDevice, _vkDepthSampler, nullptr); });
 
   _lightDataBuffer = createBuffer(
@@ -1136,7 +1137,7 @@ void VulkanRHI::initDescriptors() {
       VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
       VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
 
-  _deletionQueue.pushFunction([this]() {
+  _swapchainDeletionQueue.pushFunction([this]() {
     vmaDestroyBuffer(_vmaAllocator, _lightDataBuffer.buffer,
                      _lightDataBuffer.allocation);
   });
@@ -1165,7 +1166,7 @@ void VulkanRHI::initDescriptors() {
     vkSsaoImageInfo.sampler = _vkAlbedoTextureSampler;
     vkSsaoImageInfo.imageView = frameData.ssaoPostProcessingColorImageView;
 
-    DescriptorBuilder::begin(_vkDevice, _descriptorAllocator,
+    DescriptorBuilder::begin(_vkDevice, _swapchainBoundDescriptorAllocator,
                              _descriptorLayoutCache)
         .bindImages(0, vkShadowMapDescriptorImageInfos,
                     VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -1201,7 +1202,7 @@ void VulkanRHI::initDepthPrepassDescriptors() {
   bufferInfo.offset = 0;
   bufferInfo.range = getPaddedBufferSize(sizeof(GPUCameraData));
 
-  DescriptorBuilder::begin(_vkDevice, _descriptorAllocator,
+  DescriptorBuilder::begin(_vkDevice, _swapchainBoundDescriptorAllocator,
                            _descriptorLayoutCache)
       .bindBuffer(0, bufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
                   VK_SHADER_STAGE_VERTEX_BIT)
@@ -1209,6 +1210,17 @@ void VulkanRHI::initDepthPrepassDescriptors() {
 }
 
 void VulkanRHI::initShadowPassDescriptors() {
+  _shadowPassCameraBuffer =
+      createBuffer(frameOverlap * rhi::maxLightsPerDrawPass *
+                       getPaddedBufferSize(sizeof(GPUCameraData)),
+                   VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_AUTO,
+                   VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+
+  _deletionQueue.pushFunction([this]() {
+    vmaDestroyBuffer(_vmaAllocator, _shadowPassCameraBuffer.buffer,
+                     _shadowPassCameraBuffer.allocation);
+  });
+
   VkDescriptorBufferInfo vkCameraDatabufferInfo = {};
   vkCameraDatabufferInfo.buffer = _shadowPassCameraBuffer.buffer;
   vkCameraDatabufferInfo.offset = 0;
@@ -1241,7 +1253,7 @@ void VulkanRHI::initSsaoDescriptors() {
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     depthDescriptorImageInfo.sampler = _vkDepthSampler;
 
-    DescriptorBuilder::begin(_vkDevice, _descriptorAllocator,
+    DescriptorBuilder::begin(_vkDevice, _swapchainBoundDescriptorAllocator,
                              _descriptorLayoutCache)
         .bindBuffer(0, samplesDescriptorBufferInfo,
                     VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -1367,7 +1379,7 @@ void VulkanRHI::initSsaoPostProcessingDescriptors() {
         frameData
             .ssaoFramebufferImageViews[0]; // ssao color attachment image view
 
-    DescriptorBuilder::begin(_vkDevice, _descriptorAllocator,
+    DescriptorBuilder::begin(_vkDevice, _swapchainBoundDescriptorAllocator,
                              _descriptorLayoutCache)
         .bindImage(0, ssaoResultDescriptorImageInfo,
                    VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,

@@ -13,7 +13,7 @@
 #include <iostream>
 
 #define OBS_LOG_ERR(str)                                                       \
-  std::cout << "Error: " << str << " File: " << __FILE__                       \
+  std::cout << "Error: " << str << " File: " << __FILE__ << std::dec           \
             << " Line: " << __LINE__ << std::endl;
 
 #endif
@@ -24,7 +24,9 @@
 
 #else
 
-#define OBS_LOG_WARN(str) std::cout << "Warning: " << str << std::endl;
+#define OBS_LOG_WARN(str)                                                      \
+  std::cout << "Warning: " << str << " File: " << __FILE__ << std::dec         \
+            << " Line: " << __LINE__ << std::endl;
 
 #endif
 
@@ -34,6 +36,8 @@
 
 #else
 
-#define OBS_LOG_MSG(str) std::cout << "Message: " << str << std::endl;
+#define OBS_LOG_MSG(str)                                                       \
+  std::cout << "Message: " << str << " File: " << __FILE__ << std::dec         \
+            << " Line: " << __LINE__ << std::endl;
 
 #endif

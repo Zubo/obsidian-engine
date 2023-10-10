@@ -113,6 +113,7 @@ private:
   VkFormat _ssaoFormat = VK_FORMAT_R32_SFLOAT;
   DescriptorLayoutCache _descriptorLayoutCache;
   DescriptorAllocator _descriptorAllocator;
+  DescriptorAllocator _swapchainBoundDescriptorAllocator;
   VkDescriptorSetLayout _vkGlobalDescriptorSetLayout;
   VkDescriptorSetLayout _vkDetphPassDescriptorSetLayout;
   VkDescriptorSetLayout _vkLitMeshRenderPassDescriptorSetLayout;
@@ -151,6 +152,7 @@ private:
   std::vector<VKDrawCall> _drawCallQueue;
   std::vector<rhi::DirectionalLight> _submittedDirectionalLights;
   std::vector<rhi::Spotlight> _submittedSpotlights;
+  std::optional<rhi::WindowExtentRHI> _pendingExtentUpdate = std::nullopt;
 
   void initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider);
   void initSwapchain(VkSwapchainKHR oldSwapchain = VK_NULL_HANDLE);
@@ -171,6 +173,8 @@ private:
   void initSsaoPipeline();
   void initDepthPrepassPipeline();
   void initSsaoPostProcessingPipeline();
+  void initDescriptorBuilder();
+  void initDefaultSamplers();
   void initDescriptors();
   void initDepthPrepassDescriptors();
   void initShadowPassDescriptors();
@@ -181,6 +185,7 @@ private:
   void initPostProcessingQuad();
   void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
   void uploadMesh(Mesh& mesh);
+  void applyPendingExtentUpdate();
   FrameData& getCurrentFrameData();
   template <typename T>
   void uploadBufferData(std::size_t const index, T const& value,

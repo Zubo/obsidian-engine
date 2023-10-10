@@ -20,6 +20,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <optional>
 #include <variant>
 
 using namespace obsidian;
@@ -285,22 +286,7 @@ VkInstance VulkanRHI::getInstance() const { return _vkInstance; }
 void VulkanRHI::setSurface(VkSurfaceKHR surface) { _vkSurface = surface; }
 
 void VulkanRHI::updateExtent(rhi::WindowExtentRHI newExtent) {
-
-  vkDeviceWaitIdle(_vkDevice);
-  _skipFrame = true;
-  _windowExtent.width = newExtent.width;
-  _windowExtent.height = newExtent.height;
-
-  _swapchainDeletionQueue.flush();
-
-  initSwapchain(_vkSwapchain);
-  initDefaultRenderPass();
-  initFramebuffers();
-  initDepthPrepassFramebuffers();
-  initSsaoFramebuffers();
-  initSsaoPostProcessingFramebuffers();
-  initSsaoDescriptors();
-  initSsaoPostProcessingDescriptors();
+  _pendingExtentUpdate = newExtent;
 }
 
 void VulkanRHI::immediateSubmit(
@@ -372,7 +358,7 @@ rhi::ResourceIdRHI VulkanRHI::consumeNewResourceId() {
 int VulkanRHI::getNextAvailableShadowMapIndex() {
   int next = _submittedDirectionalLights.size() + _submittedSpotlights.size();
 
-  if (next > rhi::maxLightsPerDrawPass) {
+  if (next >= rhi::maxLightsPerDrawPass) {
     return -1;
   }
 
@@ -506,4 +492,29 @@ GPULightData VulkanRHI::getGPULightData() const {
   lightData.spotlightCount = _submittedSpotlights.size();
 
   return lightData;
+}
+
+void VulkanRHI::applyPendingExtentUpdate() {
+  if (_pendingExtentUpdate) {
+    vkDeviceWaitIdle(_vkDevice);
+    _skipFrame = true;
+    _windowExtent.width = _pendingExtentUpdate->width;
+    _windowExtent.height = _pendingExtentUpdate->height;
+
+    _swapchainBoundDescriptorAllocator.resetPools();
+    _swapchainDeletionQueue.flush();
+
+    initSwapchain(_vkSwapchain);
+    initDefaultRenderPass();
+    initFramebuffers();
+    initDepthPrepassFramebuffers();
+    initSsaoFramebuffers();
+    initSsaoPostProcessingFramebuffers();
+    initDescriptors();
+    initDepthPrepassDescriptors();
+    initSsaoDescriptors();
+    initSsaoPostProcessingDescriptors();
+
+    _pendingExtentUpdate = std::nullopt;
+  }
 }

@@ -16,7 +16,12 @@
 using namespace obsidian::vk_rhi;
 
 void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
+  applyPendingExtentUpdate();
+
   if (_skipFrame) {
+    _submittedDirectionalLights.clear();
+    _submittedSpotlights.clear();
+    _drawCallQueue.clear();
     _skipFrame = false;
     return;
   }
