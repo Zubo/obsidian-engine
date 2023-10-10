@@ -70,8 +70,8 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   // Depth prepass:
   std::size_t const frameInd = _frameNumber % frameOverlap;
 
-  depthPassBeginInfo.renderArea.extent = {_windowExtent.width,
-                                          _windowExtent.height};
+  depthPassBeginInfo.renderArea.extent = {_vkbSwapchain.extent.width,
+                                          _vkbSwapchain.extent.height};
   depthPassBeginInfo.framebuffer =
       _frameDataArray[frameInd].vkDepthPrepassFramebuffer;
 
@@ -82,14 +82,14 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   VkViewport viewport;
   viewport.x = 0.0f;
   viewport.y = 0.0f;
-  viewport.width = _windowExtent.width;
-  viewport.height = _windowExtent.height;
+  viewport.width = _vkbSwapchain.extent.width;
+  viewport.height = _vkbSwapchain.extent.height;
   viewport.minDepth = 0.0f;
   viewport.maxDepth = 1.0f;
 
   VkRect2D scissor;
   scissor.offset = {0, 0};
-  scissor.extent = _windowExtent;
+  scissor.extent = _vkbSwapchain.extent;
 
   uploadBufferData(frameInd, sceneCameraData, _cameraBuffer);
 
@@ -124,7 +124,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   ssaoRenderPassBeginInfo.renderPass = _vkSsaoRenderPass;
   ssaoRenderPassBeginInfo.framebuffer = currentFrameData.vkSsaoFramebuffer;
   ssaoRenderPassBeginInfo.renderArea.offset = {0, 0};
-  ssaoRenderPassBeginInfo.renderArea.extent = _windowExtent;
+  ssaoRenderPassBeginInfo.renderArea.extent = _vkbSwapchain.extent;
   std::array<VkClearValue, 2> ssaoClearValues = {};
   ssaoClearValues[0].color.float32[0] = 0.0f;
   ssaoClearValues[1].depthStencil.depth = 1.0f;
@@ -169,7 +169,8 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   ssaoPostProcessingRenderPassBeginInfo.framebuffer =
       currentFrameData.vkSsaoPostProcessingFramebuffer;
   ssaoPostProcessingRenderPassBeginInfo.renderArea.offset = {0, 0};
-  ssaoPostProcessingRenderPassBeginInfo.renderArea.extent = _windowExtent;
+  ssaoPostProcessingRenderPassBeginInfo.renderArea.extent =
+      _vkbSwapchain.extent;
 
   VkClearValue ssaoPostProcessingClearColorValue;
   ssaoPostProcessingClearColorValue.color.float32[0] = 0.0f;
@@ -264,7 +265,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   vkRenderPassBeginInfo.renderPass = _vkDefaultRenderPass;
   vkRenderPassBeginInfo.framebuffer = _vkFramebuffers[swapchainImageIndex];
   vkRenderPassBeginInfo.renderArea.offset = {0, 0};
-  vkRenderPassBeginInfo.renderArea.extent = _windowExtent;
+  vkRenderPassBeginInfo.renderArea.extent = _vkbSwapchain.extent;
   vkRenderPassBeginInfo.clearValueCount = clearValues.size();
   vkRenderPassBeginInfo.pClearValues = clearValues.data();
 

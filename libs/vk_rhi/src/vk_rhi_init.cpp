@@ -25,14 +25,11 @@ using namespace obsidian::vk_rhi;
 
 void VulkanRHI::init(rhi::WindowExtentRHI extent,
                      rhi::ISurfaceProviderRHI const& surfaceProvider) {
-  _windowExtent.height = extent.height;
-  _windowExtent.width = extent.width;
-
   renderdoc::initRenderdoc();
 
   initVulkan(surfaceProvider);
 
-  initSwapchain();
+  initSwapchain(extent);
 
   initCommands();
 
@@ -161,12 +158,12 @@ void VulkanRHI::initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider) {
   _deletionQueue.pushFunction([this] { vmaDestroyAllocator(_vmaAllocator); });
 }
 
-void VulkanRHI::initSwapchain() {
+void VulkanRHI::initSwapchain(rhi::WindowExtentRHI const& extent) {
   vkb::SwapchainBuilder swapchainBuilder{_vkPhysicalDevice, _vkDevice,
                                          _vkSurface};
   swapchainBuilder.use_default_format_selection()
       .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
-      .set_desired_extent(_windowExtent.width, _windowExtent.height);
+      .set_desired_extent(extent.width, extent.height);
 
   swapchainBuilder.set_old_swapchain(_vkbSwapchain.swapchain);
 
@@ -415,8 +412,8 @@ void VulkanRHI::initFramebuffers() {
   std::size_t const swapchainImageCount = _vkFramebufferImageViews.size();
   VkFramebufferCreateInfo vkFramebufferCreateInfo =
       vkinit::framebufferCreateInfo(_vkDefaultRenderPass, 0, nullptr,
-                                    _windowExtent.width, _windowExtent.height,
-                                    1);
+                                    _vkbSwapchain.extent.width,
+                                    _vkbSwapchain.extent.height, 1);
 
   for (int i = 0; i < swapchainImageCount; ++i) {
     FramebufferImageViews& framebufferImageViews =
@@ -461,7 +458,7 @@ void VulkanRHI::initDepthPrepassFramebuffers() {
     VkFramebufferCreateInfo framebufferCreateInfo =
         vkinit::framebufferCreateInfo(
             _vkDepthRenderPass, 1, &frameData.vkDepthPrepassImageView,
-            _windowExtent.width, _windowExtent.height, 1);
+            _vkbSwapchain.extent.width, _vkbSwapchain.extent.height, 1);
 
     VK_CHECK(vkCreateFramebuffer(_vkDevice, &framebufferCreateInfo, nullptr,
                                  &frameData.vkDepthPrepassFramebuffer));
@@ -529,7 +526,8 @@ void VulkanRHI::initShadowPassFramebuffers() {
 }
 
 void VulkanRHI::initSsaoFramebuffers() {
-  VkExtent3D const extent{_windowExtent.width, _windowExtent.height, 1};
+  VkExtent3D const extent{_vkbSwapchain.extent.width,
+                          _vkbSwapchain.extent.height, 1};
   VkImageCreateInfo const colorImageCreateInfo = vkinit::imageCreateInfo(
       VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, extent,
       _ssaoFormat);
@@ -546,8 +544,8 @@ void VulkanRHI::initSsaoFramebuffers() {
   allocationCreateInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
   VkFramebufferCreateInfo frameBufferCreateInfo = vkinit::framebufferCreateInfo(
-      _vkSsaoRenderPass, 0, nullptr, _windowExtent.width, _windowExtent.height,
-      1);
+      _vkSsaoRenderPass, 0, nullptr, _vkbSwapchain.extent.width,
+      _vkbSwapchain.extent.height, 1);
 
   for (FrameData& frameData : _frameDataArray) {
     VK_CHECK(vmaCreateImage(_vmaAllocator, &colorImageCreateInfo,
@@ -604,10 +602,11 @@ void VulkanRHI::initSsaoFramebuffers() {
 
 void VulkanRHI::initSsaoPostProcessingFramebuffers() {
   VkFramebufferCreateInfo framebufferCreateInfo = vkinit::framebufferCreateInfo(
-      _vkPostProcessingRenderPass, 0, nullptr, _windowExtent.width,
-      _windowExtent.height, 1);
+      _vkPostProcessingRenderPass, 0, nullptr, _vkbSwapchain.extent.width,
+      _vkbSwapchain.extent.height, 1);
 
-  VkExtent3D const extent{_windowExtent.width, _windowExtent.height, 1};
+  VkExtent3D const extent{_vkbSwapchain.extent.width,
+                          _vkbSwapchain.extent.height, 1};
 
   VmaAllocationCreateInfo allocationCreateInfo = {};
   allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
@@ -1265,7 +1264,8 @@ void VulkanRHI::initSsaoDescriptors() {
 
 void VulkanRHI::createDepthImage(AllocatedImage& outImage,
                                  VkImageUsageFlags flags) const {
-  VkExtent3D const depthExtent{_windowExtent.width, _windowExtent.height, 1};
+  VkExtent3D const depthExtent{_vkbSwapchain.extent.width,
+                               _vkbSwapchain.extent.height, 1};
 
   VkImageCreateInfo const depthBufferImageCreateInfo =
       vkinit::imageCreateInfo(flags, depthExtent, _depthFormat);

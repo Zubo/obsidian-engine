@@ -135,7 +135,6 @@ private:
   ImmediateSubmitContext _immediateSubmitContext;
   VkSampler _vkAlbedoTextureSampler;
   VkSampler _vkDepthSampler;
-  VkExtent2D _windowExtent;
   VkSampler _ssaoNoiseSampler;
   VkSampler _postProcessingImageSampler;
   bool _skipFrame = false;
@@ -156,7 +155,7 @@ private:
   std::optional<rhi::WindowExtentRHI> _pendingExtentUpdate = std::nullopt;
 
   void initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider);
-  void initSwapchain();
+  void initSwapchain(rhi::WindowExtentRHI const& extent);
   void initCommands();
   void initDefaultRenderPass();
   void initDepthRenderPass();

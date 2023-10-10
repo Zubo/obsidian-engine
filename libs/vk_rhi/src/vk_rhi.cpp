@@ -411,10 +411,11 @@ VulkanRHI::getSceneCameraData(rhi::SceneGlobalParams const& sceneParams) const {
   view = glm::rotate(view, -sceneParams.cameraRotationRad.y, {0.f, 1.f, 0.f});
   view = glm::translate(view, -sceneParams.cameraPos);
 
-  glm::mat4 proj = glm::perspective(glm::radians(60.f),
-                                    static_cast<float>(_windowExtent.width) /
-                                        _windowExtent.height,
-                                    0.1f, 400.f);
+  glm::mat4 proj =
+      glm::perspective(glm::radians(60.f),
+                       static_cast<float>(_vkbSwapchain.extent.width) /
+                           _vkbSwapchain.extent.height,
+                       0.1f, 400.f);
   proj[1][1] *= -1;
 
   // Map NDC from [-1, 1] to [0, 1]
@@ -498,13 +499,13 @@ void VulkanRHI::applyPendingExtentUpdate() {
   if (_pendingExtentUpdate) {
     vkDeviceWaitIdle(_vkDevice);
     _skipFrame = true;
-    _windowExtent.width = _pendingExtentUpdate->width;
-    _windowExtent.height = _pendingExtentUpdate->height;
+    _vkbSwapchain.extent.width = _pendingExtentUpdate->width;
+    _vkbSwapchain.extent.height = _pendingExtentUpdate->height;
 
     _swapchainBoundDescriptorAllocator.resetPools();
     _swapchainDeletionQueue.flush();
 
-    initSwapchain();
+    initSwapchain(*_pendingExtentUpdate);
     initDefaultRenderPass();
     initFramebuffers();
     initDepthPrepassFramebuffers();
