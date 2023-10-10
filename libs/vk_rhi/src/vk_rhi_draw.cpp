@@ -39,7 +39,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   uint32_t swapchainImageIndex;
   {
     ZoneScopedN("Acquire Next Image");
-    VK_CHECK(vkAcquireNextImageKHR(_vkDevice, _vkSwapchain, timeoutNanoseconds,
+    VK_CHECK(vkAcquireNextImageKHR(_vkDevice, _vkbSwapchain, timeoutNanoseconds,
                                    currentFrameData.vkPresentSemaphore,
                                    VK_NULL_HANDLE, &swapchainImageIndex));
   }
@@ -305,7 +305,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   vkPresentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
   vkPresentInfo.pNext = nullptr;
 
-  vkPresentInfo.pSwapchains = &_vkSwapchain;
+  vkPresentInfo.pSwapchains = &_vkbSwapchain.swapchain;
   vkPresentInfo.swapchainCount = 1;
 
   vkPresentInfo.waitSemaphoreCount = 1;

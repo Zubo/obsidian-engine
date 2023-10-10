@@ -11,7 +11,6 @@
 #include <obsidian/vk_rhi/vk_rhi.hpp>
 #include <obsidian/vk_rhi/vk_types.hpp>
 
-#include <VkBootstrap.h>
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
 #include <vk_mem_alloc.h>
@@ -162,29 +161,28 @@ void VulkanRHI::initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider) {
   _deletionQueue.pushFunction([this] { vmaDestroyAllocator(_vmaAllocator); });
 }
 
-void VulkanRHI::initSwapchain(VkSwapchainKHR oldSwapchain) {
+void VulkanRHI::initSwapchain() {
   vkb::SwapchainBuilder swapchainBuilder{_vkPhysicalDevice, _vkDevice,
                                          _vkSurface};
   swapchainBuilder.use_default_format_selection()
       .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
       .set_desired_extent(_windowExtent.width, _windowExtent.height);
 
-  if (_vkSwapchain != VK_NULL_HANDLE) {
-    swapchainBuilder.set_old_swapchain(oldSwapchain);
-  }
+  swapchainBuilder.set_old_swapchain(_vkbSwapchain.swapchain);
 
-  vkb::Swapchain vkbSwapchain = swapchainBuilder.build().value();
+  vkb::Swapchain oldSwapchain = _vkbSwapchain;
 
-  _vkSwapchain = vkbSwapchain.swapchain;
-  _vkSwapchainImages = vkbSwapchain.get_images().value();
+  _vkbSwapchain = swapchainBuilder.build().value();
+
+  _vkSwapchainImages = _vkbSwapchain.get_images().value();
   std::vector<VkImageView> swapchainColorImageViews =
-      vkbSwapchain.get_image_views().value();
+      _vkbSwapchain.get_image_views().value();
 
   std::size_t const swapchainSize = swapchainColorImageViews.size();
 
   _vkFramebufferImageViews.resize(swapchainSize);
 
-  _vkSwapchainImageFormat = vkbSwapchain.image_format;
+  _vkSwapchainImageFormat = _vkbSwapchain.image_format;
 
   _swapchainDeletionQueue.pushFunction([this, swapchainColorImageViews]() {
     for (VkImageView const& vkSwapchainImgView : swapchainColorImageViews) {
@@ -192,12 +190,7 @@ void VulkanRHI::initSwapchain(VkSwapchainKHR oldSwapchain) {
     }
   });
 
-  if (oldSwapchain == VK_NULL_HANDLE) {
-    _deletionQueue.pushFunction(
-        [this]() { vkDestroySwapchainKHR(_vkDevice, _vkSwapchain, nullptr); });
-  } else {
-    vkDestroySwapchainKHR(_vkDevice, oldSwapchain, nullptr);
-  }
+  vkb::destroy_swapchain(oldSwapchain);
 
   _vkFramebuffers.resize(swapchainSize);
 
@@ -470,8 +463,8 @@ void VulkanRHI::initDepthPrepassFramebuffers() {
             _vkDepthRenderPass, 1, &frameData.vkDepthPrepassImageView,
             _windowExtent.width, _windowExtent.height, 1);
 
-    vkCreateFramebuffer(_vkDevice, &framebufferCreateInfo, nullptr,
-                        &frameData.vkDepthPrepassFramebuffer);
+    VK_CHECK(vkCreateFramebuffer(_vkDevice, &framebufferCreateInfo, nullptr,
+                                 &frameData.vkDepthPrepassFramebuffer));
 
     _swapchainDeletionQueue.pushFunction([this, &frameData]() {
       vkDestroyFramebuffer(_vkDevice, frameData.vkDepthPrepassFramebuffer,
@@ -1057,6 +1050,7 @@ void VulkanRHI::initDescriptorBuilder() {
   _deletionQueue.pushFunction([this]() {
     _descriptorAllocator.cleanup();
     _descriptorLayoutCache.cleanup();
+    _swapchainBoundDescriptorAllocator.cleanup();
   });
 }
 

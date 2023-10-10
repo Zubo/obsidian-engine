@@ -32,9 +32,9 @@ target_link_libraries(VulkanRHI
         VulkanSDK
         RHI
         VulkanMemoryAllocator
+        vk-bootstrap::vk-bootstrap
     PRIVATE
         Core
-        vk-bootstrap::vk-bootstrap
         HashLibrary
         Renderdoc
         ThirdPartyImpl

@@ -10,6 +10,7 @@
 #include <obsidian/vk_rhi/vk_pipeline_builder.hpp>
 #include <obsidian/vk_rhi/vk_types.hpp>
 
+#include <VkBootstrap.h>
 #include <glm/glm.hpp>
 #include <vulkan/vulkan.h>
 
@@ -83,7 +84,7 @@ private:
   VkPhysicalDevice _vkPhysicalDevice;
   VkPhysicalDeviceProperties _vkPhysicalDeviceProperties;
   VkDevice _vkDevice;
-  VkSwapchainKHR _vkSwapchain = VK_NULL_HANDLE;
+  vkb::Swapchain _vkbSwapchain = {};
   VkFormat _vkSwapchainImageFormat;
   std::vector<FramebufferImageViews> _vkFramebufferImageViews;
   std::vector<VkImage> _vkSwapchainImages;
@@ -155,7 +156,7 @@ private:
   std::optional<rhi::WindowExtentRHI> _pendingExtentUpdate = std::nullopt;
 
   void initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider);
-  void initSwapchain(VkSwapchainKHR oldSwapchain = VK_NULL_HANDLE);
+  void initSwapchain();
   void initCommands();
   void initDefaultRenderPass();
   void initDepthRenderPass();

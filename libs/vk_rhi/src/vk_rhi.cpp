@@ -504,7 +504,7 @@ void VulkanRHI::applyPendingExtentUpdate() {
     _swapchainBoundDescriptorAllocator.resetPools();
     _swapchainDeletionQueue.flush();
 
-    initSwapchain(_vkSwapchain);
+    initSwapchain();
     initDefaultRenderPass();
     initFramebuffers();
     initDepthPrepassFramebuffers();
