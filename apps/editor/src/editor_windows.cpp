@@ -58,6 +58,7 @@ static std::vector<char const*> materialPathStringPtrs;
 static std::vector<char const*> meshesPathStringPtrs;
 static bool assetListDirty = false;
 static char const* materialTypes[] = {"lit", "unlit"};
+static bool openEngineTab = false;
 
 void refreshAssetLists() {
   texturesInProj = project.getAllFilesWithExtension(globals::textureAssetExt);
@@ -226,7 +227,14 @@ void gameObjectHierarchy(scene::GameObject& gameObject,
 
 void engineTab(SceneData& sceneData, ObsidianEngine& engine,
                bool& engineStarted) {
-  if (ImGui::BeginTabItem("Engine")) {
+
+  ImGuiTabItemFlags engineTabFlags = 0;
+  if (openEngineTab) {
+    engineTabFlags = ImGuiTabItemFlags_SetSelected;
+    openEngineTab = false;
+  }
+
+  if (ImGui::BeginTabItem("Engine", NULL, engineTabFlags)) {
     if (engineStarted) {
       if (ImGui::CollapsingHeader("Global Scene Params")) {
         ImGui::SliderFloat("Ambient light color r", &sceneData.ambientColor.r,
@@ -424,6 +432,7 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
       if (ImGui::Button("Start Engine")) {
         engineStarted = engine.init(sdl_wrapper::SDLBackend::instance(),
                                     project.getOpenProjectPath());
+        openEngineTab = true;
       }
     }
 
@@ -566,6 +575,7 @@ void projectTab(ObsidianEngine& engine, bool& engineStarted) {
             assetListDirty = true;
             engineStarted = engine.init(sdl_wrapper::SDLBackend::instance(),
                                         project.getOpenProjectPath());
+            openEngineTab = true;
           }
         }
       }
