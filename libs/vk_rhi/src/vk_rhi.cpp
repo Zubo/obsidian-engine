@@ -109,8 +109,8 @@ VulkanRHI::uploadTexture(rhi::UploadTextureRHI const& uploadTextureInfoRHI) {
       newTexture.image.vkImage, getVkTextureFormat(uploadTextureInfoRHI.format),
       VK_IMAGE_ASPECT_COLOR_BIT);
 
-  vkCreateImageView(_vkDevice, &imageViewCreateInfo, nullptr,
-                    &newTexture.imageView);
+  VK_CHECK(vkCreateImageView(_vkDevice, &imageViewCreateInfo, nullptr,
+                             &newTexture.imageView));
 
   return newResourceId;
 }
@@ -507,7 +507,7 @@ void VulkanRHI::applyPendingExtentUpdate() {
 
     initSwapchain(*_pendingExtentUpdate);
     initDefaultRenderPass();
-    initFramebuffers();
+    initSwapchainFramebuffers();
     initDepthPrepassFramebuffers();
     initSsaoFramebuffers();
     initSsaoPostProcessingFramebuffers();

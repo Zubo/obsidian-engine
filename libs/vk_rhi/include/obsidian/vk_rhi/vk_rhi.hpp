@@ -78,80 +78,94 @@ public:
   void setSurface(VkSurfaceKHR surface);
 
 private:
+  // Instance
   VkInstance _vkInstance;
-  VkDebugUtilsMessengerEXT _vkDebugMessenger;
-  VkSurfaceKHR _vkSurface;
   VkPhysicalDevice _vkPhysicalDevice;
-  VkPhysicalDeviceProperties _vkPhysicalDeviceProperties;
   VkDevice _vkDevice;
-  vkb::Swapchain _vkbSwapchain = {};
-  VkFormat _vkSwapchainImageFormat;
-  std::vector<FramebufferImageViews> _vkFramebufferImageViews;
-  std::vector<VkImage> _vkSwapchainImages;
-  AllocatedImage _depthBufferAttachmentImage;
+  VkDebugUtilsMessengerEXT _vkDebugMessenger;
+
+  // Draw
+  VkSurfaceKHR _vkSurface;
+  VkPhysicalDeviceProperties _vkPhysicalDeviceProperties;
+  VkFormat _depthFormat = VK_FORMAT_D32_SFLOAT;
   VkQueue _vkGraphicsQueue;
   std::uint32_t _graphicsQueueFamilyIndex;
-  VkRenderPass _vkDefaultRenderPass;
-  VkRenderPass _vkDepthRenderPass;
-  VkRenderPass _vkSsaoRenderPass;
-  VkRenderPass _vkPostProcessingRenderPass;
-  std::vector<VkFramebuffer> _vkFramebuffers;
+  std::vector<VKDrawCall> _drawCallQueue;
+  std::vector<rhi::DirectionalLight> _submittedDirectionalLights;
+  std::vector<rhi::Spotlight> _submittedSpotlights;
   std::array<FrameData, frameOverlap> _frameDataArray;
+  vkb::Swapchain _vkbSwapchain = {};
   std::uint32_t _frameNumber = 0;
+  bool _skipFrame = false;
+
+  // Default pass
+  VkRenderPass _vkDefaultRenderPass;
+  std::vector<VkFramebuffer> _vkSwapchainFramebuffers;
   VkPipelineLayout _vkMeshPipelineLayout;
   VkPipelineLayout _vkLitMeshPipelineLayout;
+
+  // Depth pass
+  VkRenderPass _vkDepthRenderPass;
   VkPipelineLayout _vkDepthPipelineLayout;
-  VkPipelineLayout _vkSsaoPipelineLayout;
-  VkPipelineLayout _vkSsaoPostProcessingPipelineLayout;
-  VkPipeline _vkShadowPassPipeline;
   VkPipeline _vkDepthPrepassPipeline;
+  VkDescriptorSetLayout _vkDepthPassDescriptorSetLayout;
+  VkDescriptorSet _depthPrepassDescriptorSet;
+  rhi::ResourceIdRHI _depthPassShaderId;
+
+  // Shadow pass
+  VkPipeline _vkShadowPassPipeline;
+  AllocatedBuffer _shadowPassCameraBuffer;
+  VkDescriptorSet _vkShadowPassDescriptorSet;
+
+  // Ssao
+  VkRenderPass _vkSsaoRenderPass;
   VkPipeline _vkSsaoPipeline;
+  VkPipelineLayout _vkSsaoPipelineLayout;
+  VkFormat _ssaoFormat = VK_FORMAT_R32_SFLOAT;
+  VkDescriptorSetLayout _vkSsaoDescriptorSetLayout;
+  AllocatedBuffer _ssaoSamplesBuffer;
+  rhi::ResourceIdRHI _ssaoNoiseTextureID;
+  VkSampler _ssaoNoiseSampler;
+  rhi::ResourceIdRHI _ssaoShaderId;
+
+  // Post processing
+  VkRenderPass _vkPostProcessingRenderPass;
+  VkSampler _postProcessingImageSampler;
+  rhi::ResourceIdRHI _postProcessingShaderId;
+
+  // Ssao post processing
+  VkPipelineLayout _vkSsaoPostProcessingPipelineLayout;
   VkPipeline _vkSsaoPostProcessingPipeline;
+  VkDescriptorSetLayout _vkSsaoPostProcessingDescriptorSetLayout;
+
   DeletionQueue _deletionQueue;
   DeletionQueue _swapchainDeletionQueue;
   VmaAllocator _vmaAllocator;
-  VkFormat _depthFormat = VK_FORMAT_D32_SFLOAT;
-  VkFormat _ssaoFormat = VK_FORMAT_R32_SFLOAT;
   DescriptorLayoutCache _descriptorLayoutCache;
   DescriptorAllocator _descriptorAllocator;
   DescriptorAllocator _swapchainBoundDescriptorAllocator;
   VkDescriptorSetLayout _vkGlobalDescriptorSetLayout;
-  VkDescriptorSetLayout _vkDetphPassDescriptorSetLayout;
   VkDescriptorSetLayout _vkLitMeshRenderPassDescriptorSetLayout;
   VkDescriptorSetLayout _vkEmptyDescriptorSetLayout;
   VkDescriptorSetLayout _vkTexturedMaterialDescriptorSetLayout;
-  VkDescriptorSetLayout _vkSsaoDescriptorSetLayout;
-  VkDescriptorSetLayout _vkSsaoPostProcessingDescriptorSetLayout;
   AllocatedBuffer _sceneDataBuffer;
   AllocatedBuffer _cameraBuffer;
-  AllocatedBuffer _shadowPassCameraBuffer;
   AllocatedBuffer _lightDataBuffer;
-  AllocatedBuffer _ssaoSamplesBuffer;
-  rhi::ResourceIdRHI _ssaoNoiseTextureID;
   VkDescriptorSet _vkGlobalDescriptorSet;
-  VkDescriptorSet _vkShadowPassDescriptorSet;
   VkDescriptorSet _emptyDescriptorSet;
-  VkDescriptorSet _depthPrepassDescriptorSet;
   ImmediateSubmitContext _immediateSubmitContext;
   VkSampler _vkAlbedoTextureSampler;
   VkSampler _vkDepthSampler;
-  VkSampler _ssaoNoiseSampler;
-  VkSampler _postProcessingImageSampler;
-  bool _skipFrame = false;
+
+  // Resources
   rhi::ResourceIdRHI _nextResourceId = 0;
   std::unordered_map<rhi::ResourceIdRHI, Texture> _textures;
   std::unordered_map<rhi::ResourceIdRHI, Mesh> _meshes;
   std::unordered_map<rhi::ResourceIdRHI, VkShaderModule> _shaderModules;
   std::unordered_map<core::MaterialType, PipelineBuilder> _pipelineBuilders;
   std::unordered_map<rhi::ResourceIdRHI, Material> _materials;
-  rhi::ResourceIdRHI _depthPassShaderId;
-  rhi::ResourceIdRHI _ssaoShaderId;
-  rhi::ResourceIdRHI _postProcessingShaderId;
   rhi::ResourceIdRHI _emptyFragShaderId;
   AllocatedBuffer _postProcessingQuadBuffer;
-  std::vector<VKDrawCall> _drawCallQueue;
-  std::vector<rhi::DirectionalLight> _submittedDirectionalLights;
-  std::vector<rhi::Spotlight> _submittedSpotlights;
   std::optional<rhi::WindowExtentRHI> _pendingExtentUpdate = std::nullopt;
 
   void initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider);
@@ -161,7 +175,7 @@ private:
   void initDepthRenderPass();
   void initSsaoRenderPass();
   void initPostProcessingRenderPass();
-  void initFramebuffers();
+  void initSwapchainFramebuffers();
   void initDepthPrepassFramebuffers();
   void initShadowPassFramebuffers();
   void initSsaoFramebuffers();

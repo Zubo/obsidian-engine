@@ -45,7 +45,7 @@ void VulkanRHI::init(rhi::WindowExtentRHI extent,
 
   initPostProcessingSampler();
 
-  initFramebuffers();
+  initSwapchainFramebuffers();
 
   initShadowPassFramebuffers();
 
@@ -171,54 +171,10 @@ void VulkanRHI::initSwapchain(rhi::WindowExtentRHI const& extent) {
 
   _vkbSwapchain = swapchainBuilder.build().value();
 
-  _vkSwapchainImages = _vkbSwapchain.get_images().value();
   std::vector<VkImageView> swapchainColorImageViews =
       _vkbSwapchain.get_image_views().value();
 
-  std::size_t const swapchainSize = swapchainColorImageViews.size();
-
-  _vkFramebufferImageViews.resize(swapchainSize);
-
-  _vkSwapchainImageFormat = _vkbSwapchain.image_format;
-
-  _swapchainDeletionQueue.pushFunction([this, swapchainColorImageViews]() {
-    for (VkImageView const& vkSwapchainImgView : swapchainColorImageViews) {
-      vkDestroyImageView(_vkDevice, vkSwapchainImgView, nullptr);
-    }
-  });
-
   vkb::destroy_swapchain(oldSwapchain);
-
-  _vkFramebuffers.resize(swapchainSize);
-
-  createDepthImage(_depthBufferAttachmentImage,
-                   VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
-
-  VkImageViewCreateInfo depthImageViewCreateInfo =
-      vkinit::imageViewCreateInfo(_depthBufferAttachmentImage.vkImage,
-                                  _depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
-
-  for (int i = 0; i < swapchainSize; ++i) {
-    FramebufferImageViews& swapchainImageViews = _vkFramebufferImageViews.at(i);
-    std::vector<VkImageView>& imageViews = swapchainImageViews.vkImageViews;
-
-    imageViews.push_back(swapchainColorImageViews[i]);
-    VkImageView& depthImageView =
-        swapchainImageViews.vkImageViews.emplace_back();
-
-    VK_CHECK(vkCreateImageView(_vkDevice, &depthImageViewCreateInfo, nullptr,
-                               &depthImageView));
-
-    _swapchainDeletionQueue.pushFunction([this, depthImageView]() {
-      vkDestroyImageView(_vkDevice, depthImageView, nullptr);
-    });
-  }
-  _swapchainDeletionQueue.pushFunction([this]() {
-    _vkFramebufferImageViews.clear();
-    _vkFramebuffers.clear();
-    vmaDestroyImage(_vmaAllocator, _depthBufferAttachmentImage.vkImage,
-                    _depthBufferAttachmentImage.allocation);
-  });
 }
 
 void VulkanRHI::initCommands() {
@@ -266,7 +222,7 @@ void VulkanRHI::initCommands() {
 
 void VulkanRHI::initDefaultRenderPass() {
   VkAttachmentDescription vkAttachments[2] = {
-      vkinit::colorAttachmentDescription(_vkSwapchainImageFormat,
+      vkinit::colorAttachmentDescription(_vkbSwapchain.image_format,
                                          VK_IMAGE_LAYOUT_PRESENT_SRC_KHR),
       vkinit::depthAttachmentDescription(_depthFormat)};
 
@@ -408,26 +364,54 @@ void VulkanRHI::initPostProcessingRenderPass() {
   });
 }
 
-void VulkanRHI::initFramebuffers() {
-  std::size_t const swapchainImageCount = _vkFramebufferImageViews.size();
+void VulkanRHI::initSwapchainFramebuffers() {
   VkFramebufferCreateInfo vkFramebufferCreateInfo =
       vkinit::framebufferCreateInfo(_vkDefaultRenderPass, 0, nullptr,
                                     _vkbSwapchain.extent.width,
                                     _vkbSwapchain.extent.height, 1);
 
-  for (int i = 0; i < swapchainImageCount; ++i) {
-    FramebufferImageViews& framebufferImageViews =
-        _vkFramebufferImageViews.at(i);
-    vkFramebufferCreateInfo.attachmentCount =
-        framebufferImageViews.vkImageViews.size();
-    vkFramebufferCreateInfo.pAttachments =
-        framebufferImageViews.vkImageViews.data();
+  AllocatedImage depthBufferAttachmentImage;
+
+  createDepthImage(depthBufferAttachmentImage,
+                   VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
+
+  VkImageViewCreateInfo depthImageViewCreateInfo =
+      vkinit::imageViewCreateInfo(depthBufferAttachmentImage.vkImage,
+                                  _depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+
+  _swapchainDeletionQueue.pushFunction([this, depthBufferAttachmentImage]() {
+    _vkSwapchainFramebuffers.clear();
+    vmaDestroyImage(_vmaAllocator, depthBufferAttachmentImage.vkImage,
+                    depthBufferAttachmentImage.allocation);
+  });
+
+  _vkSwapchainFramebuffers.resize(_vkbSwapchain.image_count);
+
+  for (int i = 0; i < _vkbSwapchain.image_count; ++i) {
+    std::vector<VkImageView> imageViews;
+    VkImageView const swapchainColorImageView =
+        _vkbSwapchain.get_image_views().value()[i];
+
+    imageViews.push_back(swapchainColorImageView);
+    VkImageView& depthImageView = imageViews.emplace_back();
+
+    VK_CHECK(vkCreateImageView(_vkDevice, &depthImageViewCreateInfo, nullptr,
+                               &depthImageView));
+
+    _swapchainDeletionQueue.pushFunction(
+        [this, swapchainColorImageView, depthImageView]() {
+          vkDestroyImageView(_vkDevice, swapchainColorImageView, nullptr);
+          vkDestroyImageView(_vkDevice, depthImageView, nullptr);
+        });
+
+    vkFramebufferCreateInfo.attachmentCount = imageViews.size();
+    vkFramebufferCreateInfo.pAttachments = imageViews.data();
 
     VK_CHECK(vkCreateFramebuffer(_vkDevice, &vkFramebufferCreateInfo, nullptr,
-                                 &_vkFramebuffers[i]));
+                                 &_vkSwapchainFramebuffers[i]));
 
     _swapchainDeletionQueue.pushFunction([this, i]() {
-      vkDestroyFramebuffer(_vkDevice, _vkFramebuffers[i], nullptr);
+      vkDestroyFramebuffer(_vkDevice, _vkSwapchainFramebuffers[i], nullptr);
     });
   }
 }
@@ -448,8 +432,8 @@ void VulkanRHI::initDepthPrepassFramebuffers() {
 
     depthPassImageViewCreateInfo.image = frameData.depthPrepassImage.vkImage;
 
-    vkCreateImageView(_vkDevice, &depthPassImageViewCreateInfo, nullptr,
-                      &frameData.vkDepthPrepassImageView);
+    VK_CHECK(vkCreateImageView(_vkDevice, &depthPassImageViewCreateInfo,
+                               nullptr, &frameData.vkDepthPrepassImageView));
 
     _swapchainDeletionQueue.pushFunction([this, &frameData]() {
       vkDestroyImageView(_vkDevice, frameData.vkDepthPrepassImageView, nullptr);
@@ -559,10 +543,9 @@ void VulkanRHI::initSsaoFramebuffers() {
     });
 
     colorImageViewCreateInfo.image = frameData.ssaoPassColorImage.vkImage;
-    VkImageView& colorAttachmentImageView =
-        frameData.ssaoFramebufferImageViews[0];
-    vkCreateImageView(_vkDevice, &colorImageViewCreateInfo, nullptr,
-                      &colorAttachmentImageView);
+
+    VK_CHECK(vkCreateImageView(_vkDevice, &colorImageViewCreateInfo, nullptr,
+                               &frameData.ssaoFramebufferImageViews[0]));
 
     VK_CHECK(vmaCreateImage(_vmaAllocator, &depthImageCreateInfo,
                             &allocationCreateInfo,
@@ -576,8 +559,8 @@ void VulkanRHI::initSsaoFramebuffers() {
 
     depthImageViewCreateInfo.image = frameData.ssaoPassDepthImage.vkImage;
 
-    vkCreateImageView(_vkDevice, &depthImageViewCreateInfo, nullptr,
-                      &frameData.ssaoFramebufferImageViews[1]);
+    VK_CHECK(vkCreateImageView(_vkDevice, &depthImageViewCreateInfo, nullptr,
+                               &frameData.ssaoFramebufferImageViews[1]));
 
     _swapchainDeletionQueue.pushFunction([this, &frameData]() {
       vkDestroyImageView(_vkDevice, frameData.ssaoFramebufferImageViews[0],
@@ -783,7 +766,7 @@ void VulkanRHI::initDepthPassPipelineLayout() {
   vkDepthPipelineLayoutCreateInfo.pNext = nullptr;
 
   std::array<VkDescriptorSetLayout, 4> depthDescriptorSetLayouts = {
-      _vkGlobalDescriptorSetLayout, _vkDetphPassDescriptorSetLayout,
+      _vkGlobalDescriptorSetLayout, _vkDepthPassDescriptorSetLayout,
       _vkEmptyDescriptorSetLayout, _vkEmptyDescriptorSetLayout};
 
   vkDepthPipelineLayoutCreateInfo.setLayoutCount =
@@ -1199,7 +1182,7 @@ void VulkanRHI::initDepthPrepassDescriptors() {
                            _descriptorLayoutCache)
       .bindBuffer(0, bufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
                   VK_SHADER_STAGE_VERTEX_BIT)
-      .build(_depthPrepassDescriptorSet, _vkDetphPassDescriptorSetLayout);
+      .build(_depthPrepassDescriptorSet, _vkDepthPassDescriptorSetLayout);
 }
 
 void VulkanRHI::initShadowPassDescriptors() {

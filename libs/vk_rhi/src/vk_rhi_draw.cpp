@@ -263,7 +263,8 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   vkRenderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
   vkRenderPassBeginInfo.pNext = nullptr;
   vkRenderPassBeginInfo.renderPass = _vkDefaultRenderPass;
-  vkRenderPassBeginInfo.framebuffer = _vkFramebuffers[swapchainImageIndex];
+  vkRenderPassBeginInfo.framebuffer =
+      _vkSwapchainFramebuffers[swapchainImageIndex];
   vkRenderPassBeginInfo.renderArea.offset = {0, 0};
   vkRenderPassBeginInfo.renderArea.extent = _vkbSwapchain.extent;
   vkRenderPassBeginInfo.clearValueCount = clearValues.size();
