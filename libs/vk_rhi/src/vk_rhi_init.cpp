@@ -171,8 +171,9 @@ void VulkanRHI::initSwapchain(rhi::WindowExtentRHI const& extent) {
 
   _vkbSwapchain = swapchainBuilder.build().value();
 
-  std::vector<VkImageView> swapchainColorImageViews =
-      _vkbSwapchain.get_image_views().value();
+  _swapchainImageViews = _vkbSwapchain.get_image_views().value();
+  _swapchainDeletionQueue.pushFunction(
+      [this]() { _vkbSwapchain.destroy_image_views(_swapchainImageViews); });
 
   vkb::destroy_swapchain(oldSwapchain);
 }
@@ -389,8 +390,7 @@ void VulkanRHI::initSwapchainFramebuffers() {
 
   for (int i = 0; i < _vkbSwapchain.image_count; ++i) {
     std::vector<VkImageView> imageViews;
-    VkImageView const swapchainColorImageView =
-        _vkbSwapchain.get_image_views().value()[i];
+    VkImageView const swapchainColorImageView = _swapchainImageViews[i];
 
     imageViews.push_back(swapchainColorImageView);
     VkImageView& depthImageView = imageViews.emplace_back();
@@ -398,11 +398,9 @@ void VulkanRHI::initSwapchainFramebuffers() {
     VK_CHECK(vkCreateImageView(_vkDevice, &depthImageViewCreateInfo, nullptr,
                                &depthImageView));
 
-    _swapchainDeletionQueue.pushFunction(
-        [this, swapchainColorImageView, depthImageView]() {
-          vkDestroyImageView(_vkDevice, swapchainColorImageView, nullptr);
-          vkDestroyImageView(_vkDevice, depthImageView, nullptr);
-        });
+    _swapchainDeletionQueue.pushFunction([this, depthImageView]() {
+      vkDestroyImageView(_vkDevice, depthImageView, nullptr);
+    });
 
     vkFramebufferCreateInfo.attachmentCount = imageViews.size();
     vkFramebufferCreateInfo.pAttachments = imageViews.data();

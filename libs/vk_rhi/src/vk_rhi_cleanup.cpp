@@ -13,6 +13,7 @@ void VulkanRHI::cleanup() {
 
     _swapchainDeletionQueue.flush();
     _deletionQueue.flush();
+
     vkb::destroy_swapchain(_vkbSwapchain);
 
     vkDestroyDevice(_vkDevice, nullptr);

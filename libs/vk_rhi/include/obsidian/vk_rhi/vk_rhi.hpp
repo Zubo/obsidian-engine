@@ -93,8 +93,9 @@ private:
   std::vector<VKDrawCall> _drawCallQueue;
   std::vector<rhi::DirectionalLight> _submittedDirectionalLights;
   std::vector<rhi::Spotlight> _submittedSpotlights;
-  std::array<FrameData, frameOverlap> _frameDataArray;
+  std::array<FrameData, frameOverlap> _frameDataArray = {};
   vkb::Swapchain _vkbSwapchain = {};
+  std::vector<VkImageView> _swapchainImageViews;
   std::uint32_t _frameNumber = 0;
   bool _skipFrame = false;
 
