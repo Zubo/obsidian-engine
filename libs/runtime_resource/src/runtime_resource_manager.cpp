@@ -91,8 +91,10 @@ void RuntimeResourceManager::uploadInitRHIResources() {
 }
 
 void RuntimeResourceManager::cleanup() {
-  _rhi->waitDeviceIdle();
-  _runtimeResources.clear();
+  if (_runtimeResources.size()) {
+    _rhi->waitDeviceIdle();
+    _runtimeResources.clear();
+  }
 }
 
 RuntimeResource& RuntimeResourceManager::getResource(fs::path const& path) {
