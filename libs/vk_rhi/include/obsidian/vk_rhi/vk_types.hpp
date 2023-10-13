@@ -125,35 +125,6 @@ struct Texture {
   VkImageView imageView;
 };
 
-struct FrameData {
-  VkSemaphore vkRenderSemaphore;
-  VkSemaphore vkPresentSemaphore;
-  VkFence vkRenderFence;
-  VkCommandPool vkCommandPool;
-  VkCommandBuffer vkCommandBuffer;
-
-  VkDescriptorSet vkDefaultRenderPassDescriptorSet;
-
-  std::array<VkFramebuffer, rhi::maxLightsPerDrawPass> shadowFrameBuffers;
-  std::array<AllocatedImage, rhi::maxLightsPerDrawPass> shadowMapImages;
-  std::array<VkImageView, rhi::maxLightsPerDrawPass> shadowMapImageViews;
-
-  AllocatedImage depthPrepassImage;
-  VkImageView vkDepthPrepassImageView;
-  VkFramebuffer vkDepthPrepassFramebuffer;
-
-  AllocatedImage ssaoPassColorImage;
-  AllocatedImage ssaoPassDepthImage;
-  VkFramebuffer vkSsaoFramebuffer;
-  std::array<VkImageView, 2> ssaoFramebufferImageViews;
-  VkDescriptorSet vkSsaoRenderPassDescriptorSet;
-
-  AllocatedImage ssaoPostProcessingColorImage;
-  VkImageView ssaoPostProcessingColorImageView;
-  VkFramebuffer vkSsaoPostProcessingFramebuffer;
-  VkDescriptorSet vkSsaoPostProcessingDescriptorSet;
-};
-
 VkFormat getVkTextureFormat(core::TextureFormat format);
 
 GPUCameraData getDirectionalLightCameraData(glm::vec3 direction);

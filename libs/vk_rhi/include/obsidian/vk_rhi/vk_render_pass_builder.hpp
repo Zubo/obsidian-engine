@@ -1,11 +1,14 @@
 #pragma once
 
+#include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
 
 #include <optional>
 #include <vector>
 
 namespace obsidian::vk_rhi {
+
+struct RenderPass;
 
 struct SubpassData {
   VkPipelineBindPoint vkPipelineBindPoint;
@@ -31,7 +34,7 @@ public:
   RenderPassBuilder& addDepthSubpassReference(std::size_t subpassInd,
                                               VkImageLayout layout);
 
-  RenderPassBuilder& build(VkRenderPass& outRenderPass);
+  RenderPassBuilder& build(RenderPass& outRenderPass);
 
 private:
   RenderPassBuilder() = default;

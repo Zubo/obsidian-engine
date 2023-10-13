@@ -7,11 +7,11 @@
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
 #include <tracy/Tracy.hpp>
-#include <type_traits>
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
 
 #include <cstring>
+#include <type_traits>
 
 using namespace obsidian::vk_rhi;
 
@@ -62,7 +62,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   VkRenderPassBeginInfo depthPassBeginInfo = {};
   depthPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
   depthPassBeginInfo.pNext = nullptr;
-  depthPassBeginInfo.renderPass = _vkDepthRenderPass;
+  depthPassBeginInfo.renderPass = _depthRenderPass.vkRenderPass;
   depthPassBeginInfo.renderArea.offset = {0, 0};
   depthPassBeginInfo.clearValueCount = 1;
   depthPassBeginInfo.pClearValues = &depthClearValue;
@@ -73,7 +73,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   depthPassBeginInfo.renderArea.extent = {_vkbSwapchain.extent.width,
                                           _vkbSwapchain.extent.height};
   depthPassBeginInfo.framebuffer =
-      _frameDataArray[frameInd].vkDepthPrepassFramebuffer;
+      _frameDataArray[frameInd].vkDepthPrepassFramebuffer.vkFramebuffer;
 
   vkCmdBeginRenderPass(cmd, &depthPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
@@ -106,7 +106,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   vkCmdEndRenderPass(cmd);
 
   VkImageMemoryBarrier depthImageMemoryBarrier = vkinit::layoutImageBarrier(
-      currentFrameData.depthPrepassImage.vkImage,
+      currentFrameData.vkDepthPrepassFramebuffer.depthBufferImage.vkImage,
       VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
       VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
 
@@ -121,8 +121,9 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   VkRenderPassBeginInfo ssaoRenderPassBeginInfo = {};
   ssaoRenderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
   ssaoRenderPassBeginInfo.pNext = nullptr;
-  ssaoRenderPassBeginInfo.renderPass = _vkSsaoRenderPass;
-  ssaoRenderPassBeginInfo.framebuffer = currentFrameData.vkSsaoFramebuffer;
+  ssaoRenderPassBeginInfo.renderPass = _ssaoRenderPass.vkRenderPass;
+  ssaoRenderPassBeginInfo.framebuffer =
+      currentFrameData.vkSsaoFramebuffer.vkFramebuffer;
   ssaoRenderPassBeginInfo.renderArea.offset = {0, 0};
   ssaoRenderPassBeginInfo.renderArea.extent = _vkbSwapchain.extent;
   std::array<VkClearValue, 2> ssaoClearValues = {};
@@ -150,7 +151,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   vkCmdEndRenderPass(cmd);
 
   VkImageMemoryBarrier ssaoImageMemoryBarrier = vkinit::layoutImageBarrier(
-      currentFrameData.ssaoPassColorImage.vkImage,
+      currentFrameData.vkSsaoFramebuffer.colorBufferImage.vkImage,
       VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
       VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
@@ -165,9 +166,9 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   ssaoPostProcessingRenderPassBeginInfo.pNext = nullptr;
 
   ssaoPostProcessingRenderPassBeginInfo.renderPass =
-      _vkPostProcessingRenderPass;
+      _postProcessingRenderPass.vkRenderPass;
   ssaoPostProcessingRenderPassBeginInfo.framebuffer =
-      currentFrameData.vkSsaoPostProcessingFramebuffer;
+      currentFrameData.vkSsaoPostProcessingFramebuffer.vkFramebuffer;
   ssaoPostProcessingRenderPassBeginInfo.renderArea.offset = {0, 0};
   ssaoPostProcessingRenderPassBeginInfo.renderArea.extent =
       _vkbSwapchain.extent;
@@ -189,13 +190,14 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   }
 
   drawPostProcessing(
-      cmd, kernel, currentFrameData.vkSsaoPostProcessingFramebuffer,
+      cmd, kernel,
+      currentFrameData.vkSsaoPostProcessingFramebuffer.vkFramebuffer,
       currentFrameData.vkSsaoPostProcessingDescriptorSet, viewport, scissor);
 
   vkCmdEndRenderPass(cmd);
 
   VkImageMemoryBarrier ssaoPostProcessingBarrier = vkinit::layoutImageBarrier(
-      currentFrameData.ssaoPostProcessingColorImage.vkImage,
+      currentFrameData.vkSsaoPostProcessingFramebuffer.colorBufferImage.vkImage,
       VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
       VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
@@ -214,7 +216,8 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
     assert(shadowPass.shadowMapIndex >= 0);
 
     depthPassBeginInfo.framebuffer =
-        currentFrameData.shadowFrameBuffers[shadowPass.shadowMapIndex];
+        currentFrameData.shadowFrameBuffers[shadowPass.shadowMapIndex]
+            .vkFramebuffer;
 
     vkCmdBeginRenderPass(cmd, &depthPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
@@ -236,12 +239,13 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
     vkCmdEndRenderPass(cmd);
   }
 
-  for (std::size_t i = 0; i < currentFrameData.shadowMapImages.size(); ++i) {
+  for (std::size_t i = 0; i < currentFrameData.shadowFrameBuffers.size(); ++i) {
     bool const depthAttachmentUsed = i < submittedParams.size();
     depthImageMemoryBarrier.oldLayout =
         depthAttachmentUsed ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
                             : VK_IMAGE_LAYOUT_UNDEFINED;
-    depthImageMemoryBarrier.image = currentFrameData.shadowMapImages[i].vkImage;
+    depthImageMemoryBarrier.image =
+        currentFrameData.shadowFrameBuffers[i].depthBufferImage.vkImage;
 
     vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
                          VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr,
@@ -262,9 +266,9 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   VkRenderPassBeginInfo vkRenderPassBeginInfo = {};
   vkRenderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
   vkRenderPassBeginInfo.pNext = nullptr;
-  vkRenderPassBeginInfo.renderPass = _vkDefaultRenderPass;
+  vkRenderPassBeginInfo.renderPass = _defaultRenderPass.vkRenderPass;
   vkRenderPassBeginInfo.framebuffer =
-      _vkSwapchainFramebuffers[swapchainImageIndex];
+      _vkSwapchainFramebuffers[swapchainImageIndex].vkFramebuffer;
   vkRenderPassBeginInfo.renderArea.offset = {0, 0};
   vkRenderPassBeginInfo.renderArea.extent = _vkbSwapchain.extent;
   vkRenderPassBeginInfo.clearValueCount = clearValues.size();

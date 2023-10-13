@@ -1,4 +1,5 @@
 #include <obsidian/vk_rhi/vk_check.hpp>
+#include <obsidian/vk_rhi/vk_framebuffer.hpp>
 #include <obsidian/vk_rhi/vk_initializers.hpp>
 #include <obsidian/vk_rhi/vk_render_pass_builder.hpp>
 
@@ -82,7 +83,7 @@ RenderPassBuilder::addDepthSubpassReference(std::size_t subpassInd,
   return *this;
 }
 
-RenderPassBuilder& RenderPassBuilder::build(VkRenderPass& outRenderPass) {
+RenderPassBuilder& RenderPassBuilder::build(RenderPass& outRenderPass) {
   VkRenderPassCreateInfo renderPassCreateInfo = {};
   renderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
   renderPassCreateInfo.pNext = nullptr;
@@ -115,7 +116,19 @@ RenderPassBuilder& RenderPassBuilder::build(VkRenderPass& outRenderPass) {
   renderPassCreateInfo.pSubpasses = subpassDescriptions.data();
 
   VK_CHECK(vkCreateRenderPass(_vkDevice, &renderPassCreateInfo, nullptr,
-                              &outRenderPass));
+                              &outRenderPass.vkRenderPass));
+
+  outRenderPass.vkDevice = _vkDevice;
+
+  if (_colorAttachmentInd != attachmentIndexNone) {
+    outRenderPass.colorAttachmentFormat =
+        _attachmentDescriptions[_colorAttachmentInd].format;
+  }
+
+  if (_depthAttachmentInd != attachmentIndexNone) {
+    outRenderPass.depthAttachmentFormat =
+        _attachmentDescriptions[_depthAttachmentInd].format;
+  }
 
   return *this;
 }

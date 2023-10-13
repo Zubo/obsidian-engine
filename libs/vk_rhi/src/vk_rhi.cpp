@@ -239,7 +239,7 @@ VulkanRHI::uploadMaterial(rhi::UploadMaterialRHI const& uploadMaterial) {
   Material& newMaterial = _materials[newResourceId];
   newMaterial.vkPipelineLayout = pipelineBuilder._vkPipelineLayout;
   newMaterial.vkPipeline =
-      pipelineBuilder.buildPipeline(_vkDevice, _vkDefaultRenderPass);
+      pipelineBuilder.buildPipeline(_vkDevice, _defaultRenderPass.vkRenderPass);
 
   Texture const& albedoTexture = _textures[uploadMaterial.albedoTextureId];
 

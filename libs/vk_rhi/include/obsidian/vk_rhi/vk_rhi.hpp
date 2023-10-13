@@ -6,6 +6,8 @@
 #include <obsidian/rhi/submit_types_rhi.hpp>
 #include <obsidian/vk_rhi/vk_deletion_queue.hpp>
 #include <obsidian/vk_rhi/vk_descriptors.hpp>
+#include <obsidian/vk_rhi/vk_frame_data.hpp>
+#include <obsidian/vk_rhi/vk_framebuffer.hpp>
 #include <obsidian/vk_rhi/vk_mesh.hpp>
 #include <obsidian/vk_rhi/vk_pipeline_builder.hpp>
 #include <obsidian/vk_rhi/vk_types.hpp>
@@ -100,13 +102,13 @@ private:
   bool _skipFrame = false;
 
   // Default pass
-  VkRenderPass _vkDefaultRenderPass;
-  std::vector<VkFramebuffer> _vkSwapchainFramebuffers;
+  RenderPass _defaultRenderPass;
+  std::vector<Framebuffer> _vkSwapchainFramebuffers;
   VkPipelineLayout _vkMeshPipelineLayout;
   VkPipelineLayout _vkLitMeshPipelineLayout;
 
   // Depth pass
-  VkRenderPass _vkDepthRenderPass;
+  RenderPass _depthRenderPass;
   VkPipelineLayout _vkDepthPipelineLayout;
   VkPipeline _vkDepthPrepassPipeline;
   VkDescriptorSetLayout _vkDepthPassDescriptorSetLayout;
@@ -119,7 +121,7 @@ private:
   VkDescriptorSet _vkShadowPassDescriptorSet;
 
   // Ssao
-  VkRenderPass _vkSsaoRenderPass;
+  RenderPass _ssaoRenderPass;
   VkPipeline _vkSsaoPipeline;
   VkPipelineLayout _vkSsaoPipelineLayout;
   VkFormat _ssaoFormat = VK_FORMAT_R32_SFLOAT;
@@ -130,7 +132,7 @@ private:
   rhi::ResourceIdRHI _ssaoShaderId;
 
   // Post processing
-  VkRenderPass _vkPostProcessingRenderPass;
+  RenderPass _postProcessingRenderPass;
   VkSampler _postProcessingImageSampler;
   rhi::ResourceIdRHI _postProcessingShaderId;
 

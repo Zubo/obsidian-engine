@@ -13,6 +13,7 @@ add_library(VulkanRHI
     "src/vk_mesh.cpp"
     "src/vk_descriptors.cpp"
     "src/vk_types.cpp"
+    "src/vk_framebuffer.cpp"
     "include/obsidian/vk_rhi/vk_rhi.hpp"
     "include/obsidian/vk_rhi/vk_check.hpp"
     "include/obsidian/vk_rhi/vk_types.hpp"
@@ -22,6 +23,8 @@ add_library(VulkanRHI
     "include/obsidian/vk_rhi/vk_render_pass_builder.hpp"
     "include/obsidian/vk_rhi/vk_deletion_queue.hpp"
     "include/obsidian/vk_rhi/vk_descriptors.hpp"
+    "include/obsidian/vk_rhi/vk_framebuffer.hpp"
+    "include/obsidian/vk_rhi/vk_frame_data.hpp"
 )
 
 target_include_directories(VulkanRHI
