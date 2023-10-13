@@ -8,6 +8,7 @@
 #include <obsidian/vk_rhi/vk_initializers.hpp>
 #include <obsidian/vk_rhi/vk_mesh.hpp>
 #include <obsidian/vk_rhi/vk_pipeline_builder.hpp>
+#include <obsidian/vk_rhi/vk_render_pass_builder.hpp>
 #include <obsidian/vk_rhi/vk_rhi.hpp>
 #include <obsidian/vk_rhi/vk_types.hpp>
 
@@ -222,38 +223,15 @@ void VulkanRHI::initCommands() {
 }
 
 void VulkanRHI::initDefaultRenderPass() {
-  VkAttachmentDescription vkAttachments[2] = {
-      vkinit::colorAttachmentDescription(_vkbSwapchain.image_format,
-                                         VK_IMAGE_LAYOUT_PRESENT_SRC_KHR),
-      vkinit::depthAttachmentDescription(_depthFormat)};
-
-  VkAttachmentReference vkColorAttachmentReference = {};
-  vkColorAttachmentReference.attachment = 0;
-  vkColorAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-  VkAttachmentReference vkDepthAttachmentReference = {};
-  vkDepthAttachmentReference.attachment = 1;
-  vkDepthAttachmentReference.layout =
-      VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-  VkSubpassDescription vkSubpassDescription = {};
-  vkSubpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-  vkSubpassDescription.colorAttachmentCount = 1;
-  vkSubpassDescription.pColorAttachments = &vkColorAttachmentReference;
-  vkSubpassDescription.pDepthStencilAttachment = &vkDepthAttachmentReference;
-
-  VkRenderPassCreateInfo vkRenderPassCreateInfo = {};
-  vkRenderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-  vkRenderPassCreateInfo.pNext = nullptr;
-
-  vkRenderPassCreateInfo.attachmentCount = 2;
-  vkRenderPassCreateInfo.pAttachments = vkAttachments;
-
-  vkRenderPassCreateInfo.subpassCount = 1;
-  vkRenderPassCreateInfo.pSubpasses = &vkSubpassDescription;
-
-  VK_CHECK(vkCreateRenderPass(_vkDevice, &vkRenderPassCreateInfo, nullptr,
-                              &_vkDefaultRenderPass));
+  RenderPassBuilder::begin(_vkDevice)
+      .addColorAttachment(_vkbSwapchain.image_format,
+                          VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
+      .addDepthAttachment(_depthFormat)
+      .addColorSubpassReference(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+      .addDepthSubpassReference(
+          0, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+      .setSubpassPipelineBindPoint(0, VK_PIPELINE_BIND_POINT_GRAPHICS)
+      .build(_vkDefaultRenderPass);
 
   _swapchainDeletionQueue.pushFunction([this]() {
     vkDestroyRenderPass(_vkDevice, _vkDefaultRenderPass, nullptr);
@@ -261,34 +239,12 @@ void VulkanRHI::initDefaultRenderPass() {
 }
 
 void VulkanRHI::initDepthRenderPass() {
-  VkRenderPassCreateInfo vkRenderPassCreateInfo = {};
-  vkRenderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-  vkRenderPassCreateInfo.pNext = nullptr;
-
-  VkAttachmentDescription vkAttachmentDescription =
-      vkinit::depthAttachmentDescription(_depthFormat);
-
-  vkRenderPassCreateInfo.pAttachments = &vkAttachmentDescription;
-  vkRenderPassCreateInfo.attachmentCount = 1;
-
-  VkSubpassDescription vkSubpassDescription = {};
-  vkSubpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-  vkSubpassDescription.inputAttachmentCount = 0;
-  vkSubpassDescription.colorAttachmentCount = 0;
-
-  VkAttachmentReference vkDepthStencilAttachmentReference = {};
-  vkDepthStencilAttachmentReference.attachment = 0;
-  vkDepthStencilAttachmentReference.layout =
-      VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-  vkSubpassDescription.pDepthStencilAttachment =
-      &vkDepthStencilAttachmentReference;
-
-  vkRenderPassCreateInfo.subpassCount = 1;
-  vkRenderPassCreateInfo.pSubpasses = &vkSubpassDescription;
-
-  VK_CHECK(vkCreateRenderPass(_vkDevice, &vkRenderPassCreateInfo, nullptr,
-                              &_vkDepthRenderPass));
+  RenderPassBuilder::begin(_vkDevice)
+      .addDepthAttachment(_depthFormat)
+      .setSubpassPipelineBindPoint(0, VK_PIPELINE_BIND_POINT_GRAPHICS)
+      .addDepthSubpassReference(
+          0, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+      .build(_vkDepthRenderPass);
 
   _deletionQueue.pushFunction([this]() {
     vkDestroyRenderPass(_vkDevice, _vkDepthRenderPass, nullptr);
@@ -296,69 +252,25 @@ void VulkanRHI::initDepthRenderPass() {
 }
 
 void VulkanRHI::initSsaoRenderPass() {
-  VkRenderPassCreateInfo renderPassCreateInfo = {};
-  renderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-  renderPassCreateInfo.pNext = nullptr;
-
-  std::array<VkAttachmentDescription, 2> attachmentDescriptions = {
-      vkinit::colorAttachmentDescription(
-          _ssaoFormat, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL),
-      vkinit::depthAttachmentDescription(_depthFormat)};
-
-  renderPassCreateInfo.attachmentCount = 2;
-  renderPassCreateInfo.pAttachments = attachmentDescriptions.data();
-
-  VkAttachmentReference colorAttachmentReference;
-  colorAttachmentReference.attachment = 0;
-  colorAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-  VkAttachmentReference depthStencilAttachmentreference;
-  depthStencilAttachmentreference.attachment = 1;
-  depthStencilAttachmentreference.layout =
-      VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-  VkSubpassDescription subpassDescription = {};
-  subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-  subpassDescription.colorAttachmentCount = 1;
-  subpassDescription.pColorAttachments = &colorAttachmentReference;
-  subpassDescription.pDepthStencilAttachment = &depthStencilAttachmentreference;
-
-  renderPassCreateInfo.subpassCount = 1;
-  renderPassCreateInfo.pSubpasses = &subpassDescription;
-
-  VK_CHECK(vkCreateRenderPass(_vkDevice, &renderPassCreateInfo, nullptr,
-                              &_vkSsaoRenderPass));
+  RenderPassBuilder::begin(_vkDevice)
+      .addColorAttachment(_ssaoFormat, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+      .addDepthAttachment(_depthFormat)
+      .setSubpassPipelineBindPoint(0, VK_PIPELINE_BIND_POINT_GRAPHICS)
+      .addColorSubpassReference(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+      .addDepthSubpassReference(
+          0, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+      .build(_vkSsaoRenderPass);
 
   _deletionQueue.pushFunction(
       [this]() { vkDestroyRenderPass(_vkDevice, _vkSsaoRenderPass, nullptr); });
 }
 
 void VulkanRHI::initPostProcessingRenderPass() {
-  VkRenderPassCreateInfo renderPassCreateInfo = {};
-  renderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-  renderPassCreateInfo.pNext = nullptr;
-
-  VkAttachmentDescription colorAttachment = vkinit::colorAttachmentDescription(
-      _ssaoFormat, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-  colorAttachment.format = _ssaoFormat;
-
-  renderPassCreateInfo.attachmentCount = 1;
-  renderPassCreateInfo.pAttachments = &colorAttachment;
-
-  VkAttachmentReference colorAttachmentRef = {};
-  colorAttachmentRef.attachment = 0;
-  colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-  VkSubpassDescription subpassDescription = {};
-  subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-  subpassDescription.colorAttachmentCount = 1;
-  subpassDescription.pColorAttachments = &colorAttachmentRef;
-
-  renderPassCreateInfo.subpassCount = 1;
-  renderPassCreateInfo.pSubpasses = &subpassDescription;
-
-  VK_CHECK(vkCreateRenderPass(_vkDevice, &renderPassCreateInfo, nullptr,
-                              &_vkPostProcessingRenderPass));
+  RenderPassBuilder::begin(_vkDevice)
+      .addColorAttachment(_ssaoFormat, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+      .setSubpassPipelineBindPoint(0, VK_PIPELINE_BIND_POINT_GRAPHICS)
+      .addColorSubpassReference(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+      .build(_vkPostProcessingRenderPass);
 
   _deletionQueue.pushFunction([this]() {
     vkDestroyRenderPass(_vkDevice, _vkPostProcessingRenderPass, nullptr);

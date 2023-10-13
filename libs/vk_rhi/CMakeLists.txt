@@ -9,6 +9,7 @@ add_library(VulkanRHI
     "src/vk_rhi_cleanup.cpp"
     "src/vk_initializers.cpp"
     "src/vk_pipeline_builder.cpp"
+    "src/vk_render_pass_builder.cpp"
     "src/vk_mesh.cpp"
     "src/vk_descriptors.cpp"
     "src/vk_types.cpp"
@@ -18,6 +19,7 @@ add_library(VulkanRHI
     "include/obsidian/vk_rhi/vk_initializers.hpp"
     "include/obsidian/vk_rhi/vk_mesh.hpp"
     "include/obsidian/vk_rhi/vk_pipeline_builder.hpp"
+    "include/obsidian/vk_rhi/vk_render_pass_builder.hpp"
     "include/obsidian/vk_rhi/vk_deletion_queue.hpp"
     "include/obsidian/vk_rhi/vk_descriptors.hpp"
 )
