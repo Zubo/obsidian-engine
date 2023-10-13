@@ -273,25 +273,6 @@ VkImageMemoryBarrier layoutImageBarrier(VkImage image, VkImageLayout oldLayout,
   return barrier;
 }
 
-VkFramebufferCreateInfo framebufferCreateInfo(VkRenderPass renderPass,
-                                              uint32_t attachmentCount,
-                                              VkImageView const* attachments,
-                                              uint32_t width, uint32_t height,
-                                              uint32_t layers) {
-  VkFramebufferCreateInfo framebufferCreateInfo = {};
-  framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-  framebufferCreateInfo.pNext = nullptr;
-
-  framebufferCreateInfo.renderPass = renderPass;
-  framebufferCreateInfo.attachmentCount = attachmentCount;
-  framebufferCreateInfo.pAttachments = attachments;
-  framebufferCreateInfo.width = width;
-  framebufferCreateInfo.height = height;
-  framebufferCreateInfo.layers = layers;
-
-  return framebufferCreateInfo;
-}
-
 VkAttachmentDescription colorAttachmentDescription(VkFormat format,
                                                    VkImageLayout finalLayout) {
   VkAttachmentDescription attachmentDescription = {};

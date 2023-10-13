@@ -62,12 +62,6 @@ VkImageMemoryBarrier layoutImageBarrier(VkImage image, VkImageLayout oldLayout,
                                         VkImageLayout newLayout,
                                         VkImageAspectFlagBits aspectMask);
 
-VkFramebufferCreateInfo framebufferCreateInfo(VkRenderPass renderPass,
-                                              uint32_t attachmentCount,
-                                              VkImageView const* attachments,
-                                              uint32_t width, uint32_t height,
-                                              uint32_t layers);
-
 VkAttachmentDescription colorAttachmentDescription(VkFormat format,
                                                    VkImageLayout finalLayout);
 

@@ -61,11 +61,18 @@ RenderPass::generateFramebuffer(VmaAllocator vmaAllocator, VkExtent2D extent,
     attachmentImageViews.push_back(outFramebuffer.depthBufferImageView);
   }
 
-  VkFramebufferCreateInfo frameBufferCreateInfo = vkinit::framebufferCreateInfo(
-      vkRenderPass, attachmentImageViews.size(), attachmentImageViews.data(),
-      extent3D.width, extent3D.height, extent3D.depth);
+  VkFramebufferCreateInfo framebufferCreateInfo = {};
+  framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+  framebufferCreateInfo.pNext = nullptr;
 
-  VK_CHECK(vkCreateFramebuffer(vkDevice, &frameBufferCreateInfo, nullptr,
+  framebufferCreateInfo.renderPass = vkRenderPass;
+  framebufferCreateInfo.attachmentCount = attachmentImageViews.size();
+  framebufferCreateInfo.pAttachments = attachmentImageViews.data();
+  framebufferCreateInfo.width = extent3D.width;
+  framebufferCreateInfo.height = extent3D.height;
+  framebufferCreateInfo.layers = extent3D.depth;
+
+  VK_CHECK(vkCreateFramebuffer(vkDevice, &framebufferCreateInfo, nullptr,
                                &outFramebuffer.vkFramebuffer));
 
   return outFramebuffer;
