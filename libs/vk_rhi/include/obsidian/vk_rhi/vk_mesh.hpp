@@ -15,10 +15,12 @@ struct Vertex {
   glm::vec3 normal;
   glm::vec3 color;
   glm::vec2 uv;
+  glm::vec3 tangent;
 
   static VertexInputDescription
   getVertexInputDescription(bool bindPosition = true, bool bindNormals = true,
-                            bool bindColors = true, bool bindUV = true);
+                            bool bindColors = true, bool bindUV = true,
+                            bool bindTangents = true);
 };
 
 struct Mesh {

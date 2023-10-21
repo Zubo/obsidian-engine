@@ -10,7 +10,8 @@ using namespace obsidian::vk_rhi;
 VertexInputDescription Vertex::getVertexInputDescription(bool bindPosition,
                                                          bool bindNormals,
                                                          bool bindColors,
-                                                         bool bindUV) {
+                                                         bool bindUV,
+                                                         bool bindTangents) {
   VertexInputDescription description;
 
   VkVertexInputBindingDescription mainBinding = {};
@@ -58,6 +59,16 @@ VertexInputDescription Vertex::getVertexInputDescription(bool bindPosition,
     uvAttribute.offset = offsetof(Vertex, uv);
 
     description.attributes.push_back(uvAttribute);
+  }
+
+  if (bindTangents) {
+    VkVertexInputAttributeDescription tangentAttribute = {};
+    tangentAttribute.location = 4;
+    tangentAttribute.binding = 0;
+    tangentAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
+    tangentAttribute.offset = offsetof(Vertex, tangent);
+
+    description.attributes.push_back(tangentAttribute);
   }
 
   return description;

@@ -528,7 +528,7 @@ void VulkanRHI::initShadowPassPipeline() {
       vkinit::multisampleStateCreateInfo();
 
   pipelineBuilder._vertexInputDescription =
-      Vertex::getVertexInputDescription(true, false, false, false);
+      Vertex::getVertexInputDescription(true, false, false, false, false);
 
   pipelineBuilder._vkViewport.x = 0.f;
   pipelineBuilder._vkViewport.y = 0.f;
@@ -542,7 +542,7 @@ void VulkanRHI::initShadowPassPipeline() {
                                        shadowPassAttachmentHeight};
 
   VertexInputDescription shadowPassVertexInputDescription =
-      Vertex::getVertexInputDescription(true, false, false, false);
+      Vertex::getVertexInputDescription(true, false, false, false, false);
 
   VkShaderModule const shaderModule = _shaderModules[_depthPassShaderId];
   pipelineBuilder._vkShaderStageCreateInfos.push_back(
@@ -579,7 +579,7 @@ void VulkanRHI::initDepthPrepassPipeline() {
       vkinit::multisampleStateCreateInfo();
 
   pipelineBuilder._vertexInputDescription =
-      Vertex::getVertexInputDescription(true, false, false, false);
+      Vertex::getVertexInputDescription(true, false, false, false, false);
 
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
@@ -656,7 +656,7 @@ void VulkanRHI::initSsaoPipeline() {
 
   pipelineBuilder._vkPipelineLayout = _vkSsaoPipelineLayout;
   pipelineBuilder._vertexInputDescription =
-      Vertex::getVertexInputDescription(true, true, false, true);
+      Vertex::getVertexInputDescription(true, true, false, true, false);
 
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
