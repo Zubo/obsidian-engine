@@ -21,6 +21,7 @@
 #include <cstring>
 #include <fstream>
 #include <unordered_map>
+#include <vector>
 
 namespace fs = std::filesystem;
 
@@ -53,9 +54,11 @@ bool convertImgToAsset(fs::path const& srcPath, fs::path const& dstPath) {
   unsigned char* data =
       stbi_load(srcPath.c_str(), &w, &h, &channelCnt, STBI_rgb_alpha);
 
+  bool const shouldAddAlpha = (channelCnt == 3);
+  channelCnt = shouldAddAlpha ? channelCnt + 1 : channelCnt;
   asset::Asset outAsset;
   asset::TextureAssetInfo textureAssetInfo;
-  textureAssetInfo.unpackedSize = w * h * channelCnt;
+  textureAssetInfo.unpackedSize = w * h * 4;
   textureAssetInfo.compressionMode = asset::CompressionMode::LZ4;
   textureAssetInfo.format = core::getDefaultFormatForChannelCount(channelCnt);
 
@@ -67,7 +70,25 @@ bool convertImgToAsset(fs::path const& srcPath, fs::path const& dstPath) {
   textureAssetInfo.width = w;
   textureAssetInfo.height = h;
 
-  bool const packResult = asset::packTexture(textureAssetInfo, data, outAsset);
+  bool packResult;
+
+  if (shouldAddAlpha) {
+    // append alpha = 255 to all the pixels
+    std::vector<unsigned char> imgWithAlpha;
+    imgWithAlpha.resize(w * h * STBI_rgb_alpha);
+
+    for (std::size_t i = 0; i < w * h; ++i) {
+      for (std::size_t c = 0; c < 3; ++c) {
+        imgWithAlpha[i + c] = data[i + c];
+      }
+      imgWithAlpha[i + 3] = '\xFF';
+    }
+
+    packResult =
+        asset::packTexture(textureAssetInfo, imgWithAlpha.data(), outAsset);
+  } else {
+    packResult = asset::packTexture(textureAssetInfo, data, outAsset);
+  }
 
   stbi_image_free(data);
 
