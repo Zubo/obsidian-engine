@@ -68,7 +68,8 @@ rhi::ResourceIdRHI RuntimeResource::uploadToRHI() {
     uploadMesh.vertexCount = info.vertexCount;
     uploadMesh.vertexBufferSize = info.vertexBufferSize;
     uploadMesh.indexCount = info.indexCount;
-    uploadMesh.indexBufferSize = info.indexBufferSize;
+    uploadMesh.indexBufferSize = std::accumulate(
+        info.indexBufferSizes.cbegin(), info.indexBufferSizes.cend(), 0);
     uploadMesh.unpackFunc = [this, info](char* dst) {
       asset::unpackAsset(info, _asset->binaryBlob.data(),
                          _asset->binaryBlob.size(), dst);

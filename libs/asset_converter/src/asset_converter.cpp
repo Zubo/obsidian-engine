@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <cstring>
 #include <fstream>
+#include <numeric>
 #include <unordered_map>
 #include <vector>
 
@@ -102,13 +103,19 @@ bool convertImgToAsset(fs::path const& srcPath, fs::path const& dstPath) {
 }
 
 template <typename V>
-std::size_t generateVertices(tinyobj::attrib_t const& attrib,
-                             std::vector<tinyobj::shape_t> const& shapes,
-                             std::vector<char>& outVertices,
-                             std::vector<core::MeshIndexType>& outIndices) {
+std::size_t
+generateVertices(tinyobj::attrib_t const& attrib,
+                 std::vector<tinyobj::shape_t> const& shapes,
+                 std::vector<char>& outVertices,
+                 std::vector<std::vector<core::MeshIndexType>>& outSurfaces) {
   using Vertex = typename V::Vertex;
-  assert(!outVertices.size() && !outIndices.size() &&
-         "Error: outVertices and outIndices have to be empty.");
+
+  assert(!outVertices.size() &&
+         !std::accumulate(outSurfaces.cbegin(), outSurfaces.cend(), 0,
+                          [](std::size_t acc, auto const& surfaceIndices) {
+                            return surfaceIndices.size() + acc;
+                          }) &&
+         "Error: outVertices and outSurfaces have to be empty.");
 
   struct Ind {
     int v;
@@ -177,10 +184,11 @@ std::size_t generateVertices(tinyobj::attrib_t const& attrib,
             uniqueIdx.emplace(Ind{idx.vertex_index, idx.normal_index,
                                   idx.texcoord_index, tangent},
                               outVertices.size() / sizeof(Vertex));
+        int const matInd = shape.mesh.material_ids[f];
 
         if (insertResult.second) {
           // New vertex detected
-          outIndices.push_back(outVertices.size() / sizeof(Vertex));
+          outSurfaces[matInd].push_back(outVertices.size() / sizeof(Vertex));
           std::size_t const newVertOffset = outVertices.size();
           outVertices.resize(outVertices.size() + sizeof(Vertex));
 
@@ -215,7 +223,7 @@ std::size_t generateVertices(tinyobj::attrib_t const& attrib,
 
         } else {
           // Insert the index of already added vertex
-          outIndices.push_back(insertResult.first->second);
+          outSurfaces[matInd].push_back(insertResult.first->second);
         }
       }
 
@@ -256,35 +264,51 @@ bool convertObjToAsset(fs::path const& srcPath, fs::path const& dstPath) {
   asset::Asset meshAsset;
 
   std::vector<char> outVertices;
-  std::vector<core::MeshIndexType> outIndices;
+  std::vector<std::vector<core::MeshIndexType>> outSurfaces{materials.size()};
 
   std::size_t vertexCount;
   if (meshAssetInfo.hasNormals && meshAssetInfo.hasColors &&
       meshAssetInfo.hasUV) {
     vertexCount = generateVertices<core::VertexType<true, true, true>>(
-        attrib, shapes, outVertices, outIndices);
+        attrib, shapes, outVertices, outSurfaces);
   } else if (meshAssetInfo.hasNormals && meshAssetInfo.hasColors) {
     vertexCount = generateVertices<core::VertexType<true, true, false>>(
-        attrib, shapes, outVertices, outIndices);
+        attrib, shapes, outVertices, outSurfaces);
   } else if (meshAssetInfo.hasNormals) {
     vertexCount = generateVertices<core::VertexType<true, false, false>>(
-        attrib, shapes, outVertices, outIndices);
+        attrib, shapes, outVertices, outSurfaces);
   } else {
     vertexCount = generateVertices<core::VertexType<false, false, false>>(
-        attrib, shapes, outVertices, outIndices);
+        attrib, shapes, outVertices, outSurfaces);
   }
 
   meshAssetInfo.vertexCount = vertexCount;
   meshAssetInfo.vertexBufferSize = outVertices.size();
-  meshAssetInfo.indexCount = outIndices.size();
-  meshAssetInfo.indexBufferSize =
-      sizeof(core::MeshIndexType) * meshAssetInfo.indexCount;
-  meshAssetInfo.unpackedSize =
-      meshAssetInfo.vertexBufferSize + meshAssetInfo.indexBufferSize;
+  meshAssetInfo.indexCount = 0;
 
-  outVertices.resize(outVertices.size() + meshAssetInfo.indexBufferSize);
-  std::memcpy(outVertices.data() + meshAssetInfo.vertexBufferSize,
-              outIndices.data(), meshAssetInfo.indexBufferSize);
+  for (auto const& outSurface : outSurfaces) {
+    meshAssetInfo.indexBufferSizes.push_back(sizeof(core::MeshIndexType) *
+                                             outSurface.size());
+    meshAssetInfo.indexCount += outSurface.size();
+  }
+
+  std::size_t const totalIndexBufferSize =
+      std::accumulate(meshAssetInfo.indexBufferSizes.cbegin(),
+                      meshAssetInfo.indexBufferSizes.cend(), 0);
+  meshAssetInfo.unpackedSize =
+      meshAssetInfo.vertexBufferSize + totalIndexBufferSize;
+  outVertices.resize(outVertices.size() + totalIndexBufferSize);
+
+  char* indCopyDest = outVertices.data() + meshAssetInfo.vertexBufferSize;
+
+  for (std::size_t i = 0; i < outSurfaces.size(); ++i) {
+    auto const& surface = outSurfaces[i];
+    std::size_t const surfaceBufferSize = meshAssetInfo.indexBufferSizes[i];
+    std::memcpy(indCopyDest, surface.data(), surfaceBufferSize);
+    indCopyDest += surfaceBufferSize;
+  }
+
+  (void)indCopyDest;
 
   if (!asset::packMeshAsset(meshAssetInfo, std::move(outVertices), meshAsset)) {
     return false;

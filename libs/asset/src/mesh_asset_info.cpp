@@ -15,8 +15,8 @@ namespace obsidian::asset {
 
 constexpr char const* vertexCountJsonName = "vertexCount";
 constexpr char const* vertexBufferSizeJsonName = "vertexBufferSize";
+constexpr char const* indexBufferSizesJsonName = "indexBufferSizes";
 constexpr char const* indexCountJsonName = "indexCount";
-constexpr char const* indexBufferSizeJsonName = "indexBufferSize";
 constexpr char const* hasNormalsJsonName = "hasNormals";
 constexpr char const* hasUVJsonName = "hasUV";
 constexpr char const* hasColorsJsonName = "hasColors";
@@ -30,7 +30,12 @@ bool readMeshAssetInfo(Asset const& asset, MeshAssetInfo& outMeshAssetInfo) {
     outMeshAssetInfo.vertexCount = json[vertexCountJsonName];
     outMeshAssetInfo.vertexBufferSize = json[vertexBufferSizeJsonName];
     outMeshAssetInfo.indexCount = json[indexCountJsonName];
-    outMeshAssetInfo.indexBufferSize = json[indexBufferSizeJsonName];
+
+    for (auto const& indBuffSizeJson : json[indexBufferSizesJsonName]) {
+      outMeshAssetInfo.indexBufferSizes.push_back(
+          indBuffSizeJson.get<std::size_t>());
+    }
+
     outMeshAssetInfo.hasNormals = json[hasNormalsJsonName];
     outMeshAssetInfo.hasColors = json[hasColorsJsonName];
     outMeshAssetInfo.hasUV = json[hasUVJsonName];
@@ -58,11 +63,16 @@ bool packMeshAsset(MeshAssetInfo const& meshAssetInfo,
     json[compressionModeJsonName] = meshAssetInfo.compressionMode;
     json[vertexCountJsonName] = meshAssetInfo.vertexCount;
     json[vertexBufferSizeJsonName] = meshAssetInfo.vertexBufferSize;
-    json[indexCountJsonName] = meshAssetInfo.indexCount;
-    json[indexBufferSizeJsonName] = meshAssetInfo.indexBufferSize;
     json[hasNormalsJsonName] = meshAssetInfo.hasNormals;
     json[hasColorsJsonName] = meshAssetInfo.hasColors;
     json[hasUVJsonName] = meshAssetInfo.hasUV;
+    json[indexCountJsonName] = meshAssetInfo.indexCount;
+
+    nlohmann::json& indexBufferSizesJson = json[indexBufferSizesJsonName];
+
+    for (std::size_t const indBuffSize : meshAssetInfo.indexBufferSizes) {
+      indexBufferSizesJson.push_back(indBuffSize);
+    }
 
     outAsset.json = json.dump();
 

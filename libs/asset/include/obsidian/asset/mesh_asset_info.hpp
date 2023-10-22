@@ -13,7 +13,7 @@ struct MeshAssetInfo : public AssetInfo {
   std::size_t vertexCount;
   std::size_t vertexBufferSize;
   std::size_t indexCount;
-  std::size_t indexBufferSize;
+  std::vector<std::size_t> indexBufferSizes;
   bool hasNormals;
   bool hasColors;
   bool hasUV;
