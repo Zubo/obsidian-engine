@@ -20,6 +20,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <numeric>
 #include <optional>
 #include <variant>
 
@@ -127,8 +128,11 @@ void VulkanRHI::unloadTexture(rhi::ResourceIdRHI resourceIdRHI) {
 }
 
 rhi::ResourceIdRHI VulkanRHI::uploadMesh(rhi::UploadMeshRHI const& meshInfo) {
+  std::size_t const totalIndexBufferSize = std::accumulate(
+      meshInfo.indexBufferSizes.cbegin(), meshInfo.indexBufferSizes.cend(), 0);
+
   AllocatedBuffer stagingBuffer = createBuffer(
-      meshInfo.vertexBufferSize + meshInfo.indexBufferSize,
+      meshInfo.vertexBufferSize + totalIndexBufferSize,
       VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
       VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
 
@@ -148,13 +152,16 @@ rhi::ResourceIdRHI VulkanRHI::uploadMesh(rhi::UploadMeshRHI const& meshInfo) {
                                    VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0);
   mesh.vertexCount = meshInfo.vertexCount;
 
-  mesh.indexBuffer = createBuffer(meshInfo.indexBufferSize,
+  mesh.indexBuffer = createBuffer(totalIndexBufferSize,
                                   VK_BUFFER_USAGE_TRANSFER_DST_BIT |
                                       VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
                                   VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0);
+
+  mesh.indexBufferSizes = meshInfo.indexBufferSizes;
   mesh.indexCount = meshInfo.indexCount;
 
-  immediateSubmit([this, &stagingBuffer, &mesh, meshInfo](VkCommandBuffer cmd) {
+  immediateSubmit([this, &stagingBuffer, &mesh, meshInfo,
+                   totalIndexBufferSize](VkCommandBuffer cmd) {
     VkBufferCopy vkVertexBufferCopy = {};
     vkVertexBufferCopy.srcOffset = 0;
     vkVertexBufferCopy.dstOffset = 0;
@@ -165,7 +172,7 @@ rhi::ResourceIdRHI VulkanRHI::uploadMesh(rhi::UploadMeshRHI const& meshInfo) {
     VkBufferCopy vkIndexBufferCopy = {};
     vkIndexBufferCopy.srcOffset = meshInfo.vertexBufferSize;
     vkIndexBufferCopy.dstOffset = 0;
-    vkIndexBufferCopy.size = meshInfo.indexBufferSize;
+    vkIndexBufferCopy.size = totalIndexBufferSize;
 
     vkCmdCopyBuffer(cmd, stagingBuffer.buffer, mesh.indexBuffer.buffer, 1,
                     &vkIndexBufferCopy);

@@ -28,6 +28,7 @@ struct Mesh {
   AllocatedBuffer vertexBuffer;
   VkDeviceSize indexCount;
   AllocatedBuffer indexBuffer;
+  std::vector<std::size_t> indexBufferSizes;
 };
 
 } /*namespace obsidian::vk_rhi*/

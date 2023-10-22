@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <vector>
 
 namespace obsidian::rhi {
 
@@ -23,7 +24,7 @@ struct UploadMeshRHI {
   std::size_t vertexCount;
   std::size_t vertexBufferSize;
   std::size_t indexCount;
-  std::size_t indexBufferSize;
+  std::vector<std::size_t> indexBufferSizes;
   std::function<void(char*)> unpackFunc;
 };
 
