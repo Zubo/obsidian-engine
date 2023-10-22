@@ -59,7 +59,7 @@ static std::vector<char const*> shaderPathStringPtrs;
 static std::vector<char const*> materialPathStringPtrs;
 static std::vector<char const*> meshesPathStringPtrs;
 static bool assetListDirty = false;
-static char const* materialTypes[] = {"lit", "unlit"};
+static char const* materialTypes[] = {"unlit", "lit"};
 static bool openEngineTab = false;
 
 void refreshAssetLists() {
@@ -496,7 +496,7 @@ void materialCreatorTab() {
   static bool isOpen = false;
 
   if (ImGui::BeginTabItem("Material Creator")) {
-    static int selectedMaterialType = 0;
+    static int selectedMaterialType = static_cast<int>(core::MaterialType::lit);
     static int selectedAlbedoTex = 0;
     static int selectedShader = 0;
 

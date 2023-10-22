@@ -425,8 +425,8 @@ void VulkanRHI::initDefaultPipelineAndLayouts() {
       vkinit::pipelineLayoutCreateInfo();
 
   std::array<VkDescriptorSetLayout, 4> const meshDescriptorSetLayouts = {
-      _vkGlobalDescriptorSetLayout, _vkLitMeshRenderPassDescriptorSetLayout,
-      _vkTexturedMaterialDescriptorSetLayout, _vkEmptyDescriptorSetLayout};
+      _vkGlobalDescriptorSetLayout, _vkMainRenderPassDescriptorSetLayout,
+      _vkUnlitTexturedMaterialDescriptorSetLayout, _vkEmptyDescriptorSetLayout};
 
   meshPipelineLayoutInfo.setLayoutCount = meshDescriptorSetLayouts.size();
   meshPipelineLayoutInfo.pSetLayouts = meshDescriptorSetLayouts.data();
@@ -458,8 +458,8 @@ void VulkanRHI::initDefaultPipelineAndLayouts() {
 
   std::array<VkDescriptorSetLayout, 4> vkLitMeshPipelineLayouts = {
       _vkGlobalDescriptorSetLayout,
-      _vkLitMeshRenderPassDescriptorSetLayout,
-      _vkTexturedMaterialDescriptorSetLayout,
+      _vkMainRenderPassDescriptorSetLayout,
+      _vkLitTexturedMaterialDescriptorSetLayout,
       _vkEmptyDescriptorSetLayout,
   };
 
@@ -761,15 +761,15 @@ void VulkanRHI::initDescriptorBuilder() {
 }
 
 void VulkanRHI::initDefaultSamplers() {
-  VkSamplerCreateInfo vkSamplerCreateInfo = vkinit::samplerCreateInfo(
+  VkSamplerCreateInfo albedoSamplerCreateInfo = vkinit::samplerCreateInfo(
       VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_NEAREST,
       VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
 
-  VK_CHECK(vkCreateSampler(_vkDevice, &vkSamplerCreateInfo, nullptr,
-                           &_vkAlbedoTextureSampler));
+  VK_CHECK(vkCreateSampler(_vkDevice, &albedoSamplerCreateInfo, nullptr,
+                           &_vkLinearClampToEdgeSampler));
 
   _deletionQueue.pushFunction([this]() {
-    vkDestroySampler(_vkDevice, _vkAlbedoTextureSampler, nullptr);
+    vkDestroySampler(_vkDevice, _vkLinearClampToEdgeSampler, nullptr);
   });
 }
 
@@ -863,7 +863,7 @@ void VulkanRHI::initDescriptors() {
 
     VkDescriptorImageInfo vkSsaoImageInfo = {};
     vkSsaoImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    vkSsaoImageInfo.sampler = _vkAlbedoTextureSampler;
+    vkSsaoImageInfo.sampler = _vkLinearClampToEdgeSampler;
     vkSsaoImageInfo.imageView =
         frameData.vkSsaoPostProcessingFramebuffer.colorBufferImageView;
 
@@ -879,22 +879,61 @@ void VulkanRHI::initDescriptors() {
                    VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                    VK_SHADER_STAGE_FRAGMENT_BIT)
         .build(frameData.vkDefaultRenderPassDescriptorSet,
-               _vkLitMeshRenderPassDescriptorSetLayout);
+               _vkMainRenderPassDescriptorSetLayout);
   }
 
-  VkDescriptorSetLayoutBinding albedoTexBinding = {};
-  albedoTexBinding.binding = 0;
-  albedoTexBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-  albedoTexBinding.descriptorCount = 1;
-  albedoTexBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+  {
+    VkDescriptorSetLayoutBinding texturedMaterialBinding[3] = {};
+    texturedMaterialBinding[0].binding = 0;
+    texturedMaterialBinding[0].descriptorType =
+        VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    texturedMaterialBinding[0].descriptorCount = 1;
+    texturedMaterialBinding[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-  VkDescriptorSetLayoutCreateInfo texMatDescriptorSetLayoutCreateInfo = {};
-  texMatDescriptorSetLayoutCreateInfo.sType =
-      VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-  texMatDescriptorSetLayoutCreateInfo.bindingCount = 1;
-  texMatDescriptorSetLayoutCreateInfo.pBindings = &albedoTexBinding;
-  _vkTexturedMaterialDescriptorSetLayout =
-      _descriptorLayoutCache.getLayout(texMatDescriptorSetLayoutCreateInfo);
+    texturedMaterialBinding[1].binding = 1;
+    texturedMaterialBinding[1].descriptorType =
+        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    texturedMaterialBinding[1].descriptorCount = 1;
+    texturedMaterialBinding[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    texturedMaterialBinding[2].binding = 2;
+    texturedMaterialBinding[2].descriptorType =
+        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    texturedMaterialBinding[2].descriptorCount = 1;
+    texturedMaterialBinding[2].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    VkDescriptorSetLayoutCreateInfo litTexMatDescriptorSetLayoutCreateInfo = {};
+    litTexMatDescriptorSetLayoutCreateInfo.sType =
+        VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    litTexMatDescriptorSetLayoutCreateInfo.pNext = nullptr;
+
+    litTexMatDescriptorSetLayoutCreateInfo.bindingCount = 3;
+    litTexMatDescriptorSetLayoutCreateInfo.pBindings = texturedMaterialBinding;
+    _vkLitTexturedMaterialDescriptorSetLayout =
+        _descriptorLayoutCache.getLayout(
+            litTexMatDescriptorSetLayoutCreateInfo);
+  }
+
+  {
+    VkDescriptorSetLayoutBinding albedoDescriptorLayoutBinding = {};
+    albedoDescriptorLayoutBinding.binding = 0;
+    albedoDescriptorLayoutBinding.descriptorType =
+        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    albedoDescriptorLayoutBinding.descriptorCount = 1;
+    albedoDescriptorLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    VkDescriptorSetLayoutCreateInfo unlitTexMatDescriptorSetLayoutCreateInfo =
+        {};
+    unlitTexMatDescriptorSetLayoutCreateInfo.sType =
+        VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    unlitTexMatDescriptorSetLayoutCreateInfo.pNext = nullptr;
+    unlitTexMatDescriptorSetLayoutCreateInfo.bindingCount = 1;
+    unlitTexMatDescriptorSetLayoutCreateInfo.pBindings =
+        &albedoDescriptorLayoutBinding;
+    _vkUnlitTexturedMaterialDescriptorSetLayout =
+        _descriptorLayoutCache.getLayout(
+            unlitTexMatDescriptorSetLayoutCreateInfo);
+  }
 }
 
 void VulkanRHI::initDepthPrepassDescriptors() {

@@ -13,7 +13,6 @@
 
 #include <cstring>
 #include <numeric>
-#include <type_traits>
 
 using namespace obsidian::vk_rhi;
 
@@ -286,10 +285,9 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
       static_cast<std::uint32_t>(frameInd *
                                  getPaddedBufferSize(sizeof(GPULightData)))};
 
-  drawWithMaterials(cmd, _drawCallQueue.data(), _drawCallQueue.size(),
-                    _vkLitMeshPipelineLayout, defaultDynamicOffsets,
-                    currentFrameData.vkDefaultRenderPassDescriptorSet, viewport,
-                    scissor);
+  drawWithMaterials(
+      cmd, _drawCallQueue.data(), _drawCallQueue.size(), defaultDynamicOffsets,
+      currentFrameData.vkDefaultRenderPassDescriptorSet, viewport, scissor);
 
   vkCmdEndRenderPass(cmd);
   VK_CHECK(vkEndCommandBuffer(cmd));
@@ -338,32 +336,15 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   FrameMark;
 }
 
-template <typename T>
-void VulkanRHI::uploadBufferData(std::size_t const index, T const& value,
-                                 AllocatedBuffer const& buffer) {
-  using ValueType = std::decay_t<T>;
-  void* data = nullptr;
-
-  VK_CHECK(vmaMapMemory(_vmaAllocator, buffer.allocation, &data));
-
-  char* const dstBufferData = reinterpret_cast<char*>(data) +
-                              index * getPaddedBufferSize(sizeof(ValueType));
-
-  std::memcpy(dstBufferData, &value, sizeof(ValueType));
-
-  vmaUnmapMemory(_vmaAllocator, buffer.allocation);
-}
-
 void VulkanRHI::drawWithMaterials(
     VkCommandBuffer cmd, VKDrawCall* first, int count,
-    VkPipelineLayout pipelineLayout,
     std::vector<std::uint32_t> const& dynamicOffsets,
     VkDescriptorSet drawPassDescriptorSet,
     std::optional<VkViewport> dynamicViewport,
     std::optional<VkRect2D> dynamicScissor) {
   ZoneScoped;
 
-  Material const* lastMaterial;
+  Material const* lastMaterial = nullptr;
   for (int i = 0; i < count; ++i) {
     ZoneScopedN("Draw Object");
     VKDrawCall const& drawCall = first[i];
@@ -390,8 +371,8 @@ void VulkanRHI::drawWithMaterials(
       std::array<VkDescriptorSet, 4> const descriptorSets{
           _vkGlobalDescriptorSet, drawPassDescriptorSet,
           material.vkDescriptorSet, _emptyDescriptorSet};
-      vkCmdBindDescriptorSets(cmd, pipelineBindPoint, pipelineLayout, 0,
-                              descriptorSets.size(), descriptorSets.data(),
+      vkCmdBindDescriptorSets(cmd, pipelineBindPoint, material.vkPipelineLayout,
+                              0, descriptorSets.size(), descriptorSets.data(),
                               dynamicOffsets.size(), dynamicOffsets.data());
     }
 

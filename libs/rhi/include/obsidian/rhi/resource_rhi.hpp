@@ -36,7 +36,8 @@ struct UploadShaderRHI {
 struct UploadMaterialRHI {
   core::MaterialType materialType;
   ResourceIdRHI shaderId;
-  ResourceIdRHI albedoTextureId;
+  ResourceIdRHI albedoTextureId = rhi::rhiIdUninitialized;
+  ResourceIdRHI normalTextureId = rhi::rhiIdUninitialized;
 };
 
 struct InitResourcesRHI {

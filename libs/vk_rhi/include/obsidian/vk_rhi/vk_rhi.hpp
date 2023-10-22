@@ -4,6 +4,7 @@
 #include <obsidian/rhi/resource_rhi.hpp>
 #include <obsidian/rhi/rhi.hpp>
 #include <obsidian/rhi/submit_types_rhi.hpp>
+#include <obsidian/vk_rhi/vk_check.hpp>
 #include <obsidian/vk_rhi/vk_deletion_queue.hpp>
 #include <obsidian/vk_rhi/vk_descriptors.hpp>
 #include <obsidian/vk_rhi/vk_frame_data.hpp>
@@ -21,6 +22,7 @@
 #include <functional>
 #include <optional>
 #include <string_view>
+#include <type_traits>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -148,16 +150,17 @@ private:
   DescriptorAllocator _descriptorAllocator;
   DescriptorAllocator _swapchainBoundDescriptorAllocator;
   VkDescriptorSetLayout _vkGlobalDescriptorSetLayout;
-  VkDescriptorSetLayout _vkLitMeshRenderPassDescriptorSetLayout;
+  VkDescriptorSetLayout _vkMainRenderPassDescriptorSetLayout;
   VkDescriptorSetLayout _vkEmptyDescriptorSetLayout;
-  VkDescriptorSetLayout _vkTexturedMaterialDescriptorSetLayout;
+  VkDescriptorSetLayout _vkLitTexturedMaterialDescriptorSetLayout;
+  VkDescriptorSetLayout _vkUnlitTexturedMaterialDescriptorSetLayout;
   AllocatedBuffer _sceneDataBuffer;
   AllocatedBuffer _cameraBuffer;
   AllocatedBuffer _lightDataBuffer;
   VkDescriptorSet _vkGlobalDescriptorSet;
   VkDescriptorSet _emptyDescriptorSet;
   ImmediateSubmitContext _immediateSubmitContext;
-  VkSampler _vkAlbedoTextureSampler;
+  VkSampler _vkLinearClampToEdgeSampler;
   VkSampler _vkDepthSampler;
 
   // Resources
@@ -203,12 +206,26 @@ private:
   void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
   void uploadMesh(Mesh& mesh);
   void applyPendingExtentUpdate();
+
   FrameData& getCurrentFrameData();
+
   template <typename T>
   void uploadBufferData(std::size_t const index, T const& value,
-                        AllocatedBuffer const& buffer);
+                        AllocatedBuffer const& buffer) {
+    using ValueType = std::decay_t<T>;
+    void* data = nullptr;
+
+    VK_CHECK(vmaMapMemory(_vmaAllocator, buffer.allocation, &data));
+
+    char* const dstBufferData = reinterpret_cast<char*>(data) +
+                                index * getPaddedBufferSize(sizeof(ValueType));
+
+    std::memcpy(dstBufferData, &value, sizeof(ValueType));
+
+    vmaUnmapMemory(_vmaAllocator, buffer.allocation);
+  }
+
   void drawWithMaterials(VkCommandBuffer cmd, VKDrawCall* first, int count,
-                         VkPipelineLayout pipelineLayout,
                          std::vector<std::uint32_t> const& dynamicOffsets,
                          VkDescriptorSet drawPassDescriptorSet,
                          std::optional<VkViewport> dynamicViewport,

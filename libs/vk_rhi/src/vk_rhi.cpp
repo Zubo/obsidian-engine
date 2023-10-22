@@ -1,3 +1,4 @@
+#include "obsidian/core/material.hpp"
 #include <obsidian/core/logging.hpp>
 #include <obsidian/core/texture_format.hpp>
 #include <obsidian/core/utils/visitor.hpp>
@@ -253,14 +254,64 @@ VulkanRHI::uploadMaterial(rhi::UploadMaterialRHI const& uploadMaterial) {
   VkDescriptorImageInfo albedoTexImageInfo;
   albedoTexImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
   albedoTexImageInfo.imageView = albedoTexture.imageView;
-  albedoTexImageInfo.sampler = _vkAlbedoTextureSampler;
+  albedoTexImageInfo.sampler = _vkLinearClampToEdgeSampler;
 
-  DescriptorBuilder::begin(_vkDevice, _descriptorAllocator,
-                           _descriptorLayoutCache)
-      .bindImage(0, albedoTexImageInfo,
-                 VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                 VK_SHADER_STAGE_FRAGMENT_BIT)
-      .build(newMaterial.vkDescriptorSet);
+  if (uploadMaterial.materialType == core::MaterialType::lit) {
+    AllocatedBuffer materialDataBuffer = createBuffer(
+        getPaddedBufferSize(sizeof(GPUMaterialData)),
+        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+        VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+
+    GPUMaterialData materialData;
+    materialData.hasNormalMap.value =
+        uploadMaterial.normalTextureId != rhi::rhiIdUninitialized;
+
+    uploadBufferData(0, materialData, materialDataBuffer);
+
+    _deletionQueue.pushFunction([this, materialDataBuffer]() {
+      vmaDestroyBuffer(_vmaAllocator, materialDataBuffer.buffer,
+                       materialDataBuffer.allocation);
+    });
+
+    VkDescriptorBufferInfo materialDataBufferInfo;
+    materialDataBufferInfo.buffer = materialDataBuffer.buffer;
+    materialDataBufferInfo.offset = 0;
+    materialDataBufferInfo.range = sizeof(GPUMaterialData);
+
+    DescriptorBuilder builder =
+        DescriptorBuilder::begin(_vkDevice, _descriptorAllocator,
+                                 _descriptorLayoutCache)
+            .bindBuffer(0, materialDataBufferInfo,
+                        VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                        VK_SHADER_STAGE_FRAGMENT_BIT)
+            .bindImage(1, albedoTexImageInfo,
+                       VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                       VK_SHADER_STAGE_FRAGMENT_BIT);
+
+    if (materialData.hasNormalMap.value) {
+      Texture const& normalMapTexture =
+          _textures[uploadMaterial.normalTextureId];
+
+      VkDescriptorImageInfo normalMapTexImageInfo;
+      normalMapTexImageInfo.imageLayout =
+          VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+      normalMapTexImageInfo.imageView = normalMapTexture.imageView;
+      normalMapTexImageInfo.sampler = _vkLinearClampToEdgeSampler;
+
+      builder.bindImage(2, normalMapTexImageInfo,
+                        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                        VK_SHADER_STAGE_FRAGMENT_BIT);
+    }
+
+    builder.build(newMaterial.vkDescriptorSet);
+  } else {
+    DescriptorBuilder::begin(_vkDevice, _descriptorAllocator,
+                             _descriptorLayoutCache)
+        .bindImage(0, albedoTexImageInfo,
+                   VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                   VK_SHADER_STAGE_FRAGMENT_BIT)
+        .build(newMaterial.vkDescriptorSet);
+  }
 
   return newResourceId;
 }

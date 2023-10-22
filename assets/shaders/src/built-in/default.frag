@@ -48,7 +48,12 @@ layout(std140, set = 1, binding = 1) uniform LightCameraData {
 }
 lights;
 
-layout(set = 2, binding = 0) uniform sampler2D albedoTex;
+layout (std140, set = 2, binding = 0) uniform MaterialData {
+  bool hasNormalMap;
+} materialData;
+
+layout(set = 2, binding = 1) uniform sampler2D albedoTex;
+layout(set = 2, binding = 2) uniform sampler2D normalMapTex;
 
 struct LightingResult {
   vec3 diffuse;

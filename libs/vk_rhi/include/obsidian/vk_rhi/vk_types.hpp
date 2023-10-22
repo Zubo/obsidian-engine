@@ -74,7 +74,15 @@ struct PaddedUInt32 {
   std::uint32_t value;
 
 private:
-  const std::uint32_t padding[3] = {0};
+  const std::uint32_t padding[3] = {0, 0, 0};
+};
+
+// used as bool scalar with std140 alignment
+struct Boolean32 {
+  bool value = false;
+
+private:
+  const bool padding[3] = {false, false, false};
 };
 
 struct GPULightData {
@@ -92,6 +100,10 @@ struct GPUSceneData {
 
 struct GPUObjectData {
   glm::mat4 modelMat;
+};
+
+struct GPUMaterialData {
+  Boolean32 hasNormalMap;
 };
 
 struct VKDrawCall {
