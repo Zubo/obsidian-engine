@@ -29,11 +29,9 @@ namespace fs = std::filesystem;
 namespace obsidian::asset_converter {
 
 std::unordered_map<std::string, std::string> extensionMap = {
-    {".bmp", globals::textureAssetExt},
-    {".jpg", globals::textureAssetExt},
-    {".png", globals::textureAssetExt},
-    {".obj", globals::meshAssetExt},
-    {".spv", globals::shaderAssetExt}};
+    {".bmp", globals::textureAssetExt}, {".jpeg", globals::textureAssetExt},
+    {".jpg", globals::textureAssetExt}, {".png", globals::textureAssetExt},
+    {".obj", globals::meshAssetExt},    {".spv", globals::shaderAssetExt}};
 
 bool saveAsset(fs::path const& srcPath, fs::path const& dstPath,
                asset::Asset const& textureAsset) {
@@ -80,9 +78,9 @@ bool convertImgToAsset(fs::path const& srcPath, fs::path const& dstPath) {
 
     for (std::size_t i = 0; i < w * h; ++i) {
       for (std::size_t c = 0; c < 3; ++c) {
-        imgWithAlpha[i + c] = data[i + c];
+        imgWithAlpha[4 * i + c] = data[4 * i + c];
       }
-      imgWithAlpha[i + 3] = '\xFF';
+      imgWithAlpha[4 * i + 3] = '\xFF';
     }
 
     packResult =
@@ -358,7 +356,8 @@ bool convertAsset(fs::path const& srcPath, fs::path const& dstPath) {
     return false;
   }
 
-  if (extension == ".png" || extension == ".jpg" || extension == ".bmp") {
+  if (extension == ".png" || extension == ".jpg" || extension == ".jpeg" ||
+      extension == ".bmp") {
     return convertImgToAsset(srcPath, dstPath);
   } else if (extension == ".obj") {
     return convertObjToAsset(srcPath, dstPath);
