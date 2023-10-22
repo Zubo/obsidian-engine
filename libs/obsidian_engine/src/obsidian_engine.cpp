@@ -76,9 +76,13 @@ void submitDrawCalls(scene::GameObject const& gameObject, rhi::RHI& rhi,
                      glm::mat4 parentTransform) {
 
   glm::mat4 transform = parentTransform * gameObject.getTransform();
-  if (gameObject.meshResource && gameObject.materialResource) {
+  if (gameObject.meshResource && gameObject.materialResources.size()) {
     rhi::DrawCall drawCall;
-    drawCall.materialId = gameObject.materialResource->uploadToRHI();
+
+    for (auto const& materialResource : gameObject.materialResources) {
+      drawCall.materialIds.push_back(materialResource->uploadToRHI());
+    }
+
     drawCall.meshId = gameObject.meshResource->uploadToRHI();
     drawCall.transform = transform;
     rhi.submitDrawCall(drawCall);

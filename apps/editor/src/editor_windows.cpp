@@ -10,6 +10,7 @@
 #include <obsidian/asset/asset_info.hpp>
 #include <obsidian/asset/asset_io.hpp>
 #include <obsidian/asset/material_asset_info.hpp>
+#include <obsidian/asset/mesh_asset_info.hpp>
 #include <obsidian/asset/scene_asset_info.hpp>
 #include <obsidian/asset_converter/asset_converter.hpp>
 #include <obsidian/core/logging.hpp>
@@ -37,6 +38,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <vector>
 
 namespace obsidian::editor {
 
@@ -332,15 +334,43 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
         selectedGameObject->setScale(scale);
 
         static int selectedObjectMesh = 0;
+        static asset::MeshAssetInfo selectedMeshAssetInfo;
+        static bool assetInfoInit = false;
+
+        if (!assetInfoInit && meshesInProj.size() > selectedObjectMesh) {
+          asset::Asset meshAsset;
+
+          std::cout << meshesInProj[selectedObjectMesh] << std::endl;
+          asset::loadFromFile(
+              project.getAbsolutePath(meshesInProj[selectedObjectMesh]),
+              meshAsset);
+          selectedMeshAssetInfo = {};
+          asset::readMeshAssetInfo(meshAsset, selectedMeshAssetInfo);
+
+          assetInfoInit = true;
+        }
+
         if (ImGui::Combo("Mesh", &selectedObjectMesh,
                          meshesPathStringPtrs.data(),
                          meshesPathStringPtrs.size())) {
+          asset::Asset meshAsset;
+          asset::loadFromFile(
+              project.getAbsolutePath(meshesInProj[selectedObjectMesh]),
+              meshAsset);
+          selectedMeshAssetInfo = {};
+          asset::readMeshAssetInfo(meshAsset, selectedMeshAssetInfo);
         }
 
-        static int selectedMaterial = 0;
-        if (ImGui::Combo("Material", &selectedMaterial,
-                         materialPathStringPtrs.data(),
-                         materialPathStringPtrs.size())) {
+        static std::vector<int> selectedMaterials;
+        selectedMaterials.resize(selectedMeshAssetInfo.indexBufferSizes.size(),
+                                 0);
+
+        ImGui::Text("Materials");
+        for (std::size_t i = 0; i < selectedMaterials.size(); ++i) {
+          if (ImGui::Combo(std::to_string(i).c_str(), &selectedMaterials[i],
+                           materialPathStringPtrs.data(),
+                           materialPathStringPtrs.size())) {
+          }
         }
 
         bool disabled =
@@ -356,9 +386,14 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
           selectedGameObject->meshResource =
               &engine.getContext().resourceManager.getResource(
                   meshesInProj[selectedObjectMesh]);
-          selectedGameObject->materialResource =
-              &engine.getContext().resourceManager.getResource(
-                  project.getAbsolutePath(materialsInProj[selectedMaterial]));
+
+          selectedGameObject->materialResources.clear();
+          for (int selectedMaterial : selectedMaterials) {
+            selectedGameObject->materialResources.push_back(
+                &engine.getContext().resourceManager.getResource(
+                    project.getAbsolutePath(
+                        materialsInProj[selectedMaterial])));
+          }
         }
 
         if (disabled) {

@@ -1,3 +1,4 @@
+#include <obsidian/core/vertex_type.hpp>
 #include <obsidian/rhi/rhi.hpp>
 #include <obsidian/vk_rhi/vk_check.hpp>
 #include <obsidian/vk_rhi/vk_initializers.hpp>
@@ -11,6 +12,7 @@
 #include <vulkan/vulkan.h>
 
 #include <cstring>
+#include <numeric>
 #include <type_traits>
 
 using namespace obsidian::vk_rhi;
@@ -395,11 +397,20 @@ void VulkanRHI::drawWithMaterials(
 
     VkDeviceSize const bufferOffset = 0;
     vkCmdBindVertexBuffers(cmd, 0, 1, &mesh.vertexBuffer.buffer, &bufferOffset);
-    vkCmdBindIndexBuffer(cmd, mesh.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+
+    VkDeviceSize const indBufferOffset = std::accumulate(
+        mesh.indexBufferSizes.cbegin(),
+        mesh.indexBufferSizes.cbegin() + drawCall.indexBufferInd, 0);
+    vkCmdBindIndexBuffer(cmd, mesh.indexBuffer.buffer, indBufferOffset,
+                         VK_INDEX_TYPE_UINT32);
+
     vkCmdPushConstants(cmd, drawCall.material->vkPipelineLayout,
                        VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants),
                        &drawCall.model);
-    vkCmdDrawIndexed(cmd, mesh.indexCount, 1, 0, 0, 0);
+    vkCmdDrawIndexed(cmd,
+                     mesh.indexBufferSizes[drawCall.indexBufferInd] /
+                         sizeof(core::MeshIndexType),
+                     1, 0, 0, 0);
   }
 }
 

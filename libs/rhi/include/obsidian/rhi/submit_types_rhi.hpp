@@ -7,6 +7,8 @@
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 
+#include <vector>
+
 namespace obsidian::rhi {
 
 struct SceneGlobalParams {
@@ -18,7 +20,7 @@ struct SceneGlobalParams {
 
 struct DrawCall {
   glm::mat4 transform;
-  ResourceIdRHI materialId;
+  std::vector<ResourceIdRHI> materialIds;
   ResourceIdRHI meshId;
 };
 

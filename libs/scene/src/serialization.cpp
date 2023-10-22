@@ -21,7 +21,7 @@ constexpr char const* gameObjectNameJsonName = "name";
 constexpr char const* gameObjectPositionJsonName = "pos";
 constexpr char const* gameObjectEulerJsonName = "euler";
 constexpr char const* gameObjectScaleJsonName = "scale";
-constexpr char const* gameObjectMaterialJsonName = "material";
+constexpr char const* gameObjectMaterialsJsonName = "materials";
 constexpr char const* gameObjectMeshJsonName = "mesh";
 constexpr char const* gameObjectSpotligthJsonName = "spotlight";
 constexpr char const* gameObjectDirectionalLightJsonName = "directionalLight";
@@ -132,9 +132,11 @@ nlohmann::json serializeGameObject(scene::GameObject const& gameObject) {
   gameObjectJson[gameObjectEulerJsonName] = vecToArray(gameObject.getEuler());
   gameObjectJson[gameObjectScaleJsonName] = vecToArray(gameObject.getScale());
 
-  if (gameObject.materialResource) {
-    gameObjectJson[gameObjectMaterialJsonName] =
-        gameObject.materialResource->getRelativePath().string();
+  if (gameObject.materialResources.size()) {
+    nlohmann::json& materialsJson = gameObjectJson[gameObjectMaterialsJsonName];
+    for (auto const& materialResource : gameObject.materialResources) {
+      materialsJson.push_back(materialResource->getRelativePath().string());
+    }
   }
 
   if (gameObject.meshResource) {
@@ -178,9 +180,12 @@ GameObject deserializeGameObject(
   arrayToVector(gameObjectJson[gameObjectScaleJsonName], outVec);
   resultGameObject.setScale(outVec);
 
-  if (gameObjectJson.contains(gameObjectMaterialJsonName)) {
-    resultGameObject.materialResource = &resourceManager.getResource(
-        gameObjectJson[gameObjectMaterialJsonName]);
+  if (gameObjectJson.contains(gameObjectMaterialsJsonName)) {
+    for (auto const& materialJson :
+         gameObjectJson[gameObjectMaterialsJsonName]) {
+      resultGameObject.materialResources.push_back(
+          &resourceManager.getResource(materialJson));
+    }
   }
 
   if (gameObjectJson.contains(gameObjectMeshJsonName)) {

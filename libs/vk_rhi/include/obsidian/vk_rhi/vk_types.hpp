@@ -98,6 +98,7 @@ struct VKDrawCall {
   glm::mat4 model;
   Mesh* mesh;
   Material* material;
+  std::size_t indexBufferInd;
 };
 
 struct ShadowPassParams {

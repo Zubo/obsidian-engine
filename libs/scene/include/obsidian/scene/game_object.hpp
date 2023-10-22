@@ -43,7 +43,7 @@ public:
   std::deque<GameObject>& getChildren();
 
   std::string name;
-  runtime_resource::RuntimeResource* materialResource = nullptr;
+  std::vector<runtime_resource::RuntimeResource*> materialResources;
   runtime_resource::RuntimeResource* meshResource = nullptr;
   std::optional<core::DirectionalLight> directionalLight;
   std::optional<core::Spotlight> spotlight;

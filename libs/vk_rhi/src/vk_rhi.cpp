@@ -274,10 +274,14 @@ void VulkanRHI::unloadMaterial(rhi::ResourceIdRHI resourceIdRHI) {
 }
 
 void VulkanRHI::submitDrawCall(rhi::DrawCall const& drawCall) {
-  VKDrawCall& vkDrawCall = _drawCallQueue.emplace_back();
+  VKDrawCall vkDrawCall;
   vkDrawCall.model = drawCall.transform;
   vkDrawCall.mesh = &_meshes[drawCall.meshId];
-  vkDrawCall.material = &_materials[drawCall.materialId];
+  for (std::size_t i = 0; i < drawCall.materialIds.size(); ++i) {
+    vkDrawCall.material = &_materials[drawCall.materialIds[i]];
+    vkDrawCall.indexBufferInd = i;
+    _drawCallQueue.push_back(vkDrawCall);
+  }
 }
 
 void VulkanRHI::submitLight(rhi::LightSubmitParams const& light) {

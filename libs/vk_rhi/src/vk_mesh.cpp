@@ -53,23 +53,23 @@ VertexInputDescription Vertex::getVertexInputDescription(bool bindPosition,
 
   if (bindUV) {
     VkVertexInputAttributeDescription uvAttribute = {};
-    uvAttribute.location = 3;
     uvAttribute.binding = 0;
+    uvAttribute.location = 3;
     uvAttribute.format = VK_FORMAT_R32G32_SFLOAT;
     uvAttribute.offset = offsetof(Vertex, uv);
 
     description.attributes.push_back(uvAttribute);
   }
 
-  if (bindTangents) {
-    VkVertexInputAttributeDescription tangentAttribute = {};
-    tangentAttribute.location = 4;
-    tangentAttribute.binding = 0;
-    tangentAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
-    tangentAttribute.offset = offsetof(Vertex, tangent);
+  // if (bindTangents) {
+  //   VkVertexInputAttributeDescription tangentAttribute = {};
+  //   tangentAttribute.binding = 0;
+  //   tangentAttribute.location = 4;
+  //   tangentAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
+  //   tangentAttribute.offset = offsetof(Vertex, tangent);
 
-    description.attributes.push_back(tangentAttribute);
-  }
+  //   description.attributes.push_back(tangentAttribute);
+  // }
 
   return description;
 }
