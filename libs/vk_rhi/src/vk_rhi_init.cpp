@@ -902,10 +902,20 @@ void VulkanRHI::initDescriptors() {
     texturedMaterialBinding[2].descriptorCount = 1;
     texturedMaterialBinding[2].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
+    std::array<VkDescriptorBindingFlags, 3> bindingFlags = {};
+    bindingFlags[2] = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+
+    VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsCreateInfo = {};
+    bindingFlagsCreateInfo.sType =
+        VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+    bindingFlagsCreateInfo.pNext = nullptr;
+    bindingFlagsCreateInfo.bindingCount = bindingFlags.size();
+    bindingFlagsCreateInfo.pBindingFlags = bindingFlags.data();
+
     VkDescriptorSetLayoutCreateInfo litTexMatDescriptorSetLayoutCreateInfo = {};
     litTexMatDescriptorSetLayoutCreateInfo.sType =
         VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    litTexMatDescriptorSetLayoutCreateInfo.pNext = nullptr;
+    litTexMatDescriptorSetLayoutCreateInfo.pNext = &bindingFlagsCreateInfo;
 
     litTexMatDescriptorSetLayoutCreateInfo.bindingCount = 3;
     litTexMatDescriptorSetLayoutCreateInfo.pBindings = texturedMaterialBinding;

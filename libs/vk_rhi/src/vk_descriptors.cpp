@@ -112,7 +112,7 @@ VkDescriptorPool DescriptorAllocator::createNewDescriptorPool() {
 
 bool DescriptorLayoutCache::DescriptorLayoutInfo::operator==(
     DescriptorLayoutInfo const& other) const {
-  if (other.flags != flags)
+  if (other.descriptorLayoutCreateFlags != descriptorLayoutCreateFlags)
     return false;
 
   if (other.descriptorLayoutBindings.size() != descriptorLayoutBindings.size())
@@ -134,6 +134,9 @@ bool DescriptorLayoutCache::DescriptorLayoutInfo::operator==(
     if (other.descriptorLayoutBindings[i].pImmutableSamplers !=
         descriptorLayoutBindings[i].pImmutableSamplers)
       return false;
+    if (other.descriptorBindingFlags != descriptorBindingFlags) {
+      return false;
+    }
   }
 
   return true;
@@ -151,12 +154,27 @@ VkDescriptorSetLayout DescriptorLayoutCache::getLayout(
     VkDescriptorSetLayoutCreateInfo const& vkDescriptorSetLayoutCreateInfo) {
 
   DescriptorLayoutInfo info = {};
-  info.flags = vkDescriptorSetLayoutCreateInfo.flags;
+  info.descriptorLayoutCreateFlags = vkDescriptorSetLayoutCreateInfo.flags;
 
   for (std::size_t i = 0; i < vkDescriptorSetLayoutCreateInfo.bindingCount;
        ++i) {
     info.descriptorLayoutBindings.push_back(
         vkDescriptorSetLayoutCreateInfo.pBindings[i]);
+  }
+
+  if (vkDescriptorSetLayoutCreateInfo.pNext) {
+    VkDescriptorSetLayoutBindingFlagsCreateInfo const* const
+        bindingFlagsCreateInfo = reinterpret_cast<
+            VkDescriptorSetLayoutBindingFlagsCreateInfo const*>(
+            vkDescriptorSetLayoutCreateInfo.pNext);
+
+    if (bindingFlagsCreateInfo->sType ==
+        VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO) {
+      for (std::size_t i = 0; i < bindingFlagsCreateInfo->bindingCount; ++i) {
+        info.descriptorBindingFlags.push_back(
+            bindingFlagsCreateInfo->pBindingFlags[i]);
+      }
+    }
   }
 
   std::sort(info.descriptorLayoutBindings.begin(),
@@ -190,6 +208,11 @@ std::size_t DescriptorLayoutCache::DescriptorLayoutInfoHash::operator()(
   for (VkDescriptorSetLayoutBinding const& layoutBinding :
        descriptorLayoutInfo.descriptorLayoutBindings) {
     crc32.add(&layoutBinding, sizeof(layoutBinding));
+  }
+
+  for (VkDescriptorBindingFlags flags :
+       descriptorLayoutInfo.descriptorBindingFlags) {
+    crc32.add(&flags, sizeof(flags));
   }
 
   std::size_t result;
@@ -292,6 +315,27 @@ DescriptorBuilder& DescriptorBuilder::bindImages(
   return *this;
 }
 
+DescriptorBuilder& DescriptorBuilder::declareUnusedImage(
+    uint32_t binding, VkDescriptorType descriptorType,
+    VkShaderStageFlags stageFlags, const VkSampler* pImmutableSamplers) {
+  VkDescriptorSetLayoutBinding& vkDescriptorSetLayoutBinding =
+      _bindings.emplace_back();
+  vkDescriptorSetLayoutBinding = {};
+  vkDescriptorSetLayoutBinding.binding = binding;
+  vkDescriptorSetLayoutBinding.descriptorType = descriptorType;
+  vkDescriptorSetLayoutBinding.descriptorCount = 1;
+  vkDescriptorSetLayoutBinding.stageFlags = stageFlags;
+  vkDescriptorSetLayoutBinding.pImmutableSamplers = pImmutableSamplers;
+
+  if (binding >= _bindingCreateFlags.size()) {
+    _bindingCreateFlags.resize(binding + 1, 0);
+  }
+
+  _bindingCreateFlags[binding] |= VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+
+  return *this;
+}
+
 bool DescriptorBuilder::build(VkDescriptorSet& outVkDescriptorSet) {
   VkDescriptorSetLayout layout;
   return build(outVkDescriptorSet, layout);
@@ -302,7 +346,20 @@ bool DescriptorBuilder::build(VkDescriptorSet& outVkDescriptorSet,
   VkDescriptorSetLayoutCreateInfo vkDescriptorSetLayoutCreateInfo = {};
   vkDescriptorSetLayoutCreateInfo.sType =
       VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-  vkDescriptorSetLayoutCreateInfo.pNext = nullptr;
+
+  VkDescriptorSetLayoutBindingFlagsCreateInfo flagsCreateInfo = {};
+
+  if (_bindingCreateFlags.size()) {
+    flagsCreateInfo.sType =
+        VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+    flagsCreateInfo.pNext = nullptr;
+    flagsCreateInfo.bindingCount = _bindingCreateFlags.size();
+    flagsCreateInfo.pBindingFlags = _bindingCreateFlags.data();
+
+    vkDescriptorSetLayoutCreateInfo.pNext = &flagsCreateInfo;
+  } else {
+    vkDescriptorSetLayoutCreateInfo.pNext = nullptr;
+  }
 
   vkDescriptorSetLayoutCreateInfo.flags = _flags;
   vkDescriptorSetLayoutCreateInfo.bindingCount = _bindings.size();

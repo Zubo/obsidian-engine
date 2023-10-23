@@ -289,18 +289,20 @@ VulkanRHI::uploadMaterial(rhi::UploadMaterialRHI const& uploadMaterial) {
                        VK_SHADER_STAGE_FRAGMENT_BIT);
 
     if (materialData.hasNormalMap.value) {
-      Texture const& normalMapTexture =
-          _textures[uploadMaterial.normalTextureId];
-
       VkDescriptorImageInfo normalMapTexImageInfo;
       normalMapTexImageInfo.imageLayout =
           VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-      normalMapTexImageInfo.imageView = normalMapTexture.imageView;
       normalMapTexImageInfo.sampler = _vkLinearClampToEdgeSampler;
+      Texture const& normalMapTexture =
+          _textures[uploadMaterial.normalTextureId];
+      normalMapTexImageInfo.imageView = normalMapTexture.imageView;
 
       builder.bindImage(2, normalMapTexImageInfo,
                         VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                         VK_SHADER_STAGE_FRAGMENT_BIT);
+    } else {
+      builder.declareUnusedImage(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                 VK_SHADER_STAGE_FRAGMENT_BIT);
     }
 
     builder.build(newMaterial.vkDescriptorSet);

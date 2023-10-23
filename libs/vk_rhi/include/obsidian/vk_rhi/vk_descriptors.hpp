@@ -52,7 +52,8 @@ public:
 private:
   struct DescriptorLayoutInfo {
     std::vector<VkDescriptorSetLayoutBinding> descriptorLayoutBindings;
-    VkDescriptorSetLayoutCreateFlags flags;
+    std::vector<VkDescriptorBindingFlags> descriptorBindingFlags;
+    VkDescriptorSetLayoutCreateFlags descriptorLayoutCreateFlags;
 
     bool operator==(DescriptorLayoutInfo const& other) const;
   };
@@ -85,6 +86,13 @@ public:
                                VkDescriptorType descriptorType,
                                VkShaderStageFlags stageFlags,
                                const VkSampler* pImmutableSamplers = nullptr);
+
+  // declare unused image as partially bound in descriptor set layout
+  DescriptorBuilder&
+  declareUnusedImage(uint32_t binding, VkDescriptorType descriptorType,
+                     VkShaderStageFlags stageFlags,
+                     const VkSampler* pImmutableSamplers = nullptr);
+
   DescriptorBuilder&
   bindImages(uint32_t binding,
              std::vector<VkDescriptorImageInfo> const& imageInfo,
@@ -104,6 +112,7 @@ private:
   DescriptorLayoutCache& _layoutCache;
   std::vector<VkDescriptorSetLayoutBinding> _bindings;
   std::vector<VkWriteDescriptorSet> _writes;
+  std::vector<VkDescriptorBindingFlags> _bindingCreateFlags;
   VkDescriptorSetLayoutCreateFlags _flags = 0;
 };
 
