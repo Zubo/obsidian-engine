@@ -61,15 +61,15 @@ VertexInputDescription Vertex::getVertexInputDescription(bool bindPosition,
     description.attributes.push_back(uvAttribute);
   }
 
-  // if (bindTangents) {
-  //   VkVertexInputAttributeDescription tangentAttribute = {};
-  //   tangentAttribute.binding = 0;
-  //   tangentAttribute.location = 4;
-  //   tangentAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
-  //   tangentAttribute.offset = offsetof(Vertex, tangent);
+  if (bindTangents) {
+    VkVertexInputAttributeDescription tangentAttribute = {};
+    tangentAttribute.binding = 0;
+    tangentAttribute.location = 4;
+    tangentAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
+    tangentAttribute.offset = offsetof(Vertex, tangent);
 
-  //   description.attributes.push_back(tangentAttribute);
-  // }
+    description.attributes.push_back(tangentAttribute);
+  }
 
   return description;
 }
