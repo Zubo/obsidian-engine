@@ -264,7 +264,7 @@ DescriptorBuilder& DescriptorBuilder::bindBuffer(
 DescriptorBuilder& DescriptorBuilder::bindImage(
     uint32_t binding, VkDescriptorImageInfo const& imageInfo,
     VkDescriptorType descriptorType, VkShaderStageFlags stageFlags,
-    const VkSampler* pImmutableSamplers) {
+    const VkSampler* pImmutableSamplers, bool partiallyBound) {
 
   VkDescriptorSetLayoutBinding& vkDescriptorSetLayoutBinding =
       _bindings.emplace_back();
@@ -274,6 +274,10 @@ DescriptorBuilder& DescriptorBuilder::bindImage(
   vkDescriptorSetLayoutBinding.descriptorCount = 1;
   vkDescriptorSetLayoutBinding.stageFlags = stageFlags;
   vkDescriptorSetLayoutBinding.pImmutableSamplers = pImmutableSamplers;
+
+  if (partiallyBound) {
+    partiallyBoundBinding(binding);
+  }
 
   VkWriteDescriptorSet& vkWriteDescriptorSet = _writes.emplace_back();
   vkWriteDescriptorSet = {};
@@ -327,11 +331,7 @@ DescriptorBuilder& DescriptorBuilder::declareUnusedImage(
   vkDescriptorSetLayoutBinding.stageFlags = stageFlags;
   vkDescriptorSetLayoutBinding.pImmutableSamplers = pImmutableSamplers;
 
-  if (binding >= _bindingCreateFlags.size()) {
-    _bindingCreateFlags.resize(binding + 1, 0);
-  }
-
-  _bindingCreateFlags[binding] |= VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+  partiallyBoundBinding(binding);
 
   return *this;
 }
@@ -382,3 +382,11 @@ DescriptorBuilder::DescriptorBuilder(VkDevice vkDevice,
                                      DescriptorAllocator& allocator,
                                      DescriptorLayoutCache& layoutCache)
     : _vkDevice{vkDevice}, _allocator{allocator}, _layoutCache{layoutCache} {}
+
+void DescriptorBuilder::partiallyBoundBinding(uint32_t binding) {
+  if (binding >= _bindingCreateFlags.size()) {
+    _bindingCreateFlags.resize(binding + 1, 0);
+  }
+
+  _bindingCreateFlags[binding] |= VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+}

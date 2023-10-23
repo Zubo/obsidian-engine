@@ -299,7 +299,7 @@ VulkanRHI::uploadMaterial(rhi::UploadMaterialRHI const& uploadMaterial) {
 
       builder.bindImage(2, normalMapTexImageInfo,
                         VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                        VK_SHADER_STAGE_FRAGMENT_BIT);
+                        VK_SHADER_STAGE_FRAGMENT_BIT, nullptr, true);
     } else {
       builder.declareUnusedImage(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                                  VK_SHADER_STAGE_FRAGMENT_BIT);

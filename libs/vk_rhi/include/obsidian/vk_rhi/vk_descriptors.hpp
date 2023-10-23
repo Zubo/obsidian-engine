@@ -85,7 +85,8 @@ public:
                                VkDescriptorImageInfo const& imageInfo,
                                VkDescriptorType descriptorType,
                                VkShaderStageFlags stageFlags,
-                               const VkSampler* pImmutableSamplers = nullptr);
+                               const VkSampler* pImmutableSamplers = nullptr,
+                               bool partiallyBound = false);
 
   // declare unused image as partially bound in descriptor set layout
   DescriptorBuilder&
@@ -106,6 +107,8 @@ public:
 private:
   DescriptorBuilder(VkDevice vkDevice, DescriptorAllocator& allocator,
                     DescriptorLayoutCache& layoutCache);
+
+  void partiallyBoundBinding(uint32_t binding);
 
   VkDevice _vkDevice;
   DescriptorAllocator& _allocator;
