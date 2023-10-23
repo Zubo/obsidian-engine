@@ -111,11 +111,11 @@ void VulkanRHI::initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider) {
                                               .value();
 
   vkb::DeviceBuilder vkbDeviceBuilder{vkbPhysicalDevice};
-  VkPhysicalDeviceVulkan11Features vkDeviceFeatures = {};
+  VkPhysicalDeviceVulkan12Features vkDeviceFeatures = {};
   vkDeviceFeatures.sType =
-      VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
+      VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
   vkDeviceFeatures.pNext = nullptr;
-  vkDeviceFeatures.shaderDrawParameters = VK_TRUE;
+  vkDeviceFeatures.descriptorBindingPartiallyBound = VK_TRUE;
   vkbDeviceBuilder.add_pNext(&vkDeviceFeatures);
   vkb::Device vkbDevice = vkbDeviceBuilder.build().value();
 
