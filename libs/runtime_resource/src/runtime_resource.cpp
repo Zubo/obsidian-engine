@@ -112,6 +112,13 @@ rhi::ResourceIdRHI RuntimeResource::uploadToRHI() {
     uploadMaterial.albedoTextureId =
         _runtimeResourceManager.getResource(info.albedoTexturePath)
             .uploadToRHI();
+
+    if (!info.normalMapTexturePath.empty()) {
+      uploadMaterial.normalTextureId =
+          _runtimeResourceManager.getResource(info.normalMapTexturePath)
+              .uploadToRHI();
+    }
+
     uploadMaterial.shaderId =
         _runtimeResourceManager.getResource(info.shaderPath).uploadToRHI();
 

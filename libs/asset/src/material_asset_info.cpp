@@ -11,6 +11,7 @@ namespace obsidian::asset {
 constexpr char const* materialTypeJsonName = "materialType";
 constexpr char const* shaderJsonName = "shader";
 constexpr char const* albedoTextureJsonName = "albedoTex";
+constexpr char const* normalMapTextureJsonName = "normalMapTex";
 
 bool readMaterialAssetInfo(Asset const& asset,
                            MaterialAssetInfo& outMaterialAssetInfo) {
@@ -21,6 +22,7 @@ bool readMaterialAssetInfo(Asset const& asset,
     outMaterialAssetInfo.materialType = json[materialTypeJsonName];
     outMaterialAssetInfo.shaderPath = json[shaderJsonName];
     outMaterialAssetInfo.albedoTexturePath = json[albedoTextureJsonName];
+    outMaterialAssetInfo.normalMapTexturePath = json[normalMapTextureJsonName];
   } catch (std::exception const& e) {
     OBS_LOG_ERR(e.what());
     return false;
@@ -45,6 +47,7 @@ bool packMaterial(MaterialAssetInfo const& materialAssetInfo,
     json[materialTypeJsonName] = materialAssetInfo.materialType;
     json[shaderJsonName] = materialAssetInfo.shaderPath;
     json[albedoTextureJsonName] = materialAssetInfo.albedoTexturePath;
+    json[normalMapTextureJsonName] = materialAssetInfo.normalMapTexturePath;
 
     outAsset.json = json.dump();
 

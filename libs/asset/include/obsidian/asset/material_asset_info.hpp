@@ -13,6 +13,7 @@ struct MaterialAssetInfo : public AssetInfo {
   core::MaterialType materialType;
   std::string shaderPath;
   std::string albedoTexturePath;
+  std::string normalMapTexturePath;
 };
 
 bool readMaterialAssetInfo(Asset const& asset,

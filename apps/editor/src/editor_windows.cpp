@@ -66,6 +66,8 @@ void refreshAssetLists() {
   texturesInProj = project.getAllFilesWithExtension(globals::textureAssetExt);
   texturePathStringPtrs.clear();
 
+  texturePathStringPtrs.push_back("none");
+
   for (auto const& tex : texturesInProj) {
     texturePathStringPtrs.push_back(tex.c_str());
   }
@@ -498,6 +500,7 @@ void materialCreatorTab() {
   if (ImGui::BeginTabItem("Material Creator")) {
     static int selectedMaterialType = static_cast<int>(core::MaterialType::lit);
     static int selectedAlbedoTex = 0;
+    static int selectedNormalMapTex = 0;
     static int selectedShader = 0;
 
     bool canCreateMat = true;
@@ -527,8 +530,13 @@ void materialCreatorTab() {
                        texturePathStringPtrs.size())) {
       }
 
+      if (ImGui::Combo("Normal Tex", &selectedNormalMapTex,
+                       texturePathStringPtrs.data(),
+                       texturePathStringPtrs.size())) {
+      }
+
       std::size_t matNameLen = std::strlen(matName);
-      bool disabled = matNameLen == 0;
+      bool disabled = matNameLen == 0 && selectedAlbedoTex <= 0;
 
       if (disabled) {
         ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
@@ -542,8 +550,16 @@ void materialCreatorTab() {
         mtlAssetInfo.materialType =
             static_cast<core::MaterialType>(selectedMaterialType);
         mtlAssetInfo.shaderPath = shaderPathStringPtrs[selectedShader];
-        mtlAssetInfo.albedoTexturePath =
-            texturePathStringPtrs[selectedAlbedoTex];
+
+        if (selectedAlbedoTex) {
+          mtlAssetInfo.albedoTexturePath =
+              texturePathStringPtrs[selectedAlbedoTex];
+        }
+
+        if (selectedNormalMapTex) {
+          mtlAssetInfo.normalMapTexturePath =
+              texturePathStringPtrs[selectedNormalMapTex];
+        }
 
         asset::Asset materialAsset;
         asset::packMaterial(mtlAssetInfo, {}, materialAsset);
