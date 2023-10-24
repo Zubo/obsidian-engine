@@ -138,7 +138,7 @@ LightingResult calculateSpotlights(vec3 normal) {
           shadowMultiplier * intensity * lights.spotlights[lightIdx].color.xyz;
 
       if (shadowMultiplier > 0.5f) {
-        result.specular += specularIntensity * intensity *
+        result.specular += shadowMultiplier * specularIntensity * intensity *
                            lights.spotlights[lightIdx].color.xyz;
       }
     } else {
@@ -191,7 +191,7 @@ LightingResult calculateDirectionalLighting(vec3 normal) {
         calculatePCF(shadowMapIdx, depthSpacePos, bias);
 
     if (shadowMultiplier > 0.5f) {
-      result.specular += specularIntensity * intensity.xyz *
+      result.specular += shadowMultiplier * specularIntensity * intensity.xyz *
                          lights.directionalLights[lightIdx].color.xyz;
     }
 
