@@ -104,6 +104,7 @@ struct GPUObjectData {
 
 struct GPUMaterialData {
   Boolean32 hasNormalMap;
+  float shininess;
 };
 
 struct VKDrawCall {

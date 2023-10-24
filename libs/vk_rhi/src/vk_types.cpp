@@ -11,6 +11,8 @@ VkFormat getVkTextureFormat(core::TextureFormat format) {
   switch (format) {
   case core::TextureFormat::R8G8B8A8_SRGB:
     return VK_FORMAT_R8G8B8A8_SRGB;
+  case core::TextureFormat::R8G8B8A8_LINEAR:
+    return VK_FORMAT_R8G8B8A8_UNORM;
   case core::TextureFormat::R32G32_SFLOAT:
     return VK_FORMAT_R32G32_SFLOAT;
   default:

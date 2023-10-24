@@ -14,6 +14,7 @@ struct MaterialAssetInfo : public AssetInfo {
   std::string shaderPath;
   std::string albedoTexturePath;
   std::string normalMapTexturePath;
+  float shininess;
 };
 
 bool readMaterialAssetInfo(Asset const& asset,

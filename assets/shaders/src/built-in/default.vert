@@ -31,9 +31,11 @@ void main() {
 
   outWorldPos = (modelMat * vec4(vPosition, 1.0)).xyz;
   outColor = vColor;
-  outNormals = normalize((transpose(inverse(modelMat)) * vec4(vNormal, 1.0f)).xyz);
+  outNormals =
+      normalize((transpose(inverse(modelMat)) * vec4(vNormal, 1.0f)).xyz);
   outUV = vUV;
 
-  vec3 bitangent = cross(outNormals, vTangent);
-  outTBN = mat3(vTangent, bitangent, outNormals);
+  vec3 transformedTan = mat3(modelMat) * vTangent;
+  vec3 bitangent = cross(outNormals, transformedTan);
+  outTBN = mat3(transformedTan, bitangent, outNormals);
 }

@@ -1,5 +1,5 @@
-#include "obsidian/core/material.hpp"
 #include <obsidian/core/logging.hpp>
+#include <obsidian/core/material.hpp>
 #include <obsidian/core/texture_format.hpp>
 #include <obsidian/core/utils/visitor.hpp>
 #include <obsidian/rhi/resource_rhi.hpp>
@@ -265,6 +265,7 @@ VulkanRHI::uploadMaterial(rhi::UploadMaterialRHI const& uploadMaterial) {
     GPUMaterialData materialData;
     materialData.hasNormalMap.value =
         uploadMaterial.normalTextureId != rhi::rhiIdUninitialized;
+    materialData.shininess = uploadMaterial.shininess;
 
     uploadBufferData(0, materialData, materialDataBuffer);
 

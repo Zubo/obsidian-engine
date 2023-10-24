@@ -12,6 +12,7 @@ constexpr char const* materialTypeJsonName = "materialType";
 constexpr char const* shaderJsonName = "shader";
 constexpr char const* albedoTextureJsonName = "albedoTex";
 constexpr char const* normalMapTextureJsonName = "normalMapTex";
+constexpr char const* shininessJsonName = "shininess";
 
 bool readMaterialAssetInfo(Asset const& asset,
                            MaterialAssetInfo& outMaterialAssetInfo) {
@@ -23,6 +24,7 @@ bool readMaterialAssetInfo(Asset const& asset,
     outMaterialAssetInfo.shaderPath = json[shaderJsonName];
     outMaterialAssetInfo.albedoTexturePath = json[albedoTextureJsonName];
     outMaterialAssetInfo.normalMapTexturePath = json[normalMapTextureJsonName];
+    outMaterialAssetInfo.shininess = json[shininessJsonName];
   } catch (std::exception const& e) {
     OBS_LOG_ERR(e.what());
     return false;
@@ -48,6 +50,7 @@ bool packMaterial(MaterialAssetInfo const& materialAssetInfo,
     json[shaderJsonName] = materialAssetInfo.shaderPath;
     json[albedoTextureJsonName] = materialAssetInfo.albedoTexturePath;
     json[normalMapTextureJsonName] = materialAssetInfo.normalMapTexturePath;
+    json[shininessJsonName] = materialAssetInfo.shininess;
 
     outAsset.json = json.dump();
 

@@ -49,7 +49,10 @@ layout(std140, set = 1, binding = 1) uniform LightCameraData {
 }
 lights;
 
-layout(std140, set = 2, binding = 0) uniform MaterialData { bool hasNormalMap; }
+layout(std140, set = 2, binding = 0) uniform MaterialData {
+  bool hasNormalMap;
+  float shininess;
+}
 materialData;
 
 layout(set = 2, binding = 1) uniform sampler2D albedoTex;
@@ -120,7 +123,8 @@ LightingResult calculateSpotlights(vec3 normal) {
     const vec3 halfwayVec =
         normalize(fragToCameraDirection + fragToLightDirection);
 
-    const float specularIntensity = pow(max(dot(normal, halfwayVec), 0.0f), 8);
+    const float specularIntensity =
+        pow(max(dot(normal, halfwayVec), 0.0f), materialData.shininess);
 
     const uint shadowMapIdx = lights.spotlightShadowMapIndices[lightIdx];
 
@@ -171,9 +175,12 @@ LightingResult calculateDirectionalLighting(vec3 normal) {
     const vec3 reflectedLightDirection = normalize(
         reflect(lights.directionalLights[lightIdx].direction.xyz, normal));
 
-    const float specularIntensity = pow(
-        clamp(dot(fragToCameraDirection, reflectedLightDirection), 0.0f, 1.0),
-        8);
+    const vec3 halfwayVec =
+        normalize(-lights.directionalLights[lightIdx].direction.xyz +
+                  fragToCameraDirection);
+
+    const float specularIntensity =
+        pow(max(dot(normal, halfwayVec), 0.0f), materialData.shininess);
 
     const vec4 depthSpacePos =
         lights.directionalLights[lightIdx].viewProj * vec4(inWorldPos, 1.0f);
@@ -213,7 +220,7 @@ void main() {
   vec3 normal;
 
   if (materialData.hasNormalMap) {
-    normal = normalize(inTBN * texture(normalMapTex, inUV).rgb * 2.0f - 1.0f);
+    normal = normalize(inTBN * (texture(normalMapTex, inUV).rgb * 2.0f - 1.0f));
   } else {
     normal = inNormals;
   }

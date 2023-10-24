@@ -12,22 +12,25 @@ void Scene::init(input::InputContext& inputContext) {
   input::KeyInputEmitter& keyInputEmitter = inputContext.keyInputEmitter;
 
   constexpr glm::vec3 worldY = {0.0f, 1.0f, 0.0f};
+  constexpr float moveSpeed{0.1f};
   keyInputEmitter.subscribeToKeycodePressed(
-      [this]() { _state.camera.pos += _state.camera.forward(); },
+      [this]() { _state.camera.pos += moveSpeed * _state.camera.forward(); },
       core::KeyCode::e);
   keyInputEmitter.subscribeToKeycodePressed(
-      [this]() { _state.camera.pos -= _state.camera.forward(); },
+      [this]() { _state.camera.pos -= moveSpeed * _state.camera.forward(); },
       core::KeyCode::d);
   keyInputEmitter.subscribeToKeycodePressed(
-      [this]() { _state.camera.pos -= _state.camera.right(); },
+      [this]() { _state.camera.pos -= moveSpeed * _state.camera.right(); },
       core::KeyCode::s);
   keyInputEmitter.subscribeToKeycodePressed(
-      [this]() { _state.camera.pos += _state.camera.right(); },
+      [this]() { _state.camera.pos += moveSpeed * _state.camera.right(); },
       core::KeyCode::f);
   keyInputEmitter.subscribeToKeycodePressed(
-      [this, worldY]() { _state.camera.pos += worldY; }, core::KeyCode::r);
+      [this, worldY]() { _state.camera.pos += moveSpeed * worldY; },
+      core::KeyCode::r);
   keyInputEmitter.subscribeToKeycodePressed(
-      [this, worldY]() { _state.camera.pos -= worldY; }, core::KeyCode::w);
+      [this, worldY]() { _state.camera.pos -= moveSpeed * worldY; },
+      core::KeyCode::w);
 
   // camera rotation
   input::MouseMotionEmitter& mouseMotionEmitter =

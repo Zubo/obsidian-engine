@@ -12,9 +12,11 @@
 #include <obsidian/asset/material_asset_info.hpp>
 #include <obsidian/asset/mesh_asset_info.hpp>
 #include <obsidian/asset/scene_asset_info.hpp>
+#include <obsidian/asset/texture_asset_info.hpp>
 #include <obsidian/asset_converter/asset_converter.hpp>
 #include <obsidian/core/logging.hpp>
 #include <obsidian/core/material.hpp>
+#include <obsidian/core/texture_format.hpp>
 #include <obsidian/editor/data.hpp>
 #include <obsidian/editor/editor_windows.hpp>
 #include <obsidian/editor/settings.hpp>
@@ -59,7 +61,9 @@ static std::vector<char const*> shaderPathStringPtrs;
 static std::vector<char const*> materialPathStringPtrs;
 static std::vector<char const*> meshesPathStringPtrs;
 static bool assetListDirty = false;
-static char const* materialTypes[] = {"unlit", "lit"};
+static std::array<char const*, 2> materialTypes = {"unlit", "lit"};
+static std::array<char const*, 4> textureTypes = {
+    "Unknown", "R8G8B8A8_SRGB", "R8G8B8A8_LINEAR", "R32G32_SFLOAT"};
 static bool openEngineTab = false;
 
 void refreshAssetLists() {
@@ -502,6 +506,7 @@ void materialCreatorTab() {
     static int selectedAlbedoTex = 0;
     static int selectedNormalMapTex = 0;
     static int selectedShader = 0;
+    static float selectedShininess = 16.0f;
 
     bool canCreateMat = true;
     if (!texturesInProj.size()) {
@@ -517,8 +522,8 @@ void materialCreatorTab() {
       static char matName[maxFileNameSize];
       ImGui::InputText("Material name", matName, std::size(matName));
 
-      if (ImGui::Combo("Material Type", &selectedMaterialType, materialTypes,
-                       std::size(materialTypes))) {
+      if (ImGui::Combo("Material Type", &selectedMaterialType,
+                       materialTypes.data(), materialTypes.size())) {
       }
 
       if (ImGui::Combo("Shader", &selectedShader, shaderPathStringPtrs.data(),
@@ -533,6 +538,9 @@ void materialCreatorTab() {
       if (ImGui::Combo("Normal Tex", &selectedNormalMapTex,
                        texturePathStringPtrs.data(),
                        texturePathStringPtrs.size())) {
+      }
+
+      if (ImGui::SliderFloat("Shininess", &selectedShininess, 1.0f, 256.0f)) {
       }
 
       std::size_t matNameLen = std::strlen(matName);
@@ -561,6 +569,8 @@ void materialCreatorTab() {
               texturePathStringPtrs[selectedNormalMapTex];
         }
 
+        mtlAssetInfo.shininess = selectedShininess;
+
         asset::Asset materialAsset;
         asset::packMaterial(mtlAssetInfo, {}, materialAsset);
         fs::path matPath = project.getAbsolutePath(matName);
@@ -580,6 +590,64 @@ void materialCreatorTab() {
     ImGui::EndTabItem();
   } else {
     isOpen = false;
+  }
+}
+
+void textureEditorTab() {
+  if (ImGui::BeginTabItem("Textures")) {
+    static int selectedTextureInd = 1;
+    static int selectedTextureFormat;
+    static bool isInitialized = false;
+
+    auto const loadTextureData = [](fs::path const& texturePath) {
+      asset::Asset textureAsset;
+      asset::loadFromFile(project.getAbsolutePath(texturePath), textureAsset);
+      asset::TextureAssetInfo textureAssetInfo;
+      asset::readTextureAssetInfo(textureAsset, textureAssetInfo);
+      selectedTextureFormat = static_cast<int>(textureAssetInfo.format);
+    };
+
+    if (!isInitialized && texturesInProj.size()) {
+      loadTextureData(texturesInProj[selectedTextureInd - 1]);
+      isInitialized = true;
+    }
+
+    if (texturesInProj.size()) {
+      if (ImGui::Combo("Texture", &selectedTextureInd,
+                       texturePathStringPtrs.data(),
+                       texturePathStringPtrs.size())) {
+        loadTextureData(texturesInProj[selectedTextureInd - 1]);
+      }
+
+      if (ImGui::Combo("Format", &selectedTextureFormat, textureTypes.data(),
+                       (int)textureTypes.size())) {
+      }
+
+      if (ImGui::Button("Save")) {
+        asset::Asset textureAsset;
+        asset::loadFromFile(
+            project.getAbsolutePath(texturesInProj[selectedTextureInd - 1]),
+            textureAsset);
+        asset::TextureAssetInfo textureAssetInfo;
+        asset::readTextureAssetInfo(textureAsset, textureAssetInfo);
+
+        std::vector<char> textureData;
+        textureData.resize(textureAssetInfo.unpackedSize);
+
+        asset::unpackAsset(textureAssetInfo, textureAsset.binaryBlob.data(),
+                           textureAsset.binaryBlob.size(), textureData.data());
+
+        asset::Asset outAsset;
+        textureAssetInfo.format =
+            static_cast<core::TextureFormat>(selectedTextureFormat);
+        asset::packTexture(textureAssetInfo, textureData.data(), outAsset);
+        asset::saveToFile(
+            project.getAbsolutePath(texturesInProj[selectedTextureInd - 1]),
+            outAsset);
+      }
+    }
+
+    ImGui::EndTabItem();
   }
 }
 
@@ -633,6 +701,7 @@ void projectTab(ObsidianEngine& engine, bool& engineStarted) {
     } else {
       if (ImGui::BeginTabBar("EditorTabBar")) {
         materialCreatorTab();
+        textureEditorTab();
         importTab();
         ImGui::EndTabBar();
       }
@@ -685,7 +754,6 @@ void editor(SDL_Renderer& renderer, ImGuiIO& imguiIO, DataContext& context,
 }
 
 void fileDropped(const char* file) {
-
   if (project.getOpenProjectPath().empty()) {
     OBS_LOG_ERR("File dropped in but no project was open.");
     return;

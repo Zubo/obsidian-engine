@@ -38,6 +38,7 @@ struct UploadMaterialRHI {
   ResourceIdRHI shaderId;
   ResourceIdRHI albedoTextureId = rhi::rhiIdUninitialized;
   ResourceIdRHI normalTextureId = rhi::rhiIdUninitialized;
+  float shininess;
 };
 
 struct InitResourcesRHI {

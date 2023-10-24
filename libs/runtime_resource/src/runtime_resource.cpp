@@ -122,6 +122,8 @@ rhi::ResourceIdRHI RuntimeResource::uploadToRHI() {
     uploadMaterial.shaderId =
         _runtimeResourceManager.getResource(info.shaderPath).uploadToRHI();
 
+    uploadMaterial.shininess = info.shininess;
+
     _resourceIdRHI = _rhi.uploadMaterial(uploadMaterial);
     _releaseFunc = [](rhi::RHI& rhi, rhi::ResourceIdRHI id) {
       rhi.unloadMaterial(id);

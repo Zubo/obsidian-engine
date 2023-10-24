@@ -6,6 +6,7 @@ namespace obsidian::core {
 std::size_t getFormatPixelSize(TextureFormat format) {
   switch (format) {
   case TextureFormat::R8G8B8A8_SRGB:
+  case TextureFormat::R8G8B8A8_LINEAR:
     return 4;
   case TextureFormat::R32G32_SFLOAT:
     return 8;
