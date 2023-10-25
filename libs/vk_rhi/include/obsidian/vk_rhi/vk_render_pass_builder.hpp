@@ -23,7 +23,8 @@ public:
   RenderPassBuilder& addColorAttachment(VkFormat format,
                                         VkImageLayout finalLayout);
 
-  RenderPassBuilder& addDepthAttachment(VkFormat format);
+  RenderPassBuilder& addDepthAttachment(VkFormat format,
+                                        bool storeResult = false);
 
   RenderPassBuilder& setSubpassPipelineBindPoint(std::size_t subpassInd,
                                                  VkPipelineBindPoint bindPoint);

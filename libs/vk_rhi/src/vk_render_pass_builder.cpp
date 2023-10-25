@@ -25,11 +25,20 @@ RenderPassBuilder::addColorAttachment(VkFormat format,
   return *this;
 }
 
-RenderPassBuilder& RenderPassBuilder::addDepthAttachment(VkFormat format) {
+RenderPassBuilder& RenderPassBuilder::addDepthAttachment(VkFormat format,
+                                                         bool storeResult) {
   assert(_depthAttachmentInd == attachmentIndexNone);
 
   _depthAttachmentInd = _attachmentDescriptions.size();
-  _attachmentDescriptions.push_back(vkinit::depthAttachmentDescription(format));
+
+  VkAttachmentDescription depthAttachmentDescription =
+      vkinit::depthAttachmentDescription(format);
+
+  if (storeResult) {
+    depthAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+  }
+
+  _attachmentDescriptions.push_back(depthAttachmentDescription);
 
   return *this;
 }
