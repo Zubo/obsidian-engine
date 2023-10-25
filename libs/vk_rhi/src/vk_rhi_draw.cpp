@@ -436,7 +436,10 @@ void VulkanRHI::drawPassNoMaterials(
     vkCmdBindIndexBuffer(cmd, mesh.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
     vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0,
                        sizeof(MeshPushConstants), &drawCall.model);
-    vkCmdDrawIndexed(cmd, mesh.indexCount, 1, 0, 0, 0);
+    vkCmdDrawIndexed(cmd,
+                     mesh.indexBufferSizes[drawCall.indexBufferInd] /
+                         sizeof(core::MeshIndexType),
+                     1, 0, 0, 0);
   }
 }
 
