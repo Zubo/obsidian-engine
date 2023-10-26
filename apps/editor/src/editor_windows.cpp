@@ -179,6 +179,7 @@ void gameObjectHierarchy(scene::GameObject& gameObject,
   if (selected) {
     ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0, 255, 0, 255));
   }
+
   if (ImGui::TreeNode(gameObject.name.c_str())) {
     if (ImGui::IsItemClicked()) {
       selectedGameObject = &gameObject;
@@ -228,8 +229,14 @@ void gameObjectHierarchy(scene::GameObject& gameObject,
     }
 
     ImGui::TreePop();
-  } else if (selected) {
-    ImGui::PopStyleColor();
+  } else {
+    if (ImGui::IsItemClicked()) {
+      selectedGameObject = &gameObject;
+    }
+
+    if (selected) {
+      ImGui::PopStyleColor();
+    }
   }
 }
 
@@ -371,12 +378,15 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
         selectedMaterials.resize(selectedMeshAssetInfo.indexBufferSizes.size(),
                                  0);
 
-        ImGui::Text("Materials");
-        for (std::size_t i = 0; i < selectedMaterials.size(); ++i) {
-          if (ImGui::Combo(std::to_string(i).c_str(), &selectedMaterials[i],
-                           materialPathStringPtrs.data(),
-                           materialPathStringPtrs.size())) {
+        if (ImGui::TreeNode("Materials")) {
+          for (std::size_t i = 0; i < selectedMaterials.size(); ++i) {
+            if (ImGui::Combo(std::to_string(i).c_str(), &selectedMaterials[i],
+                             materialPathStringPtrs.data(),
+                             materialPathStringPtrs.size())) {
+            }
           }
+
+          ImGui::TreePop();
         }
 
         bool disabled =
