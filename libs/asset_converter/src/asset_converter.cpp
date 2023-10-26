@@ -182,7 +182,8 @@ generateVertices(tinyobj::attrib_t const& attrib,
             uniqueIdx.emplace(Ind{idx.vertex_index, idx.normal_index,
                                   idx.texcoord_index, tangent},
                               outVertices.size() / sizeof(Vertex));
-        int const matInd = shape.mesh.material_ids[f];
+        int const matInd =
+            outSurfaces.size() > 1 ? shape.mesh.material_ids[f] : 0;
 
         if (insertResult.second) {
           // New vertex detected
@@ -262,7 +263,8 @@ bool convertObjToAsset(fs::path const& srcPath, fs::path const& dstPath) {
   asset::Asset meshAsset;
 
   std::vector<char> outVertices;
-  std::vector<std::vector<core::MeshIndexType>> outSurfaces{materials.size()};
+  std::vector<std::vector<core::MeshIndexType>> outSurfaces{
+      materials.size() ? materials.max_size() : 1};
 
   std::size_t vertexCount;
   if (meshAssetInfo.hasNormals && meshAssetInfo.hasColors &&
