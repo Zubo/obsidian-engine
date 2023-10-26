@@ -1,3 +1,4 @@
+#include "obsidian/vk_rhi/vk_deletion_queue.hpp"
 #include <obsidian/core/logging.hpp>
 #include <obsidian/core/material.hpp>
 #include <obsidian/core/texture_format.hpp>
@@ -227,6 +228,30 @@ void VulkanRHI::unloadShader(rhi::ResourceIdRHI resourceIdRHI) {
   vkDestroyShaderModule(_vkDevice, shader, nullptr);
 }
 
+template <typename MaterialDataT>
+void VulkanRHI::createAndBindMaterialDataBuffer(
+    MaterialDataT const& materialData, DescriptorBuilder& builder,
+    VkDescriptorBufferInfo& bufferInfo) {
+  AllocatedBuffer materialDataBuffer = createBuffer(
+      getPaddedBufferSize(sizeof(MaterialDataT)),
+      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+      VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+
+  uploadBufferData(0, materialData, materialDataBuffer);
+
+  _deletionQueue.pushFunction([this, materialDataBuffer]() {
+    vmaDestroyBuffer(_vmaAllocator, materialDataBuffer.buffer,
+                     materialDataBuffer.allocation);
+  });
+
+  bufferInfo.buffer = materialDataBuffer.buffer;
+  bufferInfo.offset = 0;
+  bufferInfo.range = sizeof(MaterialDataT);
+
+  builder.bindBuffer(0, bufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                     VK_SHADER_STAGE_FRAGMENT_BIT);
+}
+
 rhi::ResourceIdRHI
 VulkanRHI::uploadMaterial(rhi::UploadMaterialRHI const& uploadMaterial) {
   PipelineBuilder& pipelineBuilder =
@@ -247,50 +272,62 @@ VulkanRHI::uploadMaterial(rhi::UploadMaterialRHI const& uploadMaterial) {
   Material& newMaterial = _materials[newResourceId];
   newMaterial.vkPipelineLayout = pipelineBuilder._vkPipelineLayout;
   newMaterial.vkPipeline =
-      pipelineBuilder.buildPipeline(_vkDevice, _defaultRenderPass.vkRenderPass);
+      pipelineBuilder.buildPipeline(_vkDevice, _mainRenderPass.vkRenderPass);
 
-  Texture const& albedoTexture = _textures[uploadMaterial.albedoTextureId];
+  Texture const& diffuseTexture = _textures[uploadMaterial.diffuseTextureId];
 
-  VkDescriptorImageInfo albedoTexImageInfo;
-  albedoTexImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-  albedoTexImageInfo.imageView = albedoTexture.imageView;
-  albedoTexImageInfo.sampler = _vkLinearClampToEdgeSampler;
+  DescriptorBuilder builder = DescriptorBuilder::begin(
+      _vkDevice, _descriptorAllocator, _descriptorLayoutCache);
+
+  VkDescriptorBufferInfo materialDataBufferInfo;
+  VkDescriptorImageInfo diffuseTexImageInfo;
+  VkDescriptorImageInfo normalMapTexImageInfo;
 
   if (uploadMaterial.materialType == core::MaterialType::lit) {
-    AllocatedBuffer materialDataBuffer = createBuffer(
-        getPaddedBufferSize(sizeof(GPUMaterialData)),
-        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
-        VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
-
-    GPUMaterialData materialData;
+    GPULitMaterialData materialData;
+    materialData.hasDiffuseTex.value =
+        uploadMaterial.diffuseTextureId != rhi::rhiIdUninitialized;
     materialData.hasNormalMap.value =
         uploadMaterial.normalTextureId != rhi::rhiIdUninitialized;
+    materialData.diffuseColor = glm::vec4(uploadMaterial.diffuseColor, 1.0f);
     materialData.shininess = uploadMaterial.shininess;
 
-    uploadBufferData(0, materialData, materialDataBuffer);
+    createAndBindMaterialDataBuffer(materialData, builder,
+                                    materialDataBufferInfo);
 
-    _deletionQueue.pushFunction([this, materialDataBuffer]() {
-      vmaDestroyBuffer(_vmaAllocator, materialDataBuffer.buffer,
-                       materialDataBuffer.allocation);
-    });
+  } else {
+    GPUUnlitMaterialData materialData;
+    materialData.hasDiffuseTex.value =
+        uploadMaterial.diffuseTextureId != rhi::rhiIdUninitialized;
+    materialData.diffuseColor = glm::vec4(uploadMaterial.diffuseColor, 1.0f);
 
     VkDescriptorBufferInfo materialDataBufferInfo;
-    materialDataBufferInfo.buffer = materialDataBuffer.buffer;
-    materialDataBufferInfo.offset = 0;
-    materialDataBufferInfo.range = sizeof(GPUMaterialData);
 
-    DescriptorBuilder builder =
-        DescriptorBuilder::begin(_vkDevice, _descriptorAllocator,
-                                 _descriptorLayoutCache)
-            .bindBuffer(0, materialDataBufferInfo,
-                        VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                        VK_SHADER_STAGE_FRAGMENT_BIT)
-            .bindImage(1, albedoTexImageInfo,
-                       VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                       VK_SHADER_STAGE_FRAGMENT_BIT);
+    createAndBindMaterialDataBuffer(materialData, builder,
+                                    materialDataBufferInfo);
+  }
 
-    if (materialData.hasNormalMap.value) {
-      VkDescriptorImageInfo normalMapTexImageInfo;
+  bool const hasDiffuseTex =
+      uploadMaterial.diffuseTextureId != rhi::rhiIdUninitialized;
+
+  if (hasDiffuseTex) {
+    diffuseTexImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    diffuseTexImageInfo.imageView = diffuseTexture.imageView;
+    diffuseTexImageInfo.sampler = _vkLinearClampToEdgeSampler;
+
+    builder.bindImage(1, diffuseTexImageInfo,
+                      VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                      VK_SHADER_STAGE_FRAGMENT_BIT, nullptr, true);
+  } else {
+    builder.declareUnusedImage(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                               VK_SHADER_STAGE_FRAGMENT_BIT);
+  }
+
+  bool const hasNormalMap =
+      uploadMaterial.normalTextureId != rhi::rhiIdUninitialized;
+
+  if (uploadMaterial.materialType == core::MaterialType::lit) {
+    if (hasNormalMap) {
       normalMapTexImageInfo.imageLayout =
           VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
       normalMapTexImageInfo.sampler = _vkLinearClampToEdgeSampler;
@@ -305,16 +342,9 @@ VulkanRHI::uploadMaterial(rhi::UploadMaterialRHI const& uploadMaterial) {
       builder.declareUnusedImage(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                                  VK_SHADER_STAGE_FRAGMENT_BIT);
     }
-
-    builder.build(newMaterial.vkDescriptorSet);
-  } else {
-    DescriptorBuilder::begin(_vkDevice, _descriptorAllocator,
-                             _descriptorLayoutCache)
-        .bindImage(0, albedoTexImageInfo,
-                   VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                   VK_SHADER_STAGE_FRAGMENT_BIT)
-        .build(newMaterial.vkDescriptorSet);
   }
+
+  builder.build(newMaterial.vkDescriptorSet);
 
   return newResourceId;
 }
@@ -571,7 +601,7 @@ void VulkanRHI::applyPendingExtentUpdate() {
     _swapchainDeletionQueue.flush();
 
     initSwapchain(*_pendingExtentUpdate);
-    initDefaultRenderPass();
+    initMainRenderPass();
     initSwapchainFramebuffers();
     initDepthPrepassFramebuffers();
     initSsaoFramebuffers();

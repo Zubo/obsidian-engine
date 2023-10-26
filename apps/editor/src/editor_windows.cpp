@@ -513,10 +513,11 @@ void materialCreatorTab() {
 
   if (ImGui::BeginTabItem("Material Creator")) {
     static int selectedMaterialType = static_cast<int>(core::MaterialType::lit);
-    static int selectedAlbedoTex = 0;
+    static int selectedDiffuseTex = 0;
     static int selectedNormalMapTex = 0;
     static int selectedShader = 0;
     static float selectedShininess = 16.0f;
+    static glm::vec3 selectedDiffuseColor = {1.0f, 1.0f, 1.0f};
 
     bool canCreateMat = true;
     if (!texturesInProj.size()) {
@@ -540,7 +541,7 @@ void materialCreatorTab() {
                        shaderPathStringPtrs.size())) {
       }
 
-      if (ImGui::Combo("Albedo Tex", &selectedAlbedoTex,
+      if (ImGui::Combo("Diffuse Tex", &selectedDiffuseTex,
                        texturePathStringPtrs.data(),
                        texturePathStringPtrs.size())) {
       }
@@ -550,11 +551,15 @@ void materialCreatorTab() {
                        texturePathStringPtrs.size())) {
       }
 
+      if (ImGui::SliderFloat3("Diffuse Color", &selectedDiffuseColor.r, 0.0f,
+                              1.0f)) {
+      }
+
       if (ImGui::SliderFloat("Shininess", &selectedShininess, 1.0f, 256.0f)) {
       }
 
       std::size_t matNameLen = std::strlen(matName);
-      bool disabled = matNameLen == 0 && selectedAlbedoTex <= 0;
+      bool disabled = matNameLen == 0;
 
       if (disabled) {
         ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
@@ -568,15 +573,16 @@ void materialCreatorTab() {
         mtlAssetInfo.materialType =
             static_cast<core::MaterialType>(selectedMaterialType);
         mtlAssetInfo.shaderPath = shaderPathStringPtrs[selectedShader];
+        mtlAssetInfo.diffuseColor = selectedDiffuseColor;
 
-        if (selectedAlbedoTex) {
-          mtlAssetInfo.albedoTexturePath =
-              texturePathStringPtrs[selectedAlbedoTex];
+        if (selectedDiffuseTex > 0) {
+          mtlAssetInfo.diffuseTexturePath =
+              texturesInProj[selectedDiffuseTex - 1];
         }
 
-        if (selectedNormalMapTex) {
+        if (selectedNormalMapTex > 0) {
           mtlAssetInfo.normalMapTexturePath =
-              texturePathStringPtrs[selectedNormalMapTex];
+              texturesInProj[selectedNormalMapTex - 1];
         }
 
         mtlAssetInfo.shininess = selectedShininess;

@@ -50,12 +50,14 @@ layout(std140, set = 1, binding = 1) uniform LightCameraData {
 lights;
 
 layout(std140, set = 2, binding = 0) uniform MaterialData {
+  vec4 diffuseColor;
+  bool hasDiffuseTex;
   bool hasNormalMap;
   float shininess;
 }
 materialData;
 
-layout(set = 2, binding = 1) uniform sampler2D albedoTex;
+layout(set = 2, binding = 1) uniform sampler2D diffuseTex;
 layout(set = 2, binding = 2) uniform sampler2D normalMapTex;
 
 struct LightingResult {
@@ -215,7 +217,11 @@ float getSsao() {
 }
 
 void main() {
-  vec3 sampledColor = texture(albedoTex, inUV).xyz;
+  vec3 diffuseColor = materialData.diffuseColor.xyz;
+
+  if (materialData.hasDiffuseTex) {
+    diffuseColor *= texture(diffuseTex, inUV).xyz;
+  }
 
   vec3 normal;
 
@@ -230,7 +236,7 @@ void main() {
   const float ssao = getSsao();
 
   vec3 finalColor =
-      sampledColor *
+      diffuseColor *
       (spotlightResult.diffuse + directionalLightResult.diffuse +
        spotlightResult.specular + directionalLightResult.specular +
        (ssao / 128.0f) * sceneData.ambientColor.xyz);

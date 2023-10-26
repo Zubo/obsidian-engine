@@ -109,9 +109,12 @@ rhi::ResourceIdRHI RuntimeResource::uploadToRHI() {
 
     rhi::UploadMaterialRHI uploadMaterial;
     uploadMaterial.materialType = info.materialType;
-    uploadMaterial.albedoTextureId =
-        _runtimeResourceManager.getResource(info.albedoTexturePath)
-            .uploadToRHI();
+
+    if (!info.diffuseTexturePath.empty()) {
+      uploadMaterial.diffuseTextureId =
+          _runtimeResourceManager.getResource(info.diffuseTexturePath)
+              .uploadToRHI();
+    }
 
     if (!info.normalMapTexturePath.empty()) {
       uploadMaterial.normalTextureId =
@@ -122,6 +125,7 @@ rhi::ResourceIdRHI RuntimeResource::uploadToRHI() {
     uploadMaterial.shaderId =
         _runtimeResourceManager.getResource(info.shaderPath).uploadToRHI();
 
+    uploadMaterial.diffuseColor = info.diffuseColor;
     uploadMaterial.shininess = info.shininess;
 
     _resourceIdRHI = _rhi.uploadMaterial(uploadMaterial);

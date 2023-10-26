@@ -10,9 +10,10 @@ namespace obsidian::asset {
 
 constexpr char const* materialTypeJsonName = "materialType";
 constexpr char const* shaderJsonName = "shader";
-constexpr char const* albedoTextureJsonName = "albedoTex";
+constexpr char const* diffuseTextureJsonName = "diffuseTex";
 constexpr char const* normalMapTextureJsonName = "normalMapTex";
 constexpr char const* shininessJsonName = "shininess";
+constexpr char const* diffuseColorJsonName = "diffuseColor";
 
 bool readMaterialAssetInfo(Asset const& asset,
                            MaterialAssetInfo& outMaterialAssetInfo) {
@@ -22,9 +23,12 @@ bool readMaterialAssetInfo(Asset const& asset,
     outMaterialAssetInfo.compressionMode = json[compressionModeJsonName];
     outMaterialAssetInfo.materialType = json[materialTypeJsonName];
     outMaterialAssetInfo.shaderPath = json[shaderJsonName];
-    outMaterialAssetInfo.albedoTexturePath = json[albedoTextureJsonName];
+    outMaterialAssetInfo.diffuseTexturePath = json[diffuseTextureJsonName];
     outMaterialAssetInfo.normalMapTexturePath = json[normalMapTextureJsonName];
     outMaterialAssetInfo.shininess = json[shininessJsonName];
+    outMaterialAssetInfo.diffuseColor.r = json[diffuseColorJsonName]["r"];
+    outMaterialAssetInfo.diffuseColor.g = json[diffuseColorJsonName]["g"];
+    outMaterialAssetInfo.diffuseColor.b = json[diffuseColorJsonName]["b"];
   } catch (std::exception const& e) {
     OBS_LOG_ERR(e.what());
     return false;
@@ -48,9 +52,12 @@ bool packMaterial(MaterialAssetInfo const& materialAssetInfo,
     json[compressionModeJsonName] = materialAssetInfo.compressionMode;
     json[materialTypeJsonName] = materialAssetInfo.materialType;
     json[shaderJsonName] = materialAssetInfo.shaderPath;
-    json[albedoTextureJsonName] = materialAssetInfo.albedoTexturePath;
+    json[diffuseTextureJsonName] = materialAssetInfo.diffuseTexturePath;
     json[normalMapTextureJsonName] = materialAssetInfo.normalMapTexturePath;
     json[shininessJsonName] = materialAssetInfo.shininess;
+    json[diffuseColorJsonName]["r"] = materialAssetInfo.diffuseColor.r;
+    json[diffuseColorJsonName]["g"] = materialAssetInfo.diffuseColor.g;
+    json[diffuseColorJsonName]["b"] = materialAssetInfo.diffuseColor.b;
 
     outAsset.json = json.dump();
 

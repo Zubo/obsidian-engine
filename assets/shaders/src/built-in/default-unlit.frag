@@ -13,6 +13,18 @@ layout(set = 0, binding = 1) uniform SceneData {
 }
 sceneData;
 
-layout(set = 2, binding = 0) uniform sampler2D albedoTex;
+layout(std140, set = 2, binding = 0) uniform MaterialData {
+  vec4 diffuseColor;
+  bool hasDiffuseTex;
+}
+materialData;
 
-void main() { outFragColor = vec4(texture(albedoTex, inUV).xyz, 1.0f); }
+layout(set = 2, binding = 1) uniform sampler2D diffuseTex;
+
+void main() {
+  outFragColor = materialData.diffuseColor;
+
+  if (materialData.hasDiffuseTex) {
+    outFragColor *= vec4(texture(diffuseTex, inUV).xyz, 1.0f);
+  }
+}

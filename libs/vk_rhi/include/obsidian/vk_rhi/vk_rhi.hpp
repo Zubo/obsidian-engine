@@ -104,7 +104,7 @@ private:
   bool _skipFrame = false;
 
   // Default pass
-  RenderPass _defaultRenderPass;
+  RenderPass _mainRenderPass;
   std::vector<Framebuffer> _vkSwapchainFramebuffers;
   VkPipelineLayout _vkMeshPipelineLayout;
   VkPipelineLayout _vkLitMeshPipelineLayout;
@@ -177,7 +177,7 @@ private:
   void initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider);
   void initSwapchain(rhi::WindowExtentRHI const& extent);
   void initCommands();
-  void initDefaultRenderPass();
+  void initMainRenderPass();
   void initDepthRenderPass();
   void initSsaoRenderPass();
   void initPostProcessingRenderPass();
@@ -187,7 +187,7 @@ private:
   void initSsaoFramebuffers();
   void initSsaoPostProcessingFramebuffers();
   void initSyncStructures();
-  void initDefaultPipelineAndLayouts();
+  void initMainPipelineAndLayouts();
   void initDepthPassPipelineLayout();
   void initShadowPassPipeline();
   void initSsaoPipeline();
@@ -251,6 +251,10 @@ private:
                VmaAllocationInfo* outAllocationInfo = nullptr) const;
   std::size_t getPaddedBufferSize(std::size_t originalSize) const;
 
+  template <typename MaterialDataT>
+  void createAndBindMaterialDataBuffer(MaterialDataT const& materialData,
+                                       DescriptorBuilder& builder,
+                                       VkDescriptorBufferInfo& bufferInfo);
   rhi::ResourceIdRHI consumeNewResourceId();
   int getNextAvailableShadowMapIndex();
   void submitLight(rhi::DirectionalLightParams const& directionalLight);

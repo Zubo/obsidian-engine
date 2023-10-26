@@ -102,9 +102,16 @@ struct GPUObjectData {
   glm::mat4 modelMat;
 };
 
-struct GPUMaterialData {
+struct GPULitMaterialData {
+  glm::vec4 diffuseColor;
+  Boolean32 hasDiffuseTex;
   Boolean32 hasNormalMap;
   float shininess;
+};
+
+struct GPUUnlitMaterialData {
+  glm::vec4 diffuseColor;
+  Boolean32 hasDiffuseTex;
 };
 
 struct VKDrawCall {

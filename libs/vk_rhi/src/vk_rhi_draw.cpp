@@ -267,7 +267,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   VkRenderPassBeginInfo vkRenderPassBeginInfo = {};
   vkRenderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
   vkRenderPassBeginInfo.pNext = nullptr;
-  vkRenderPassBeginInfo.renderPass = _defaultRenderPass.vkRenderPass;
+  vkRenderPassBeginInfo.renderPass = _mainRenderPass.vkRenderPass;
   vkRenderPassBeginInfo.framebuffer =
       _vkSwapchainFramebuffers[swapchainImageIndex].vkFramebuffer;
   vkRenderPassBeginInfo.renderArea.offset = {0, 0};
@@ -287,7 +287,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
 
   drawWithMaterials(
       cmd, _drawCallQueue.data(), _drawCallQueue.size(), defaultDynamicOffsets,
-      currentFrameData.vkDefaultRenderPassDescriptorSet, viewport, scissor);
+      currentFrameData.vkMainRenderPassDescriptorSet, viewport, scissor);
 
   vkCmdEndRenderPass(cmd);
   VK_CHECK(vkEndCommandBuffer(cmd));

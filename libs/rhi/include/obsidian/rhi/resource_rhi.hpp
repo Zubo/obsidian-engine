@@ -3,6 +3,8 @@
 #include <obsidian/core/material.hpp>
 #include <obsidian/core/texture_format.hpp>
 
+#include <glm/glm.hpp>
+
 #include <cstdint>
 #include <functional>
 #include <vector>
@@ -36,8 +38,9 @@ struct UploadShaderRHI {
 struct UploadMaterialRHI {
   core::MaterialType materialType;
   ResourceIdRHI shaderId;
-  ResourceIdRHI albedoTextureId = rhi::rhiIdUninitialized;
+  ResourceIdRHI diffuseTextureId = rhi::rhiIdUninitialized;
   ResourceIdRHI normalTextureId = rhi::rhiIdUninitialized;
+  glm::vec3 diffuseColor;
   float shininess;
 };
 

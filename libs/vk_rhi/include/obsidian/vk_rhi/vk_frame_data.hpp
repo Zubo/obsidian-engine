@@ -16,7 +16,7 @@ struct FrameData {
   VkCommandPool vkCommandPool;
   VkCommandBuffer vkCommandBuffer;
 
-  VkDescriptorSet vkDefaultRenderPassDescriptorSet;
+  VkDescriptorSet vkMainRenderPassDescriptorSet;
 
   std::array<Framebuffer, rhi::maxLightsPerDrawPass> shadowFrameBuffers;
 

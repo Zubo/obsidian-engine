@@ -264,7 +264,7 @@ bool convertObjToAsset(fs::path const& srcPath, fs::path const& dstPath) {
 
   std::vector<char> outVertices;
   std::vector<std::vector<core::MeshIndexType>> outSurfaces{
-      materials.size() ? materials.max_size() : 1};
+      materials.size() ? materials.size() : 1};
 
   std::size_t vertexCount;
   if (meshAssetInfo.hasNormals && meshAssetInfo.hasColors &&
