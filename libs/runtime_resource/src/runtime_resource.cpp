@@ -127,6 +127,7 @@ rhi::ResourceIdRHI RuntimeResource::uploadToRHI() {
 
     uploadMaterial.diffuseColor = info.diffuseColor;
     uploadMaterial.shininess = info.shininess;
+    uploadMaterial.transparent = info.transparent;
 
     _resourceIdRHI = _rhi.uploadMaterial(uploadMaterial);
     _releaseFunc = [](rhi::RHI& rhi, rhi::ResourceIdRHI id) {

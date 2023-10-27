@@ -42,6 +42,7 @@ struct UploadMaterialRHI {
   ResourceIdRHI normalTextureId = rhi::rhiIdUninitialized;
   glm::vec4 diffuseColor;
   float shininess;
+  bool transparent;
 };
 
 struct InitResourcesRHI {

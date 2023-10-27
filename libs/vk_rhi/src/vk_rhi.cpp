@@ -273,7 +273,7 @@ VulkanRHI::uploadMaterial(rhi::UploadMaterialRHI const& uploadMaterial) {
   newMaterial.vkPipelineLayout = pipelineBuilder._vkPipelineLayout;
   newMaterial.vkPipeline =
       pipelineBuilder.buildPipeline(_vkDevice, _mainRenderPass.vkRenderPass);
-  newMaterial.hasTransparency = uploadMaterial.diffuseColor.a < 1.0f;
+  newMaterial.transparent = uploadMaterial.transparent;
 
   Texture const& diffuseTexture = _textures[uploadMaterial.diffuseTextureId];
 
@@ -365,7 +365,7 @@ void VulkanRHI::submitDrawCall(rhi::DrawCall const& drawCall) {
   for (std::size_t i = 0; i < drawCall.materialIds.size(); ++i) {
     vkDrawCall.material = &_materials[drawCall.materialIds[i]];
     vkDrawCall.indexBufferInd = i;
-    if (vkDrawCall.material->hasTransparency) {
+    if (vkDrawCall.material->transparent) {
       _transparentDrawCallQueue.push_back(vkDrawCall);
     } else {
       _drawCallQueue.push_back(vkDrawCall);

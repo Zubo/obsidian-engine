@@ -18,6 +18,7 @@ struct MaterialAssetInfo : public AssetInfo {
   std::string normalMapTexturePath;
   glm::vec4 diffuseColor;
   float shininess;
+  bool transparent;
 };
 
 bool readMaterialAssetInfo(Asset const& asset,

@@ -517,6 +517,7 @@ void materialCreatorTab() {
     static int selectedNormalMapTex = 0;
     static int selectedShader = 0;
     static float selectedShininess = 16.0f;
+    static bool selectedMatTransparent = false;
     static glm::vec4 selectedDiffuseColor = {1.0f, 1.0f, 1.0f, 1.0f};
 
     bool canCreateMat = true;
@@ -558,6 +559,9 @@ void materialCreatorTab() {
       if (ImGui::SliderFloat("Shininess", &selectedShininess, 1.0f, 256.0f)) {
       }
 
+      if (ImGui::Checkbox("Transparent", &selectedMatTransparent)) {
+      }
+
       std::size_t matNameLen = std::strlen(matName);
       bool disabled = matNameLen == 0;
 
@@ -574,6 +578,7 @@ void materialCreatorTab() {
             static_cast<core::MaterialType>(selectedMaterialType);
         mtlAssetInfo.shaderPath = shaderPathStringPtrs[selectedShader];
         mtlAssetInfo.diffuseColor = selectedDiffuseColor;
+        mtlAssetInfo.transparent = selectedMatTransparent;
 
         if (selectedDiffuseTex > 0) {
           mtlAssetInfo.diffuseTexturePath =

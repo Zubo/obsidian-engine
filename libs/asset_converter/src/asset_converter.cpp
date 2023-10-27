@@ -66,6 +66,18 @@ bool convertImgToAsset(fs::path const& srcPath, fs::path const& dstPath) {
     return false;
   }
 
+  textureAssetInfo.transparent = false;
+
+  if (!shouldAddAlpha && channelCnt == 4) {
+    glm::vec4 const* pixels = reinterpret_cast<glm::vec4 const*>(data);
+    for (glm::vec4 const* p = pixels; p < pixels + w * h; ++p) {
+      if (p->a < 1.0f) {
+        textureAssetInfo.transparent = true;
+        break;
+      }
+    }
+  }
+
   textureAssetInfo.width = w;
   textureAssetInfo.height = h;
 
