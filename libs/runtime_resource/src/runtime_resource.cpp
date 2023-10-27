@@ -125,7 +125,9 @@ rhi::ResourceIdRHI RuntimeResource::uploadToRHI() {
     uploadMaterial.shaderId =
         _runtimeResourceManager.getResource(info.shaderPath).uploadToRHI();
 
+    uploadMaterial.ambientColor = info.ambientColor;
     uploadMaterial.diffuseColor = info.diffuseColor;
+    uploadMaterial.specularColor = info.specularColor;
     uploadMaterial.shininess = info.shininess;
     uploadMaterial.transparent = info.transparent;
 

@@ -13,7 +13,9 @@ constexpr char const* shaderJsonName = "shader";
 constexpr char const* diffuseTextureJsonName = "diffuseTex";
 constexpr char const* normalMapTextureJsonName = "normalMapTex";
 constexpr char const* shininessJsonName = "shininess";
+constexpr char const* ambientColorJsonName = "ambientColor";
 constexpr char const* diffuseColorJsonName = "diffuseColor";
+constexpr char const* specularColorJsonName = "specularColor";
 constexpr char const* transparentJsonName = "transparent";
 
 bool readMaterialAssetInfo(Asset const& asset,
@@ -27,10 +29,18 @@ bool readMaterialAssetInfo(Asset const& asset,
     outMaterialAssetInfo.diffuseTexturePath = json[diffuseTextureJsonName];
     outMaterialAssetInfo.normalMapTexturePath = json[normalMapTextureJsonName];
     outMaterialAssetInfo.shininess = json[shininessJsonName];
+    outMaterialAssetInfo.ambientColor.r = json[ambientColorJsonName]["r"];
+    outMaterialAssetInfo.ambientColor.g = json[ambientColorJsonName]["g"];
+    outMaterialAssetInfo.ambientColor.b = json[ambientColorJsonName]["b"];
+    outMaterialAssetInfo.ambientColor.a = json[ambientColorJsonName]["a"];
     outMaterialAssetInfo.diffuseColor.r = json[diffuseColorJsonName]["r"];
     outMaterialAssetInfo.diffuseColor.g = json[diffuseColorJsonName]["g"];
     outMaterialAssetInfo.diffuseColor.b = json[diffuseColorJsonName]["b"];
     outMaterialAssetInfo.diffuseColor.a = json[diffuseColorJsonName]["a"];
+    outMaterialAssetInfo.specularColor.r = json[specularColorJsonName]["r"];
+    outMaterialAssetInfo.specularColor.g = json[specularColorJsonName]["g"];
+    outMaterialAssetInfo.specularColor.b = json[specularColorJsonName]["b"];
+    outMaterialAssetInfo.specularColor.a = json[specularColorJsonName]["a"];
     outMaterialAssetInfo.transparent = json[transparentJsonName];
   } catch (std::exception const& e) {
     OBS_LOG_ERR(e.what());
@@ -58,10 +68,18 @@ bool packMaterial(MaterialAssetInfo const& materialAssetInfo,
     json[diffuseTextureJsonName] = materialAssetInfo.diffuseTexturePath;
     json[normalMapTextureJsonName] = materialAssetInfo.normalMapTexturePath;
     json[shininessJsonName] = materialAssetInfo.shininess;
+    json[ambientColorJsonName]["r"] = materialAssetInfo.ambientColor.r;
+    json[ambientColorJsonName]["g"] = materialAssetInfo.ambientColor.g;
+    json[ambientColorJsonName]["b"] = materialAssetInfo.ambientColor.b;
+    json[ambientColorJsonName]["a"] = materialAssetInfo.ambientColor.a;
     json[diffuseColorJsonName]["r"] = materialAssetInfo.diffuseColor.r;
     json[diffuseColorJsonName]["g"] = materialAssetInfo.diffuseColor.g;
     json[diffuseColorJsonName]["b"] = materialAssetInfo.diffuseColor.b;
     json[diffuseColorJsonName]["a"] = materialAssetInfo.diffuseColor.a;
+    json[specularColorJsonName]["r"] = materialAssetInfo.specularColor.r;
+    json[specularColorJsonName]["g"] = materialAssetInfo.specularColor.g;
+    json[specularColorJsonName]["b"] = materialAssetInfo.specularColor.b;
+    json[specularColorJsonName]["a"] = materialAssetInfo.specularColor.a;
     json[transparentJsonName] = materialAssetInfo.transparent;
 
     outAsset.json = json.dump();

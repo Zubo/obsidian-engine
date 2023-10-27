@@ -273,10 +273,16 @@ extractMaterials(fs::path const& srcDirPath, fs::path const& projectPath,
     asset::MaterialAssetInfo newMatAssetInfo;
     newMatAssetInfo.compressionMode = asset::CompressionMode::none;
     newMatAssetInfo.materialType = core::MaterialType::lit;
-    newMatAssetInfo.shaderPath =
-        projectPath / "obsidian/shaders/default.obsshad";
+    newMatAssetInfo.shaderPath = "obsidian/shaders/default.obsshad";
+    newMatAssetInfo.ambientColor =
+        glm::vec4(mat.ambient[0], mat.ambient[1], mat.ambient[2], mat.dissolve);
+
     newMatAssetInfo.diffuseColor =
         glm::vec4(mat.diffuse[0], mat.diffuse[1], mat.diffuse[2], mat.dissolve);
+
+    newMatAssetInfo.specularColor =
+        glm::vec4(mat.specular[0], mat.specular[1], mat.specular[2], 1.0f);
+
     newMatAssetInfo.shininess = mat.shininess;
     newMatAssetInfo.transparent = mat.dissolve < 1.0f;
 

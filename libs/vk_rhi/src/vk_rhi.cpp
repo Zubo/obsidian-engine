@@ -290,7 +290,9 @@ VulkanRHI::uploadMaterial(rhi::UploadMaterialRHI const& uploadMaterial) {
         uploadMaterial.diffuseTextureId != rhi::rhiIdUninitialized;
     materialData.hasNormalMap.value =
         uploadMaterial.normalTextureId != rhi::rhiIdUninitialized;
+    materialData.ambientColor = uploadMaterial.ambientColor;
     materialData.diffuseColor = uploadMaterial.diffuseColor;
+    materialData.specularColor = uploadMaterial.specularColor;
     materialData.shininess = uploadMaterial.shininess;
 
     createAndBindMaterialDataBuffer(materialData, builder,

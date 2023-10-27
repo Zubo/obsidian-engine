@@ -104,7 +104,9 @@ struct GPUObjectData {
 };
 
 struct GPULitMaterialData {
+  glm::vec4 ambientColor;
   glm::vec4 diffuseColor;
+  glm::vec4 specularColor;
   Boolean32 hasDiffuseTex;
   Boolean32 hasNormalMap;
   float shininess;

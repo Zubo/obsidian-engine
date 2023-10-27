@@ -580,7 +580,9 @@ void materialCreatorTab() {
     static int selectedShader = 0;
     static float selectedShininess = 16.0f;
     static bool selectedMatTransparent = false;
+    static glm::vec4 selectedAmbientColor = {1.0f, 1.0f, 1.0f, 1.0f};
     static glm::vec4 selectedDiffuseColor = {1.0f, 1.0f, 1.0f, 1.0f};
+    static glm::vec4 selectedSpecularColor = {1.0f, 1.0f, 1.0f, 1.0f};
 
     bool canCreateMat = true;
     if (!texturesInProj.size()) {
@@ -614,7 +616,15 @@ void materialCreatorTab() {
                        texturePathStringPtrs.size())) {
       }
 
+      if (ImGui::SliderFloat4("Ambient Color", &selectedAmbientColor.r, 0.0f,
+                              1.0f)) {
+      }
+
       if (ImGui::SliderFloat4("Diffuse Color", &selectedDiffuseColor.r, 0.0f,
+                              1.0f)) {
+      }
+
+      if (ImGui::SliderFloat4("Specular Color", &selectedSpecularColor.r, 0.0f,
                               1.0f)) {
       }
 
@@ -639,7 +649,9 @@ void materialCreatorTab() {
         mtlAssetInfo.materialType =
             static_cast<core::MaterialType>(selectedMaterialType);
         mtlAssetInfo.shaderPath = shaderPathStringPtrs[selectedShader];
+        mtlAssetInfo.ambientColor = selectedAmbientColor;
         mtlAssetInfo.diffuseColor = selectedDiffuseColor;
+        mtlAssetInfo.specularColor = selectedSpecularColor;
         mtlAssetInfo.transparent = selectedMatTransparent;
 
         if (selectedDiffuseTex > 0) {

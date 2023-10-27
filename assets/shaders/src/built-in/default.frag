@@ -50,7 +50,9 @@ layout(std140, set = 1, binding = 1) uniform LightCameraData {
 lights;
 
 layout(std140, set = 2, binding = 0) uniform MaterialData {
+  vec4 ambientColor;
   vec4 diffuseColor;
+  vec4 specularColor;
   bool hasDiffuseTex;
   bool hasNormalMap;
   float shininess;
@@ -217,12 +219,6 @@ float getSsao() {
 }
 
 void main() {
-  vec4 diffuseColor = materialData.diffuseColor;
-
-  if (materialData.hasDiffuseTex) {
-    diffuseColor *= texture(diffuseTex, inUV);
-  }
-
   vec3 normal;
 
   if (materialData.hasNormalMap) {
@@ -233,12 +229,27 @@ void main() {
 
   LightingResult directionalLightResult = calculateDirectionalLighting(normal);
   LightingResult spotlightResult = calculateSpotlights(normal);
+
   const float ssao = getSsao();
 
-  vec3 lightTotalResult =
-      (spotlightResult.diffuse + directionalLightResult.diffuse +
-       spotlightResult.specular + directionalLightResult.specular +
-       (ssao / 128.0f) * sceneData.ambientColor.xyz);
+  vec4 ambientColor =
+      (ssao / 128.0f) * materialData.ambientColor * sceneData.ambientColor;
 
-  outFragColor = diffuseColor * vec4(lightTotalResult, 1.0f);
+  vec4 diffuseColor = materialData.diffuseColor;
+
+  if (materialData.hasDiffuseTex) {
+    vec4 diffuseTexSample = texture(diffuseTex, inUV);
+    ambientColor *= diffuseTexSample;
+    diffuseColor *= diffuseTexSample;
+  }
+
+  diffuseColor *=
+      vec4((spotlightResult.diffuse + directionalLightResult.diffuse), 1.0f);
+
+  const vec4 specularColor =
+      materialData.specularColor *
+      vec4((spotlightResult.specular + directionalLightResult.specular), 1.0f);
+
+  outFragColor =
+      vec4((ambientColor + diffuseColor + specularColor).xyz, diffuseColor.w);
 }
