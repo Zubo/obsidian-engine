@@ -381,7 +381,7 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
         ImGui::NewLine();
         ImGui::SeparatorText("Object Hierarchy");
 
-        if (ImGui::TreeNode("")) {
+        if (ImGui::TreeNodeEx("", ImGuiTreeNodeFlags_DefaultOpen)) {
           if (ImGui::Button("+")) {
             sceneState.gameObjects.emplace_back();
           }
@@ -394,7 +394,7 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
 
       if (selectedGameObj) {
         ImGui::NewLine();
-        ImGui::SeparatorText("Mesh and Materials");
+        ImGui::SeparatorText("Game Object");
 
         char gameObjectName[maxGameObjectNameSize];
         std::strncpy(gameObjectName, selectedGameObj->name.c_str(),
@@ -417,6 +417,9 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
         ImGui::InputScalarN("Scale", ImGuiDataType_Float, &scale, 3);
         selectedGameObj->setScale(scale);
 
+        ImGui::NewLine();
+        ImGui::SeparatorText("Mesh and Materials");
+
         int selectedMeshInd = meshDropdownSelectedIndex;
         if (ImGui::Combo("Mesh", &selectedMeshInd, meshesPathStringPtrs.data(),
                          meshesPathStringPtrs.size())) {
@@ -426,7 +429,8 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
         selectedGameObjMats.resize(
             selectedGameObjMeshAssetInfo.indexBufferSizes.size(), 0);
 
-        if (ImGui::TreeNode("Materials")) {
+        ImGui::NewLine();
+        if (ImGui::TreeNodeEx("Materials", ImGuiTreeNodeFlags_DefaultOpen)) {
           for (std::size_t i = 0; i < selectedGameObjMats.size(); ++i) {
             if (ImGui::Combo(std::to_string(i).c_str(), &selectedGameObjMats[i],
                              materialPathStringPtrs.data(),
@@ -437,6 +441,7 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
           ImGui::TreePop();
         }
 
+        ImGui::NewLine();
         bool disabled =
             materialPathStringPtrs.empty() || meshesPathStringPtrs.empty();
 
