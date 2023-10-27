@@ -286,7 +286,8 @@ extractMaterials(fs::path const& srcDirPath, fs::path const& projectPath,
 
       if (std::optional<asset::TextureAssetInfo> assetInfo = convertImgToAsset(
               texDir.path() / mat.diffuse_texname, destPath)) {
-        newMatAssetInfo.diffuseTexturePath = destPath;
+        newMatAssetInfo.diffuseTexturePath =
+            fs::relative(destPath, projectPath);
         newMatAssetInfo.transparent |= assetInfo->transparent;
       }
     }
@@ -297,7 +298,8 @@ extractMaterials(fs::path const& srcDirPath, fs::path const& projectPath,
 
       if (convertImgToAsset(texDir.path() / mat.bump_texname, destPath,
                             core::TextureFormat::R8G8B8A8_LINEAR)) {
-        newMatAssetInfo.normalMapTexturePath = destPath;
+        newMatAssetInfo.normalMapTexturePath =
+            fs::relative(destPath, projectPath);
       }
     }
 
@@ -307,7 +309,7 @@ extractMaterials(fs::path const& srcDirPath, fs::path const& projectPath,
       materialPath.replace_extension(".obsmat");
 
       if (asset::saveToFile(materialPath, matAsset)) {
-        extractedMaterialPaths[i] = materialPath;
+        extractedMaterialPaths[i] = fs::relative(materialPath, projectPath);
       }
     }
   }

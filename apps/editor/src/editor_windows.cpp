@@ -208,19 +208,24 @@ void selectGameObjMesh(int gameObjMeshInd) {
   asset::loadFromFile(project.getAbsolutePath(meshRelativePath), meshAsset);
   asset::readMeshAssetInfo(meshAsset, selectedGameObjMeshAssetInfo);
 
+  selectedGameObjMats.clear();
   selectedGameObjMats.resize(
-      selectedGameObjMeshAssetInfo.indexBufferSizes.size());
+      selectedGameObjMeshAssetInfo.indexBufferSizes.size(), -1);
 
-  for (std::size_t i = 0;
-       i < std::min(selectedGameObj->materialResources.size(),
-                    selectedGameObjMats.size());
-       ++i) {
+  for (std::size_t i = 0; i < selectedGameObjMats.size(); ++i) {
+    if (selectedGameObj->materialResources.size() > i) {
+      fs::path const materialRelativePath =
+          selectedGameObj->materialResources[i]->getRelativePath();
 
-    fs::path const materialRelativePath =
-        selectedGameObj->materialResources[i]->getRelativePath();
+      selectedGameObjMats[i] =
+          indexorDefault(materialsInProj, materialRelativePath, -1);
+    }
 
-    selectedGameObjMats[i] =
-        indexorDefault(materialsInProj, materialRelativePath, -1);
+    if (selectedGameObjMats[i] < 0) {
+      selectedGameObjMats[i] = indexorDefault(
+          materialsInProj,
+          selectedGameObjMeshAssetInfo.defaultMatRelativePaths[i], -1);
+    }
   }
 }
 
