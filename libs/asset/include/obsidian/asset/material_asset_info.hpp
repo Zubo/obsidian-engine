@@ -16,7 +16,7 @@ struct MaterialAssetInfo : public AssetInfo {
   std::string shaderPath;
   std::string diffuseTexturePath;
   std::string normalMapTexturePath;
-  glm::vec3 diffuseColor;
+  glm::vec4 diffuseColor;
   float shininess;
 };
 

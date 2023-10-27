@@ -40,7 +40,7 @@ struct UploadMaterialRHI {
   ResourceIdRHI shaderId;
   ResourceIdRHI diffuseTextureId = rhi::rhiIdUninitialized;
   ResourceIdRHI normalTextureId = rhi::rhiIdUninitialized;
-  glm::vec3 diffuseColor;
+  glm::vec4 diffuseColor;
   float shininess;
 };
 

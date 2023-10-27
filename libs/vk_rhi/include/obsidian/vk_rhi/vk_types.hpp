@@ -29,6 +29,7 @@ struct Material {
   VkPipeline vkPipeline;
   VkPipelineLayout vkPipelineLayout;
   VkDescriptorSet vkDescriptorSet;
+  bool hasTransparency;
 };
 
 struct Mesh;

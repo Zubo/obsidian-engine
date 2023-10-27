@@ -23,6 +23,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
     _submittedDirectionalLights.clear();
     _submittedSpotlights.clear();
     _drawCallQueue.clear();
+    _transparentDrawCallQueue.clear();
     _skipFrame = false;
     return;
   }
@@ -289,6 +290,11 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
       cmd, _drawCallQueue.data(), _drawCallQueue.size(), defaultDynamicOffsets,
       currentFrameData.vkMainRenderPassDescriptorSet, viewport, scissor);
 
+  drawWithMaterials(cmd, _transparentDrawCallQueue.data(),
+                    _transparentDrawCallQueue.size(), defaultDynamicOffsets,
+                    currentFrameData.vkMainRenderPassDescriptorSet, viewport,
+                    scissor);
+
   vkCmdEndRenderPass(cmd);
   VK_CHECK(vkEndCommandBuffer(cmd));
 
@@ -331,6 +337,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   _submittedDirectionalLights.clear();
   _submittedSpotlights.clear();
   _drawCallQueue.clear();
+  _transparentDrawCallQueue.clear();
   ++_frameNumber;
 
   FrameMark;

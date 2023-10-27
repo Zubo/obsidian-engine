@@ -217,10 +217,10 @@ float getSsao() {
 }
 
 void main() {
-  vec3 diffuseColor = materialData.diffuseColor.xyz;
+  vec4 diffuseColor = materialData.diffuseColor;
 
   if (materialData.hasDiffuseTex) {
-    diffuseColor *= texture(diffuseTex, inUV).xyz;
+    diffuseColor *= texture(diffuseTex, inUV);
   }
 
   vec3 normal;
@@ -235,11 +235,10 @@ void main() {
   LightingResult spotlightResult = calculateSpotlights(normal);
   const float ssao = getSsao();
 
-  vec3 finalColor =
-      diffuseColor *
+  vec3 lightTotalResult =
       (spotlightResult.diffuse + directionalLightResult.diffuse +
        spotlightResult.specular + directionalLightResult.specular +
        (ssao / 128.0f) * sceneData.ambientColor.xyz);
 
-  outFragColor = vec4(finalColor, 1.0f);
+  outFragColor = diffuseColor * vec4(lightTotalResult, 1.0f);
 }

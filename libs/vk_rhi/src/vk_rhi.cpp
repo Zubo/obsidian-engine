@@ -273,6 +273,7 @@ VulkanRHI::uploadMaterial(rhi::UploadMaterialRHI const& uploadMaterial) {
   newMaterial.vkPipelineLayout = pipelineBuilder._vkPipelineLayout;
   newMaterial.vkPipeline =
       pipelineBuilder.buildPipeline(_vkDevice, _mainRenderPass.vkRenderPass);
+  newMaterial.hasTransparency = uploadMaterial.diffuseColor.a < 1.0f;
 
   Texture const& diffuseTexture = _textures[uploadMaterial.diffuseTextureId];
 
@@ -289,7 +290,7 @@ VulkanRHI::uploadMaterial(rhi::UploadMaterialRHI const& uploadMaterial) {
         uploadMaterial.diffuseTextureId != rhi::rhiIdUninitialized;
     materialData.hasNormalMap.value =
         uploadMaterial.normalTextureId != rhi::rhiIdUninitialized;
-    materialData.diffuseColor = glm::vec4(uploadMaterial.diffuseColor, 1.0f);
+    materialData.diffuseColor = uploadMaterial.diffuseColor;
     materialData.shininess = uploadMaterial.shininess;
 
     createAndBindMaterialDataBuffer(materialData, builder,
@@ -299,7 +300,7 @@ VulkanRHI::uploadMaterial(rhi::UploadMaterialRHI const& uploadMaterial) {
     GPUUnlitMaterialData materialData;
     materialData.hasDiffuseTex.value =
         uploadMaterial.diffuseTextureId != rhi::rhiIdUninitialized;
-    materialData.diffuseColor = glm::vec4(uploadMaterial.diffuseColor, 1.0f);
+    materialData.diffuseColor = uploadMaterial.diffuseColor;
 
     VkDescriptorBufferInfo materialDataBufferInfo;
 
@@ -364,7 +365,11 @@ void VulkanRHI::submitDrawCall(rhi::DrawCall const& drawCall) {
   for (std::size_t i = 0; i < drawCall.materialIds.size(); ++i) {
     vkDrawCall.material = &_materials[drawCall.materialIds[i]];
     vkDrawCall.indexBufferInd = i;
-    _drawCallQueue.push_back(vkDrawCall);
+    if (vkDrawCall.material->hasTransparency) {
+      _transparentDrawCallQueue.push_back(vkDrawCall);
+    } else {
+      _drawCallQueue.push_back(vkDrawCall);
+    }
   }
 }
 

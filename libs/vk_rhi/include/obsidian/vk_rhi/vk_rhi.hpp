@@ -95,6 +95,7 @@ private:
   VkQueue _vkGraphicsQueue;
   std::uint32_t _graphicsQueueFamilyIndex;
   std::vector<VKDrawCall> _drawCallQueue;
+  std::vector<VKDrawCall> _transparentDrawCallQueue;
   std::vector<rhi::DirectionalLight> _submittedDirectionalLights;
   std::vector<rhi::Spotlight> _submittedSpotlights;
   std::array<FrameData, frameOverlap> _frameDataArray = {};

@@ -25,6 +25,6 @@ void main() {
   outFragColor = materialData.diffuseColor;
 
   if (materialData.hasDiffuseTex) {
-    outFragColor *= vec4(texture(diffuseTex, inUV).xyz, 1.0f);
+    outFragColor *= texture(diffuseTex, inUV);
   }
 }

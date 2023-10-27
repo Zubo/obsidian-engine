@@ -517,7 +517,7 @@ void materialCreatorTab() {
     static int selectedNormalMapTex = 0;
     static int selectedShader = 0;
     static float selectedShininess = 16.0f;
-    static glm::vec3 selectedDiffuseColor = {1.0f, 1.0f, 1.0f};
+    static glm::vec4 selectedDiffuseColor = {1.0f, 1.0f, 1.0f, 1.0f};
 
     bool canCreateMat = true;
     if (!texturesInProj.size()) {
@@ -551,7 +551,7 @@ void materialCreatorTab() {
                        texturePathStringPtrs.size())) {
       }
 
-      if (ImGui::SliderFloat3("Diffuse Color", &selectedDiffuseColor.r, 0.0f,
+      if (ImGui::SliderFloat4("Diffuse Color", &selectedDiffuseColor.r, 0.0f,
                               1.0f)) {
       }
 

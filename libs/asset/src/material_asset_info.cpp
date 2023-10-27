@@ -29,6 +29,7 @@ bool readMaterialAssetInfo(Asset const& asset,
     outMaterialAssetInfo.diffuseColor.r = json[diffuseColorJsonName]["r"];
     outMaterialAssetInfo.diffuseColor.g = json[diffuseColorJsonName]["g"];
     outMaterialAssetInfo.diffuseColor.b = json[diffuseColorJsonName]["b"];
+    outMaterialAssetInfo.diffuseColor.a = json[diffuseColorJsonName]["a"];
   } catch (std::exception const& e) {
     OBS_LOG_ERR(e.what());
     return false;
@@ -58,6 +59,7 @@ bool packMaterial(MaterialAssetInfo const& materialAssetInfo,
     json[diffuseColorJsonName]["r"] = materialAssetInfo.diffuseColor.r;
     json[diffuseColorJsonName]["g"] = materialAssetInfo.diffuseColor.g;
     json[diffuseColorJsonName]["b"] = materialAssetInfo.diffuseColor.b;
+    json[diffuseColorJsonName]["a"] = materialAssetInfo.diffuseColor.a;
 
     outAsset.json = json.dump();
 
