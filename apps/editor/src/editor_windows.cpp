@@ -331,6 +331,8 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
         static char scenePath[maxPathSize] = "scene.obsscene";
         ImGui::InputText("Save file name", scenePath, maxPathSize);
 
+        ImGui::NewLine();
+
         bool disabled = !std::strlen(scenePath);
 
         if (disabled) {
@@ -376,7 +378,10 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
           ImGui::PopItemFlag();
         }
 
-        if (ImGui::TreeNode("Object Hierarchy")) {
+        ImGui::NewLine();
+        ImGui::SeparatorText("Object Hierarchy");
+
+        if (ImGui::TreeNode("")) {
           if (ImGui::Button("+")) {
             sceneState.gameObjects.emplace_back();
           }
@@ -388,7 +393,8 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
       }
 
       if (selectedGameObj) {
-        ImGui::SeparatorText("Edit Object");
+        ImGui::NewLine();
+        ImGui::SeparatorText("Mesh and Materials");
 
         char gameObjectName[maxGameObjectNameSize];
         std::strncpy(gameObjectName, selectedGameObj->name.c_str(),
@@ -460,6 +466,9 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
           ImGui::PopItemFlag();
           ImGui::PopStyleVar();
         }
+
+        ImGui::NewLine();
+        ImGui::SeparatorText("Lights");
 
         if (!selectedGameObj->directionalLight) {
           if (ImGui::Button("Add directional light")) {
