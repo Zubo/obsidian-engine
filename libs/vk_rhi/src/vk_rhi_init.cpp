@@ -407,7 +407,7 @@ void VulkanRHI::initMainPipelineAndLayouts() {
       vkinit::inputAssemblyCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 
   pipelineBuilder._vkDepthStencilStateCreateInfo =
-      vkinit::depthStencilStateCreateInfo(VK_TRUE);
+      vkinit::depthStencilStateCreateInfo(true);
 
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
@@ -519,7 +519,7 @@ void VulkanRHI::initShadowPassPipeline() {
       vkinit::inputAssemblyCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 
   pipelineBuilder._vkDepthStencilStateCreateInfo =
-      vkinit::depthStencilStateCreateInfo(VK_TRUE);
+      vkinit::depthStencilStateCreateInfo(true);
 
   pipelineBuilder._vkRasterizationCreateInfo =
       vkinit::rasterizationCreateInfo(VK_POLYGON_MODE_FILL);
@@ -570,7 +570,7 @@ void VulkanRHI::initDepthPrepassPipeline() {
       vkinit::inputAssemblyCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 
   pipelineBuilder._vkDepthStencilStateCreateInfo =
-      vkinit::depthStencilStateCreateInfo(VK_TRUE);
+      vkinit::depthStencilStateCreateInfo(true);
 
   pipelineBuilder._vkRasterizationCreateInfo =
       vkinit::rasterizationCreateInfo(VK_POLYGON_MODE_FILL);

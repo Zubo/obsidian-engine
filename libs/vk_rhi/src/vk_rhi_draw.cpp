@@ -105,6 +105,11 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
                       depthPassDynamicOffsets, _depthPrepassDescriptorSet,
                       viewport, scissor);
 
+  drawPassNoMaterials(cmd, _transparentDrawCallQueue.data(),
+                      _transparentDrawCallQueue.size(), _vkDepthPrepassPipeline,
+                      _vkDepthPipelineLayout, depthPassDynamicOffsets,
+                      _depthPrepassDescriptorSet, viewport, scissor);
+
   vkCmdEndRenderPass(cmd);
 
   VkImageMemoryBarrier depthImageMemoryBarrier = vkinit::layoutImageBarrier(
@@ -129,7 +134,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   ssaoRenderPassBeginInfo.renderArea.offset = {0, 0};
   ssaoRenderPassBeginInfo.renderArea.extent = _vkbSwapchain.extent;
   std::array<VkClearValue, 2> ssaoClearValues = {};
-  ssaoClearValues[0].color.float32[0] = 0.0f;
+  ssaoClearValues[0].color.float32[0] = 128.0f;
   ssaoClearValues[1].depthStencil.depth = 1.0f;
   ssaoRenderPassBeginInfo.clearValueCount = ssaoClearValues.size();
   ssaoRenderPassBeginInfo.pClearValues = ssaoClearValues.data();
@@ -148,6 +153,11 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   drawPassNoMaterials(
       cmd, _drawCallQueue.data(), _drawCallQueue.size(), _vkSsaoPipeline,
       _vkSsaoPipelineLayout, ssaoDynamicOffsets,
+      currentFrameData.vkSsaoRenderPassDescriptorSet, viewport, scissor);
+
+  drawPassNoMaterials(
+      cmd, _transparentDrawCallQueue.data(), _transparentDrawCallQueue.size(),
+      _vkSsaoPipeline, _vkSsaoPipelineLayout, ssaoDynamicOffsets,
       currentFrameData.vkSsaoRenderPassDescriptorSet, viewport, scissor);
 
   vkCmdEndRenderPass(cmd);
@@ -438,11 +448,21 @@ void VulkanRHI::drawPassNoMaterials(
 
     Mesh& mesh = *drawCall.mesh;
 
-    VkDeviceSize const bufferOffset = 0;
-    vkCmdBindVertexBuffers(cmd, 0, 1, &mesh.vertexBuffer.buffer, &bufferOffset);
-    vkCmdBindIndexBuffer(cmd, mesh.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+    VkDeviceSize const vertBufferOffset = 0;
+
+    vkCmdBindVertexBuffers(cmd, 0, 1, &mesh.vertexBuffer.buffer,
+                           &vertBufferOffset);
+
+    VkDeviceSize const indBufferOffset = std::accumulate(
+        mesh.indexBufferSizes.cbegin(),
+        mesh.indexBufferSizes.cbegin() + drawCall.indexBufferInd, 0);
+
+    vkCmdBindIndexBuffer(cmd, mesh.indexBuffer.buffer, indBufferOffset,
+                         VK_INDEX_TYPE_UINT32);
+
     vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0,
                        sizeof(MeshPushConstants), &drawCall.model);
+
     vkCmdDrawIndexed(cmd,
                      mesh.indexBufferSizes[drawCall.indexBufferInd] /
                          sizeof(core::MeshIndexType),

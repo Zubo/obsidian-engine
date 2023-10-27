@@ -268,6 +268,8 @@ extractMaterials(fs::path const& srcDirPath, fs::path const& projectPath,
 
   extractedMaterialPaths.resize(materials.size());
 
+  std::unordered_map<std::string, bool> diffuseTexTransparencyMap;
+
   for (std::size_t i = 0; i < materials.size(); ++i) {
     tinyobj::material_t const& mat = materials[i];
     asset::MaterialAssetInfo newMatAssetInfo;
@@ -286,25 +288,26 @@ extractMaterials(fs::path const& srcDirPath, fs::path const& projectPath,
     newMatAssetInfo.shininess = mat.shininess;
     newMatAssetInfo.transparent = mat.dissolve < 1.0f;
 
-    if (texDirExists && !mat.diffuse_texname.empty()) {
-      fs::path destPath = projectPath / mat.diffuse_texname;
-      destPath.replace_extension(".obstex");
+    if (texDirExists) {
+      std::string const texName = !mat.diffuse_texname.empty()
+                                      ? mat.diffuse_texname
+                                      : mat.ambient_texname;
+      if (!texName.empty()) {
+        fs::path destPath = projectPath / texName;
+        destPath.replace_extension(".obstex");
 
-      if (std::optional<asset::TextureAssetInfo> assetInfo = convertImgToAsset(
-              texDir.path() / mat.diffuse_texname, destPath)) {
-        newMatAssetInfo.diffuseTexturePath =
-            fs::relative(destPath, projectPath);
-        newMatAssetInfo.transparent |= assetInfo->transparent;
-      }
-    } else if (texDirExists && !mat.ambient_texname.empty()) {
-      fs::path destPath = projectPath / mat.ambient_texname;
-      destPath.replace_extension(".obstex");
-
-      if (std::optional<asset::TextureAssetInfo> assetInfo = convertImgToAsset(
-              texDir.path() / mat.ambient_texname, destPath)) {
-        newMatAssetInfo.diffuseTexturePath =
-            fs::relative(destPath, projectPath);
-        newMatAssetInfo.transparent |= assetInfo->transparent;
+        auto const& texIter = diffuseTexTransparencyMap.find(texName);
+        if (texIter != diffuseTexTransparencyMap.cend()) {
+          newMatAssetInfo.transparent = texIter->second;
+          newMatAssetInfo.diffuseTexturePath =
+              fs::relative(destPath, projectPath);
+        } else if (std::optional<asset::TextureAssetInfo> assetInfo =
+                       convertImgToAsset(texDir.path() / texName, destPath)) {
+          newMatAssetInfo.diffuseTexturePath =
+              fs::relative(destPath, projectPath);
+          newMatAssetInfo.transparent |= assetInfo->transparent;
+          diffuseTexTransparencyMap[texName] = assetInfo->transparent;
+        }
       }
     }
 
