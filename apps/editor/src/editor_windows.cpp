@@ -40,6 +40,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <iterator>
 #include <vector>
 
 namespace obsidian::editor {
@@ -51,7 +52,10 @@ constexpr std::size_t maxGameObjectNameSize = 64;
 static obsidian::project::Project project;
 namespace fs = std::filesystem;
 
-static scene::GameObject* selectedGameObject = nullptr;
+static scene::GameObject* selectedGameObj = nullptr;
+static std::vector<int> selectedGameObjMats;
+static int meshDropdownSelectedIndex = std::numeric_limits<int>::min();
+static asset::MeshAssetInfo selectedGameObjMeshAssetInfo;
 static std::vector<fs::path> texturesInProj;
 static std::vector<fs::path> shadersInProj;
 static std::vector<fs::path> materialsInProj;
@@ -90,12 +94,26 @@ void refreshAssetLists() {
     materialPathStringPtrs.push_back(mat.c_str());
   }
 
-  meshesPathStringPtrs.clear();
   meshesInProj = project.getAllFilesWithExtension(globals::meshAssetExt);
 
+  meshesPathStringPtrs.clear();
+  meshesPathStringPtrs.push_back("none");
   for (auto const& mesh : meshesInProj) {
     meshesPathStringPtrs.push_back(mesh.c_str());
   }
+}
+
+template <typename TCollection, typename TValue>
+int indexorDefault(TCollection const& collection, TValue const& val,
+                   int defaultVal) {
+  auto const resultIter =
+      std::find(collection.cbegin(), collection.cend(), val);
+
+  if (resultIter == collection.cend()) {
+    return defaultVal;
+  }
+
+  return std::distance(collection.cbegin(), resultIter);
 }
 
 void loadScene(char const scenePath[], scene::SceneState& sceneState,
@@ -138,7 +156,7 @@ void loadScene(char const scenePath[], scene::SceneState& sceneState,
     return;
   }
 
-  selectedGameObject = nullptr;
+  selectedGameObj = nullptr;
 }
 
 void saveScene(char const scenePath[], scene::SceneState& sceneState) {
@@ -172,9 +190,56 @@ void saveScene(char const scenePath[], scene::SceneState& sceneState) {
   }
 }
 
+void selectGameObjMesh(int gameObjMeshInd) {
+  if (gameObjMeshInd == meshDropdownSelectedIndex + 1) {
+    return;
+  }
+
+  meshDropdownSelectedIndex = gameObjMeshInd + 1;
+  selectedGameObjMeshAssetInfo = {};
+  if (gameObjMeshInd < 0) {
+    selectedGameObjMats.clear();
+    return;
+  }
+
+  fs::path const& meshRelativePath = meshesInProj[gameObjMeshInd];
+
+  asset::Asset meshAsset;
+  asset::loadFromFile(project.getAbsolutePath(meshRelativePath), meshAsset);
+  asset::readMeshAssetInfo(meshAsset, selectedGameObjMeshAssetInfo);
+
+  selectedGameObjMats.resize(
+      selectedGameObjMeshAssetInfo.indexBufferSizes.size());
+
+  for (std::size_t i = 0;
+       i < std::min(selectedGameObj->materialResources.size(),
+                    selectedGameObjMats.size());
+       ++i) {
+
+    fs::path const materialRelativePath =
+        selectedGameObj->materialResources[i]->getRelativePath();
+
+    selectedGameObjMats[i] =
+        indexorDefault(materialsInProj, materialRelativePath, -1);
+  }
+}
+
+void selectGameObject(scene::GameObject& gameObject) {
+  selectedGameObj = &gameObject;
+
+  if (selectedGameObj->meshResource) {
+    fs::path meshRelativePath =
+        selectedGameObj->meshResource->getRelativePath();
+
+    selectGameObjMesh(indexorDefault(meshesInProj, meshRelativePath, -1));
+  } else {
+    selectGameObjMesh(-1);
+  }
+}
+
 void gameObjectHierarchy(scene::GameObject& gameObject,
                          scene::SceneState& sceneState) {
-  bool selected = &gameObject == selectedGameObject;
+  bool selected = &gameObject == selectedGameObj;
 
   if (selected) {
     ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0, 255, 0, 255));
@@ -182,7 +247,7 @@ void gameObjectHierarchy(scene::GameObject& gameObject,
 
   if (ImGui::TreeNode(gameObject.name.c_str())) {
     if (ImGui::IsItemClicked()) {
-      selectedGameObject = &gameObject;
+      selectGameObject(gameObject);
     }
 
     if (selected) {
@@ -199,8 +264,8 @@ void gameObjectHierarchy(scene::GameObject& gameObject,
 
     if (ImGui::Button("-")) {
       scene::GameObject* const parent = gameObject.getParent();
-      if (selectedGameObject == &gameObject) {
-        selectedGameObject = nullptr;
+      if (selectedGameObj == &gameObject) {
+        selectedGameObj = nullptr;
       }
 
       if (parent) {
@@ -231,7 +296,7 @@ void gameObjectHierarchy(scene::GameObject& gameObject,
     ImGui::TreePop();
   } else {
     if (ImGui::IsItemClicked()) {
-      selectedGameObject = &gameObject;
+      selectGameObject(gameObject);
     }
 
     if (selected) {
@@ -322,65 +387,42 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
         }
       }
 
-      if (selectedGameObject) {
+      if (selectedGameObj) {
         ImGui::SeparatorText("Edit Object");
 
         char gameObjectName[maxGameObjectNameSize];
-        std::strncpy(gameObjectName, selectedGameObject->name.c_str(),
-                     selectedGameObject->name.size() + 1);
+        std::strncpy(gameObjectName, selectedGameObj->name.c_str(),
+                     selectedGameObj->name.size() + 1);
 
         ImGui::InputText("Name", gameObjectName, std::size(gameObjectName));
 
-        selectedGameObject->name = gameObjectName;
+        selectedGameObj->name = gameObjectName;
 
-        glm::vec3 pos = selectedGameObject->getPosition();
+        glm::vec3 pos = selectedGameObj->getPosition();
         ImGui::InputScalarN("Position", ImGuiDataType_Float, &pos, 3);
-        selectedGameObject->setPosition(pos);
+        selectedGameObj->setPosition(pos);
 
-        glm::vec3 euler = selectedGameObject->getEuler();
+        glm::vec3 euler = selectedGameObj->getEuler();
         ImGui::SliderFloat3("Euler Rotation", reinterpret_cast<float*>(&euler),
                             -180.0f, 180.f);
-        selectedGameObject->setEuler(euler);
+        selectedGameObj->setEuler(euler);
 
-        glm::vec3 scale = selectedGameObject->getScale();
+        glm::vec3 scale = selectedGameObj->getScale();
         ImGui::InputScalarN("Scale", ImGuiDataType_Float, &scale, 3);
-        selectedGameObject->setScale(scale);
+        selectedGameObj->setScale(scale);
 
-        static int selectedObjectMesh = 0;
-        static asset::MeshAssetInfo selectedMeshAssetInfo;
-        static bool assetInfoInit = false;
-
-        if (!assetInfoInit && meshesInProj.size() > selectedObjectMesh) {
-          asset::Asset meshAsset;
-
-          std::cout << meshesInProj[selectedObjectMesh] << std::endl;
-          asset::loadFromFile(
-              project.getAbsolutePath(meshesInProj[selectedObjectMesh]),
-              meshAsset);
-          selectedMeshAssetInfo = {};
-          asset::readMeshAssetInfo(meshAsset, selectedMeshAssetInfo);
-
-          assetInfoInit = true;
-        }
-
-        if (ImGui::Combo("Mesh", &selectedObjectMesh,
-                         meshesPathStringPtrs.data(),
+        int selectedMeshInd = meshDropdownSelectedIndex;
+        if (ImGui::Combo("Mesh", &selectedMeshInd, meshesPathStringPtrs.data(),
                          meshesPathStringPtrs.size())) {
-          asset::Asset meshAsset;
-          asset::loadFromFile(
-              project.getAbsolutePath(meshesInProj[selectedObjectMesh]),
-              meshAsset);
-          selectedMeshAssetInfo = {};
-          asset::readMeshAssetInfo(meshAsset, selectedMeshAssetInfo);
+          selectGameObjMesh(selectedMeshInd - 1);
         }
 
-        static std::vector<int> selectedMaterials;
-        selectedMaterials.resize(selectedMeshAssetInfo.indexBufferSizes.size(),
-                                 0);
+        selectedGameObjMats.resize(
+            selectedGameObjMeshAssetInfo.indexBufferSizes.size(), 0);
 
         if (ImGui::TreeNode("Materials")) {
-          for (std::size_t i = 0; i < selectedMaterials.size(); ++i) {
-            if (ImGui::Combo(std::to_string(i).c_str(), &selectedMaterials[i],
+          for (std::size_t i = 0; i < selectedGameObjMats.size(); ++i) {
+            if (ImGui::Combo(std::to_string(i).c_str(), &selectedGameObjMats[i],
                              materialPathStringPtrs.data(),
                              materialPathStringPtrs.size())) {
             }
@@ -399,13 +441,15 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
         }
 
         if (ImGui::Button("Apply Mesh and Material")) {
-          selectedGameObject->meshResource =
-              &engine.getContext().resourceManager.getResource(
-                  meshesInProj[selectedObjectMesh]);
+          selectedGameObj->meshResource =
+              meshDropdownSelectedIndex
+                  ? &engine.getContext().resourceManager.getResource(
+                        meshesInProj[meshDropdownSelectedIndex - 1])
+                  : nullptr;
 
-          selectedGameObject->materialResources.clear();
-          for (int selectedMaterial : selectedMaterials) {
-            selectedGameObject->materialResources.push_back(
+          selectedGameObj->materialResources.clear();
+          for (int selectedMaterial : selectedGameObjMats) {
+            selectedGameObj->materialResources.push_back(
                 &engine.getContext().resourceManager.getResource(
                     project.getAbsolutePath(
                         materialsInProj[selectedMaterial])));
@@ -417,63 +461,62 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
           ImGui::PopStyleVar();
         }
 
-        if (!selectedGameObject->directionalLight) {
+        if (!selectedGameObj->directionalLight) {
           if (ImGui::Button("Add directional light")) {
-            selectedGameObject->directionalLight.emplace();
+            selectedGameObj->directionalLight.emplace();
           }
         } else {
           ImGui::PushID("DirectionalLight");
 
           ImGui::SliderFloat3("Color",
                               reinterpret_cast<float*>(
-                                  &selectedGameObject->directionalLight->color),
+                                  &selectedGameObj->directionalLight->color),
                               0.0f, 1.0f);
 
           ImGui::SliderFloat("Intensity",
-                             &selectedGameObject->directionalLight->intensity,
+                             &selectedGameObj->directionalLight->intensity,
                              0.0f, 10.0f);
 
           if (ImGui::Button("Remove")) {
-            selectedGameObject->directionalLight.reset();
+            selectedGameObj->directionalLight.reset();
           }
 
           ImGui::PopID();
         }
 
-        if (!selectedGameObject->spotlight) {
+        if (!selectedGameObj->spotlight) {
           if (ImGui::Button("Add spotlight")) {
-            selectedGameObject->spotlight.emplace();
+            selectedGameObj->spotlight.emplace();
           }
         } else {
           ImGui::PushID("Spotlight");
 
           ImGui::SliderFloat3(
               "Color",
-              reinterpret_cast<float*>(&selectedGameObject->spotlight->color),
+              reinterpret_cast<float*>(&selectedGameObj->spotlight->color),
               0.0f, 1.0f);
 
-          ImGui::SliderFloat("Intensity",
-                             &selectedGameObject->spotlight->intensity, 0.0f,
-                             10.0f);
+          ImGui::SliderFloat(
+              "Intensity", &selectedGameObj->spotlight->intensity, 0.0f, 10.0f);
 
           ImGui::SliderFloat("Cutoff angle",
-                             &selectedGameObject->spotlight->cutoffAngleRad,
-                             0.01f, 3.14f);
+                             &selectedGameObj->spotlight->cutoffAngleRad, 0.01f,
+                             3.14f);
 
-          ImGui::SliderFloat(
-              "Fadeout angle", &selectedGameObject->spotlight->fadeoutAngleRad,
-              selectedGameObject->spotlight->cutoffAngleRad, 3.14f);
+          ImGui::SliderFloat("Fadeout angle",
+                             &selectedGameObj->spotlight->fadeoutAngleRad,
+                             selectedGameObj->spotlight->cutoffAngleRad, 3.14f);
 
           ImGui::SliderFloat("Linear attenuation",
-                             &selectedGameObject->spotlight->linearAttenuation,
+                             &selectedGameObj->spotlight->linearAttenuation,
                              0.0f, 1.0f);
 
-          ImGui::SliderFloat(
-              "Quadratic attenuation",
-              &selectedGameObject->spotlight->quadraticAttenuation, 0.0f, 1.0f);
+          ImGui::SliderFloat("Quadratic attenuation",
+                             &selectedGameObj->spotlight->quadraticAttenuation,
+                             0.0f, 1.0f);
 
           if (ImGui::Button("Remove")) {
-            selectedGameObject->spotlight.reset();
+            selectedGameObj->spotlight.reset();
           }
 
           ImGui::PopID();
