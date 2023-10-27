@@ -243,6 +243,10 @@ void main() {
     diffuseColor *= diffuseTexSample;
   }
 
+  if (diffuseColor.w == 0.0) {
+    discard;
+  }
+
   diffuseColor *=
       vec4((spotlightResult.diffuse + directionalLightResult.diffuse), 1.0f);
 
