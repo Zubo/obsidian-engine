@@ -296,6 +296,16 @@ extractMaterials(fs::path const& srcDirPath, fs::path const& projectPath,
             fs::relative(destPath, projectPath);
         newMatAssetInfo.transparent |= assetInfo->transparent;
       }
+    } else if (texDirExists && !mat.ambient_texname.empty()) {
+      fs::path destPath = projectPath / mat.ambient_texname;
+      destPath.replace_extension(".obstex");
+
+      if (std::optional<asset::TextureAssetInfo> assetInfo = convertImgToAsset(
+              texDir.path() / mat.ambient_texname, destPath)) {
+        newMatAssetInfo.diffuseTexturePath =
+            fs::relative(destPath, projectPath);
+        newMatAssetInfo.transparent |= assetInfo->transparent;
+      }
     }
 
     if (texDirExists && !mat.bump_texname.empty()) {
