@@ -1,10 +1,13 @@
 #include <obsidian/asset/asset.hpp>
+#include <obsidian/asset/asset_info.hpp>
 #include <obsidian/asset/asset_io.hpp>
+#include <obsidian/asset/material_asset_info.hpp>
 #include <obsidian/asset/mesh_asset_info.hpp>
 #include <obsidian/asset/shader_asset_info.hpp>
 #include <obsidian/asset/texture_asset_info.hpp>
 #include <obsidian/asset_converter/asset_converter.hpp>
 #include <obsidian/core/logging.hpp>
+#include <obsidian/core/material.hpp>
 #include <obsidian/core/texture_format.hpp>
 #include <obsidian/core/vertex_type.hpp>
 #include <obsidian/globals/file_extensions.hpp>
@@ -19,8 +22,10 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <numeric>
+#include <optional>
 #include <unordered_map>
 #include <vector>
 
@@ -47,11 +52,12 @@ bool saveAsset(fs::path const& srcPath, fs::path const& dstPath,
   return asset::saveToFile(dstPath, textureAsset);
 }
 
-bool convertImgToAsset(fs::path const& srcPath, fs::path const& dstPath) {
+std::optional<asset::TextureAssetInfo> convertImgToAsset(
+    fs::path const& srcPath, fs::path const& dstPath,
+    std::optional<core::TextureFormat> overrideTextureFormat = std::nullopt) {
   int w, h, channelCnt;
 
-  unsigned char* data =
-      stbi_load(srcPath.c_str(), &w, &h, &channelCnt, STBI_rgb_alpha);
+  unsigned char* data = stbi_load(srcPath.c_str(), &w, &h, &channelCnt, 4);
 
   bool const shouldAddAlpha = (channelCnt == 3);
   channelCnt = shouldAddAlpha ? channelCnt + 1 : channelCnt;
@@ -59,11 +65,13 @@ bool convertImgToAsset(fs::path const& srcPath, fs::path const& dstPath) {
   asset::TextureAssetInfo textureAssetInfo;
   textureAssetInfo.unpackedSize = w * h * 4;
   textureAssetInfo.compressionMode = asset::CompressionMode::LZ4;
-  textureAssetInfo.format = core::getDefaultFormatForChannelCount(channelCnt);
+  textureAssetInfo.format =
+      overrideTextureFormat ? *overrideTextureFormat
+                            : core::getDefaultFormatForChannelCount(channelCnt);
 
   if (textureAssetInfo.format == core::TextureFormat::unknown) {
     OBS_LOG_ERR("Failed to convert image to asset. Unsupported image format.");
-    return false;
+    return std::nullopt;
   }
 
   textureAssetInfo.transparent = false;
@@ -104,12 +112,16 @@ bool convertImgToAsset(fs::path const& srcPath, fs::path const& dstPath) {
   stbi_image_free(data);
 
   if (!packResult) {
-    return false;
+    return std::nullopt;
   }
 
   OBS_LOG_MSG("Successfully converted " + srcPath.string() +
               " to asset format.");
-  return saveAsset(srcPath, dstPath, outAsset);
+  if (saveAsset(srcPath, dstPath, outAsset)) {
+    return textureAssetInfo;
+  }
+
+  return std::nullopt;
 }
 
 template <typename V>
@@ -245,6 +257,64 @@ generateVertices(tinyobj::attrib_t const& attrib,
   return outVertices.size() / sizeof(Vertex);
 }
 
+std::vector<std::string>
+extractMaterials(fs::path const& srcDirPath, fs::path const& projectPath,
+                 std::vector<tinyobj::material_t> const& materials) {
+  std::vector<std::string> extractedMaterialPaths;
+
+  fs::directory_entry const texDir(srcDirPath / "textures");
+
+  bool texDirExists = texDir.exists();
+
+  extractedMaterialPaths.resize(materials.size());
+
+  for (std::size_t i = 0; i < materials.size(); ++i) {
+    tinyobj::material_t const& mat = materials[i];
+    asset::MaterialAssetInfo newMatAssetInfo;
+    newMatAssetInfo.compressionMode = asset::CompressionMode::none;
+    newMatAssetInfo.materialType = core::MaterialType::lit;
+    newMatAssetInfo.shaderPath =
+        projectPath / "obsidian/shaders/default.obsshad";
+    newMatAssetInfo.diffuseColor =
+        glm::vec4(mat.diffuse[0], mat.diffuse[1], mat.diffuse[2], mat.dissolve);
+    newMatAssetInfo.shininess = mat.shininess;
+    newMatAssetInfo.transparent = mat.dissolve < 1.0f;
+
+    if (texDirExists && !mat.diffuse_texname.empty()) {
+      fs::path destPath = projectPath / mat.diffuse_texname;
+      destPath.replace_extension(".obstex");
+
+      if (std::optional<asset::TextureAssetInfo> assetInfo = convertImgToAsset(
+              texDir.path() / mat.diffuse_texname, destPath)) {
+        newMatAssetInfo.diffuseTexturePath = destPath;
+        newMatAssetInfo.transparent |= assetInfo->transparent;
+      }
+    }
+
+    if (texDirExists && !mat.bump_texname.empty()) {
+      fs::path destPath = projectPath / mat.bump_texname;
+      destPath.replace_extension(".obstex");
+
+      if (convertImgToAsset(texDir.path() / mat.bump_texname, destPath,
+                            core::TextureFormat::R8G8B8A8_LINEAR)) {
+        newMatAssetInfo.normalMapTexturePath = destPath;
+      }
+    }
+
+    asset::Asset matAsset;
+    if (asset::packMaterial(newMatAssetInfo, {}, matAsset)) {
+      fs::path materialPath = projectPath / mat.name;
+      materialPath.replace_extension(".obsmat");
+
+      if (asset::saveToFile(materialPath, matAsset)) {
+        extractedMaterialPaths[i] = materialPath;
+      }
+    }
+  }
+
+  return extractedMaterialPaths;
+}
+
 bool convertObjToAsset(fs::path const& srcPath, fs::path const& dstPath) {
   asset::MeshAssetInfo meshAssetInfo;
   meshAssetInfo.compressionMode = asset::CompressionMode::LZ4;
@@ -303,6 +373,12 @@ bool convertObjToAsset(fs::path const& srcPath, fs::path const& dstPath) {
                                              outSurface.size());
     meshAssetInfo.indexCount += outSurface.size();
   }
+
+  meshAssetInfo.defaultMatRelativePaths.resize(
+      meshAssetInfo.indexBufferSizes.size());
+
+  meshAssetInfo.defaultMatRelativePaths =
+      extractMaterials(srcPath.parent_path(), dstPath.parent_path(), materials);
 
   std::size_t const totalIndexBufferSize =
       std::accumulate(meshAssetInfo.indexBufferSizes.cbegin(),
@@ -372,7 +448,7 @@ bool convertAsset(fs::path const& srcPath, fs::path const& dstPath) {
 
   if (extension == ".png" || extension == ".jpg" || extension == ".jpeg" ||
       extension == ".bmp") {
-    return convertImgToAsset(srcPath, dstPath);
+    return convertImgToAsset(srcPath, dstPath).has_value();
   } else if (extension == ".obj") {
     return convertObjToAsset(srcPath, dstPath);
   } else if (extension == ".spv") {

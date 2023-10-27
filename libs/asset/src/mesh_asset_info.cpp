@@ -20,6 +20,7 @@ constexpr char const* indexCountJsonName = "indexCount";
 constexpr char const* hasNormalsJsonName = "hasNormals";
 constexpr char const* hasUVJsonName = "hasUV";
 constexpr char const* hasColorsJsonName = "hasColors";
+constexpr char const* defaultMatPathsJsonName = "defaultMatPaths";
 
 bool readMeshAssetInfo(Asset const& asset, MeshAssetInfo& outMeshAssetInfo) {
   ZoneScoped;
@@ -34,6 +35,11 @@ bool readMeshAssetInfo(Asset const& asset, MeshAssetInfo& outMeshAssetInfo) {
     for (auto const& indBuffSizeJson : json[indexBufferSizesJsonName]) {
       outMeshAssetInfo.indexBufferSizes.push_back(
           indBuffSizeJson.get<std::size_t>());
+    }
+
+    for (auto const& matPathJson : json[defaultMatPathsJsonName]) {
+      outMeshAssetInfo.defaultMatRelativePaths.push_back(
+          matPathJson.get<std::string>());
     }
 
     outMeshAssetInfo.hasNormals = json[hasNormalsJsonName];
@@ -72,6 +78,12 @@ bool packMeshAsset(MeshAssetInfo const& meshAssetInfo,
 
     for (std::size_t const indBuffSize : meshAssetInfo.indexBufferSizes) {
       indexBufferSizesJson.push_back(indBuffSize);
+    }
+
+    nlohmann::json& defaultMatPathsJson = json[defaultMatPathsJsonName];
+
+    for (std::string const& matPath : meshAssetInfo.defaultMatRelativePaths) {
+      defaultMatPathsJson.push_back(matPath);
     }
 
     outAsset.json = json.dump();

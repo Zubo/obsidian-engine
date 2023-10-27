@@ -1,4 +1,3 @@
-#include "obsidian/vk_rhi/vk_deletion_queue.hpp"
 #include <obsidian/core/logging.hpp>
 #include <obsidian/core/material.hpp>
 #include <obsidian/core/texture_format.hpp>
@@ -7,6 +6,7 @@
 #include <obsidian/rhi/rhi.hpp>
 #include <obsidian/rhi/submit_types_rhi.hpp>
 #include <obsidian/vk_rhi/vk_check.hpp>
+#include <obsidian/vk_rhi/vk_deletion_queue.hpp>
 #include <obsidian/vk_rhi/vk_descriptors.hpp>
 #include <obsidian/vk_rhi/vk_initializers.hpp>
 #include <obsidian/vk_rhi/vk_pipeline_builder.hpp>
