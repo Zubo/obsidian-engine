@@ -237,12 +237,6 @@ void main() {
 
   vec4 diffuseColor = materialData.diffuseColor;
 
-  if (materialData.hasDiffuseTex) {
-    vec4 diffuseTexSample = texture(diffuseTex, inUV);
-    ambientColor *= diffuseTexSample;
-    diffuseColor *= diffuseTexSample;
-  }
-
   if (diffuseColor.w == 0.0) {
     discard;
   }
@@ -250,9 +244,16 @@ void main() {
   diffuseColor *=
       vec4((spotlightResult.diffuse + directionalLightResult.diffuse), 1.0f);
 
-  const vec4 specularColor =
+  vec4 specularColor =
       materialData.specularColor *
       vec4((spotlightResult.specular + directionalLightResult.specular), 1.0f);
+
+  if (materialData.hasDiffuseTex) {
+    vec4 diffuseTexSample = texture(diffuseTex, inUV);
+    ambientColor *= diffuseTexSample;
+    diffuseColor *= diffuseTexSample;
+    specularColor *= diffuseTexSample;
+  }
 
   outFragColor =
       vec4((ambientColor + diffuseColor + specularColor).xyz, diffuseColor.w);
