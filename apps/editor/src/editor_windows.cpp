@@ -191,7 +191,7 @@ void saveScene(char const scenePath[], scene::SceneState& sceneState) {
 }
 
 void selectGameObjMesh(int gameObjMeshInd) {
-  if (gameObjMeshInd == meshDropdownSelectedIndex + 1) {
+  if (gameObjMeshInd + 1 == meshDropdownSelectedIndex) {
     return;
   }
 
