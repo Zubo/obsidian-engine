@@ -161,7 +161,7 @@ private:
   VkDescriptorSet _vkGlobalDescriptorSet;
   VkDescriptorSet _emptyDescriptorSet;
   ImmediateSubmitContext _immediateSubmitContext;
-  VkSampler _vkLinearClampToEdgeSampler;
+  VkSampler _vkLinearRepeatSampler;
   VkSampler _vkDepthSampler;
 
   // Resources

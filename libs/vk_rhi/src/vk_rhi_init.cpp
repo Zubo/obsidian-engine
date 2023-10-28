@@ -763,13 +763,13 @@ void VulkanRHI::initDescriptorBuilder() {
 void VulkanRHI::initDefaultSamplers() {
   VkSamplerCreateInfo diffuseSamplerCreateInfo = vkinit::samplerCreateInfo(
       VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_NEAREST,
-      VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
+      VK_SAMPLER_ADDRESS_MODE_REPEAT);
 
   VK_CHECK(vkCreateSampler(_vkDevice, &diffuseSamplerCreateInfo, nullptr,
-                           &_vkLinearClampToEdgeSampler));
+                           &_vkLinearRepeatSampler));
 
   _deletionQueue.pushFunction([this]() {
-    vkDestroySampler(_vkDevice, _vkLinearClampToEdgeSampler, nullptr);
+    vkDestroySampler(_vkDevice, _vkLinearRepeatSampler, nullptr);
   });
 }
 
@@ -863,7 +863,7 @@ void VulkanRHI::initDescriptors() {
 
     VkDescriptorImageInfo vkSsaoImageInfo = {};
     vkSsaoImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    vkSsaoImageInfo.sampler = _vkLinearClampToEdgeSampler;
+    vkSsaoImageInfo.sampler = _vkLinearRepeatSampler;
     vkSsaoImageInfo.imageView =
         frameData.vkSsaoPostProcessingFramebuffer.colorBufferImageView;
 

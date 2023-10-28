@@ -316,7 +316,7 @@ VulkanRHI::uploadMaterial(rhi::UploadMaterialRHI const& uploadMaterial) {
   if (hasDiffuseTex) {
     diffuseTexImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     diffuseTexImageInfo.imageView = diffuseTexture.imageView;
-    diffuseTexImageInfo.sampler = _vkLinearClampToEdgeSampler;
+    diffuseTexImageInfo.sampler = _vkLinearRepeatSampler;
 
     builder.bindImage(1, diffuseTexImageInfo,
                       VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -333,7 +333,7 @@ VulkanRHI::uploadMaterial(rhi::UploadMaterialRHI const& uploadMaterial) {
     if (hasNormalMap) {
       normalMapTexImageInfo.imageLayout =
           VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-      normalMapTexImageInfo.sampler = _vkLinearClampToEdgeSampler;
+      normalMapTexImageInfo.sampler = _vkLinearRepeatSampler;
       Texture const& normalMapTexture =
           _textures[uploadMaterial.normalTextureId];
       normalMapTexImageInfo.imageView = normalMapTexture.imageView;
