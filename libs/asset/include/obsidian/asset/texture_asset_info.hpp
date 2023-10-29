@@ -23,4 +23,7 @@ bool readTextureAssetInfo(Asset const& asset,
 bool packTexture(TextureAssetInfo const& textureAssetInfo,
                  void const* pixelData, Asset& outAsset);
 
+bool updateTextureAssetInfo(TextureAssetInfo const& textureAssetInfo,
+                            Asset& outAsset);
+
 } /*namespace obsidian::asset*/

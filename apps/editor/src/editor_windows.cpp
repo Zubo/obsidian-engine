@@ -691,15 +691,17 @@ void materialCreatorTab() {
 void textureEditorTab() {
   if (ImGui::BeginTabItem("Textures")) {
     static int selectedTextureInd = 1;
-    static int selectedTextureFormat;
+    static asset::TextureAssetInfo selectedTextureAssetInfo;
+    static asset::Asset selectedTextureAsset;
     static bool isInitialized = false;
 
     auto const loadTextureData = [](fs::path const& texturePath) {
-      asset::Asset textureAsset;
-      asset::loadFromFile(project.getAbsolutePath(texturePath), textureAsset);
-      asset::TextureAssetInfo textureAssetInfo;
-      asset::readTextureAssetInfo(textureAsset, textureAssetInfo);
-      selectedTextureFormat = static_cast<int>(textureAssetInfo.format);
+      selectedTextureAsset = {};
+      asset::loadFromFile(project.getAbsolutePath(texturePath),
+                          selectedTextureAsset);
+      selectedTextureAssetInfo = {};
+      asset::readTextureAssetInfo(selectedTextureAsset,
+                                  selectedTextureAssetInfo);
     };
 
     if (!isInitialized && texturesInProj.size()) {
@@ -714,31 +716,21 @@ void textureEditorTab() {
         loadTextureData(texturesInProj[selectedTextureInd - 1]);
       }
 
-      if (ImGui::Combo("Format", &selectedTextureFormat, textureTypes.data(),
+      int currentSelectedFormat =
+          static_cast<int>(selectedTextureAssetInfo.format);
+      if (ImGui::Combo("Format", &currentSelectedFormat, textureTypes.data(),
                        (int)textureTypes.size())) {
+        selectedTextureAssetInfo.format =
+            static_cast<core::TextureFormat>(currentSelectedFormat);
       }
 
       if (ImGui::Button("Save")) {
-        asset::Asset textureAsset;
-        asset::loadFromFile(
-            project.getAbsolutePath(texturesInProj[selectedTextureInd - 1]),
-            textureAsset);
-        asset::TextureAssetInfo textureAssetInfo;
-        asset::readTextureAssetInfo(textureAsset, textureAssetInfo);
+        asset::updateTextureAssetInfo(selectedTextureAssetInfo,
+                                      selectedTextureAsset);
 
-        std::vector<char> textureData;
-        textureData.resize(textureAssetInfo.unpackedSize);
-
-        asset::unpackAsset(textureAssetInfo, textureAsset.binaryBlob.data(),
-                           textureAsset.binaryBlob.size(), textureData.data());
-
-        asset::Asset outAsset;
-        textureAssetInfo.format =
-            static_cast<core::TextureFormat>(selectedTextureFormat);
-        asset::packTexture(textureAssetInfo, textureData.data(), outAsset);
         asset::saveToFile(
             project.getAbsolutePath(texturesInProj[selectedTextureInd - 1]),
-            outAsset);
+            selectedTextureAsset);
       }
     }
 

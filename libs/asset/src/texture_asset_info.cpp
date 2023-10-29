@@ -49,17 +49,11 @@ bool packTexture(TextureAssetInfo const& textureAssetInfo,
 
   outAsset.version = currentAssetVersion;
 
+  if (!updateTextureAssetInfo(textureAssetInfo, outAsset)) {
+    return false;
+  }
+
   try {
-    nlohmann::json assetJson;
-    assetJson[unpackedSizeJsonName] = textureAssetInfo.unpackedSize;
-    assetJson[formatJsonName] = textureAssetInfo.format;
-    assetJson[compressionModeJsonName] = textureAssetInfo.compressionMode;
-    assetJson[textureWidthJsonName] = textureAssetInfo.width;
-    assetJson[textureHeightJsonName] = textureAssetInfo.height;
-    assetJson[transparentJsonName] = textureAssetInfo.transparent;
-
-    outAsset.json = assetJson.dump();
-
     if (textureAssetInfo.compressionMode == CompressionMode::none) {
       outAsset.binaryBlob.resize(textureAssetInfo.unpackedSize);
       std::memcpy(outAsset.binaryBlob.data(), pixelData,
@@ -72,6 +66,26 @@ bool packTexture(TextureAssetInfo const& textureAssetInfo,
       OBS_LOG_ERR("Unknown compression mode.");
       return false;
     }
+  } catch (std::exception const& e) {
+    OBS_LOG_ERR(e.what());
+    return false;
+  }
+
+  return true;
+}
+
+bool updateTextureAssetInfo(TextureAssetInfo const& textureAssetInfo,
+                            Asset& outAsset) {
+  try {
+    nlohmann::json assetJson;
+    assetJson[unpackedSizeJsonName] = textureAssetInfo.unpackedSize;
+    assetJson[formatJsonName] = textureAssetInfo.format;
+    assetJson[compressionModeJsonName] = textureAssetInfo.compressionMode;
+    assetJson[textureWidthJsonName] = textureAssetInfo.width;
+    assetJson[textureHeightJsonName] = textureAssetInfo.height;
+    assetJson[transparentJsonName] = textureAssetInfo.transparent;
+
+    outAsset.json = assetJson.dump();
   } catch (std::exception const& e) {
     OBS_LOG_ERR(e.what());
     return false;
