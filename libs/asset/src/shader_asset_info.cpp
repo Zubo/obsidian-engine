@@ -4,6 +4,7 @@
 
 #include <lz4.h>
 #include <nlohmann/json.hpp>
+#include <tracy/Tracy.hpp>
 
 #include <cassert>
 
@@ -11,6 +12,8 @@ namespace obsidian::asset {
 
 bool readShaderAssetInfo(Asset const& asset,
                          ShaderAssetInfo& outShaderAssetInfo) {
+  ZoneScoped;
+
   try {
     nlohmann::json json = nlohmann::json::parse(asset.json);
     outShaderAssetInfo.unpackedSize = json[unpackedSizeJsonName];
@@ -25,6 +28,8 @@ bool readShaderAssetInfo(Asset const& asset,
 
 bool packShader(ShaderAssetInfo const& shaderAssetInfo,
                 std::vector<char> shaderData, Asset& outAsset) {
+  ZoneScoped;
+
   outAsset.type[0] = 's';
   outAsset.type[1] = 'h';
   outAsset.type[2] = 'a';

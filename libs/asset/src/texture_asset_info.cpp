@@ -6,6 +6,7 @@
 
 #include <lz4.h>
 #include <nlohmann/json.hpp>
+#include <tracy/Tracy.hpp>
 
 #include <exception>
 
@@ -18,6 +19,8 @@ constexpr char const* transparentJsonName = "transparent";
 
 bool readTextureAssetInfo(Asset const& asset,
                           TextureAssetInfo& outTextureAssetInfo) {
+  ZoneScoped;
+
   try {
     nlohmann::json textureJson = nlohmann::json::parse(asset.json);
 
@@ -37,6 +40,8 @@ bool readTextureAssetInfo(Asset const& asset,
 
 bool packTexture(TextureAssetInfo const& textureAssetInfo,
                  void const* pixelData, Asset& outAsset) {
+  ZoneScoped;
+
   outAsset.type[0] = 't';
   outAsset.type[1] = 'e';
   outAsset.type[2] = 'x';

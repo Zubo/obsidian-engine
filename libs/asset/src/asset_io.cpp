@@ -2,6 +2,8 @@
 #include <obsidian/asset/asset_io.hpp>
 #include <obsidian/core/logging.hpp>
 
+#include <tracy/Tracy.hpp>
+
 #include <fstream>
 #include <ios>
 
@@ -10,6 +12,8 @@ namespace fs = std::filesystem;
 namespace obsidian::asset {
 
 bool loadFromFile(fs::path const& path, Asset& outAsset) {
+  ZoneScoped;
+
   std::ifstream inputFileStream;
   inputFileStream.exceptions(std::ios::failbit);
 
@@ -46,6 +50,8 @@ bool loadFromFile(fs::path const& path, Asset& outAsset) {
 }
 
 bool saveToFile(fs::path const& path, Asset const& asset) {
+  ZoneScoped;
+
   std::ofstream outputFileStream;
   outputFileStream.exceptions(std::ios_base::failbit);
 

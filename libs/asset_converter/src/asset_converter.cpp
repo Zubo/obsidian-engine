@@ -15,6 +15,7 @@
 #include <glm/glm.hpp>
 #include <stb/stb_image.h>
 #include <tiny_obj_loader.h>
+#include <tracy/Tracy.hpp>
 
 #include <array>
 #include <cassert>
@@ -40,6 +41,8 @@ std::unordered_map<std::string, std::string> extensionMap = {
 
 bool saveAsset(fs::path const& srcPath, fs::path const& dstPath,
                asset::Asset const& textureAsset) {
+  ZoneScoped;
+
   if (!dstPath.has_extension()) {
     auto const extensionIter = extensionMap.find(srcPath.extension());
 
@@ -55,9 +58,16 @@ bool saveAsset(fs::path const& srcPath, fs::path const& dstPath,
 std::optional<asset::TextureAssetInfo> convertImgToAsset(
     fs::path const& srcPath, fs::path const& dstPath,
     std::optional<core::TextureFormat> overrideTextureFormat = std::nullopt) {
+  ZoneScoped;
+
   int w, h, channelCnt;
 
-  unsigned char* data = stbi_load(srcPath.c_str(), &w, &h, &channelCnt, 4);
+  unsigned char* data;
+
+  {
+    ZoneScopedN("STBI load");
+    data = stbi_load(srcPath.c_str(), &w, &h, &channelCnt, 4);
+  }
 
   bool const shouldAddAlpha = (channelCnt == 3);
   channelCnt = shouldAddAlpha ? channelCnt + 1 : channelCnt;
@@ -77,6 +87,8 @@ std::optional<asset::TextureAssetInfo> convertImgToAsset(
   textureAssetInfo.transparent = false;
 
   if (!shouldAddAlpha && channelCnt == 4) {
+    ZoneScopedN("Transparency check");
+
     glm::vec4 const* pixels = reinterpret_cast<glm::vec4 const*>(data);
     for (glm::vec4 const* p = pixels; p < pixels + w * h; ++p) {
       if (p->a < 1.0f) {
@@ -92,6 +104,8 @@ std::optional<asset::TextureAssetInfo> convertImgToAsset(
   bool packResult;
 
   if (shouldAddAlpha) {
+    ZoneScopedN("Adding alpha to img");
+
     // append alpha = 255 to all the pixels
     std::vector<unsigned char> imgWithAlpha;
     imgWithAlpha.resize(w * h * STBI_rgb_alpha);
@@ -109,7 +123,10 @@ std::optional<asset::TextureAssetInfo> convertImgToAsset(
     packResult = asset::packTexture(textureAssetInfo, data, outAsset);
   }
 
-  stbi_image_free(data);
+  {
+    ZoneScopedN("STBI free");
+    stbi_image_free(data);
+  }
 
   if (!packResult) {
     return std::nullopt;
@@ -130,6 +147,8 @@ generateVertices(tinyobj::attrib_t const& attrib,
                  std::vector<tinyobj::shape_t> const& shapes,
                  std::vector<char>& outVertices,
                  std::vector<std::vector<core::MeshIndexType>>& outSurfaces) {
+  ZoneScoped;
+
   using Vertex = typename V::Vertex;
 
   assert(!outVertices.size() &&
@@ -186,7 +205,7 @@ generateVertices(tinyobj::attrib_t const& attrib,
                         1.f - attrib.texcoords[2 * idx.texcoord_index + 1]};
         }
 
-        glm::mat2x3 const edgeMat = {facePositions[0] - facePositions[1],
+        glm::mat2x3 const edgeMtx = {facePositions[0] - facePositions[1],
                                      facePositions[2] - facePositions[1]};
         glm::vec2 const deltaUV0 = faceUVs[0] - faceUVs[1];
         glm::vec2 const deltaUV1 = faceUVs[2] - faceUVs[1];
@@ -195,7 +214,7 @@ generateVertices(tinyobj::attrib_t const& attrib,
         float const f =
             1 / (deltaUV0[0] * deltaUV1[1] - deltaUV1[0] * deltaUV0[1]);
 
-        tangent = f * edgeMat * glm::vec2{deltaUV1[1], -deltaUV0[1]};
+        tangent = f * edgeMtx * glm::vec2{deltaUV1[1], -deltaUV0[1]};
         tangent = glm::normalize(tangent);
       }
 

@@ -24,6 +24,7 @@ constexpr char const* defaultMatPathsJsonName = "defaultMatPaths";
 
 bool readMeshAssetInfo(Asset const& asset, MeshAssetInfo& outMeshAssetInfo) {
   ZoneScoped;
+
   try {
     nlohmann::json json = nlohmann::json::parse(asset.json);
     outMeshAssetInfo.unpackedSize = json[unpackedSizeJsonName];
@@ -56,6 +57,7 @@ bool readMeshAssetInfo(Asset const& asset, MeshAssetInfo& outMeshAssetInfo) {
 bool packMeshAsset(MeshAssetInfo const& meshAssetInfo,
                    std::vector<char> meshData, Asset& outAsset) {
   ZoneScoped;
+
   outAsset.type[0] = 'm';
   outAsset.type[1] = 'e';
   outAsset.type[2] = 's';

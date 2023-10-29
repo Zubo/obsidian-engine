@@ -6,6 +6,7 @@
 
 #include <lz4.h>
 #include <nlohmann/json.hpp>
+#include <tracy/Tracy.hpp>
 
 #include <cassert>
 #include <exception>
@@ -14,6 +15,8 @@
 namespace obsidian::asset {
 
 bool readSceneAssetInfo(Asset const& asset, SceneAssetInfo& outSceneAssetInfo) {
+  ZoneScoped;
+
   try {
     nlohmann::json json = nlohmann::json::parse(asset.json);
     outSceneAssetInfo.unpackedSize = json[unpackedSizeJsonName];
@@ -28,6 +31,8 @@ bool readSceneAssetInfo(Asset const& asset, SceneAssetInfo& outSceneAssetInfo) {
 
 bool packSceneAsset(SceneAssetInfo const& sceneAssetInfo,
                     std::vector<char> sceneData, Asset& outAsset) {
+  ZoneScoped;
+
   outAsset.type[0] = 's';
   outAsset.type[1] = 'c';
   outAsset.type[2] = 'e';

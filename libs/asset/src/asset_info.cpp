@@ -11,6 +11,8 @@ namespace obsidian::asset {
 
 bool unpackAsset(AssetInfo const& assetInfo, char const* src,
                  std::size_t srcSize, char* dst) {
+  ZoneScoped;
+
   switch (assetInfo.compressionMode) {
   case CompressionMode::none: {
     ZoneScopedN("unpackAsset - uncompressed");

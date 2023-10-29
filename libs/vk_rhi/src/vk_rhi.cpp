@@ -46,7 +46,10 @@ VulkanRHI::uploadTexture(rhi::UploadTextureRHI const& uploadTextureInfoRHI) {
   void* mappedMemory;
   vmaMapMemory(_vmaAllocator, stagingBuffer.allocation, &mappedMemory);
 
-  uploadTextureInfoRHI.unpackFunc(reinterpret_cast<char*>(mappedMemory));
+  {
+    ZoneScopedN("Upload Texture");
+    uploadTextureInfoRHI.unpackFunc(reinterpret_cast<char*>(mappedMemory));
+  }
 
   vmaUnmapMemory(_vmaAllocator, stagingBuffer.allocation);
 
@@ -141,7 +144,10 @@ rhi::ResourceIdRHI VulkanRHI::uploadMesh(rhi::UploadMeshRHI const& meshInfo) {
   void* mappedMemory;
   vmaMapMemory(_vmaAllocator, stagingBuffer.allocation, &mappedMemory);
 
-  meshInfo.unpackFunc(reinterpret_cast<char*>(mappedMemory));
+  {
+    ZoneScopedN("Unpack Mesh");
+    meshInfo.unpackFunc(reinterpret_cast<char*>(mappedMemory));
+  }
 
   vmaUnmapMemory(_vmaAllocator, stagingBuffer.allocation);
 
@@ -203,7 +209,11 @@ VulkanRHI::uploadShader(rhi::UploadShaderRHI const& uploadShader) {
   std::vector<std::uint32_t> buffer(
       (uploadShader.shaderDataSize + sizeof(std::uint32_t) - 1) /
       sizeof(std::uint32_t));
-  uploadShader.unpackFunc(reinterpret_cast<char*>(buffer.data()));
+
+  {
+    ZoneScopedN("Unpack Shader");
+    uploadShader.unpackFunc(reinterpret_cast<char*>(buffer.data()));
+  }
 
   VkShaderModuleCreateInfo shaderModuleCreateInfo = {};
   shaderModuleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;

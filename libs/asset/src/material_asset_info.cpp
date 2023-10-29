@@ -3,6 +3,7 @@
 #include <obsidian/core/logging.hpp>
 
 #include <nlohmann/json.hpp>
+#include <tracy/Tracy.hpp>
 
 #include <cassert>
 
@@ -20,6 +21,8 @@ constexpr char const* transparentJsonName = "transparent";
 
 bool readMaterialAssetInfo(Asset const& asset,
                            MaterialAssetInfo& outMaterialAssetInfo) {
+  ZoneScoped;
+
   try {
     nlohmann::json json = nlohmann::json::parse(asset.json);
     outMaterialAssetInfo.unpackedSize = json[unpackedSizeJsonName];
@@ -52,6 +55,8 @@ bool readMaterialAssetInfo(Asset const& asset,
 
 bool packMaterial(MaterialAssetInfo const& materialAssetInfo,
                   std::vector<char> materialData, Asset& outAsset) {
+  ZoneScoped;
+
   outAsset.type[0] = 'm';
   outAsset.type[1] = 'a';
   outAsset.type[2] = 't';

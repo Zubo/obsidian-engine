@@ -4,10 +4,13 @@
 #include <lz4.h>
 
 #include <string>
+#include <tracy/Tracy.hpp>
 
 namespace obsidian::asset {
 
 bool compress(std::span<char const> src, std::vector<char>& outDst) {
+  ZoneScoped;
+
   std::size_t maxCompressedSize = LZ4_compressBound(src.size());
 
   outDst.resize(maxCompressedSize);
