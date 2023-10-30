@@ -1,11 +1,7 @@
 #pragma once
 
-#include <obsidian/task/flow.hpp>
-
 namespace obsidian::task {
 
-class TaskExecutor {
-public:
-};
+enum class TaskType { general, disk, rhiDraw, rhiUpload };
 
 } /*namespace obsidian::task*/

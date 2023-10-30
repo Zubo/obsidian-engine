@@ -1,3 +1,3 @@
 #include <gtest/gtest.h>
 
-TEST(helloworld, hello) { return; }
+TEST(task, flow) { return; }

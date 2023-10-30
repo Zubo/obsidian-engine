@@ -1,11 +1,13 @@
 #pragma once
 
-#include <obsidian/task/flow.hpp>
+#include <cstddef>
 
 namespace obsidian::task {
 
-class TaskExecutor {
-public:
+using FlowId = std::size_t;
+
+struct Flow {
+  FlowId id;
 };
 
 } /*namespace obsidian::task*/
