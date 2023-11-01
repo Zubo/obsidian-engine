@@ -20,9 +20,9 @@ public:
   TaskBase(TaskType type);
   virtual ~TaskBase() = default;
 
-  virtual void const* getReturnVal() = 0;
+  virtual std::shared_ptr<void const> getReturn() = 0;
   virtual void execute() = 0;
-  virtual void setArg(void const* argPtr);
+  virtual void setArg(std::shared_ptr<void const> const& argPtr);
 
   template <typename F> TaskBase& followedBy(TaskType type, F&& func) {
     return _followupTasks.emplace_back(type, std::forward(func));
@@ -41,7 +41,7 @@ public:
   TaskType getType() const;
 
 protected:
-  void const* _argPtr = nullptr;
+  std::shared_ptr<void const> _argPtr = nullptr;
 
 private:
   static std::atomic<TaskId> nextTaskId;
@@ -58,13 +58,16 @@ public:
   Task(TaskType type, F&& func)
       : TaskBase(type), _func{std::forward<F>(func)} {}
 
-  void const* getReturnVal() override { return &_returnVal; }
+  std::shared_ptr<void const> getReturn() override { return _returnVal; }
 
-  void execute() override { _returnVal = core::invokeFunc(_func, _argPtr); }
+  void execute() override {
+    _returnVal = std::make_shared<typename FuncType::result_type const>(
+        core::invokeFunc(_func, _argPtr.get()));
+  }
 
 private:
   FuncType _func;
-  FuncType::result_type _returnVal;
+  std::shared_ptr<typename FuncType::result_type const> _returnVal;
 };
 
 template <typename F>
@@ -76,9 +79,9 @@ public:
   Task(TaskType type, F&& func)
       : TaskBase(type), _func{std::forward<F>(func)} {}
 
-  void const* getReturnVal() override { return nullptr; }
+  std::shared_ptr<void const> getReturn() override { return {}; }
 
-  void execute() override { core::invokeFunc(_func, _argPtr); }
+  void execute() override { core::invokeFunc(_func, _argPtr.get()); }
 
 private:
   FuncType _func;

@@ -51,7 +51,7 @@ void TaskExecutor::workerFunc(TaskType taskType) {
     lock.lock();
 
     for (std::unique_ptr<TaskBase>& followupTask : followupTasks) {
-      followupTask->setArg(task->getReturnVal());
+      followupTask->setArg(task->getReturn());
 
       auto const taskQueue = _taskQueues.find(followupTask->getType());
 

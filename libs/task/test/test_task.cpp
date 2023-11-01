@@ -23,16 +23,16 @@ TEST(task, task_execute_with_args) {
   // arrange
   constexpr int startVal = -1;
   int result = startVal;
-  int delta = 2;
+  std::shared_ptr<int> delta = std::make_shared<int>(2);
 
   Task t{TaskType::general, [&result](int delta) { result += delta; }};
-  t.setArg(&delta);
+  t.setArg(delta);
 
   // act
   t.execute();
 
   // assert
-  EXPECT_EQ(result, startVal + delta);
+  EXPECT_EQ(result, startVal + *delta);
 }
 
 TEST(task, task_execute_ret_val) {
@@ -44,7 +44,7 @@ TEST(task, task_execute_ret_val) {
   t.execute();
 
   // assert
-  void const* const returnVal = t.getReturnVal();
+  std::shared_ptr<void const> const returnVal = t.getReturn();
   EXPECT_NE(returnVal, nullptr);
-  EXPECT_EQ(val, *reinterpret_cast<int const*>(returnVal));
+  EXPECT_EQ(val, *reinterpret_cast<int const*>(returnVal.get()));
 }
