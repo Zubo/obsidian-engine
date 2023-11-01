@@ -26,9 +26,10 @@ TEST(task, task_execute_with_args) {
   int delta = 2;
 
   Task t{TaskType::general, [&result](int delta) { result += delta; }};
+  t.setArg(&delta);
 
   // act
-  t.execute(&delta);
+  t.execute();
 
   // assert
   EXPECT_EQ(result, startVal + delta);

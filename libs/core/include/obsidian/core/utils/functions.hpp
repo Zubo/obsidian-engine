@@ -17,12 +17,12 @@ template <typename F>
 using ResultOf = decltype(std::function(std::declval<F>()))::result_type;
 
 template <typename R, typename Arg>
-R invokeFunc(std::function<R(Arg)> const& func, void* argP) {
-  return func(*reinterpret_cast<Arg*>(argP));
+R invokeFunc(std::function<R(Arg)> const& func, void const* argP) {
+  return func(*reinterpret_cast<Arg const*>(argP));
 }
 
 template <typename R>
-R invokeFunc(std::function<R(void)> const& func, void* argP) {
+R invokeFunc(std::function<R(void)> const& func, void const* argP) {
   return func();
 }
 

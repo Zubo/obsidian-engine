@@ -20,6 +20,7 @@ target_link_libraries(Task
 
 add_executable(TestTask
     "test/test_task.cpp"
+    "test/test_task_executor.cpp"
 )
 
 target_link_libraries(TestTask

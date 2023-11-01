@@ -3,6 +3,7 @@
 #include <obsidian/core/utils/functions.hpp>
 #include <obsidian/task/task_type.hpp>
 
+#include <atomic>
 #include <cassert>
 #include <functional>
 #include <memory>
@@ -19,12 +20,35 @@ public:
   TaskBase(TaskType type);
   virtual ~TaskBase() = default;
 
-  virtual void* getReturnVal() = 0;
-  virtual void execute(void* p) = 0;
+  virtual void const* getReturnVal() = 0;
+  virtual void execute() = 0;
+  virtual void setArg(void const* argPtr);
 
-  TaskId taskId;
-  TaskType type;
-  std::vector<std::unique_ptr<TaskBase>> followupTasks;
+  template <typename F> TaskBase& followedBy(TaskType type, F&& func) {
+    return _followupTasks.emplace_back(type, std::forward(func));
+  }
+
+  template <typename... Fs> void followedBy(TaskType type, Fs&&... funcs) {
+    (_followupTasks.emplace_back(std::forward<Fs>(funcs)), ...);
+  }
+
+  std::vector<std::unique_ptr<TaskBase>> transferFollowupTasks() {
+    return std::move(_followupTasks);
+  }
+
+  TaskId getId() const;
+
+  TaskType getType() const;
+
+protected:
+  void const* _argPtr = nullptr;
+
+private:
+  static std::atomic<TaskId> nextTaskId;
+
+  TaskId _taskId;
+  TaskType _type;
+  std::vector<std::unique_ptr<TaskBase>> _followupTasks;
 };
 
 template <typename F, typename Enable = void> class Task : public TaskBase {
@@ -34,11 +58,9 @@ public:
   Task(TaskType type, F&& func)
       : TaskBase(type), _func{std::forward<F>(func)} {}
 
-  void* getReturnVal() override { return &_returnVal; }
+  void const* getReturnVal() override { return &_returnVal; }
 
-  void execute(void* argP = nullptr) override {
-    _returnVal = core::invokeFunc(_func, argP);
-  }
+  void execute() override { _returnVal = core::invokeFunc(_func, _argPtr); }
 
 private:
   FuncType _func;
@@ -54,9 +76,9 @@ public:
   Task(TaskType type, F&& func)
       : TaskBase(type), _func{std::forward<F>(func)} {}
 
-  void* getReturnVal() override { return nullptr; }
+  void const* getReturnVal() override { return nullptr; }
 
-  void execute(void* argP = nullptr) override { core::invokeFunc(_func, argP); }
+  void execute() override { core::invokeFunc(_func, _argPtr); }
 
 private:
   FuncType _func;
