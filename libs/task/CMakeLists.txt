@@ -1,31 +1,34 @@
 cmake_minimum_required(VERSION 3.24)
 
-add_library(task
+add_library(Task
         "src/task_executor.cpp"
-        "src/flow_builder.cpp"
         "src/task.cpp"
         "include/obsidian/task/task_executor.hpp"
-        "include/obsidian/task/flow.hpp"
-        "include/obsidian/task/flow_builder.hpp"
         "include/obsidian/task/task_type.hpp"
         "include/obsidian/task/task.hpp"
 )
 
-target_include_directories(task
+target_include_directories(Task
     PUBLIC
         "include"
 )
 
-add_executable(test_task
-    "test/test_task_executor.cpp"
+target_link_libraries(Task
+    PUBLIC
+        Core
 )
 
-target_link_libraries(test_task
+add_executable(TestTask
+    "test/test_task.cpp"
+)
+
+target_link_libraries(TestTask
     PRIVATE
+        Task
         GTest::gtest
         GTest::gtest_main
 )
 
 include(GoogleTest)
 
-gtest_discover_tests(test_task)
+gtest_discover_tests(TestTask)

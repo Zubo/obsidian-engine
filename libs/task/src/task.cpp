@@ -1,4 +1,4 @@
 #include <obsidian/task/task.hpp>
 
 using namespace obsidian::task;
-Task::Task(TaskType type) : type{type} {}
+TaskBase::TaskBase(TaskType type) : type{type} {}

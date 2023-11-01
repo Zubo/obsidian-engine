@@ -7,6 +7,7 @@ add_library(Core
     "include/obsidian/core/material.hpp"
     "include/obsidian/core/vertex_type.hpp"
     "include/obsidian/core/utils/visitor.hpp"
+    "include/obsidian/core/utils/functions.hpp"
     "src/texture_format.cpp"
 )
 
