@@ -14,6 +14,8 @@ namespace obsidian::task {
 
 using TaskId = std::size_t;
 
+template <typename F> class Task;
+
 class TaskBase {
 public:
   TaskBase(TaskType type);
@@ -24,11 +26,17 @@ public:
   virtual void setArg(std::shared_ptr<void const> const& argPtr);
 
   template <typename F> TaskBase& followedBy(TaskType type, F&& func) {
-    return _followupTasks.emplace_back(type, std::forward(func));
+    using TaskType = Task<decltype(std::forward<F>(func))>;
+
+    return *_followupTasks.emplace_back(
+        std::make_unique<TaskType>(type, std::forward<F>(func)));
   }
 
   template <typename... Fs> void followedBy(TaskType type, Fs&&... funcs) {
-    (_followupTasks.emplace_back(std::forward<Fs>(funcs)), ...);
+    (_followupTasks.emplace_back(
+         std::make_unique<Task<decltype(std::forward<Fs>(funcs))>>(
+             type, std::forward<Fs>(funcs))),
+     ...);
   }
 
   std::vector<std::unique_ptr<TaskBase>> transferFollowupTasks() {
@@ -39,8 +47,11 @@ public:
 
   TaskType getType() const;
 
+  bool getDone() const;
+
 protected:
   std::shared_ptr<void const> _argPtr = nullptr;
+  bool _done = false;
 
 private:
   static std::atomic<TaskId> nextTaskId;
@@ -66,6 +77,8 @@ public:
       _returnVal = std::make_shared<typename FuncType::result_type const>(
           core::invokeFunc(_func, _argPtr.get()));
     }
+
+    _done = true;
   }
 
 private:

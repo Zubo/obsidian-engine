@@ -13,3 +13,5 @@ void TaskBase::setArg(std::shared_ptr<void const> const& argPtr) {
 TaskId TaskBase::getId() const { return _taskId; };
 
 TaskType TaskBase::getType() const { return _type; }
+
+bool TaskBase::getDone() const { return _done; }

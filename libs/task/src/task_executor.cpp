@@ -19,6 +19,12 @@ TaskExecutor::TaskExecutor(std::vector<ThreadInitInfo> threadInit) {
   }
 }
 
+TaskExecutor::~TaskExecutor() {
+  if (!_shutdown) {
+    shutdown();
+  }
+}
+
 void TaskExecutor::workerFunc(TaskType taskType) {
   TaskQueue& taskQueue = _taskQueues.at(taskType);
 
@@ -35,23 +41,24 @@ void TaskExecutor::workerFunc(TaskType taskType) {
       return;
     }
 
-    std::unique_ptr<TaskBase> task = std::move(taskQueue.tasks.back());
+    TaskBase& task =
+        *_dequeuedTasks.emplace_back(std::move(taskQueue.tasks.back()));
     taskQueue.tasks.pop_back();
 
     lock.unlock();
     taskQueue.taskQueueCondVar.notify_one();
 
-    task->execute();
+    task.execute();
 
     std::vector<std::unique_ptr<TaskBase>> followupTasks =
-        task->transferFollowupTasks();
+        task.transferFollowupTasks();
 
     std::vector<std::condition_variable*> condVarsToNotify;
 
     lock.lock();
 
     for (std::unique_ptr<TaskBase>& followupTask : followupTasks) {
-      followupTask->setArg(task->getReturn());
+      followupTask->setArg(task.getReturn());
 
       auto const taskQueue = _taskQueues.find(followupTask->getType());
 

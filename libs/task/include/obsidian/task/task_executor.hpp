@@ -29,6 +29,8 @@ class TaskExecutor {
 public:
   TaskExecutor(std::vector<ThreadInitInfo> threadInit);
 
+  ~TaskExecutor();
+
   template <typename F> TaskBase& enqueue(TaskType type, F&& func) {
     auto const queue = _taskQueues.find(type);
 
@@ -36,7 +38,7 @@ public:
 
     std::unique_lock l{taskQueueMutex};
 
-    using TaskType = decltype(Task(type, std::forward<F>(func)));
+    using TaskType = Task<decltype(std::forward<F>(func))>;
 
     TaskBase& newTask = *queue->second.tasks.emplace_back(
         std::make_unique<TaskType>(type, std::forward<F>(func)));
@@ -54,6 +56,7 @@ public:
 
 private:
   std::unordered_map<TaskType, TaskQueue> _taskQueues;
+  std::vector<std::unique_ptr<TaskBase>> _dequeuedTasks;
   std::vector<std::thread> _threads;
   std::mutex taskQueueMutex;
   bool _shutdown = false;
