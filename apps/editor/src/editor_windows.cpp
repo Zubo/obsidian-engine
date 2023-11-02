@@ -852,22 +852,33 @@ void fileDropped(const char* file, ObsidianEngine& engine) {
   }
 
   fs::path const srcPath{file};
-  fs::path destPath = project.getAbsolutePath(srcPath.filename());
-  destPath.replace_extension("");
+  fs::path dstPath = project.getAbsolutePath(srcPath.filename());
+  dstPath.replace_extension("");
 
   if (engineInitialized) {
-    obsidian::asset_converter::AssetConverter converter{
-        engine.getContext().taskExecutor};
-    converter.convertAsset(srcPath, destPath);
+    engine.getContext().taskExecutor.enqueue(
+        task::TaskType::general, [&engine, srcPath, dstPath]() {
+          obsidian::asset_converter::AssetConverter converter{
+              engine.getContext().taskExecutor};
+          converter.convertAsset(srcPath, dstPath);
+          assetListDirty = true;
+        });
   } else {
-    obsidian::task::TaskExecutor executor;
-    executor.initAndRun({{obsidian::task::TaskType::general,
-                          std::thread::hardware_concurrency()}});
-    obsidian::asset_converter::AssetConverter converter{executor};
-    converter.convertAsset(srcPath, destPath);
-  }
+    static obsidian::task::TaskExecutor executor;
+    static bool executorInitialized = false;
 
-  assetListDirty = true;
+    if (!executorInitialized) {
+      executor.initAndRun({{obsidian::task::TaskType::general,
+                            std::thread::hardware_concurrency()}});
+      executorInitialized = true;
+    }
+
+    executor.enqueue(task::TaskType::general, [srcPath, dstPath]() {
+      obsidian::asset_converter::AssetConverter converter{executor};
+      converter.convertAsset(srcPath, dstPath);
+      assetListDirty = true;
+    });
+  }
 }
 
 } /*namespace obsidian::editor*/
