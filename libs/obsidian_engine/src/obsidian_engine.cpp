@@ -14,6 +14,7 @@
 #include <tracy/Tracy.hpp>
 #include <vulkan/vulkan.h>
 
+#include <cmath>
 #include <thread>
 #include <utility>
 
@@ -28,9 +29,10 @@ bool ObsidianEngine::init(IWindowBackendProvider const& windowBackendProvider,
 
   // task executor
   unsigned int const nCores = std::thread::hardware_concurrency();
-  _context.taskExecutor.initAndRun({{task::TaskType::rhiDraw, 1},
-                                    {task::TaskType::rhiUpload, 1},
-                                    {task::TaskType::general, nCores - 3}});
+  _context.taskExecutor.initAndRun(
+      {{task::TaskType::rhiDraw, 1},
+       {task::TaskType::rhiUpload, 1},
+       {task::TaskType::general, std::max(nCores - 3u, 2u)}});
 
   // create window
 

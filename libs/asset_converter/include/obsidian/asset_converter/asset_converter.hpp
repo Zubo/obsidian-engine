@@ -51,6 +51,11 @@ private:
                    std::filesystem::path const& projectPath,
                    std::vector<tinyobj::material_t> const& materials);
 
+  std::optional<asset::TextureAssetInfo> getOrCreateTexture(
+      std::filesystem::path const& srcPath,
+      std::filesystem::path const& dstPath,
+      std::optional<core::TextureFormat> overrideTextureFormat = std::nullopt);
+
   task::TaskExecutor& _taskExecutor;
 };
 

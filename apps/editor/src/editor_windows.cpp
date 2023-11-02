@@ -27,6 +27,9 @@
 #include <obsidian/scene/scene.hpp>
 #include <obsidian/scene/serialization.hpp>
 #include <obsidian/sdl_wrapper/sdl_backend.hpp>
+#include <obsidian/task/task.hpp>
+#include <obsidian/task/task_executor.hpp>
+#include <obsidian/task/task_type.hpp>
 
 #include <SDL2/SDL.h>
 #include <backends/imgui_impl_sdl2.h>
@@ -68,7 +71,7 @@ static bool assetListDirty = false;
 static std::array<char const*, 2> materialTypes = {"unlit", "lit"};
 static std::array<char const*, 4> textureTypes = {
     "Unknown", "R8G8B8A8_SRGB", "R8G8B8A8_LINEAR", "R32G32_SFLOAT"};
-static bool openEngineTab = false;
+static bool engineInitialized = false;
 
 void refreshAssetLists() {
   texturesInProj = project.getAllFilesWithExtension(globals::textureAssetExt);
@@ -314,9 +317,9 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
                bool& engineStarted) {
 
   ImGuiTabItemFlags engineTabFlags = 0;
-  if (openEngineTab) {
+  if (engineInitialized) {
     engineTabFlags = ImGuiTabItemFlags_SetSelected;
-    openEngineTab = false;
+    engineInitialized = false;
   }
 
   if (ImGui::BeginTabItem("Engine", NULL, engineTabFlags)) {
@@ -545,7 +548,7 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
       if (ImGui::Button("Start Engine")) {
         engineStarted = engine.init(sdl_wrapper::SDLBackend::instance(),
                                     project.getOpenProjectPath());
-        openEngineTab = true;
+        engineInitialized = true;
       }
     }
 
@@ -783,7 +786,7 @@ void projectTab(ObsidianEngine& engine, bool& engineStarted) {
             assetListDirty = true;
             engineStarted = engine.init(sdl_wrapper::SDLBackend::instance(),
                                         project.getOpenProjectPath());
-            openEngineTab = true;
+            engineInitialized = engineStarted;
           }
         }
       }
@@ -852,9 +855,17 @@ void fileDropped(const char* file, ObsidianEngine& engine) {
   fs::path destPath = project.getAbsolutePath(srcPath.filename());
   destPath.replace_extension("");
 
-  obsidian::asset_converter::AssetConverter converter{
-      engine.getContext().taskExecutor};
-  converter.convertAsset(srcPath, destPath);
+  if (engineInitialized) {
+    obsidian::asset_converter::AssetConverter converter{
+        engine.getContext().taskExecutor};
+    converter.convertAsset(srcPath, destPath);
+  } else {
+    obsidian::task::TaskExecutor executor;
+    executor.initAndRun({{obsidian::task::TaskType::general,
+                          std::thread::hardware_concurrency()}});
+    obsidian::asset_converter::AssetConverter converter{executor};
+    converter.convertAsset(srcPath, destPath);
+  }
 
   assetListDirty = true;
 }
