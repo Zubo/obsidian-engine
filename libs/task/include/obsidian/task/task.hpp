@@ -25,17 +25,6 @@ public:
   virtual void execute() = 0;
   virtual void setArg(std::shared_ptr<void const> const& argPtr);
 
-  template <typename F> TaskBase& followedBy(TaskType type, F&& func) {
-    using TaskType = Task<decltype(std::forward<F>(func))>;
-
-    return *_followupTasks.emplace_back(
-        std::make_unique<TaskType>(type, std::forward<F>(func)));
-  }
-
-  std::vector<std::unique_ptr<TaskBase>> transferFollowupTasks() {
-    return std::move(_followupTasks);
-  }
-
   TaskId getId() const;
 
   TaskType getType() const;
@@ -51,7 +40,6 @@ private:
 
   TaskId _taskId;
   TaskType _type;
-  std::vector<std::unique_ptr<TaskBase>> _followupTasks;
 };
 
 template <typename F> class Task : public TaskBase {

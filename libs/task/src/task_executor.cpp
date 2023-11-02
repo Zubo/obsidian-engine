@@ -51,31 +51,6 @@ void TaskExecutor::workerFunc(TaskType taskType) {
     taskQueue.taskQueueCondVar.notify_one();
 
     task.execute();
-
-    std::vector<std::unique_ptr<TaskBase>> followupTasks =
-        task.transferFollowupTasks();
-
-    std::vector<std::condition_variable*> condVarsToNotify;
-
-    lock.lock();
-
-    for (std::unique_ptr<TaskBase>& followupTask : followupTasks) {
-      followupTask->setArg(task.getReturn());
-
-      auto const taskQueue = _taskQueues.find(followupTask->getType());
-
-      assert(taskQueue != _taskQueues.cend());
-
-      taskQueue->second.tasks.push_back(std::move(followupTask));
-      condVarsToNotify.push_back(&taskQueue->second.taskQueueCondVar);
-    }
-
-    lock.unlock();
-
-    for (std::condition_variable* condVar : condVarsToNotify) {
-      assert(condVar);
-      condVar->notify_one();
-    }
   }
 }
 
