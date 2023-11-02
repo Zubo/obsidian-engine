@@ -46,10 +46,10 @@ private:
                            std::filesystem::path const& dstPath);
 
   std::vector<std::string>
-  extractMaterials(AssetConverter& converter,
-                   std::filesystem::path const& srcDirPath,
-                   std::filesystem::path const& projectPath,
-                   std::vector<tinyobj::material_t> const& materials);
+  extractMaterialsForObj(AssetConverter& converter,
+                         std::filesystem::path const& srcDirPath,
+                         std::filesystem::path const& projectPath,
+                         std::vector<tinyobj::material_t> const& materials);
 
   std::optional<asset::TextureAssetInfo> getOrCreateTexture(
       std::filesystem::path const& srcPath,

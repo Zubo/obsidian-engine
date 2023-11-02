@@ -317,22 +317,31 @@ bool AssetConverter::convertObjToAsset(fs::path const& srcPath,
   std::vector<char> outVertices;
   std::vector<std::vector<core::MeshIndexType>> outSurfaces{
       materials.size() ? materials.size() : 1};
-
   std::size_t vertexCount;
-  if (meshAssetInfo.hasNormals && meshAssetInfo.hasColors &&
-      meshAssetInfo.hasUV) {
-    vertexCount = generateVertices<core::VertexType<true, true, true>>(
-        attrib, shapes, outVertices, outSurfaces);
-  } else if (meshAssetInfo.hasNormals && meshAssetInfo.hasColors) {
-    vertexCount = generateVertices<core::VertexType<true, true, false>>(
-        attrib, shapes, outVertices, outSurfaces);
-  } else if (meshAssetInfo.hasNormals) {
-    vertexCount = generateVertices<core::VertexType<true, false, false>>(
-        attrib, shapes, outVertices, outSurfaces);
-  } else {
-    vertexCount = generateVertices<core::VertexType<false, false, false>>(
-        attrib, shapes, outVertices, outSurfaces);
-  }
+
+  task::TaskBase const& genVertTask =
+      _taskExecutor.enqueue(task::TaskType::general, [&]() {
+        if (meshAssetInfo.hasNormals && meshAssetInfo.hasColors &&
+            meshAssetInfo.hasUV) {
+          vertexCount = generateVertices<core::VertexType<true, true, true>>(
+              attrib, shapes, outVertices, outSurfaces);
+        } else if (meshAssetInfo.hasNormals && meshAssetInfo.hasColors) {
+          vertexCount = generateVertices<core::VertexType<true, true, false>>(
+              attrib, shapes, outVertices, outSurfaces);
+        } else if (meshAssetInfo.hasNormals) {
+          vertexCount = generateVertices<core::VertexType<true, false, false>>(
+              attrib, shapes, outVertices, outSurfaces);
+        } else {
+          vertexCount = generateVertices<core::VertexType<false, false, false>>(
+              attrib, shapes, outVertices, outSurfaces);
+        }
+      });
+
+  meshAssetInfo.defaultMatRelativePaths = extractMaterialsForObj(
+      *this, srcPath.parent_path(), dstPath.parent_path(), materials);
+
+  while (!genVertTask.getDone())
+    ;
 
   meshAssetInfo.vertexCount = vertexCount;
   meshAssetInfo.vertexBufferSize = outVertices.size();
@@ -346,9 +355,6 @@ bool AssetConverter::convertObjToAsset(fs::path const& srcPath,
 
   meshAssetInfo.defaultMatRelativePaths.resize(
       meshAssetInfo.indexBufferSizes.size());
-
-  meshAssetInfo.defaultMatRelativePaths = extractMaterials(
-      *this, srcPath.parent_path(), dstPath.parent_path(), materials);
 
   std::size_t const totalIndexBufferSize =
       std::accumulate(meshAssetInfo.indexBufferSizes.cbegin(),
@@ -451,7 +457,7 @@ std::optional<asset::TextureAssetInfo> AssetConverter::getOrCreateTexture(
   }
 }
 
-std::vector<std::string> AssetConverter::extractMaterials(
+std::vector<std::string> AssetConverter::extractMaterialsForObj(
     AssetConverter& converter, fs::path const& srcDirPath,
     fs::path const& projectPath,
     std::vector<tinyobj::material_t> const& materials) {
