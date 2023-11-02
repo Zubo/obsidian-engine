@@ -11,6 +11,7 @@
 #include <obsidian/core/texture_format.hpp>
 #include <obsidian/core/vertex_type.hpp>
 #include <obsidian/globals/file_extensions.hpp>
+#include <obsidian/task/task_executor.hpp>
 
 #include <glm/glm.hpp>
 #include <stb/stb_image.h>
@@ -34,6 +35,9 @@ namespace fs = std::filesystem;
 
 namespace obsidian::asset_converter {
 
+AssetConverter::AssetConverter(task::TaskExecutor& taskExecutor)
+    : _taskExecutor{taskExecutor} {}
+
 std::unordered_map<std::string, std::string> extensionMap = {
     {".bmp", globals::textureAssetExt}, {".jpeg", globals::textureAssetExt},
     {".jpg", globals::textureAssetExt}, {".png", globals::textureAssetExt},
@@ -53,92 +57,6 @@ bool saveAsset(fs::path const& srcPath, fs::path const& dstPath,
     }
   }
   return asset::saveToFile(dstPath, textureAsset);
-}
-
-std::optional<asset::TextureAssetInfo> convertImgToAsset(
-    fs::path const& srcPath, fs::path const& dstPath,
-    std::optional<core::TextureFormat> overrideTextureFormat = std::nullopt) {
-  ZoneScoped;
-
-  int w, h, channelCnt;
-
-  unsigned char* data;
-
-  {
-    ZoneScopedN("STBI load");
-    data = stbi_load(srcPath.c_str(), &w, &h, &channelCnt, 4);
-  }
-
-  bool const shouldAddAlpha = (channelCnt == 3);
-  channelCnt = shouldAddAlpha ? channelCnt + 1 : channelCnt;
-  asset::Asset outAsset;
-  asset::TextureAssetInfo textureAssetInfo;
-  textureAssetInfo.unpackedSize = w * h * 4;
-  textureAssetInfo.compressionMode = asset::CompressionMode::LZ4;
-  textureAssetInfo.format =
-      overrideTextureFormat ? *overrideTextureFormat
-                            : core::getDefaultFormatForChannelCount(channelCnt);
-
-  if (textureAssetInfo.format == core::TextureFormat::unknown) {
-    OBS_LOG_ERR("Failed to convert image to asset. Unsupported image format.");
-    return std::nullopt;
-  }
-
-  textureAssetInfo.transparent = false;
-
-  if (!shouldAddAlpha && channelCnt == 4) {
-    ZoneScopedN("Transparency check");
-
-    glm::vec4 const* pixels = reinterpret_cast<glm::vec4 const*>(data);
-    for (glm::vec4 const* p = pixels; p < pixels + w * h; ++p) {
-      if (p->a < 1.0f) {
-        textureAssetInfo.transparent = true;
-        break;
-      }
-    }
-  }
-
-  textureAssetInfo.width = w;
-  textureAssetInfo.height = h;
-
-  bool packResult;
-
-  if (shouldAddAlpha) {
-    ZoneScopedN("Adding alpha to img");
-
-    // append alpha = 255 to all the pixels
-    std::vector<unsigned char> imgWithAlpha;
-    imgWithAlpha.resize(w * h * STBI_rgb_alpha);
-
-    for (std::size_t i = 0; i < w * h; ++i) {
-      for (std::size_t c = 0; c < 3; ++c) {
-        imgWithAlpha[4 * i + c] = data[4 * i + c];
-      }
-      imgWithAlpha[4 * i + 3] = '\xFF';
-    }
-
-    packResult =
-        asset::packTexture(textureAssetInfo, imgWithAlpha.data(), outAsset);
-  } else {
-    packResult = asset::packTexture(textureAssetInfo, data, outAsset);
-  }
-
-  {
-    ZoneScopedN("STBI free");
-    stbi_image_free(data);
-  }
-
-  if (!packResult) {
-    return std::nullopt;
-  }
-
-  OBS_LOG_MSG("Successfully converted " + srcPath.string() +
-              " to asset format.");
-  if (saveAsset(srcPath, dstPath, outAsset)) {
-    return textureAssetInfo;
-  }
-
-  return std::nullopt;
 }
 
 template <typename V>
@@ -276,9 +194,245 @@ generateVertices(tinyobj::attrib_t const& attrib,
   return outVertices.size() / sizeof(Vertex);
 }
 
-std::vector<std::string>
-extractMaterials(fs::path const& srcDirPath, fs::path const& projectPath,
-                 std::vector<tinyobj::material_t> const& materials) {
+std::optional<asset::TextureAssetInfo> AssetConverter::convertImgToAsset(
+    fs::path const& srcPath, fs::path const& dstPath,
+    std::optional<core::TextureFormat> overrideTextureFormat) {
+  ZoneScoped;
+
+  int w, h, channelCnt;
+
+  unsigned char* data;
+
+  {
+    ZoneScopedN("STBI load");
+    data = stbi_load(srcPath.c_str(), &w, &h, &channelCnt, 4);
+  }
+
+  bool const shouldAddAlpha = (channelCnt == 3);
+  channelCnt = shouldAddAlpha ? channelCnt + 1 : channelCnt;
+  asset::Asset outAsset;
+  asset::TextureAssetInfo textureAssetInfo;
+  textureAssetInfo.unpackedSize = w * h * 4;
+  textureAssetInfo.compressionMode = asset::CompressionMode::LZ4;
+  textureAssetInfo.format =
+      overrideTextureFormat ? *overrideTextureFormat
+                            : core::getDefaultFormatForChannelCount(channelCnt);
+
+  if (textureAssetInfo.format == core::TextureFormat::unknown) {
+    OBS_LOG_ERR("Failed to convert image to asset. Unsupported image format.");
+    return std::nullopt;
+  }
+
+  textureAssetInfo.transparent = false;
+
+  if (!shouldAddAlpha && channelCnt == 4) {
+    ZoneScopedN("Transparency check");
+
+    glm::vec4 const* pixels = reinterpret_cast<glm::vec4 const*>(data);
+    for (glm::vec4 const* p = pixels; p < pixels + w * h; ++p) {
+      if (p->a < 1.0f) {
+        textureAssetInfo.transparent = true;
+        break;
+      }
+    }
+  }
+
+  textureAssetInfo.width = w;
+  textureAssetInfo.height = h;
+
+  bool packResult;
+
+  if (shouldAddAlpha) {
+    ZoneScopedN("Adding alpha to img");
+
+    // append alpha = 255 to all the pixels
+    std::vector<unsigned char> imgWithAlpha;
+    imgWithAlpha.resize(w * h * STBI_rgb_alpha);
+
+    for (std::size_t i = 0; i < w * h; ++i) {
+      for (std::size_t c = 0; c < 3; ++c) {
+        imgWithAlpha[4 * i + c] = data[4 * i + c];
+      }
+      imgWithAlpha[4 * i + 3] = '\xFF';
+    }
+
+    packResult =
+        asset::packTexture(textureAssetInfo, imgWithAlpha.data(), outAsset);
+  } else {
+    packResult = asset::packTexture(textureAssetInfo, data, outAsset);
+  }
+
+  {
+    ZoneScopedN("STBI free");
+    stbi_image_free(data);
+  }
+
+  if (!packResult) {
+    return std::nullopt;
+  }
+
+  OBS_LOG_MSG("Successfully converted " + srcPath.string() +
+              " to asset format.");
+  if (saveAsset(srcPath, dstPath, outAsset)) {
+    return textureAssetInfo;
+  }
+
+  return std::nullopt;
+}
+
+bool AssetConverter::convertObjToAsset(fs::path const& srcPath,
+                                       fs::path const& dstPath) {
+  asset::MeshAssetInfo meshAssetInfo;
+  meshAssetInfo.compressionMode = asset::CompressionMode::LZ4;
+
+  tinyobj::attrib_t attrib;
+  std::vector<tinyobj::shape_t> shapes;
+  std::vector<tinyobj::material_t> materials;
+
+  std::string warning, error;
+
+  fs::path const srcDirPath = srcPath.parent_path();
+  tinyobj::LoadObj(&attrib, &shapes, &materials, &warning, &error,
+                   srcPath.c_str(), srcDirPath.c_str());
+
+  if (!warning.empty()) {
+    OBS_LOG_WARN("tinyobj warning: " + warning);
+  }
+
+  if (!error.empty()) {
+    OBS_LOG_ERR("tinyobj error: " + error);
+    return false;
+  }
+
+  meshAssetInfo.hasNormals = attrib.normals.size();
+  meshAssetInfo.hasColors = attrib.colors.size();
+  meshAssetInfo.hasUV = attrib.texcoords.size();
+
+  asset::Asset meshAsset;
+
+  std::vector<char> outVertices;
+  std::vector<std::vector<core::MeshIndexType>> outSurfaces{
+      materials.size() ? materials.size() : 1};
+
+  std::size_t vertexCount;
+  if (meshAssetInfo.hasNormals && meshAssetInfo.hasColors &&
+      meshAssetInfo.hasUV) {
+    vertexCount = generateVertices<core::VertexType<true, true, true>>(
+        attrib, shapes, outVertices, outSurfaces);
+  } else if (meshAssetInfo.hasNormals && meshAssetInfo.hasColors) {
+    vertexCount = generateVertices<core::VertexType<true, true, false>>(
+        attrib, shapes, outVertices, outSurfaces);
+  } else if (meshAssetInfo.hasNormals) {
+    vertexCount = generateVertices<core::VertexType<true, false, false>>(
+        attrib, shapes, outVertices, outSurfaces);
+  } else {
+    vertexCount = generateVertices<core::VertexType<false, false, false>>(
+        attrib, shapes, outVertices, outSurfaces);
+  }
+
+  meshAssetInfo.vertexCount = vertexCount;
+  meshAssetInfo.vertexBufferSize = outVertices.size();
+  meshAssetInfo.indexCount = 0;
+
+  for (auto const& outSurface : outSurfaces) {
+    meshAssetInfo.indexBufferSizes.push_back(sizeof(core::MeshIndexType) *
+                                             outSurface.size());
+    meshAssetInfo.indexCount += outSurface.size();
+  }
+
+  meshAssetInfo.defaultMatRelativePaths.resize(
+      meshAssetInfo.indexBufferSizes.size());
+
+  meshAssetInfo.defaultMatRelativePaths = extractMaterials(
+      *this, srcPath.parent_path(), dstPath.parent_path(), materials);
+
+  std::size_t const totalIndexBufferSize =
+      std::accumulate(meshAssetInfo.indexBufferSizes.cbegin(),
+                      meshAssetInfo.indexBufferSizes.cend(), 0);
+  meshAssetInfo.unpackedSize =
+      meshAssetInfo.vertexBufferSize + totalIndexBufferSize;
+  outVertices.resize(outVertices.size() + totalIndexBufferSize);
+
+  char* indCopyDest = outVertices.data() + meshAssetInfo.vertexBufferSize;
+
+  for (std::size_t i = 0; i < outSurfaces.size(); ++i) {
+    auto const& surface = outSurfaces[i];
+    std::size_t const surfaceBufferSize = meshAssetInfo.indexBufferSizes[i];
+    std::memcpy(indCopyDest, surface.data(), surfaceBufferSize);
+    indCopyDest += surfaceBufferSize;
+  }
+
+  (void)indCopyDest;
+
+  if (!asset::packMeshAsset(meshAssetInfo, std::move(outVertices), meshAsset)) {
+    return false;
+  }
+  return saveAsset(srcPath, dstPath, meshAsset);
+}
+
+bool AssetConverter::convertSpirvToAsset(fs::path const& srcPath,
+                                         fs::path const& dstPath) {
+  std::ifstream file{srcPath, std::ios::ate | std::ios::binary};
+
+  if (!file.is_open()) {
+    return false;
+  }
+
+  std::size_t const fileSize = static_cast<std::size_t>(file.tellg());
+
+  std::vector<char> buffer(fileSize);
+
+  file.seekg(0);
+
+  file.read(reinterpret_cast<char*>(buffer.data()), fileSize);
+
+  file.close();
+
+  asset::Asset shaderAsset;
+  asset::ShaderAssetInfo shaderAssetInfo;
+  shaderAssetInfo.unpackedSize = buffer.size();
+  shaderAssetInfo.compressionMode = asset::CompressionMode::none;
+
+  bool const packResult =
+      asset::packShader(shaderAssetInfo, std::move(buffer), shaderAsset);
+
+  if (!packResult) {
+    return false;
+  }
+
+  OBS_LOG_MSG("Successfully converted " + srcPath.string() +
+              " to asset format.");
+  return saveAsset(srcPath, dstPath, shaderAsset);
+}
+
+bool AssetConverter::convertAsset(fs::path const& srcPath,
+                                  fs::path const& dstPath) {
+  std::string const extension = srcPath.extension().string();
+
+  if (!extension.size()) {
+    OBS_LOG_ERR("Error: File doesn't have extension.");
+    return false;
+  }
+
+  if (extension == ".png" || extension == ".jpg" || extension == ".jpeg" ||
+      extension == ".bmp") {
+    return convertImgToAsset(srcPath, dstPath).has_value();
+  } else if (extension == ".obj") {
+    return convertObjToAsset(srcPath, dstPath);
+  } else if (extension == ".spv") {
+    return convertSpirvToAsset(srcPath, dstPath);
+  }
+
+  OBS_LOG_ERR("Error: Unknown file extension.");
+  return false;
+}
+
+std::vector<std::string> AssetConverter::extractMaterials(
+    AssetConverter& converter, fs::path const& srcDirPath,
+    fs::path const& projectPath,
+    std::vector<tinyobj::material_t> const& materials) {
+  ZoneScoped;
+
   std::vector<std::string> extractedMaterialPaths;
 
   fs::directory_entry const texDir(srcDirPath / "textures");
@@ -353,150 +507,6 @@ extractMaterials(fs::path const& srcDirPath, fs::path const& projectPath,
   }
 
   return extractedMaterialPaths;
-}
-
-bool convertObjToAsset(fs::path const& srcPath, fs::path const& dstPath) {
-  asset::MeshAssetInfo meshAssetInfo;
-  meshAssetInfo.compressionMode = asset::CompressionMode::LZ4;
-
-  tinyobj::attrib_t attrib;
-  std::vector<tinyobj::shape_t> shapes;
-  std::vector<tinyobj::material_t> materials;
-
-  std::string warning, error;
-
-  fs::path const srcDirPath = srcPath.parent_path();
-  tinyobj::LoadObj(&attrib, &shapes, &materials, &warning, &error,
-                   srcPath.c_str(), srcDirPath.c_str());
-
-  if (!warning.empty()) {
-    OBS_LOG_WARN("tinyobj warning: " + warning);
-  }
-
-  if (!error.empty()) {
-    OBS_LOG_ERR("tinyobj error: " + error);
-    return false;
-  }
-
-  meshAssetInfo.hasNormals = attrib.normals.size();
-  meshAssetInfo.hasColors = attrib.colors.size();
-  meshAssetInfo.hasUV = attrib.texcoords.size();
-
-  asset::Asset meshAsset;
-
-  std::vector<char> outVertices;
-  std::vector<std::vector<core::MeshIndexType>> outSurfaces{
-      materials.size() ? materials.size() : 1};
-
-  std::size_t vertexCount;
-  if (meshAssetInfo.hasNormals && meshAssetInfo.hasColors &&
-      meshAssetInfo.hasUV) {
-    vertexCount = generateVertices<core::VertexType<true, true, true>>(
-        attrib, shapes, outVertices, outSurfaces);
-  } else if (meshAssetInfo.hasNormals && meshAssetInfo.hasColors) {
-    vertexCount = generateVertices<core::VertexType<true, true, false>>(
-        attrib, shapes, outVertices, outSurfaces);
-  } else if (meshAssetInfo.hasNormals) {
-    vertexCount = generateVertices<core::VertexType<true, false, false>>(
-        attrib, shapes, outVertices, outSurfaces);
-  } else {
-    vertexCount = generateVertices<core::VertexType<false, false, false>>(
-        attrib, shapes, outVertices, outSurfaces);
-  }
-
-  meshAssetInfo.vertexCount = vertexCount;
-  meshAssetInfo.vertexBufferSize = outVertices.size();
-  meshAssetInfo.indexCount = 0;
-
-  for (auto const& outSurface : outSurfaces) {
-    meshAssetInfo.indexBufferSizes.push_back(sizeof(core::MeshIndexType) *
-                                             outSurface.size());
-    meshAssetInfo.indexCount += outSurface.size();
-  }
-
-  meshAssetInfo.defaultMatRelativePaths.resize(
-      meshAssetInfo.indexBufferSizes.size());
-
-  meshAssetInfo.defaultMatRelativePaths =
-      extractMaterials(srcPath.parent_path(), dstPath.parent_path(), materials);
-
-  std::size_t const totalIndexBufferSize =
-      std::accumulate(meshAssetInfo.indexBufferSizes.cbegin(),
-                      meshAssetInfo.indexBufferSizes.cend(), 0);
-  meshAssetInfo.unpackedSize =
-      meshAssetInfo.vertexBufferSize + totalIndexBufferSize;
-  outVertices.resize(outVertices.size() + totalIndexBufferSize);
-
-  char* indCopyDest = outVertices.data() + meshAssetInfo.vertexBufferSize;
-
-  for (std::size_t i = 0; i < outSurfaces.size(); ++i) {
-    auto const& surface = outSurfaces[i];
-    std::size_t const surfaceBufferSize = meshAssetInfo.indexBufferSizes[i];
-    std::memcpy(indCopyDest, surface.data(), surfaceBufferSize);
-    indCopyDest += surfaceBufferSize;
-  }
-
-  (void)indCopyDest;
-
-  if (!asset::packMeshAsset(meshAssetInfo, std::move(outVertices), meshAsset)) {
-    return false;
-  }
-  return saveAsset(srcPath, dstPath, meshAsset);
-}
-
-bool convertSpirvToAsset(fs::path const& srcPath, fs::path const& dstPath) {
-  std::ifstream file{srcPath, std::ios::ate | std::ios::binary};
-
-  if (!file.is_open()) {
-    return false;
-  }
-
-  std::size_t const fileSize = static_cast<std::size_t>(file.tellg());
-
-  std::vector<char> buffer(fileSize);
-
-  file.seekg(0);
-
-  file.read(reinterpret_cast<char*>(buffer.data()), fileSize);
-
-  file.close();
-
-  asset::Asset shaderAsset;
-  asset::ShaderAssetInfo shaderAssetInfo;
-  shaderAssetInfo.unpackedSize = buffer.size();
-  shaderAssetInfo.compressionMode = asset::CompressionMode::none;
-
-  bool const packResult =
-      asset::packShader(shaderAssetInfo, std::move(buffer), shaderAsset);
-
-  if (!packResult) {
-    return false;
-  }
-
-  OBS_LOG_MSG("Successfully converted " + srcPath.string() +
-              " to asset format.");
-  return saveAsset(srcPath, dstPath, shaderAsset);
-}
-
-bool convertAsset(fs::path const& srcPath, fs::path const& dstPath) {
-  std::string const extension = srcPath.extension().string();
-
-  if (!extension.size()) {
-    OBS_LOG_ERR("Error: File doesn't have extension.");
-    return false;
-  }
-
-  if (extension == ".png" || extension == ".jpg" || extension == ".jpeg" ||
-      extension == ".bmp") {
-    return convertImgToAsset(srcPath, dstPath).has_value();
-  } else if (extension == ".obj") {
-    return convertObjToAsset(srcPath, dstPath);
-  } else if (extension == ".spv") {
-    return convertSpirvToAsset(srcPath, dstPath);
-  }
-
-  OBS_LOG_ERR("Error: Unknown file extension.");
-  return false;
 }
 
 } /*namespace obsidian::asset_converter*/

@@ -553,7 +553,7 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
   }
 }
 
-void importTab() {
+void importTab(ObsidianEngine& engine) {
   if (ImGui::BeginTabItem("Import")) {
     static char srcFilePath[maxPathSize];
     ImGui::InputText("Src file path", srcFilePath, std::size(srcFilePath));
@@ -563,7 +563,9 @@ void importTab() {
 
     if (ImGui::Button("Convert")) {
       fs::path destPath = project.getAbsolutePath(dstFileName);
-      obsidian::asset_converter::convertAsset(srcFilePath, destPath);
+      obsidian::asset_converter::AssetConverter converter{
+          engine.getContext().taskExecutor};
+      converter.convertAsset(srcFilePath, destPath);
     }
 
     ImGui::EndTabItem();
@@ -789,7 +791,7 @@ void projectTab(ObsidianEngine& engine, bool& engineStarted) {
       if (ImGui::BeginTabBar("EditorTabBar")) {
         materialCreatorTab();
         textureEditorTab();
-        importTab();
+        importTab(engine);
         ImGui::EndTabBar();
       }
     }
@@ -840,7 +842,7 @@ void editor(SDL_Renderer& renderer, ImGuiIO& imguiIO, DataContext& context,
   SDL_RenderPresent(&renderer);
 }
 
-void fileDropped(const char* file) {
+void fileDropped(const char* file, ObsidianEngine& engine) {
   if (project.getOpenProjectPath().empty()) {
     OBS_LOG_ERR("File dropped in but no project was open.");
     return;
@@ -849,7 +851,10 @@ void fileDropped(const char* file) {
   fs::path const srcPath{file};
   fs::path destPath = project.getAbsolutePath(srcPath.filename());
   destPath.replace_extension("");
-  obsidian::asset_converter::convertAsset(srcPath, destPath);
+
+  obsidian::asset_converter::AssetConverter converter{
+      engine.getContext().taskExecutor};
+  converter.convertAsset(srcPath, destPath);
 
   assetListDirty = true;
 }

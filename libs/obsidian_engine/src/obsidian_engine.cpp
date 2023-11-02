@@ -4,6 +4,7 @@
 #include <obsidian/rhi/rhi.hpp>
 #include <obsidian/scene/game_object.hpp>
 #include <obsidian/scene/scene.hpp>
+#include <obsidian/task/task_type.hpp>
 #include <obsidian/window/window.hpp>
 #include <obsidian/window/window_backend.hpp>
 
@@ -13,6 +14,7 @@
 #include <tracy/Tracy.hpp>
 #include <vulkan/vulkan.h>
 
+#include <thread>
 #include <utility>
 
 using namespace obsidian;
@@ -23,6 +25,12 @@ bool ObsidianEngine::init(IWindowBackendProvider const& windowBackendProvider,
     OBS_LOG_ERR("Failed to open project at path " + projectPath.string());
     return false;
   }
+
+  // task executor
+  unsigned int const nCores = std::thread::hardware_concurrency();
+  _context.taskExecutor.initAndRun({{task::TaskType::rhiDraw, 1},
+                                    {task::TaskType::rhiUpload, 1},
+                                    {task::TaskType::general, nCores - 3}});
 
   // create window
 
@@ -74,7 +82,6 @@ void ObsidianEngine::cleanup() {
 
 void submitDrawCalls(scene::GameObject const& gameObject, rhi::RHI& rhi,
                      glm::mat4 parentTransform) {
-
   glm::mat4 transform = parentTransform * gameObject.getTransform();
   if (gameObject.meshResource && gameObject.materialResources.size()) {
     rhi::DrawCall drawCall;

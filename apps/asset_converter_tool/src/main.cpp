@@ -1,10 +1,13 @@
 #include <obsidian/asset_converter/asset_converter.hpp>
 #include <obsidian/core/logging.hpp>
+#include <obsidian/task/task_executor.hpp>
+#include <obsidian/task/task_type.hpp>
 
 #include <cstring>
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <thread>
 #include <unordered_map>
 
 namespace fs = std::filesystem;
@@ -74,7 +77,13 @@ int main(int argc, char** argv) {
     fileName.replace_extension(extensionMapping->second);
     fs::path dstFilePath = *dstPath / fileName;
 
-    obsidian::asset_converter::convertAsset(srcFilePath, dstFilePath);
+    unsigned int const nCores = std::thread::hardware_concurrency();
+
+    obsidian::task::TaskExecutor taskExecutor;
+    taskExecutor.initAndRun({{obsidian::task::TaskType::general, nCores}});
+
+    obsidian::asset_converter::AssetConverter converter{taskExecutor};
+    converter.convertAsset(srcFilePath, dstFilePath);
   }
 
   return 0;

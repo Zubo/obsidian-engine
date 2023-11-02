@@ -7,7 +7,9 @@
 
 using namespace obsidian::task;
 
-TaskExecutor::TaskExecutor(std::vector<ThreadInitInfo> threadInit) {
+void TaskExecutor::initAndRun(std::vector<ThreadInitInfo> threadInit) {
+  _running = true;
+
   for (ThreadInitInfo const& initInfo : threadInit) {
     auto const iter = _taskQueues.try_emplace(initInfo.taskType);
     assert(iter.second);
@@ -20,7 +22,7 @@ TaskExecutor::TaskExecutor(std::vector<ThreadInitInfo> threadInit) {
 }
 
 TaskExecutor::~TaskExecutor() {
-  if (!_shutdown) {
+  if (_running) {
     shutdown();
   }
 }
@@ -34,10 +36,10 @@ void TaskExecutor::workerFunc(TaskType taskType) {
     lock.lock();
 
     taskQueue.taskQueueCondVar.wait(lock, [this, &taskQueue]() {
-      return _shutdown || taskQueue.tasks.size() > 0;
+      return !_running || taskQueue.tasks.size() > 0;
     });
 
-    if (_shutdown) {
+    if (!_running) {
       return;
     }
 
@@ -78,7 +80,8 @@ void TaskExecutor::workerFunc(TaskType taskType) {
 }
 
 void TaskExecutor::shutdown() {
-  _shutdown = true;
+  _running = false;
+
   for (auto& queuePair : _taskQueues) {
     queuePair.second.taskQueueCondVar.notify_all();
   }

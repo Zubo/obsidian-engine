@@ -11,9 +11,11 @@ target_include_directories(AssetConverter
 )
 
 target_link_libraries(AssetConverter
-    PRIVATE
+    PUBLIC
         Asset
         Core
+    PRIVATE
+        Task
         Globals
         ThirdPartyImpl
         tinyobjloader

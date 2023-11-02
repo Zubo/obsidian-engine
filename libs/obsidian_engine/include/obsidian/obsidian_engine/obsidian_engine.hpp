@@ -5,6 +5,7 @@
 #include <obsidian/runtime_resource/runtime_resource.hpp>
 #include <obsidian/runtime_resource/runtime_resource_manager.hpp>
 #include <obsidian/scene/scene.hpp>
+#include <obsidian/task/task_executor.hpp>
 #include <obsidian/vk_rhi/vk_rhi.hpp>
 #include <obsidian/window/window.hpp>
 
@@ -28,6 +29,7 @@ struct ObsidianEngineContext {
   window::Window window;
   runtime_resource::RuntimeResourceManager resourceManager;
   project::Project project;
+  task::TaskExecutor taskExecutor;
 };
 
 class ObsidianEngine {

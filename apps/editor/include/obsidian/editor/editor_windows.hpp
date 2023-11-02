@@ -16,6 +16,6 @@ struct DataContext;
 void editor(SDL_Renderer& renderer, ImGuiIO& imguiIO, DataContext& context,
             ObsidianEngine& engine, bool& engineStarted);
 
-void fileDropped(char const* file);
+void fileDropped(char const* file, ObsidianEngine& engine);
 
 } /*namespace obsidian::editor*/

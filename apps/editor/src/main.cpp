@@ -102,7 +102,7 @@ int main(int, char**) {
       }
       if (e.type == SDL_DROPFILE) {
         if (e.drop.windowID == SDL_GetWindowID(editorWindow)) {
-          editor::fileDropped(e.drop.file);
+          editor::fileDropped(e.drop.file, engine);
         }
       }
     }

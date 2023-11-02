@@ -17,7 +17,7 @@ namespace obsidian::task {
 
 struct ThreadInitInfo {
   TaskType taskType;
-  std::int8_t threadCount;
+  unsigned int threadCount;
 };
 
 struct TaskQueue {
@@ -27,9 +27,9 @@ struct TaskQueue {
 
 class TaskExecutor {
 public:
-  TaskExecutor(std::vector<ThreadInitInfo> threadInit);
-
   ~TaskExecutor();
+
+  void initAndRun(std::vector<ThreadInitInfo> threadInit);
 
   template <typename F> TaskBase& enqueue(TaskType type, F&& func) {
     auto const queue = _taskQueues.find(type);
@@ -59,7 +59,7 @@ private:
   std::vector<std::unique_ptr<TaskBase>> _dequeuedTasks;
   std::vector<std::thread> _threads;
   std::mutex taskQueueMutex;
-  bool _shutdown = false;
+  bool _running = false;
 };
 
 } /*namespace obsidian::task*/

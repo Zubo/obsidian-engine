@@ -16,7 +16,10 @@ using namespace obsidian::task;
 TEST(task, task_executor_basic_execution) {
   // arrange
   constexpr TaskType taskType = TaskType::general;
-  TaskExecutor executor{{{taskType, 8}}};
+
+  TaskExecutor executor;
+  executor.initAndRun({{taskType, 8}});
+
   std::atomic<int> cnt = 0;
   constexpr int deltaPerTask = 1000000;
   constexpr int numberOfTasks = 100;
@@ -46,7 +49,10 @@ TEST(task, task_executor_basic_execution) {
 TEST(task, task_executor_followup_task_chaining) {
   // arrange
   constexpr TaskType taskType = TaskType::general;
-  TaskExecutor executor{{{taskType, 8}}};
+
+  TaskExecutor executor;
+  executor.initAndRun({{taskType, 8}});
+
   int cnt = 0;
   constexpr int deltaPerTask = 100000;
   constexpr int numberOfTasks = 20;
