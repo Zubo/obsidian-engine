@@ -32,13 +32,6 @@ public:
         std::make_unique<TaskType>(type, std::forward<F>(func)));
   }
 
-  template <typename... Fs> void followedBy(TaskType type, Fs&&... funcs) {
-    (_followupTasks.emplace_back(
-         std::make_unique<Task<decltype(std::forward<Fs>(funcs))>>(
-             type, std::forward<Fs>(funcs))),
-     ...);
-  }
-
   std::vector<std::unique_ptr<TaskBase>> transferFollowupTasks() {
     return std::move(_followupTasks);
   }
