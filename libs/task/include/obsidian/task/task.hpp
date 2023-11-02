@@ -7,7 +7,6 @@
 #include <cassert>
 #include <functional>
 #include <memory>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -51,7 +50,7 @@ private:
   std::vector<std::unique_ptr<TaskBase>> _followupTasks;
 };
 
-template <typename F, typename Enable = void> class Task : public TaskBase {
+template <typename F> class Task : public TaskBase {
   using FuncType = decltype(std::function(std::declval<F>()));
 
 public:
@@ -61,30 +60,17 @@ public:
   std::shared_ptr<void const> getReturn() override { return _returnVal; }
 
   void execute() override {
-    _returnVal = std::make_shared<typename FuncType::result_type const>(
-        core::invokeFunc(_func, _argPtr.get()));
+    if constexpr (std::is_void_v<core::ResultOf<F>>) {
+      core::invokeFunc(_func, _argPtr.get());
+    } else {
+      _returnVal = std::make_shared<typename FuncType::result_type const>(
+          core::invokeFunc(_func, _argPtr.get()));
+    }
   }
 
 private:
   FuncType _func;
-  std::shared_ptr<typename FuncType::result_type const> _returnVal;
-};
-
-template <typename F>
-class Task<F, typename std::enable_if_t<std::is_void_v<core::ResultOf<F>>>>
-    : public TaskBase {
-  using FuncType = decltype(std::function(std::declval<F>()));
-
-public:
-  Task(TaskType type, F&& func)
-      : TaskBase(type), _func{std::forward<F>(func)} {}
-
-  std::shared_ptr<void const> getReturn() override { return {}; }
-
-  void execute() override { core::invokeFunc(_func, _argPtr.get()); }
-
-private:
-  FuncType _func;
+  std::shared_ptr<core::ResultOf<F> const> _returnVal;
 };
 
 } /*namespace obsidian::task*/
