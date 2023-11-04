@@ -125,10 +125,10 @@ void submitDrawCalls(scene::GameObject const& gameObject, rhi::RHI& rhi,
     rhi::DrawCall drawCall;
 
     for (auto const& materialResource : gameObject.materialResources) {
-      drawCall.materialIds.push_back(materialResource->uploadToRHI());
+      drawCall.materialIds.push_back(materialResource->getResourceId());
     }
 
-    drawCall.meshId = gameObject.meshResource->uploadToRHI();
+    drawCall.meshId = gameObject.meshResource->getResourceId();
     drawCall.transform = transform;
     rhi.submitDrawCall(drawCall);
   }

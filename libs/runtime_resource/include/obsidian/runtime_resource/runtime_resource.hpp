@@ -29,8 +29,9 @@ public:
 
   bool loadAsset();
   void releaseAsset();
-  rhi::ResourceState getResourceState();
-  rhi::ResourceIdRHI uploadToRHI();
+  rhi::ResourceState getResourceState() const;
+  rhi::ResourceIdRHI getResourceId() const;
+  void uploadToRHI();
   void unloadFromRHI();
   rhi::ResourceIdRHI getResourceIdRHI() const;
   std::filesystem::path getRelativePath() const;

@@ -45,7 +45,7 @@ void RuntimeResource::releaseAsset() {
   }
 }
 
-rhi::ResourceState RuntimeResource::getResourceState() {
+rhi::ResourceState RuntimeResource::getResourceState() const {
   if (_resourceRHI) {
     return _resourceRHI->state;
   }
@@ -53,16 +53,20 @@ rhi::ResourceState RuntimeResource::getResourceState() {
   return rhi::ResourceState::initial;
 }
 
-rhi::ResourceIdRHI RuntimeResource::uploadToRHI() {
+rhi::ResourceIdRHI RuntimeResource::getResourceId() const {
+  return _resourceRHI ? _resourceRHI->id : rhi::rhiIdUninitialized;
+}
+
+void RuntimeResource::uploadToRHI() {
   if (_resourceRHI && _resourceRHI->state != rhi::ResourceState::initial) {
-    // Already initialized
-    return _resourceRHI->id;
+    OBS_LOG_WARN("Trying to upload laready uploaded resource.");
+    return;
   }
 
   if (!_asset) {
     if (!loadAsset()) {
       OBS_LOG_ERR("Failed to load asset." + _path.string());
-      return rhi::rhiIdUninitialized;
+      return;
     }
   }
   asset::AssetType const assetType = asset::getAssetType(_asset->type);
@@ -123,19 +127,36 @@ rhi::ResourceIdRHI RuntimeResource::uploadToRHI() {
     uploadMaterial.materialType = info.materialType;
 
     if (!info.diffuseTexturePath.empty()) {
-      uploadMaterial.diffuseTextureId =
-          _runtimeResourceManager.getResource(info.diffuseTexturePath)
-              .uploadToRHI();
+      RuntimeResource& diffuseTexResource =
+          _runtimeResourceManager.getResource(info.diffuseTexturePath);
+
+      if (diffuseTexResource.getResourceState() ==
+          rhi::ResourceState::initial) {
+        diffuseTexResource.uploadToRHI();
+      }
+
+      uploadMaterial.diffuseTextureId = diffuseTexResource.getResourceId();
     }
 
     if (!info.normalMapTexturePath.empty()) {
-      uploadMaterial.normalTextureId =
-          _runtimeResourceManager.getResource(info.normalMapTexturePath)
-              .uploadToRHI();
+      RuntimeResource& normalMapResource =
+          _runtimeResourceManager.getResource(info.normalMapTexturePath);
+
+      if (normalMapResource.getResourceState() == rhi::ResourceState::initial) {
+        normalMapResource.uploadToRHI();
+      }
+
+      uploadMaterial.normalTextureId = normalMapResource.getResourceId();
     }
 
-    uploadMaterial.shaderId =
-        _runtimeResourceManager.getResource(info.shaderPath).uploadToRHI();
+    RuntimeResource& shaderResource =
+        _runtimeResourceManager.getResource(info.shaderPath);
+
+    if (shaderResource.getResourceState() == rhi::ResourceState::initial) {
+      shaderResource.uploadToRHI();
+    }
+
+    uploadMaterial.shaderId = shaderResource.getResourceId();
 
     uploadMaterial.ambientColor = info.ambientColor;
     uploadMaterial.diffuseColor = info.diffuseColor;
@@ -172,8 +193,6 @@ rhi::ResourceIdRHI RuntimeResource::uploadToRHI() {
   default:
     OBS_LOG_ERR("Trying to upload unknown asset type");
   }
-
-  return _resourceRHI ? _resourceRHI->id : rhi::rhiIdUninitialized;
 }
 
 rhi::ResourceIdRHI RuntimeResource::getResourceIdRHI() const {
