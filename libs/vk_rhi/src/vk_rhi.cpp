@@ -10,6 +10,7 @@
 #include <obsidian/vk_rhi/vk_deletion_queue.hpp>
 #include <obsidian/vk_rhi/vk_descriptors.hpp>
 #include <obsidian/vk_rhi/vk_initializers.hpp>
+#include <obsidian/vk_rhi/vk_mesh.hpp>
 #include <obsidian/vk_rhi/vk_pipeline_builder.hpp>
 #include <obsidian/vk_rhi/vk_rhi.hpp>
 #include <obsidian/vk_rhi/vk_types.hpp>
@@ -34,14 +35,28 @@ using namespace obsidian::vk_rhi;
 
 void VulkanRHI::waitDeviceIdle() const { vkDeviceWaitIdle(_vkDevice); }
 
-rhi::ResourceRHI&
-VulkanRHI::uploadTexture(rhi::UploadTextureRHI uploadTextureInfoRHI) {
+rhi::ResourceRHI& VulkanRHI::initTextureResource() {
   rhi::ResourceIdRHI const newResourceId = consumeNewResourceId();
   Texture& newTexture = _textures[newResourceId];
 
+  assert(newTexture.resource.state == rhi::ResourceState::initial);
+
   newTexture.resource.id = newResourceId;
-  newTexture.resource.state = rhi::ResourceState::uploading;
   newTexture.resource.refCount = 1;
+  return newTexture.resource;
+}
+
+void VulkanRHI::uploadTexture(rhi::ResourceIdRHI id,
+                              rhi::UploadTextureRHI uploadTextureInfoRHI) {
+  Texture& newTexture = _textures.at(id);
+
+  rhi::ResourceState expected = rhi::ResourceState::initial;
+
+  if (!newTexture.resource.state.compare_exchange_strong(
+          expected, rhi::ResourceState::uploading)) {
+    OBS_LOG_ERR("Trying to upload a texture that is not in the initial state.");
+    return;
+  }
 
   VkImageUsageFlags const imageUsageFlags =
       VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
@@ -146,8 +161,6 @@ VulkanRHI::uploadTexture(rhi::UploadTextureRHI uploadTextureInfoRHI) {
           OBS_LOG_ERR("Texture resource state expected to be uploading.");
         }
       });
-
-  return newTexture.resource;
 }
 
 void VulkanRHI::releaseTexture(rhi::ResourceIdRHI resourceIdRHI) {
@@ -155,12 +168,28 @@ void VulkanRHI::releaseTexture(rhi::ResourceIdRHI resourceIdRHI) {
   --tex.resource.refCount;
 }
 
-rhi::ResourceRHI& VulkanRHI::uploadMesh(rhi::UploadMeshRHI meshInfo) {
+rhi::ResourceRHI& VulkanRHI::initMeshResource() {
   rhi::ResourceIdRHI const newResourceId = consumeNewResourceId();
-  Mesh& mesh = _meshes[newResourceId];
-  mesh.resource.id = newResourceId;
-  mesh.resource.state = rhi::ResourceState::uploading;
-  mesh.resource.refCount = 1;
+  Mesh& newMesh = _meshes[newResourceId];
+
+  assert(newMesh.resource.state == rhi::ResourceState::initial);
+
+  newMesh.resource.id = newResourceId;
+  newMesh.resource.refCount = 1;
+
+  return newMesh.resource;
+}
+
+void VulkanRHI::uploadMesh(rhi::ResourceIdRHI id, rhi::UploadMeshRHI meshInfo) {
+  Mesh& mesh = _meshes[id];
+
+  rhi::ResourceState expected = rhi::ResourceState::initial;
+
+  if (!mesh.resource.state.compare_exchange_strong(
+          expected, rhi::ResourceState::uploading)) {
+    OBS_LOG_ERR("Trying to upload a mesh that is not in the initial state.");
+    return;
+  }
 
   assert(_taskExecutor);
 
@@ -229,8 +258,6 @@ rhi::ResourceRHI& VulkanRHI::uploadMesh(rhi::UploadMeshRHI meshInfo) {
           OBS_LOG_ERR("Mesh resource state expected to be uploading.");
         }
       });
-
-  return mesh.resource;
 }
 
 void VulkanRHI::releaseMesh(rhi::ResourceIdRHI resourceIdRHI) {
@@ -238,12 +265,29 @@ void VulkanRHI::releaseMesh(rhi::ResourceIdRHI resourceIdRHI) {
   --mesh.resource.refCount;
 }
 
-rhi::ResourceRHI& VulkanRHI::uploadShader(rhi::UploadShaderRHI uploadShader) {
+rhi::ResourceRHI& VulkanRHI::initShaderResource() {
   rhi::ResourceIdRHI newResourceId = consumeNewResourceId();
   Shader& shader = _shaderModules[newResourceId];
+
+  assert(shader.resource.state == rhi::ResourceState::initial);
+
   shader.resource.id = newResourceId;
-  shader.resource.state = rhi::ResourceState::uploading;
   shader.resource.refCount = 1;
+
+  return shader.resource;
+}
+
+void VulkanRHI::uploadShader(rhi::ResourceIdRHI id,
+                             rhi::UploadShaderRHI uploadShader) {
+  Shader& shader = _shaderModules[id];
+
+  rhi::ResourceState expected = rhi::ResourceState::initial;
+
+  if (!shader.resource.state.compare_exchange_strong(
+          expected, rhi::ResourceState::uploading)) {
+    OBS_LOG_ERR("Trying to upload a shader that is not in the initial state.");
+    return;
+  }
 
   std::vector<std::uint32_t> buffer(
       (uploadShader.shaderDataSize + sizeof(std::uint32_t) - 1) /
@@ -263,15 +307,17 @@ rhi::ResourceRHI& VulkanRHI::uploadShader(rhi::UploadShaderRHI uploadShader) {
   VkShaderModule shaderModule;
   if (vkCreateShaderModule(_vkDevice, &shaderModuleCreateInfo, nullptr,
                            &shaderModule)) {
-    OBS_LOG_ERR("Failed to load shader.");
-    shader.resource.state = rhi::ResourceState::invalid;
-    return shader.resource;
+    assert(false && "Failed to load shader.");
   }
 
   shader.vkShaderModule = shaderModule;
-  shader.resource.state = rhi::ResourceState::uploaded;
 
-  return shader.resource;
+  expected = rhi::ResourceState::uploading;
+
+  if (!shader.resource.state.compare_exchange_strong(
+          expected, rhi::ResourceState::uploaded)) {
+    assert(false && "Shader resource in invalid state");
+  }
 }
 
 void VulkanRHI::releaseShader(rhi::ResourceIdRHI resourceIdRHI) {
@@ -303,13 +349,29 @@ void VulkanRHI::createAndBindMaterialDataBuffer(
                      VK_SHADER_STAGE_FRAGMENT_BIT);
 }
 
-rhi::ResourceRHI&
-VulkanRHI::uploadMaterial(rhi::UploadMaterialRHI uploadMaterial) {
+rhi::ResourceRHI& VulkanRHI::initMaterialResource() {
   rhi::ResourceIdRHI const newResourceId = consumeNewResourceId();
   Material& newMaterial = _materials[newResourceId];
+
+  assert(newMaterial.resource.state == rhi::ResourceState::initial);
+
   newMaterial.resource.id = newResourceId;
-  newMaterial.resource.state = rhi::ResourceState::uploading;
   newMaterial.resource.refCount = 1;
+
+  return newMaterial.resource;
+}
+
+void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
+                               rhi::UploadMaterialRHI uploadMaterial) {
+  Material& newMaterial = _materials[id];
+
+  rhi::ResourceState expected = rhi::ResourceState::initial;
+
+  if (!newMaterial.resource.state.compare_exchange_strong(
+          expected, rhi::ResourceState::uploading)) {
+    OBS_LOG_ERR("Trying to upload a shader that is not in the initial state.");
+    return;
+  }
 
   PipelineBuilder& pipelineBuilder =
       _pipelineBuilders[uploadMaterial.materialType];
@@ -412,14 +474,12 @@ VulkanRHI::uploadMaterial(rhi::UploadMaterialRHI uploadMaterial) {
 
   builder.build(newMaterial.vkDescriptorSet);
 
-  rhi::ResourceState expected = rhi::ResourceState::uploading;
+  expected = rhi::ResourceState::uploading;
 
   if (!newMaterial.resource.state.compare_exchange_strong(
           expected, rhi::ResourceState::uploaded)) {
-    OBS_LOG_ERR("Material resource state expected to be uploading.");
+    assert(false && "Material resource in invalid state");
   }
-
-  return newMaterial.resource;
 }
 
 void VulkanRHI::releaseMaterial(rhi::ResourceIdRHI resourceIdRHI) {

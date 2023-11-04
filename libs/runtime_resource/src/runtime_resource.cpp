@@ -87,7 +87,8 @@ void RuntimeResource::uploadToRHI() {
       asset::unpackAsset(info, asset->binaryBlob.data(),
                          asset->binaryBlob.size(), dst);
     };
-    _resourceRHI = &_rhi.uploadMesh(uploadMesh);
+    _resourceRHI = &_rhi.initMeshResource();
+    _rhi.uploadMesh(_resourceRHI->id, uploadMesh);
     _releaseFunc = [](rhi::RHI& rhi, rhi::ResourceIdRHI id) {
       rhi.releaseMesh(id);
     };
@@ -109,7 +110,8 @@ void RuntimeResource::uploadToRHI() {
                          asset->binaryBlob.size(), dst);
     };
 
-    _resourceRHI = &_rhi.uploadTexture(std::move(uploadTexture));
+    _resourceRHI = &_rhi.initTextureResource();
+    _rhi.uploadTexture(_resourceRHI->id, std::move(uploadTexture));
 
     _releaseFunc = [](rhi::RHI& rhi, rhi::ResourceIdRHI id) {
       rhi.releaseTexture(id);
@@ -164,7 +166,8 @@ void RuntimeResource::uploadToRHI() {
     uploadMaterial.shininess = info.shininess;
     uploadMaterial.transparent = info.transparent;
 
-    _resourceRHI = &_rhi.uploadMaterial(uploadMaterial);
+    _resourceRHI = &_rhi.initMaterialResource();
+    _rhi.uploadMaterial(_resourceRHI->id, uploadMaterial);
     _releaseFunc = [](rhi::RHI& rhi, rhi::ResourceIdRHI id) {
       rhi.releaseMaterial(id);
     };
@@ -184,7 +187,8 @@ void RuntimeResource::uploadToRHI() {
                          asset->binaryBlob.size(), dst);
     };
 
-    _resourceRHI = &_rhi.uploadShader(uploadShader);
+    _resourceRHI = &_rhi.initShaderResource();
+    _rhi.uploadShader(_resourceRHI->id, uploadShader);
     _releaseFunc = [](rhi::RHI& rhi, rhi::ResourceIdRHI id) {
       rhi.releaseShader(id);
     };

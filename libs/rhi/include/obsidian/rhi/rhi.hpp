@@ -37,16 +37,22 @@ public:
 
   virtual void updateExtent(WindowExtentRHI extent) = 0;
 
-  virtual ResourceRHI& uploadTexture(UploadTextureRHI uploadTexture) = 0;
-  virtual void releaseTexture(ResourceIdRHI) = 0;
+  virtual ResourceRHI& initTextureResource() = 0;
+  virtual void uploadTexture(ResourceIdRHI id,
+                             UploadTextureRHI uploadTexture) = 0;
+  virtual void releaseTexture(ResourceIdRHI id) = 0;
 
-  virtual ResourceRHI& uploadMesh(UploadMeshRHI uploadMesh) = 0;
-  virtual void releaseMesh(ResourceIdRHI) = 0;
+  virtual ResourceRHI& initMeshResource() = 0;
+  virtual void uploadMesh(ResourceIdRHI id, UploadMeshRHI uploadMesh) = 0;
+  virtual void releaseMesh(ResourceIdRHI id) = 0;
 
-  virtual ResourceRHI& uploadShader(UploadShaderRHI uploadShader) = 0;
+  virtual ResourceRHI& initShaderResource() = 0;
+  virtual void uploadShader(ResourceIdRHI id, UploadShaderRHI uploadShader) = 0;
   virtual void releaseShader(ResourceIdRHI) = 0;
 
-  virtual ResourceRHI& uploadMaterial(UploadMaterialRHI uploadMaterial) = 0;
+  virtual ResourceRHI& initMaterialResource() = 0;
+  virtual void uploadMaterial(ResourceIdRHI id,
+                              UploadMaterialRHI uploadMaterial) = 0;
   virtual void releaseMaterial(ResourceIdRHI) = 0;
 
   virtual void submitDrawCall(DrawCall const& drawCall) = 0;

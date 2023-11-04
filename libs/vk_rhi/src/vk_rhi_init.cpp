@@ -70,9 +70,14 @@ void VulkanRHI::init(rhi::WindowExtentRHI extent,
 void VulkanRHI::initResources(rhi::InitResourcesRHI const& initResources) {
   assert(IsInitialized);
 
-  _depthPassShaderId = uploadShader(initResources.shadowPassShader).id;
-  _ssaoShaderId = uploadShader(initResources.ssaoShader).id;
-  _postProcessingShaderId = uploadShader(initResources.postProcessingShader).id;
+  _depthPassShaderId = initShaderResource().id;
+  uploadShader(_depthPassShaderId, initResources.shadowPassShader);
+
+  _ssaoShaderId = initShaderResource().id;
+  uploadShader(_ssaoShaderId, initResources.ssaoShader);
+
+  _postProcessingShaderId = initShaderResource().id;
+  uploadShader(_postProcessingShaderId, initResources.postProcessingShader);
 
   _deletionQueue.pushFunction([this]() {
     releaseShader(_depthPassShaderId);
@@ -1083,7 +1088,8 @@ void VulkanRHI::initSsaoSamplesAndNoise() {
 
   (void)noiseVectors;
 
-  _ssaoNoiseTextureID = uploadTexture(std::move(uploadTextureRHI)).id;
+  _ssaoNoiseTextureID = initTextureResource().id;
+  uploadTexture(_ssaoNoiseTextureID, std::move(uploadTextureRHI));
 
   _deletionQueue.pushFunction(
       [this]() { releaseTexture(_ssaoNoiseTextureID); });

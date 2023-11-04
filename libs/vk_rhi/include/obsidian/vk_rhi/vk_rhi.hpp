@@ -57,21 +57,30 @@ public:
 
   void updateExtent(rhi::WindowExtentRHI newExtent) override;
 
-  rhi::ResourceRHI&
-  uploadTexture(rhi::UploadTextureRHI uploadTextureInfoRHI) override;
+  rhi::ResourceRHI& initTextureResource() override;
+
+  void uploadTexture(rhi::ResourceIdRHI id,
+                     rhi::UploadTextureRHI uploadTextureInfoRHI) override;
 
   void releaseTexture(rhi::ResourceIdRHI resourceIdRHI) override;
 
-  rhi::ResourceRHI& uploadMesh(rhi::UploadMeshRHI meshInfo) override;
+  rhi::ResourceRHI& initMeshResource() override;
+
+  void uploadMesh(rhi::ResourceIdRHI id, rhi::UploadMeshRHI meshInfo) override;
 
   void releaseMesh(rhi::ResourceIdRHI resourceIdRHI) override;
 
-  rhi::ResourceRHI& uploadShader(rhi::UploadShaderRHI uploadShader) override;
+  rhi::ResourceRHI& initShaderResource() override;
+
+  void uploadShader(rhi::ResourceIdRHI id,
+                    rhi::UploadShaderRHI uploadShader) override;
 
   void releaseShader(rhi::ResourceIdRHI resourceIdRHI) override;
 
-  rhi::ResourceRHI&
-  uploadMaterial(rhi::UploadMaterialRHI uploadMaterial) override;
+  rhi::ResourceRHI& initMaterialResource() override;
+
+  void uploadMaterial(rhi::ResourceIdRHI id,
+                      rhi::UploadMaterialRHI uploadMaterial) override;
 
   void releaseMaterial(rhi::ResourceIdRHI resourceIdRHI) override;
 
