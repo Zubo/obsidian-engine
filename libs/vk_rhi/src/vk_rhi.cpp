@@ -77,11 +77,11 @@ VulkanRHI::uploadTexture(rhi::UploadTextureRHI uploadTextureInfoRHI) {
         std::size_t const size =
             info.width * info.height * core::getFormatPixelSize(info.format);
 
-        AllocatedBuffer stagingBuffer = createBuffer(
-            size, VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-            VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
-
-            VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+        AllocatedBuffer stagingBuffer =
+            createBuffer(size, VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+                         VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
+                         VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+                         0, VK_MEMORY_PROPERTY_HOST_CACHED_BIT);
 
         void* mappedMemory;
         vmaMapMemory(_vmaAllocator, stagingBuffer.allocation, &mappedMemory);
@@ -187,7 +187,8 @@ rhi::ResourceRHI& VulkanRHI::uploadMesh(rhi::UploadMeshRHI meshInfo) {
         AllocatedBuffer stagingBuffer = createBuffer(
             info.vertexBufferSize + totalIndexBufferSize,
             VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
-            VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+            VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, 0,
+            VK_MEMORY_PROPERTY_HOST_CACHED_BIT);
 
         void* mappedMemory;
         vmaMapMemory(_vmaAllocator, stagingBuffer.allocation, &mappedMemory);
@@ -580,11 +581,11 @@ FrameData& VulkanRHI::getCurrentFrameData() {
   return _frameDataArray[currentFrameDataInd];
 }
 
-AllocatedBuffer
-VulkanRHI::createBuffer(std::size_t bufferSize, VkBufferUsageFlags usage,
-                        VmaMemoryUsage memoryUsage,
-                        VmaAllocationCreateFlags allocationCreateFlags,
-                        VmaAllocationInfo* outAllocationInfo) const {
+AllocatedBuffer VulkanRHI::createBuffer(
+    std::size_t bufferSize, VkBufferUsageFlags usage,
+    VmaMemoryUsage memoryUsage, VmaAllocationCreateFlags allocationCreateFlags,
+    VkMemoryPropertyFlags preferredFlags, VkMemoryPropertyFlags requiredFlags,
+    VmaAllocationInfo* outAllocationInfo) const {
   VkBufferCreateInfo vkBufferCreateInfo = {};
   vkBufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
   vkBufferCreateInfo.pNext = nullptr;
@@ -594,6 +595,8 @@ VulkanRHI::createBuffer(std::size_t bufferSize, VkBufferUsageFlags usage,
   VmaAllocationCreateInfo vmaAllocationCreateInfo = {};
   vmaAllocationCreateInfo.usage = memoryUsage;
   vmaAllocationCreateInfo.flags = allocationCreateFlags;
+  vmaAllocationCreateInfo.preferredFlags = preferredFlags;
+  vmaAllocationCreateInfo.requiredFlags = requiredFlags;
 
   AllocatedBuffer allocatedBuffer;
   VK_CHECK(vmaCreateBuffer(_vmaAllocator, &vkBufferCreateInfo,

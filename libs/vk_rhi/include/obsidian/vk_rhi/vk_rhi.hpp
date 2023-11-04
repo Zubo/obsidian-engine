@@ -259,6 +259,8 @@ private:
   createBuffer(std::size_t bufferSize, VkBufferUsageFlags usage,
                VmaMemoryUsage memoryUsage,
                VmaAllocationCreateFlags allocationCreateFlags,
+               VkMemoryPropertyFlags preferredFlags = 0,
+               VkMemoryPropertyFlags requiredFlags = 0,
                VmaAllocationInfo* outAllocationInfo = nullptr) const;
   std::size_t getPaddedBufferSize(std::size_t originalSize) const;
 
