@@ -146,6 +146,7 @@ struct ImmediateSubmitContext {
   VkCommandPool vkCommandPool;
   VkCommandBuffer vkCommandBuffer;
   VkDevice device;
+  std::uint32_t queueInd;
   bool initialized = false;
 };
 

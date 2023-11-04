@@ -21,6 +21,7 @@
 #include <atomic>
 #include <cstdint>
 #include <functional>
+#include <mutex>
 #include <optional>
 #include <string_view>
 #include <type_traits>
@@ -97,8 +98,10 @@ private:
   VkSurfaceKHR _vkSurface;
   VkPhysicalDeviceProperties _vkPhysicalDeviceProperties;
   VkFormat _depthFormat = VK_FORMAT_D32_SFLOAT;
-  VkQueue _vkGraphicsQueue;
   std::uint32_t _graphicsQueueFamilyIndex;
+  std::uint32_t _transferQueueFamilyIndex;
+  std::unordered_map<std::uint32_t, VkQueue> _gpuQueues;
+  std::unordered_map<std::uint32_t, std::mutex> _gpuQueueMutexes;
   std::vector<VKDrawCall> _drawCallQueue;
   std::vector<VKDrawCall> _transparentDrawCallQueue;
   std::vector<rhi::DirectionalLight> _submittedDirectionalLights;
@@ -208,8 +211,10 @@ private:
   void initPostProcessingSampler();
   void initSsaoPostProcessingDescriptors();
   void initPostProcessingQuad();
-  void initImmediateSubmitContext(ImmediateSubmitContext& context);
-  void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
+  void initImmediateSubmitContext(ImmediateSubmitContext& context,
+                                  std::uint32_t queueInd);
+  void immediateSubmit(std::uint32_t queueInd,
+                       std::function<void(VkCommandBuffer cmd)>&& function);
   void uploadMesh(Mesh& mesh);
   void applyPendingExtentUpdate();
 

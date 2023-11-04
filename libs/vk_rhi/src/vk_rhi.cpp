@@ -93,8 +93,9 @@ VulkanRHI::uploadTexture(rhi::UploadTextureRHI uploadTextureInfoRHI) {
 
         vmaUnmapMemory(_vmaAllocator, stagingBuffer.allocation);
 
-        immediateSubmit([this, &extent, &newTexture,
-                         &stagingBuffer](VkCommandBuffer cmd) {
+        immediateSubmit(_transferQueueFamilyIndex, [&extent, &newTexture,
+                                                    &stagingBuffer](
+                                                       VkCommandBuffer cmd) {
           VkImageMemoryBarrier vkImgBarrierToTransfer =
               vkinit::layoutImageBarrier(newTexture.image.vkImage,
                                          VK_IMAGE_LAYOUT_UNDEFINED,
@@ -116,7 +117,13 @@ VulkanRHI::uploadTexture(rhi::UploadTextureRHI uploadTextureInfoRHI) {
           vkCmdCopyBufferToImage(
               cmd, stagingBuffer.buffer, newTexture.image.vkImage,
               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &vkBufferImgCopy);
+        });
 
+        vmaDestroyBuffer(_vmaAllocator, stagingBuffer.buffer,
+                         stagingBuffer.allocation);
+
+        immediateSubmit(_graphicsQueueFamilyIndex, [&newTexture](
+                                                       VkCommandBuffer cmd) {
           VkImageMemoryBarrier vkImageBarrierToRead =
               vkinit::layoutImageBarrier(
                   newTexture.image.vkImage,
@@ -131,9 +138,6 @@ VulkanRHI::uploadTexture(rhi::UploadTextureRHI uploadTextureInfoRHI) {
                                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0,
                                nullptr, 0, nullptr, 1, &vkImageBarrierToRead);
         });
-
-        vmaDestroyBuffer(_vmaAllocator, stagingBuffer.buffer,
-                         stagingBuffer.allocation);
 
         rhi::ResourceState expected = rhi::ResourceState::uploading;
 
@@ -195,8 +199,9 @@ rhi::ResourceRHI& VulkanRHI::uploadMesh(rhi::UploadMeshRHI meshInfo) {
 
         vmaUnmapMemory(_vmaAllocator, stagingBuffer.allocation);
 
-        immediateSubmit([this, &stagingBuffer, &mesh, info,
-                         totalIndexBufferSize](VkCommandBuffer cmd) {
+        immediateSubmit(_transferQueueFamilyIndex, [this, &stagingBuffer, &mesh,
+                                                    info, totalIndexBufferSize](
+                                                       VkCommandBuffer cmd) {
           VkBufferCopy vkVertexBufferCopy = {};
           vkVertexBufferCopy.srcOffset = 0;
           vkVertexBufferCopy.dstOffset = 0;
@@ -526,37 +531,48 @@ void VulkanRHI::updateExtent(rhi::WindowExtentRHI newExtent) {
 }
 
 void VulkanRHI::immediateSubmit(
+    std::uint32_t queueInd,
     std::function<void(VkCommandBuffer cmd)>&& function) {
-  thread_local ImmediateSubmitContext immediateSubmitContext;
+  thread_local std::unordered_map<std::uint32_t, ImmediateSubmitContext>
+      immediateSubmitContext;
+  thread_local bool contextsInitialized = false;
 
-  if (!immediateSubmitContext.initialized) {
-    initImmediateSubmitContext(immediateSubmitContext);
-    immediateSubmitContext.initialized = true;
+  if (!contextsInitialized) {
+    for (auto const& q : _gpuQueues) {
+      initImmediateSubmitContext(immediateSubmitContext[q.first], q.first);
+    }
+
+    contextsInitialized = true;
   }
 
   VkCommandBufferBeginInfo commandBufferBeginInfo =
       vkinit::commandBufferBeginInfo(
           VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
-  VK_CHECK(vkBeginCommandBuffer(immediateSubmitContext.vkCommandBuffer,
-                                &commandBufferBeginInfo));
+  VK_CHECK(
+      vkBeginCommandBuffer(immediateSubmitContext[queueInd].vkCommandBuffer,
+                           &commandBufferBeginInfo));
 
-  function(immediateSubmitContext.vkCommandBuffer);
-
-  VK_CHECK(vkEndCommandBuffer(immediateSubmitContext.vkCommandBuffer));
-
-  VkSubmitInfo submit =
-      vkinit::commandBufferSubmitInfo(&immediateSubmitContext.vkCommandBuffer);
-
-  VK_CHECK(vkQueueSubmit(_vkGraphicsQueue, 1, &submit,
-                         immediateSubmitContext.vkFence));
-
-  vkWaitForFences(_vkDevice, 1, &immediateSubmitContext.vkFence, VK_TRUE,
-                  9999999999);
-  vkResetFences(_vkDevice, 1, &immediateSubmitContext.vkFence);
+  function(immediateSubmitContext[queueInd].vkCommandBuffer);
 
   VK_CHECK(
-      vkResetCommandPool(_vkDevice, immediateSubmitContext.vkCommandPool, 0));
+      vkEndCommandBuffer(immediateSubmitContext[queueInd].vkCommandBuffer));
+
+  VkSubmitInfo submit = vkinit::commandBufferSubmitInfo(
+      &immediateSubmitContext[queueInd].vkCommandBuffer);
+
+  {
+    std::scoped_lock l{_gpuQueueMutexes[queueInd]};
+    VK_CHECK(vkQueueSubmit(_gpuQueues[queueInd], 1, &submit,
+                           immediateSubmitContext[queueInd].vkFence));
+  }
+
+  vkWaitForFences(_vkDevice, 1, &immediateSubmitContext[queueInd].vkFence,
+                  VK_TRUE, 9999999999);
+  vkResetFences(_vkDevice, 1, &immediateSubmitContext[queueInd].vkFence);
+
+  VK_CHECK(vkResetCommandPool(
+      _vkDevice, immediateSubmitContext[queueInd].vkCommandPool, 0));
 }
 
 FrameData& VulkanRHI::getCurrentFrameData() {

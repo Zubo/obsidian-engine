@@ -12,6 +12,7 @@
 #include <vulkan/vulkan.h>
 
 #include <cstring>
+#include <mutex>
 #include <numeric>
 
 using namespace obsidian::vk_rhi;
@@ -322,8 +323,11 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   vkSubmitInfo.signalSemaphoreCount = 1;
   vkSubmitInfo.pSignalSemaphores = &currentFrameData.vkRenderSemaphore;
 
-  VK_CHECK(vkQueueSubmit(_vkGraphicsQueue, 1, &vkSubmitInfo,
-                         currentFrameData.vkRenderFence));
+  {
+    std::scoped_lock l{_gpuQueueMutexes[_graphicsQueueFamilyIndex]};
+    VK_CHECK(vkQueueSubmit(_gpuQueues[_graphicsQueueFamilyIndex], 1,
+                           &vkSubmitInfo, currentFrameData.vkRenderFence));
+  }
 
   VkPresentInfoKHR vkPresentInfo = {};
   vkPresentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -337,8 +341,12 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
 
   vkPresentInfo.pImageIndices = &swapchainImageIndex;
 
-  VkResult const presentResult =
-      vkQueuePresentKHR(_vkGraphicsQueue, &vkPresentInfo);
+  VkResult presentResult;
+  {
+    std::scoped_lock l{_gpuQueueMutexes[_graphicsQueueFamilyIndex]};
+    presentResult = vkQueuePresentKHR(_gpuQueues[_graphicsQueueFamilyIndex],
+                                      &vkPresentInfo);
+  }
 
   if (presentResult == VK_ERROR_OUT_OF_DATE_KHR ||
       presentResult == VK_SUBOPTIMAL_KHR) {

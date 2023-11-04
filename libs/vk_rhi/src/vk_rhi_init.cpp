@@ -128,9 +128,15 @@ void VulkanRHI::initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider) {
   _vkPhysicalDevice = vkbPhysicalDevice.physical_device;
   _vkPhysicalDeviceProperties = vkbPhysicalDevice.properties;
 
-  _vkGraphicsQueue = vkbDevice.get_queue(vkb::QueueType::graphics).value();
   _graphicsQueueFamilyIndex =
       vkbDevice.get_queue_index(vkb::QueueType::graphics).value();
+  _gpuQueues[_graphicsQueueFamilyIndex] =
+      vkbDevice.get_queue(vkb::QueueType::graphics).value();
+
+  _transferQueueFamilyIndex =
+      vkbDevice.get_queue_index(vkb::QueueType::transfer).value();
+  _gpuQueues[_transferQueueFamilyIndex] =
+      vkbDevice.get_queue(vkb::QueueType::transfer).value();
 
   VmaAllocatorCreateInfo allocatorInfo = {};
   allocatorInfo.physicalDevice = _vkPhysicalDevice;
@@ -1149,11 +1155,13 @@ void VulkanRHI::initPostProcessingQuad() {
   vmaUnmapMemory(_vmaAllocator, _postProcessingQuadBuffer.allocation);
 }
 
-void VulkanRHI::initImmediateSubmitContext(ImmediateSubmitContext& context) {
+void VulkanRHI::initImmediateSubmitContext(ImmediateSubmitContext& context,
+                                           std::uint32_t queueInd) {
   context.device = _vkDevice;
+  context.queueInd = queueInd;
 
   VkCommandPoolCreateInfo uploadCommandPoolCreateInfo =
-      vkinit::commandPoolCreateInfo(_graphicsQueueFamilyIndex);
+      vkinit::commandPoolCreateInfo(queueInd);
 
   VK_CHECK(vkCreateCommandPool(_vkDevice, &uploadCommandPoolCreateInfo, nullptr,
                                &context.vkCommandPool));
@@ -1170,4 +1178,6 @@ void VulkanRHI::initImmediateSubmitContext(ImmediateSubmitContext& context) {
 
   vkCreateFence(_vkDevice, &immediateSubmitContextFenceCreateInfo, nullptr,
                 &context.vkFence);
+
+  context.initialized = true;
 }
