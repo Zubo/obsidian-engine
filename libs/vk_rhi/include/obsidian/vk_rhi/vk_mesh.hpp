@@ -1,5 +1,6 @@
 #pragma once
 
+#include <obsidian/rhi/resource_rhi.hpp>
 #include <obsidian/vk_rhi/vk_types.hpp>
 
 #include <glm/vec2.hpp>
@@ -29,6 +30,7 @@ struct Mesh {
   VkDeviceSize indexCount;
   AllocatedBuffer indexBuffer;
   std::vector<std::size_t> indexBufferSizes;
+  rhi::ResourceRHI resource;
 };
 
 } /*namespace obsidian::vk_rhi*/

@@ -92,7 +92,6 @@ void RuntimeResourceManager::uploadInitRHIResources() {
 
 void RuntimeResourceManager::cleanup() {
   if (_runtimeResources.size()) {
-    _rhi->waitDeviceIdle();
     _runtimeResources.clear();
   }
 }

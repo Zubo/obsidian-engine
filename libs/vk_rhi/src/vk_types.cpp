@@ -7,6 +7,13 @@
 
 namespace obsidian::vk_rhi {
 
+ImmediateSubmitContext::~ImmediateSubmitContext() {
+  if (initialized) {
+    vkDestroyCommandPool(device, vkCommandPool, nullptr);
+    vkDestroyFence(device, vkFence, nullptr);
+  }
+}
+
 VkFormat getVkTextureFormat(core::TextureFormat format) {
   switch (format) {
   case core::TextureFormat::R8G8B8A8_SRGB:

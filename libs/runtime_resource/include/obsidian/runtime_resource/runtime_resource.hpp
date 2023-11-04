@@ -4,7 +4,7 @@
 #include <obsidian/rhi/resource_rhi.hpp>
 
 #include <filesystem>
-#include <optional>
+#include <memory>
 
 namespace obsidian::rhi {
 
@@ -29,6 +29,7 @@ public:
 
   bool loadAsset();
   void releaseAsset();
+  rhi::ResourceState getResourceState();
   rhi::ResourceIdRHI uploadToRHI();
   void unloadFromRHI();
   rhi::ResourceIdRHI getResourceIdRHI() const;
@@ -39,8 +40,8 @@ private:
   RuntimeResourceManager& _runtimeResourceManager;
   rhi::RHI& _rhi;
   std::filesystem::path _path;
-  std::optional<asset::Asset> _asset;
-  rhi::ResourceIdRHI _resourceIdRHI = rhi::rhiIdUninitialized;
+  std::shared_ptr<asset::Asset> _asset;
+  rhi::ResourceRHI* _resourceRHI = nullptr;
   ReleaseRHIResource _releaseFunc = nullptr;
 };
 

@@ -64,4 +64,8 @@ void TaskExecutor::shutdown() {
   for (std::thread& t : _threads) {
     t.join();
   }
+
+  _shutdownComplete = true;
 }
+
+bool TaskExecutor::shutdownComplete() const { return _shutdownComplete; }

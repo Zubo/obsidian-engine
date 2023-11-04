@@ -3,6 +3,7 @@
 #include <obsidian/renderdoc/renderdoc.hpp>
 #include <obsidian/rhi/resource_rhi.hpp>
 #include <obsidian/rhi/rhi.hpp>
+#include <obsidian/task/task_executor.hpp>
 #include <obsidian/vk_rhi/vk_check.hpp>
 #include <obsidian/vk_rhi/vk_descriptors.hpp>
 #include <obsidian/vk_rhi/vk_framebuffer.hpp>
@@ -26,10 +27,16 @@
 using namespace obsidian::vk_rhi;
 
 void VulkanRHI::init(rhi::WindowExtentRHI extent,
-                     rhi::ISurfaceProviderRHI const& surfaceProvider) {
+                     rhi::ISurfaceProviderRHI const& surfaceProvider,
+                     task::TaskExecutor& taskExecutor) {
+  _taskExecutor = &taskExecutor;
+
   renderdoc::initRenderdoc();
 
   initVulkan(surfaceProvider);
+
+  _deletionQueue.pushFunction([this]() { destroyUnreferencedResources(); });
+
   initSwapchain(extent);
   initCommands();
   initMainRenderPass();
@@ -63,16 +70,14 @@ void VulkanRHI::init(rhi::WindowExtentRHI extent,
 void VulkanRHI::initResources(rhi::InitResourcesRHI const& initResources) {
   assert(IsInitialized);
 
-  _depthPassShaderId = uploadShader(initResources.shadowPassShader);
-  _ssaoShaderId = uploadShader(initResources.ssaoShader);
-  _postProcessingShaderId = uploadShader(initResources.postProcessingShader);
+  _depthPassShaderId = uploadShader(initResources.shadowPassShader).id;
+  _ssaoShaderId = uploadShader(initResources.ssaoShader).id;
+  _postProcessingShaderId = uploadShader(initResources.postProcessingShader).id;
 
   _deletionQueue.pushFunction([this]() {
-    vkDestroyShaderModule(_vkDevice, _shaderModules[_depthPassShaderId],
-                          nullptr);
-    vkDestroyShaderModule(_vkDevice, _shaderModules[_ssaoShaderId], nullptr);
-    vkDestroyShaderModule(_vkDevice, _shaderModules[_postProcessingShaderId],
-                          nullptr);
+    releaseShader(_depthPassShaderId);
+    releaseShader(_ssaoShaderId);
+    releaseShader(_postProcessingShaderId);
   });
 
   initDepthPrepassPipeline();
@@ -180,23 +185,6 @@ void VulkanRHI::initCommands() {
     VK_CHECK(vkAllocateCommandBuffers(_vkDevice, &vkCommandBufferAllocateInfo,
                                       &frameData.vkCommandBuffer));
   }
-
-  VkCommandPoolCreateInfo uploadCommandPoolCreateInfo =
-      vkinit::commandPoolCreateInfo(_graphicsQueueFamilyIndex);
-
-  VK_CHECK(vkCreateCommandPool(_vkDevice, &uploadCommandPoolCreateInfo, nullptr,
-                               &_immediateSubmitContext.vkCommandPool));
-  _deletionQueue.pushFunction([this]() {
-    vkDestroyCommandPool(_vkDevice, _immediateSubmitContext.vkCommandPool,
-                         nullptr);
-  });
-
-  VkCommandBufferAllocateInfo const vkImmediateSubmitCommandBufferAllocateInfo =
-      vkinit::commandBufferAllocateInfo(_immediateSubmitContext.vkCommandPool);
-
-  VK_CHECK(vkAllocateCommandBuffers(_vkDevice,
-                                    &vkImmediateSubmitCommandBufferAllocateInfo,
-                                    &_immediateSubmitContext.vkCommandBuffer));
 }
 
 void VulkanRHI::initMainRenderPass() {
@@ -388,16 +376,6 @@ void VulkanRHI::initSyncStructures() {
       vkDestroySemaphore(_vkDevice, frameData.vkPresentSemaphore, nullptr);
     });
   }
-
-  VkFenceCreateInfo immediateSubmitContextFenceCreateInfo =
-      vkinit::fenceCreateInfo();
-
-  vkCreateFence(_vkDevice, &immediateSubmitContextFenceCreateInfo, nullptr,
-                &_immediateSubmitContext.vkFence);
-
-  _deletionQueue.pushFunction([this]() {
-    vkDestroyFence(_vkDevice, _immediateSubmitContext.vkFence, nullptr);
-  });
 }
 
 void VulkanRHI::initMainPipelineAndLayouts() {
@@ -544,7 +522,8 @@ void VulkanRHI::initShadowPassPipeline() {
   VertexInputDescription shadowPassVertexInputDescription =
       Vertex::getVertexInputDescription(true, false, false, false, false);
 
-  VkShaderModule const shaderModule = _shaderModules[_depthPassShaderId];
+  VkShaderModule const shaderModule =
+      _shaderModules[_depthPassShaderId].vkShaderModule;
   pipelineBuilder._vkShaderStageCreateInfos.push_back(
       vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT,
                                             shaderModule));
@@ -584,7 +563,8 @@ void VulkanRHI::initDepthPrepassPipeline() {
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
 
-  VkShaderModule const shaderModule = _shaderModules[_depthPassShaderId];
+  VkShaderModule const shaderModule =
+      _shaderModules[_depthPassShaderId].vkShaderModule;
   pipelineBuilder._vkShaderStageCreateInfos.push_back(
       vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT,
                                             shaderModule));
@@ -606,7 +586,8 @@ void VulkanRHI::initDepthPrepassPipeline() {
 void VulkanRHI::initSsaoPipeline() {
   PipelineBuilder pipelineBuilder = {};
 
-  VkShaderModule const ssaoShaderModule = _shaderModules[_ssaoShaderId];
+  VkShaderModule const ssaoShaderModule =
+      _shaderModules[_ssaoShaderId].vkShaderModule;
 
   pipelineBuilder._vkShaderStageCreateInfos.reserve(2);
   pipelineBuilder._vkShaderStageCreateInfos.push_back(
@@ -673,11 +654,12 @@ void VulkanRHI::initSsaoPostProcessingPipeline() {
 
   pipelineBuilder._vkShaderStageCreateInfos.push_back(
       vkinit::pipelineShaderStageCreateInfo(
-          VK_SHADER_STAGE_VERTEX_BIT, _shaderModules[_postProcessingShaderId]));
+          VK_SHADER_STAGE_VERTEX_BIT,
+          _shaderModules[_postProcessingShaderId].vkShaderModule));
   pipelineBuilder._vkShaderStageCreateInfos.push_back(
       vkinit::pipelineShaderStageCreateInfo(
           VK_SHADER_STAGE_FRAGMENT_BIT,
-          _shaderModules[_postProcessingShaderId]));
+          _shaderModules[_postProcessingShaderId].vkShaderModule));
 
   pipelineBuilder._vkInputAssemblyCreateInfo =
       vkinit::inputAssemblyCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
@@ -1039,24 +1021,6 @@ void VulkanRHI::initSsaoDescriptors() {
   }
 }
 
-void VulkanRHI::createDepthImage(AllocatedImage& outImage,
-                                 VkImageUsageFlags flags) const {
-  VkExtent3D const depthExtent{_vkbSwapchain.extent.width,
-                               _vkbSwapchain.extent.height, 1};
-
-  VkImageCreateInfo const depthBufferImageCreateInfo =
-      vkinit::imageCreateInfo(flags, depthExtent, _depthFormat);
-
-  VmaAllocationCreateInfo depthImageAllocInfo = {};
-  depthImageAllocInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
-  depthImageAllocInfo.requiredFlags =
-      VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-  vmaCreateImage(_vmaAllocator, &depthBufferImageCreateInfo,
-                 &depthImageAllocInfo, &outImage.vkImage, &outImage.allocation,
-                 nullptr);
-}
-
 void VulkanRHI::initSsaoSamplesAndNoise() {
   constexpr const std::size_t sampleCount = 64;
   constexpr const std::size_t noiseCount = 16;
@@ -1106,15 +1070,17 @@ void VulkanRHI::initSsaoSamplesAndNoise() {
   uploadTextureRHI.format = core::TextureFormat::R32G32_SFLOAT;
   uploadTextureRHI.width = 4;
   uploadTextureRHI.height = 4;
-  uploadTextureRHI.unpackFunc = [&noiseVectors](char* dst) {
-    std::memcpy(dst, reinterpret_cast<char*>(noiseVectors.data()),
-                noiseVectors.size() *
-                    sizeof(decltype(noiseVectors)::value_type));
+  uploadTextureRHI.unpackFunc = [noise = std::move(noiseVectors)](char* dst) {
+    std::memcpy(dst, reinterpret_cast<char const*>(noise.data()),
+                noise.size() * sizeof(decltype(noiseVectors)::value_type));
   };
 
-  _ssaoNoiseTextureID = uploadTexture(uploadTextureRHI);
+  (void)noiseVectors;
 
-  _deletionQueue.pushFunction([this]() { unloadTexture(_ssaoNoiseTextureID); });
+  _ssaoNoiseTextureID = uploadTexture(std::move(uploadTextureRHI)).id;
+
+  _deletionQueue.pushFunction(
+      [this]() { releaseTexture(_ssaoNoiseTextureID); });
 
   VkSamplerCreateInfo samplerCreateInfo = vkinit::samplerCreateInfo(
       VK_FILTER_NEAREST, VK_SAMPLER_MIPMAP_MODE_NEAREST,
@@ -1181,4 +1147,27 @@ void VulkanRHI::initPostProcessingQuad() {
               sizeof(quadVertices));
 
   vmaUnmapMemory(_vmaAllocator, _postProcessingQuadBuffer.allocation);
+}
+
+void VulkanRHI::initImmediateSubmitContext(ImmediateSubmitContext& context) {
+  context.device = _vkDevice;
+
+  VkCommandPoolCreateInfo uploadCommandPoolCreateInfo =
+      vkinit::commandPoolCreateInfo(_graphicsQueueFamilyIndex);
+
+  VK_CHECK(vkCreateCommandPool(_vkDevice, &uploadCommandPoolCreateInfo, nullptr,
+                               &context.vkCommandPool));
+
+  VkCommandBufferAllocateInfo const vkImmediateSubmitCommandBufferAllocateInfo =
+      vkinit::commandBufferAllocateInfo(context.vkCommandPool);
+
+  VK_CHECK(vkAllocateCommandBuffers(_vkDevice,
+                                    &vkImmediateSubmitCommandBufferAllocateInfo,
+                                    &context.vkCommandBuffer));
+
+  VkFenceCreateInfo immediateSubmitContextFenceCreateInfo =
+      vkinit::fenceCreateInfo();
+
+  vkCreateFence(_vkDevice, &immediateSubmitContextFenceCreateInfo, nullptr,
+                &context.vkFence);
 }

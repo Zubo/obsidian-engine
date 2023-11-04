@@ -1,6 +1,7 @@
 #pragma once
 
 #include <obsidian/core/texture_format.hpp>
+#include <obsidian/rhi/resource_rhi.hpp>
 #include <obsidian/rhi/rhi.hpp>
 
 #include <glm/matrix.hpp>
@@ -12,6 +13,8 @@
 #include <vector>
 
 namespace obsidian::vk_rhi {
+
+enum class ResourceState { pendingUpload, uploaded, unloaded };
 
 struct VertexInputDescription {
   std::vector<VkVertexInputBindingDescription> bindings;
@@ -29,7 +32,14 @@ struct Material {
   VkPipeline vkPipeline;
   VkPipelineLayout vkPipelineLayout;
   VkDescriptorSet vkDescriptorSet;
+  rhi::ResourceRHI resource;
   bool transparent;
+  std::vector<rhi::ResourceRHI*> resourceDependencies;
+};
+
+struct Shader {
+  VkShaderModule vkShaderModule;
+  rhi::ResourceRHI resource;
 };
 
 struct Mesh;
@@ -130,9 +140,13 @@ struct ShadowPassParams {
 };
 
 struct ImmediateSubmitContext {
+  ~ImmediateSubmitContext();
+
   VkFence vkFence;
   VkCommandPool vkCommandPool;
   VkCommandBuffer vkCommandBuffer;
+  VkDevice device;
+  bool initialized = false;
 };
 
 struct FramebufferImageViews {
@@ -147,6 +161,7 @@ struct AllocatedImage {
 struct Texture {
   AllocatedImage image;
   VkImageView imageView;
+  rhi::ResourceRHI resource;
 };
 
 VkFormat getVkTextureFormat(core::TextureFormat format);

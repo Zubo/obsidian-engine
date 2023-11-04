@@ -54,12 +54,15 @@ public:
 
   void shutdown();
 
+  bool shutdownComplete() const;
+
 private:
   std::unordered_map<TaskType, TaskQueue> _taskQueues;
   std::vector<std::unique_ptr<TaskBase>> _dequeuedTasks;
   std::vector<std::thread> _threads;
   std::mutex taskQueueMutex;
   bool _running = false;
+  bool _shutdownComplete = false;
 };
 
 } /*namespace obsidian::task*/

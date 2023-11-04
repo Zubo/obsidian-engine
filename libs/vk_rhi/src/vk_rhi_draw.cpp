@@ -38,6 +38,8 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   }
   VK_CHECK(vkResetFences(_vkDevice, 1, &currentFrameData.vkRenderFence));
 
+  destroyUnreferencedResources();
+
   uint32_t swapchainImageIndex;
   {
     ZoneScopedN("Acquire Next Image");

@@ -1,3 +1,4 @@
+#include <memory>
 #include <obsidian/asset/asset.hpp>
 #include <obsidian/asset/asset_info.hpp>
 #include <obsidian/asset/asset_io.hpp>
@@ -26,15 +27,16 @@ RuntimeResource::~RuntimeResource() {
 }
 
 void RuntimeResource::unloadFromRHI() {
-  if (_releaseFunc && _resourceIdRHI != rhi::rhiIdUninitialized) {
-    _releaseFunc(_rhi, _resourceIdRHI);
+  if (_releaseFunc && _resourceRHI &&
+      _resourceRHI->state != rhi::ResourceState::invalid) {
+    _releaseFunc(_rhi, _resourceRHI->id);
     _releaseFunc = nullptr;
   }
 }
 
 bool RuntimeResource::loadAsset() {
-  asset::Asset& asset = _asset.emplace();
-  return asset::loadFromFile(_path, asset);
+  _asset = std::make_shared<asset::Asset>();
+  return asset::loadFromFile(_path, *_asset);
 }
 
 void RuntimeResource::releaseAsset() {
@@ -43,16 +45,24 @@ void RuntimeResource::releaseAsset() {
   }
 }
 
+rhi::ResourceState RuntimeResource::getResourceState() {
+  if (_resourceRHI) {
+    return _resourceRHI->state;
+  }
+
+  return rhi::ResourceState::initial;
+}
+
 rhi::ResourceIdRHI RuntimeResource::uploadToRHI() {
-  if (_resourceIdRHI != rhi::rhiIdUninitialized) {
+  if (_resourceRHI && _resourceRHI->state != rhi::ResourceState::initial) {
     // Already initialized
-    return _resourceIdRHI;
+    return _resourceRHI->id;
   }
 
   if (!_asset) {
     if (!loadAsset()) {
       OBS_LOG_ERR("Failed to load asset." + _path.string());
-      return _resourceIdRHI;
+      return rhi::rhiIdUninitialized;
     }
   }
   asset::AssetType const assetType = asset::getAssetType(_asset->type);
@@ -69,13 +79,13 @@ rhi::ResourceIdRHI RuntimeResource::uploadToRHI() {
     uploadMesh.vertexBufferSize = info.vertexBufferSize;
     uploadMesh.indexCount = info.indexCount;
     uploadMesh.indexBufferSizes = info.indexBufferSizes;
-    uploadMesh.unpackFunc = [this, info](char* dst) {
-      asset::unpackAsset(info, _asset->binaryBlob.data(),
-                         _asset->binaryBlob.size(), dst);
+    uploadMesh.unpackFunc = [asset = _asset, info](char* dst) {
+      asset::unpackAsset(info, asset->binaryBlob.data(),
+                         asset->binaryBlob.size(), dst);
     };
-    _resourceIdRHI = _rhi.uploadMesh(uploadMesh);
+    _resourceRHI = &_rhi.uploadMesh(uploadMesh);
     _releaseFunc = [](rhi::RHI& rhi, rhi::ResourceIdRHI id) {
-      rhi.unloadMesh(id);
+      rhi.releaseMesh(id);
     };
     break;
   }
@@ -90,13 +100,15 @@ rhi::ResourceIdRHI RuntimeResource::uploadToRHI() {
     uploadTexture.format = info.format;
     uploadTexture.width = info.width;
     uploadTexture.height = info.height;
-    uploadTexture.unpackFunc = [this, info](char* dst) {
-      asset::unpackAsset(info, _asset->binaryBlob.data(),
-                         _asset->binaryBlob.size(), dst);
+    uploadTexture.unpackFunc = [asset = _asset, info](char* dst) {
+      asset::unpackAsset(info, asset->binaryBlob.data(),
+                         asset->binaryBlob.size(), dst);
     };
-    _resourceIdRHI = _rhi.uploadTexture(uploadTexture);
+
+    _resourceRHI = &_rhi.uploadTexture(std::move(uploadTexture));
+
     _releaseFunc = [](rhi::RHI& rhi, rhi::ResourceIdRHI id) {
-      rhi.unloadTexture(id);
+      rhi.releaseTexture(id);
     };
     break;
   }
@@ -131,9 +143,9 @@ rhi::ResourceIdRHI RuntimeResource::uploadToRHI() {
     uploadMaterial.shininess = info.shininess;
     uploadMaterial.transparent = info.transparent;
 
-    _resourceIdRHI = _rhi.uploadMaterial(uploadMaterial);
+    _resourceRHI = &_rhi.uploadMaterial(uploadMaterial);
     _releaseFunc = [](rhi::RHI& rhi, rhi::ResourceIdRHI id) {
-      rhi.unloadMaterial(id);
+      rhi.releaseMaterial(id);
     };
     break;
   }
@@ -146,14 +158,14 @@ rhi::ResourceIdRHI RuntimeResource::uploadToRHI() {
 
     rhi::UploadShaderRHI uploadShader;
     uploadShader.shaderDataSize = info.unpackedSize;
-    uploadShader.unpackFunc = [this, info](char* dst) {
-      asset::unpackAsset(info, _asset->binaryBlob.data(),
-                         _asset->binaryBlob.size(), dst);
+    uploadShader.unpackFunc = [asset = _asset, info](char* dst) {
+      asset::unpackAsset(info, asset->binaryBlob.data(),
+                         asset->binaryBlob.size(), dst);
     };
 
-    _resourceIdRHI = _rhi.uploadShader(uploadShader);
+    _resourceRHI = &_rhi.uploadShader(uploadShader);
     _releaseFunc = [](rhi::RHI& rhi, rhi::ResourceIdRHI id) {
-      rhi.unloadShader(id);
+      rhi.releaseShader(id);
     };
     break;
   }
@@ -161,11 +173,11 @@ rhi::ResourceIdRHI RuntimeResource::uploadToRHI() {
     OBS_LOG_ERR("Trying to upload unknown asset type");
   }
 
-  return _resourceIdRHI;
+  return _resourceRHI ? _resourceRHI->id : rhi::rhiIdUninitialized;
 }
 
 rhi::ResourceIdRHI RuntimeResource::getResourceIdRHI() const {
-  return _resourceIdRHI;
+  return _resourceRHI ? _resourceRHI->id : rhi::rhiIdUninitialized;
 }
 
 std::filesystem::path RuntimeResource::getRelativePath() const {

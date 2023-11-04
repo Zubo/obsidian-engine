@@ -18,6 +18,7 @@
 #include <vulkan/vulkan.h>
 
 #include <array>
+#include <atomic>
 #include <cstdint>
 #include <functional>
 #include <optional>
@@ -40,7 +41,8 @@ public:
   int FrameNumber{0};
 
   void init(rhi::WindowExtentRHI extent,
-            rhi::ISurfaceProviderRHI const& surfaceProvider) override;
+            rhi::ISurfaceProviderRHI const& surfaceProvider,
+            task::TaskExecutor& taskExecutor) override;
 
   void initResources(rhi::InitResourcesRHI const& initResources) override;
 
@@ -54,24 +56,25 @@ public:
 
   void updateExtent(rhi::WindowExtentRHI newExtent) override;
 
-  rhi::ResourceIdRHI
-  uploadTexture(rhi::UploadTextureRHI const& uploadTextureInfoRHI) override;
+  rhi::ResourceRHI&
+  uploadTexture(rhi::UploadTextureRHI uploadTextureInfoRHI) override;
 
-  void unloadTexture(rhi::ResourceIdRHI resourceIdRHI) override;
+  void releaseTexture(rhi::ResourceIdRHI resourceIdRHI) override;
 
-  rhi::ResourceIdRHI uploadMesh(rhi::UploadMeshRHI const& meshInfo) override;
+  rhi::ResourceRHI& uploadMesh(rhi::UploadMeshRHI meshInfo) override;
 
-  void unloadMesh(rhi::ResourceIdRHI resourceIdRHI) override;
+  void releaseMesh(rhi::ResourceIdRHI resourceIdRHI) override;
 
-  rhi::ResourceIdRHI
-  uploadShader(rhi::UploadShaderRHI const& uploadShader) override;
+  rhi::ResourceRHI& uploadShader(rhi::UploadShaderRHI uploadShader) override;
 
-  void unloadShader(rhi::ResourceIdRHI resourceIdRHI) override;
+  void releaseShader(rhi::ResourceIdRHI resourceIdRHI) override;
 
-  rhi::ResourceIdRHI
-  uploadMaterial(rhi::UploadMaterialRHI const& uploadMaterial) override;
+  rhi::ResourceRHI&
+  uploadMaterial(rhi::UploadMaterialRHI uploadMaterial) override;
 
-  void unloadMaterial(rhi::ResourceIdRHI resourceIdRHI) override;
+  void releaseMaterial(rhi::ResourceIdRHI resourceIdRHI) override;
+
+  void destroyUnreferencedResources();
 
   void submitDrawCall(rhi::DrawCall const& drawCall) override;
 
@@ -82,6 +85,8 @@ public:
   void setSurface(VkSurfaceKHR surface);
 
 private:
+  task::TaskExecutor* _taskExecutor = nullptr;
+
   // Instance
   VkInstance _vkInstance;
   VkPhysicalDevice _vkPhysicalDevice;
@@ -160,15 +165,14 @@ private:
   AllocatedBuffer _lightDataBuffer;
   VkDescriptorSet _vkGlobalDescriptorSet;
   VkDescriptorSet _emptyDescriptorSet;
-  ImmediateSubmitContext _immediateSubmitContext;
   VkSampler _vkLinearRepeatSampler;
   VkSampler _vkDepthSampler;
 
   // Resources
-  rhi::ResourceIdRHI _nextResourceId = 0;
+  std::atomic<rhi::ResourceIdRHI> _nextResourceId = 0;
   std::unordered_map<rhi::ResourceIdRHI, Texture> _textures;
   std::unordered_map<rhi::ResourceIdRHI, Mesh> _meshes;
-  std::unordered_map<rhi::ResourceIdRHI, VkShaderModule> _shaderModules;
+  std::unordered_map<rhi::ResourceIdRHI, Shader> _shaderModules;
   std::unordered_map<core::MaterialType, PipelineBuilder> _pipelineBuilders;
   std::unordered_map<rhi::ResourceIdRHI, Material> _materials;
   rhi::ResourceIdRHI _emptyFragShaderId;
@@ -204,6 +208,7 @@ private:
   void initPostProcessingSampler();
   void initSsaoPostProcessingDescriptors();
   void initPostProcessingQuad();
+  void initImmediateSubmitContext(ImmediateSubmitContext& context);
   void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
   void uploadMesh(Mesh& mesh);
   void applyPendingExtentUpdate();
@@ -264,8 +269,6 @@ private:
   GPUCameraData
   getSceneCameraData(rhi::SceneGlobalParams const& sceneParams) const;
   GPULightData getGPULightData() const;
-  void createDepthImage(AllocatedImage& outImage,
-                        VkImageUsageFlags flags) const;
 };
 
 } /*namespace obsidian::vk_rhi*/

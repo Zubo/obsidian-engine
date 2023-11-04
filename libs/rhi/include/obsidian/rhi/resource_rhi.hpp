@@ -5,6 +5,7 @@
 
 #include <glm/glm.hpp>
 
+#include <atomic>
 #include <cstdint>
 #include <functional>
 #include <vector>
@@ -12,8 +13,15 @@
 namespace obsidian::rhi {
 
 using ResourceIdRHI = std::int64_t;
-
 constexpr ResourceIdRHI rhiIdUninitialized = ~0;
+
+enum class ResourceState { initial, uploading, uploaded, invalid };
+
+struct ResourceRHI {
+  ResourceIdRHI id = rhi::rhiIdUninitialized;
+  std::atomic<ResourceState> state = ResourceState::initial;
+  std::atomic<std::size_t> refCount = 0;
+};
 
 struct UploadTextureRHI {
   core::TextureFormat format;

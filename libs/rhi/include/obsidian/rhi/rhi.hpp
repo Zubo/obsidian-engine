@@ -2,6 +2,7 @@
 
 #include <obsidian/rhi/resource_rhi.hpp>
 #include <obsidian/rhi/submit_types_rhi.hpp>
+#include <obsidian/task/task_executor.hpp>
 
 #include <cstdint>
 
@@ -23,7 +24,8 @@ public:
   virtual ~RHI() = default;
 
   virtual void init(WindowExtentRHI extent,
-                    ISurfaceProviderRHI const& surfaceProvider) = 0;
+                    ISurfaceProviderRHI const& surfaceProvider,
+                    task::TaskExecutor& taskExecutor) = 0;
 
   virtual void initResources(InitResourcesRHI const& initResources) = 0;
 
@@ -31,24 +33,21 @@ public:
 
   virtual void cleanup() = 0;
 
-  virtual void draw(rhi::SceneGlobalParams const& sceneGlobalParams) = 0;
+  virtual void draw(SceneGlobalParams const& sceneGlobalParams) = 0;
 
-  virtual void updateExtent(rhi::WindowExtentRHI extent) = 0;
+  virtual void updateExtent(WindowExtentRHI extent) = 0;
 
-  virtual rhi::ResourceIdRHI
-  uploadTexture(UploadTextureRHI const& uploadTexture) = 0;
-  virtual void unloadTexture(rhi::ResourceIdRHI) = 0;
+  virtual ResourceRHI& uploadTexture(UploadTextureRHI uploadTexture) = 0;
+  virtual void releaseTexture(ResourceIdRHI) = 0;
 
-  virtual rhi::ResourceIdRHI uploadMesh(UploadMeshRHI const& uploadMesh) = 0;
-  virtual void unloadMesh(rhi::ResourceIdRHI) = 0;
+  virtual ResourceRHI& uploadMesh(UploadMeshRHI uploadMesh) = 0;
+  virtual void releaseMesh(ResourceIdRHI) = 0;
 
-  virtual rhi::ResourceIdRHI
-  uploadShader(UploadShaderRHI const& uploadShader) = 0;
-  virtual void unloadShader(rhi::ResourceIdRHI) = 0;
+  virtual ResourceRHI& uploadShader(UploadShaderRHI uploadShader) = 0;
+  virtual void releaseShader(ResourceIdRHI) = 0;
 
-  virtual rhi::ResourceIdRHI
-  uploadMaterial(UploadMaterialRHI const& uploadMaterial) = 0;
-  virtual void unloadMaterial(rhi::ResourceIdRHI) = 0;
+  virtual ResourceRHI& uploadMaterial(UploadMaterialRHI uploadMaterial) = 0;
+  virtual void releaseMaterial(ResourceIdRHI) = 0;
 
   virtual void submitDrawCall(DrawCall const& drawCall) = 0;
 

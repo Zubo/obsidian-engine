@@ -5,6 +5,7 @@
 #include <obsidian/rhi/resource_rhi.hpp>
 #include <obsidian/rhi/rhi.hpp>
 #include <obsidian/rhi/submit_types_rhi.hpp>
+#include <obsidian/task/task_type.hpp>
 #include <obsidian/vk_rhi/vk_check.hpp>
 #include <obsidian/vk_rhi/vk_deletion_queue.hpp>
 #include <obsidian/vk_rhi/vk_descriptors.hpp>
@@ -22,39 +23,25 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <mutex>
 #include <numeric>
 #include <optional>
 #include <variant>
+#include <vulkan/vulkan_core.h>
 
 using namespace obsidian;
 using namespace obsidian::vk_rhi;
 
 void VulkanRHI::waitDeviceIdle() const { vkDeviceWaitIdle(_vkDevice); }
 
-rhi::ResourceIdRHI
-VulkanRHI::uploadTexture(rhi::UploadTextureRHI const& uploadTextureInfoRHI) {
-
-  std::size_t const size =
-      uploadTextureInfoRHI.width * uploadTextureInfoRHI.height *
-      core::getFormatPixelSize(uploadTextureInfoRHI.format);
-
-  AllocatedBuffer stagingBuffer = createBuffer(
-      size, VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
-
-      VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
-
-  void* mappedMemory;
-  vmaMapMemory(_vmaAllocator, stagingBuffer.allocation, &mappedMemory);
-
-  {
-    ZoneScopedN("Upload Texture");
-    uploadTextureInfoRHI.unpackFunc(reinterpret_cast<char*>(mappedMemory));
-  }
-
-  vmaUnmapMemory(_vmaAllocator, stagingBuffer.allocation);
-
+rhi::ResourceRHI&
+VulkanRHI::uploadTexture(rhi::UploadTextureRHI uploadTextureInfoRHI) {
   rhi::ResourceIdRHI const newResourceId = consumeNewResourceId();
   Texture& newTexture = _textures[newResourceId];
+
+  newTexture.resource.id = newResourceId;
+  newTexture.resource.state = rhi::ResourceState::uploading;
+  newTexture.resource.refCount = 1;
 
   VkImageUsageFlags const imageUsageFlags =
       VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
@@ -75,42 +62,6 @@ VulkanRHI::uploadTexture(rhi::UploadTextureRHI const& uploadTextureInfoRHI) {
                           &imgAllocationCreateInfo, &newTexture.image.vkImage,
                           &newTexture.image.allocation, nullptr));
 
-  immediateSubmit([this, &extent, &newTexture,
-                   &stagingBuffer](VkCommandBuffer cmd) {
-    VkImageMemoryBarrier vkImgBarrierToTransfer = vkinit::layoutImageBarrier(
-        newTexture.image.vkImage, VK_IMAGE_LAYOUT_UNDEFINED,
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    vkImgBarrierToTransfer.srcAccessMask = VK_ACCESS_NONE;
-    vkImgBarrierToTransfer.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-
-    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                         VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
-                         nullptr, 1, &vkImgBarrierToTransfer);
-
-    VkBufferImageCopy vkBufferImgCopy = {};
-    vkBufferImgCopy.imageExtent = extent;
-    vkBufferImgCopy.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    vkBufferImgCopy.imageSubresource.layerCount = 1;
-
-    vkCmdCopyBufferToImage(cmd, stagingBuffer.buffer, newTexture.image.vkImage,
-                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1,
-                           &vkBufferImgCopy);
-
-    VkImageMemoryBarrier vkImageBarrierToRead = vkinit::layoutImageBarrier(
-        newTexture.image.vkImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-
-    vkImageBarrierToRead.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    vkImageBarrierToRead.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr,
-                         0, nullptr, 1, &vkImageBarrierToRead);
-  });
-
-  vmaDestroyBuffer(_vmaAllocator, stagingBuffer.buffer,
-                   stagingBuffer.allocation);
-
   VkImageViewCreateInfo imageViewCreateInfo = vkinit::imageViewCreateInfo(
       newTexture.image.vkImage, getVkTextureFormat(uploadTextureInfoRHI.format),
       VK_IMAGE_ASPECT_COLOR_BIT);
@@ -118,47 +69,105 @@ VulkanRHI::uploadTexture(rhi::UploadTextureRHI const& uploadTextureInfoRHI) {
   VK_CHECK(vkCreateImageView(_vkDevice, &imageViewCreateInfo, nullptr,
                              &newTexture.imageView));
 
-  return newResourceId;
+  assert(_taskExecutor);
+
+  _taskExecutor->enqueue(
+      task::TaskType::rhiUpload,
+      [this, &newTexture, extent, info = std::move(uploadTextureInfoRHI)]() {
+        std::size_t const size =
+            info.width * info.height * core::getFormatPixelSize(info.format);
+
+        AllocatedBuffer stagingBuffer = createBuffer(
+            size, VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+            VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
+
+            VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+
+        void* mappedMemory;
+        vmaMapMemory(_vmaAllocator, stagingBuffer.allocation, &mappedMemory);
+
+        {
+          ZoneScopedN("Upload Texture");
+          info.unpackFunc(reinterpret_cast<char*>(mappedMemory));
+        }
+
+        vmaUnmapMemory(_vmaAllocator, stagingBuffer.allocation);
+
+        immediateSubmit([this, &extent, &newTexture,
+                         &stagingBuffer](VkCommandBuffer cmd) {
+          VkImageMemoryBarrier vkImgBarrierToTransfer =
+              vkinit::layoutImageBarrier(newTexture.image.vkImage,
+                                         VK_IMAGE_LAYOUT_UNDEFINED,
+                                         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                         VK_IMAGE_ASPECT_COLOR_BIT);
+          vkImgBarrierToTransfer.srcAccessMask = VK_ACCESS_NONE;
+          vkImgBarrierToTransfer.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+          vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                               VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
+                               nullptr, 1, &vkImgBarrierToTransfer);
+
+          VkBufferImageCopy vkBufferImgCopy = {};
+          vkBufferImgCopy.imageExtent = extent;
+          vkBufferImgCopy.imageSubresource.aspectMask =
+              VK_IMAGE_ASPECT_COLOR_BIT;
+          vkBufferImgCopy.imageSubresource.layerCount = 1;
+
+          vkCmdCopyBufferToImage(
+              cmd, stagingBuffer.buffer, newTexture.image.vkImage,
+              VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &vkBufferImgCopy);
+
+          VkImageMemoryBarrier vkImageBarrierToRead =
+              vkinit::layoutImageBarrier(
+                  newTexture.image.vkImage,
+                  VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                  VK_IMAGE_ASPECT_COLOR_BIT);
+
+          vkImageBarrierToRead.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+          vkImageBarrierToRead.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+          vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                               VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0,
+                               nullptr, 0, nullptr, 1, &vkImageBarrierToRead);
+        });
+
+        vmaDestroyBuffer(_vmaAllocator, stagingBuffer.buffer,
+                         stagingBuffer.allocation);
+
+        rhi::ResourceState expected = rhi::ResourceState::uploading;
+
+        if (!newTexture.resource.state.compare_exchange_strong(
+                expected, rhi::ResourceState::uploaded)) {
+          OBS_LOG_ERR("Texture resource state expected to be uploading.");
+        }
+      });
+
+  return newTexture.resource;
 }
 
-void VulkanRHI::unloadTexture(rhi::ResourceIdRHI resourceIdRHI) {
-  vkDeviceWaitIdle(_vkDevice);
-
+void VulkanRHI::releaseTexture(rhi::ResourceIdRHI resourceIdRHI) {
   Texture& tex = _textures[resourceIdRHI];
-
-  vkDestroyImageView(_vkDevice, tex.imageView, nullptr);
-  vmaDestroyImage(_vmaAllocator, tex.image.vkImage, tex.image.allocation);
-
-  _textures.erase(resourceIdRHI);
+  --tex.resource.refCount;
 }
 
-rhi::ResourceIdRHI VulkanRHI::uploadMesh(rhi::UploadMeshRHI const& meshInfo) {
-  std::size_t const totalIndexBufferSize = std::accumulate(
-      meshInfo.indexBufferSizes.cbegin(), meshInfo.indexBufferSizes.cend(), 0);
-
-  AllocatedBuffer stagingBuffer = createBuffer(
-      meshInfo.vertexBufferSize + totalIndexBufferSize,
-      VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
-      VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
-
-  void* mappedMemory;
-  vmaMapMemory(_vmaAllocator, stagingBuffer.allocation, &mappedMemory);
-
-  {
-    ZoneScopedN("Unpack Mesh");
-    meshInfo.unpackFunc(reinterpret_cast<char*>(mappedMemory));
-  }
-
-  vmaUnmapMemory(_vmaAllocator, stagingBuffer.allocation);
-
+rhi::ResourceRHI& VulkanRHI::uploadMesh(rhi::UploadMeshRHI meshInfo) {
   rhi::ResourceIdRHI const newResourceId = consumeNewResourceId();
   Mesh& mesh = _meshes[newResourceId];
+  mesh.resource.id = newResourceId;
+  mesh.resource.state = rhi::ResourceState::uploading;
+  mesh.resource.refCount = 1;
+
+  assert(_taskExecutor);
 
   mesh.vertexBuffer = createBuffer(meshInfo.vertexBufferSize,
                                    VK_BUFFER_USAGE_TRANSFER_DST_BIT |
                                        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                                    VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0);
   mesh.vertexCount = meshInfo.vertexCount;
+
+  std::size_t const totalIndexBufferSize = std::accumulate(
+      meshInfo.indexBufferSizes.cbegin(), meshInfo.indexBufferSizes.cend(), 0);
 
   mesh.indexBuffer = createBuffer(totalIndexBufferSize,
                                   VK_BUFFER_USAGE_TRANSFER_DST_BIT |
@@ -168,44 +177,68 @@ rhi::ResourceIdRHI VulkanRHI::uploadMesh(rhi::UploadMeshRHI const& meshInfo) {
   mesh.indexBufferSizes = meshInfo.indexBufferSizes;
   mesh.indexCount = meshInfo.indexCount;
 
-  immediateSubmit([this, &stagingBuffer, &mesh, meshInfo,
-                   totalIndexBufferSize](VkCommandBuffer cmd) {
-    VkBufferCopy vkVertexBufferCopy = {};
-    vkVertexBufferCopy.srcOffset = 0;
-    vkVertexBufferCopy.dstOffset = 0;
-    vkVertexBufferCopy.size = meshInfo.vertexBufferSize;
-    vkCmdCopyBuffer(cmd, stagingBuffer.buffer, mesh.vertexBuffer.buffer, 1,
-                    &vkVertexBufferCopy);
+  _taskExecutor->enqueue(
+      task::TaskType::rhiUpload,
+      [this, totalIndexBufferSize, &mesh, info = std::move(meshInfo)]() {
+        AllocatedBuffer stagingBuffer = createBuffer(
+            info.vertexBufferSize + totalIndexBufferSize,
+            VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
+            VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
 
-    VkBufferCopy vkIndexBufferCopy = {};
-    vkIndexBufferCopy.srcOffset = meshInfo.vertexBufferSize;
-    vkIndexBufferCopy.dstOffset = 0;
-    vkIndexBufferCopy.size = totalIndexBufferSize;
+        void* mappedMemory;
+        vmaMapMemory(_vmaAllocator, stagingBuffer.allocation, &mappedMemory);
 
-    vkCmdCopyBuffer(cmd, stagingBuffer.buffer, mesh.indexBuffer.buffer, 1,
-                    &vkIndexBufferCopy);
-  });
+        {
+          ZoneScopedN("Unpack Mesh");
+          info.unpackFunc(reinterpret_cast<char*>(mappedMemory));
+        }
 
-  vmaDestroyBuffer(_vmaAllocator, stagingBuffer.buffer,
-                   stagingBuffer.allocation);
+        vmaUnmapMemory(_vmaAllocator, stagingBuffer.allocation);
 
-  return newResourceId;
+        immediateSubmit([this, &stagingBuffer, &mesh, info,
+                         totalIndexBufferSize](VkCommandBuffer cmd) {
+          VkBufferCopy vkVertexBufferCopy = {};
+          vkVertexBufferCopy.srcOffset = 0;
+          vkVertexBufferCopy.dstOffset = 0;
+          vkVertexBufferCopy.size = info.vertexBufferSize;
+          vkCmdCopyBuffer(cmd, stagingBuffer.buffer, mesh.vertexBuffer.buffer,
+                          1, &vkVertexBufferCopy);
+
+          VkBufferCopy vkIndexBufferCopy = {};
+          vkIndexBufferCopy.srcOffset = info.vertexBufferSize;
+          vkIndexBufferCopy.dstOffset = 0;
+          vkIndexBufferCopy.size = totalIndexBufferSize;
+
+          vkCmdCopyBuffer(cmd, stagingBuffer.buffer, mesh.indexBuffer.buffer, 1,
+                          &vkIndexBufferCopy);
+        });
+
+        vmaDestroyBuffer(_vmaAllocator, stagingBuffer.buffer,
+                         stagingBuffer.allocation);
+
+        rhi::ResourceState expected = rhi::ResourceState::uploading;
+
+        if (!mesh.resource.state.compare_exchange_strong(
+                expected, rhi::ResourceState::uploaded)) {
+          OBS_LOG_ERR("Mesh resource state expected to be uploading.");
+        }
+      });
+
+  return mesh.resource;
 }
 
-void VulkanRHI::unloadMesh(rhi::ResourceIdRHI resourceIdRHI) {
+void VulkanRHI::releaseMesh(rhi::ResourceIdRHI resourceIdRHI) {
   Mesh& mesh = _meshes[resourceIdRHI];
-
-  vmaDestroyBuffer(_vmaAllocator, mesh.vertexBuffer.buffer,
-                   mesh.vertexBuffer.allocation);
-
-  vmaDestroyBuffer(_vmaAllocator, mesh.indexBuffer.buffer,
-                   mesh.indexBuffer.allocation);
-
-  _meshes.erase(resourceIdRHI);
+  --mesh.resource.refCount;
 }
 
-rhi::ResourceIdRHI
-VulkanRHI::uploadShader(rhi::UploadShaderRHI const& uploadShader) {
+rhi::ResourceRHI& VulkanRHI::uploadShader(rhi::UploadShaderRHI uploadShader) {
+  rhi::ResourceIdRHI newResourceId = consumeNewResourceId();
+  Shader& shader = _shaderModules[newResourceId];
+  shader.resource.id = newResourceId;
+  shader.resource.state = rhi::ResourceState::uploading;
+  shader.resource.refCount = 1;
+
   std::vector<std::uint32_t> buffer(
       (uploadShader.shaderDataSize + sizeof(std::uint32_t) - 1) /
       sizeof(std::uint32_t));
@@ -224,18 +257,20 @@ VulkanRHI::uploadShader(rhi::UploadShaderRHI const& uploadShader) {
   VkShaderModule shaderModule;
   if (vkCreateShaderModule(_vkDevice, &shaderModuleCreateInfo, nullptr,
                            &shaderModule)) {
-    return rhi::rhiIdUninitialized;
+    OBS_LOG_ERR("Failed to load shader.");
+    shader.resource.state = rhi::ResourceState::invalid;
+    return shader.resource;
   }
 
-  rhi::ResourceIdRHI newResourceId = consumeNewResourceId();
-  _shaderModules[newResourceId] = shaderModule;
+  shader.vkShaderModule = shaderModule;
+  shader.resource.state = rhi::ResourceState::uploaded;
 
-  return newResourceId;
+  return shader.resource;
 }
 
-void VulkanRHI::unloadShader(rhi::ResourceIdRHI resourceIdRHI) {
-  VkShaderModule shader = _shaderModules[resourceIdRHI];
-  vkDestroyShaderModule(_vkDevice, shader, nullptr);
+void VulkanRHI::releaseShader(rhi::ResourceIdRHI resourceIdRHI) {
+  Shader& shader = _shaderModules[resourceIdRHI];
+  --shader.resource.refCount;
 }
 
 template <typename MaterialDataT>
@@ -262,30 +297,34 @@ void VulkanRHI::createAndBindMaterialDataBuffer(
                      VK_SHADER_STAGE_FRAGMENT_BIT);
 }
 
-rhi::ResourceIdRHI
-VulkanRHI::uploadMaterial(rhi::UploadMaterialRHI const& uploadMaterial) {
+rhi::ResourceRHI&
+VulkanRHI::uploadMaterial(rhi::UploadMaterialRHI uploadMaterial) {
+  rhi::ResourceIdRHI const newResourceId = consumeNewResourceId();
+  Material& newMaterial = _materials[newResourceId];
+  newMaterial.resource.id = newResourceId;
+  newMaterial.resource.state = rhi::ResourceState::uploading;
+  newMaterial.resource.refCount = 1;
+
   PipelineBuilder& pipelineBuilder =
       _pipelineBuilders[uploadMaterial.materialType];
 
-  VkShaderModule shaderModule = _shaderModules[uploadMaterial.shaderId];
+  Shader& shaderModule = _shaderModules[uploadMaterial.shaderId];
+  ++shaderModule.resource.refCount;
+  newMaterial.resourceDependencies.push_back(&shaderModule.resource);
 
   pipelineBuilder._vkShaderStageCreateInfos.clear();
   pipelineBuilder._vkShaderStageCreateInfos.push_back(
       vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT,
-                                            shaderModule));
+                                            shaderModule.vkShaderModule));
 
   pipelineBuilder._vkShaderStageCreateInfos.push_back(
       vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT,
-                                            shaderModule));
+                                            shaderModule.vkShaderModule));
 
-  rhi::ResourceIdRHI const newResourceId = consumeNewResourceId();
-  Material& newMaterial = _materials[newResourceId];
   newMaterial.vkPipelineLayout = pipelineBuilder._vkPipelineLayout;
   newMaterial.vkPipeline =
       pipelineBuilder.buildPipeline(_vkDevice, _mainRenderPass.vkRenderPass);
   newMaterial.transparent = uploadMaterial.transparent;
-
-  Texture const& diffuseTexture = _textures[uploadMaterial.diffuseTextureId];
 
   DescriptorBuilder builder = DescriptorBuilder::begin(
       _vkDevice, _descriptorAllocator, _descriptorLayoutCache);
@@ -324,6 +363,11 @@ VulkanRHI::uploadMaterial(rhi::UploadMaterialRHI const& uploadMaterial) {
       uploadMaterial.diffuseTextureId != rhi::rhiIdUninitialized;
 
   if (hasDiffuseTex) {
+    Texture& diffuseTexture = _textures[uploadMaterial.diffuseTextureId];
+
+    ++diffuseTexture.resource.refCount;
+    newMaterial.resourceDependencies.push_back(&diffuseTexture.resource);
+
     diffuseTexImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     diffuseTexImageInfo.imageView = diffuseTexture.imageView;
     diffuseTexImageInfo.sampler = _vkLinearRepeatSampler;
@@ -344,8 +388,11 @@ VulkanRHI::uploadMaterial(rhi::UploadMaterialRHI const& uploadMaterial) {
       normalMapTexImageInfo.imageLayout =
           VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
       normalMapTexImageInfo.sampler = _vkLinearRepeatSampler;
-      Texture const& normalMapTexture =
-          _textures[uploadMaterial.normalTextureId];
+      Texture& normalMapTexture = _textures[uploadMaterial.normalTextureId];
+
+      ++normalMapTexture.resource.refCount;
+      newMaterial.resourceDependencies.push_back(&normalMapTexture.resource);
+
       normalMapTexImageInfo.imageView = normalMapTexture.imageView;
 
       builder.bindImage(2, normalMapTexImageInfo,
@@ -359,15 +406,92 @@ VulkanRHI::uploadMaterial(rhi::UploadMaterialRHI const& uploadMaterial) {
 
   builder.build(newMaterial.vkDescriptorSet);
 
-  return newResourceId;
+  rhi::ResourceState expected = rhi::ResourceState::uploading;
+
+  if (!newMaterial.resource.state.compare_exchange_strong(
+          expected, rhi::ResourceState::uploaded)) {
+    OBS_LOG_ERR("Material resource state expected to be uploading.");
+  }
+
+  return newMaterial.resource;
 }
 
-void VulkanRHI::unloadMaterial(rhi::ResourceIdRHI resourceIdRHI) {
+void VulkanRHI::releaseMaterial(rhi::ResourceIdRHI resourceIdRHI) {
   Material& material = _materials[resourceIdRHI];
+  --material.resource.refCount;
 
-  vkDeviceWaitIdle(_vkDevice);
+  if (material.resource.refCount == 0) {
+    for (rhi::ResourceRHI* dep : material.resourceDependencies) {
+      --(dep->refCount);
+    }
+  }
+}
 
-  vkDestroyPipeline(_vkDevice, material.vkPipeline, nullptr);
+void VulkanRHI::destroyUnreferencedResources() {
+  std::vector<rhi::ResourceIdRHI> eraseIds;
+
+  // clear materials
+  for (auto& mat : _materials) {
+    if (!mat.second.resource.refCount) {
+      vkDestroyPipeline(_vkDevice, mat.second.vkPipeline, nullptr);
+      eraseIds.push_back(mat.second.resource.id);
+    }
+  }
+
+  for (rhi::ResourceIdRHI id : eraseIds) {
+    _materials.erase(id);
+  }
+
+  eraseIds.clear();
+
+  // clear textures
+  for (auto& tex : _textures) {
+    if (!tex.second.resource.refCount) {
+      vkDestroyImageView(_vkDevice, tex.second.imageView, nullptr);
+      vmaDestroyImage(_vmaAllocator, tex.second.image.vkImage,
+                      tex.second.image.allocation);
+      eraseIds.push_back(tex.second.resource.id);
+    }
+  }
+
+  for (rhi::ResourceIdRHI id : eraseIds) {
+    _textures.erase(id);
+  }
+
+  eraseIds.clear();
+
+  // clear shaders
+  for (auto& shader : _shaderModules) {
+    if (!shader.second.resource.refCount) {
+      vkDestroyShaderModule(_vkDevice, shader.second.vkShaderModule, nullptr);
+      eraseIds.push_back(shader.second.resource.id);
+    }
+  }
+
+  for (rhi::ResourceIdRHI id : eraseIds) {
+    _shaderModules.erase(id);
+  }
+
+  eraseIds.clear();
+
+  // clear meshes
+  for (auto& mesh : _meshes) {
+    if (!mesh.second.resource.refCount) {
+      vmaDestroyBuffer(_vmaAllocator, mesh.second.vertexBuffer.buffer,
+                       mesh.second.vertexBuffer.allocation);
+
+      vmaDestroyBuffer(_vmaAllocator, mesh.second.indexBuffer.buffer,
+                       mesh.second.indexBuffer.allocation);
+
+      eraseIds.push_back(mesh.second.resource.id);
+    }
+  }
+
+  for (rhi::ResourceIdRHI id : eraseIds) {
+    _meshes.erase(id);
+  }
+
+  eraseIds.clear();
 }
 
 void VulkanRHI::submitDrawCall(rhi::DrawCall const& drawCall) {
@@ -403,28 +527,36 @@ void VulkanRHI::updateExtent(rhi::WindowExtentRHI newExtent) {
 
 void VulkanRHI::immediateSubmit(
     std::function<void(VkCommandBuffer cmd)>&& function) {
+  thread_local ImmediateSubmitContext immediateSubmitContext;
+
+  if (!immediateSubmitContext.initialized) {
+    initImmediateSubmitContext(immediateSubmitContext);
+    immediateSubmitContext.initialized = true;
+  }
+
   VkCommandBufferBeginInfo commandBufferBeginInfo =
       vkinit::commandBufferBeginInfo(
           VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
-  VK_CHECK(vkBeginCommandBuffer(_immediateSubmitContext.vkCommandBuffer,
+  VK_CHECK(vkBeginCommandBuffer(immediateSubmitContext.vkCommandBuffer,
                                 &commandBufferBeginInfo));
 
-  function(_immediateSubmitContext.vkCommandBuffer);
+  function(immediateSubmitContext.vkCommandBuffer);
 
-  VK_CHECK(vkEndCommandBuffer(_immediateSubmitContext.vkCommandBuffer));
+  VK_CHECK(vkEndCommandBuffer(immediateSubmitContext.vkCommandBuffer));
 
   VkSubmitInfo submit =
-      vkinit::commandBufferSubmitInfo(&_immediateSubmitContext.vkCommandBuffer);
+      vkinit::commandBufferSubmitInfo(&immediateSubmitContext.vkCommandBuffer);
 
   VK_CHECK(vkQueueSubmit(_vkGraphicsQueue, 1, &submit,
-                         _immediateSubmitContext.vkFence));
-  vkWaitForFences(_vkDevice, 1, &_immediateSubmitContext.vkFence, VK_TRUE,
+                         immediateSubmitContext.vkFence));
+
+  vkWaitForFences(_vkDevice, 1, &immediateSubmitContext.vkFence, VK_TRUE,
                   9999999999);
-  vkResetFences(_vkDevice, 1, &_immediateSubmitContext.vkFence);
+  vkResetFences(_vkDevice, 1, &immediateSubmitContext.vkFence);
 
   VK_CHECK(
-      vkResetCommandPool(_vkDevice, _immediateSubmitContext.vkCommandPool, 0));
+      vkResetCommandPool(_vkDevice, immediateSubmitContext.vkCommandPool, 0));
 }
 
 FrameData& VulkanRHI::getCurrentFrameData() {
@@ -467,6 +599,7 @@ std::size_t VulkanRHI::getPaddedBufferSize(std::size_t originalSize) const {
 rhi::ResourceIdRHI VulkanRHI::consumeNewResourceId() {
   return _nextResourceId++;
 }
+
 int VulkanRHI::getNextAvailableShadowMapIndex() {
   int next = _submittedDirectionalLights.size() + _submittedSpotlights.size();
 

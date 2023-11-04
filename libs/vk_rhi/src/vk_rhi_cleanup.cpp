@@ -9,6 +9,11 @@ using namespace obsidian::vk_rhi;
 void VulkanRHI::cleanup() {
   if (IsInitialized) {
     renderdoc::deinitRenderdoc();
+
+    assert(_taskExecutor);
+    while (!_taskExecutor->shutdownComplete())
+      ;
+
     vkDeviceWaitIdle(_vkDevice);
 
     _swapchainDeletionQueue.flush();

@@ -1,6 +1,8 @@
+#include <obsidian/asset/material_asset_info.hpp>
 #include <obsidian/core/light_types.hpp>
 #include <obsidian/core/logging.hpp>
 #include <obsidian/obsidian_engine/obsidian_engine.hpp>
+#include <obsidian/rhi/resource_rhi.hpp>
 #include <obsidian/rhi/rhi.hpp>
 #include <obsidian/scene/game_object.hpp>
 #include <obsidian/scene/scene.hpp>
@@ -14,6 +16,7 @@
 #include <tracy/Tracy.hpp>
 #include <vulkan/vulkan.h>
 
+#include <algorithm>
 #include <cmath>
 #include <thread>
 #include <utility>
@@ -31,8 +34,8 @@ bool ObsidianEngine::init(IWindowBackendProvider const& windowBackendProvider,
   unsigned int const nCores = std::thread::hardware_concurrency();
   _context.taskExecutor.initAndRun(
       {{task::TaskType::rhiDraw, 1},
-       {task::TaskType::rhiUpload, 1},
-       {task::TaskType::general, std::max(nCores - 3u, 2u)}});
+       {task::TaskType::rhiUpload, 4},
+       {task::TaskType::general, std::max(nCores - 5u, 2u)}});
 
   // create window
 
@@ -57,7 +60,8 @@ bool ObsidianEngine::init(IWindowBackendProvider const& windowBackendProvider,
   rhi::WindowExtentRHI extent;
   extent.width = windowParams.width;
   extent.height = windowParams.height;
-  _context.vulkanRHI.init(extent, _context.window.getWindowBackend());
+  _context.vulkanRHI.init(extent, _context.window.getWindowBackend(),
+                          _context.taskExecutor);
 
   _context.inputContext.windowEventEmitter.subscribeToWindowResizedEvent(
       [this](std::size_t w, std::size_t h) {
@@ -79,13 +83,45 @@ void ObsidianEngine::cleanup() {
   _context.inputContext.mouseMotionEmitter.cleanup();
   _context.inputContext.windowEventEmitter.cleanup();
   _context.resourceManager.cleanup();
+  _context.taskExecutor.shutdown();
   _context.vulkanRHI.cleanup();
 }
 
 void submitDrawCalls(scene::GameObject const& gameObject, rhi::RHI& rhi,
                      glm::mat4 parentTransform) {
   glm::mat4 transform = parentTransform * gameObject.getTransform();
-  if (gameObject.meshResource && gameObject.materialResources.size()) {
+
+  bool meshReady = false;
+
+  if (gameObject.meshResource) {
+    switch (gameObject.meshResource->getResourceState()) {
+    case rhi::ResourceState::initial:
+      gameObject.meshResource->uploadToRHI();
+      break;
+    case rhi::ResourceState::uploaded:
+      meshReady = true;
+      break;
+    default:;
+    }
+  }
+
+  bool materialsReady = false;
+
+  if (gameObject.materialResources.size()) {
+    for (auto& matResource : gameObject.materialResources) {
+      if (matResource->getResourceState() == rhi::ResourceState::initial) {
+        matResource->uploadToRHI();
+      }
+    }
+
+    materialsReady = std::all_of(
+        gameObject.materialResources.cbegin(),
+        gameObject.materialResources.cend(), [](auto const matResPtr) {
+          return matResPtr->getResourceState() == rhi::ResourceState::uploaded;
+        });
+  }
+
+  if (meshReady && materialsReady) {
     rhi::DrawCall drawCall;
 
     for (auto const& materialResource : gameObject.materialResources) {

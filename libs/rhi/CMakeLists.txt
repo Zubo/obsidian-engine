@@ -13,6 +13,7 @@ target_include_directories(RHI
 
 target_link_libraries(RHI
     INTERFACE
-        glm
         Core
+        Task
+        glm
 )
