@@ -17,9 +17,12 @@ using namespace obsidian::runtime_resource;
 
 namespace fs = std::filesystem;
 
-void RuntimeResourceManager::init(rhi::RHI& rhi, project::Project& project) {
+void RuntimeResourceManager::init(rhi::RHI& rhi, project::Project& project,
+                                  task::TaskExecutor& taskExecutor) {
   _rhi = &rhi;
   _project = &project;
+  _taskExecutor = &taskExecutor;
+  _resourceLoader.init(taskExecutor);
 }
 
 void RuntimeResourceManager::uploadInitRHIResources() {
@@ -33,7 +36,6 @@ void RuntimeResourceManager::uploadInitRHIResources() {
   assert(result && "Depth only shader asset failed to load");
 
   asset::ShaderAssetInfo depthShaderAssetInfo;
-  depthShaderAsset.metadata = {};
   result = asset::readShaderAssetInfo(*depthShaderAsset.metadata,
                                       depthShaderAssetInfo);
 
@@ -56,7 +58,6 @@ void RuntimeResourceManager::uploadInitRHIResources() {
   assert(result && "Ssao shader asset failed to load");
 
   asset::ShaderAssetInfo ssaoShaderAssetInfo;
-  ssaoShaderAsset.metadata = {};
   result = asset::readShaderAssetInfo(*ssaoShaderAsset.metadata,
                                       ssaoShaderAssetInfo);
 
@@ -77,7 +78,6 @@ void RuntimeResourceManager::uploadInitRHIResources() {
   assert(result && "Post processing shader asset failed to load");
 
   asset::ShaderAssetInfo postProcessingShaderAssetInfo;
-  postProcessingShaderAsset.metadata = {};
   result = asset::readShaderAssetInfo(*postProcessingShaderAsset.metadata,
                                       postProcessingShaderAssetInfo);
 
@@ -108,7 +108,8 @@ RuntimeResource& RuntimeResourceManager::getResource(fs::path const& path) {
   if (resourceIter == _runtimeResources.cend()) {
     auto const result = _runtimeResources.emplace(
         std::piecewise_construct, std::forward_as_tuple(path),
-        std::forward_as_tuple(_project->getAbsolutePath(path), *this, *_rhi));
+        std::forward_as_tuple(_project->getAbsolutePath(path), *this,
+                              _resourceLoader, *_rhi));
 
     return (*result.first).second;
   }

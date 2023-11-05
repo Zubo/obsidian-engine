@@ -17,37 +17,52 @@ class RHI;
 namespace obsidian::runtime_resource {
 
 class RuntimeResourceManager;
+class RuntimeResourceLoader;
+
+enum class RuntimeResourceState {
+  initial,
+  assetLoading,
+  assetLoaded,
+  uploadingToRhi,
+  uploadedToRhi
+};
 
 class RuntimeResource {
 public:
   RuntimeResource(std::filesystem::path path,
                   RuntimeResourceManager& runtimeResourceManager,
-                  rhi::RHI& rhi);
+                  RuntimeResourceLoader& runtimeResourceLoader, rhi::RHI& rhi);
   RuntimeResource(RuntimeResource const& other) = delete;
 
   ~RuntimeResource();
 
   RuntimeResource& operator=(RuntimeResource const& other) = delete;
 
-  bool loadAsset();
-  void releaseAsset();
-  rhi::ResourceState getResourceState() const;
+  RuntimeResourceState getResourceState() const;
+  bool isResourceReady() const;
   rhi::ResourceIdRHI getResourceId() const;
   void uploadToRHI();
   void unloadFromRHI();
-  rhi::ResourceIdRHI getResourceIdRHI() const;
   std::filesystem::path getRelativePath() const;
-  std::vector<RuntimeResource const*> const& fetchDependencies();
 
 private:
+  bool performAssetLoad();
+  void releaseAsset();
+  void performUploadToRHI();
+  std::vector<RuntimeResource*> const& fetchDependencies();
+
   using ReleaseRHIResource = void (*)(rhi::RHI&, rhi::ResourceIdRHI);
   RuntimeResourceManager& _runtimeResourceManager;
+  RuntimeResourceLoader& _runtimeResourceLoader;
   rhi::RHI& _rhi;
   std::filesystem::path _path;
   std::shared_ptr<asset::Asset> _asset;
   rhi::ResourceRHI* _resourceRHI = nullptr;
   ReleaseRHIResource _releaseFunc = nullptr;
-  std::optional<std::vector<RuntimeResource const*>> _dependencies;
+  std::optional<std::vector<RuntimeResource*>> _dependencies;
+  RuntimeResourceState _resourceState = RuntimeResourceState::initial;
+
+  friend class RuntimeResourceLoader;
 };
 
 } /*namespace obsidian::runtime_resource*/

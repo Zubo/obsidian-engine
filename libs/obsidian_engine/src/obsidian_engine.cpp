@@ -4,6 +4,7 @@
 #include <obsidian/obsidian_engine/obsidian_engine.hpp>
 #include <obsidian/rhi/resource_rhi.hpp>
 #include <obsidian/rhi/rhi.hpp>
+#include <obsidian/runtime_resource/runtime_resource.hpp>
 #include <obsidian/scene/game_object.hpp>
 #include <obsidian/scene/scene.hpp>
 #include <obsidian/task/task_type.hpp>
@@ -34,7 +35,8 @@ bool ObsidianEngine::init(IWindowBackendProvider const& windowBackendProvider,
   unsigned int const nCores = std::thread::hardware_concurrency();
   _context.taskExecutor.initAndRun(
       {{task::TaskType::rhiDraw, 1},
-       {task::TaskType::rhiUpload, 4},
+       {task::TaskType::rhiTransfer, 4},
+       {task::TaskType::rhiUpload, 1},
        {task::TaskType::general, std::max(nCores - 5u, 2u)}});
 
   // create window
@@ -72,7 +74,8 @@ bool ObsidianEngine::init(IWindowBackendProvider const& windowBackendProvider,
       });
 
   _context.scene.init(_context.inputContext);
-  _context.resourceManager.init(_context.vulkanRHI, _context.project);
+  _context.resourceManager.init(_context.vulkanRHI, _context.project,
+                                _context.taskExecutor);
   _context.resourceManager.uploadInitRHIResources();
 
   return true;
@@ -93,15 +96,15 @@ void submitDrawCalls(scene::GameObject const& gameObject, rhi::RHI& rhi,
 
   bool meshReady = false;
 
-  if (gameObject.meshResource) {
-    switch (gameObject.meshResource->getResourceState()) {
-    case rhi::ResourceState::initial:
-      gameObject.meshResource->uploadToRHI();
-      break;
-    case rhi::ResourceState::uploaded:
+  runtime_resource::RuntimeResource* const meshResource =
+      gameObject.meshResource;
+
+  if (meshResource) {
+    if (meshResource->getResourceState() ==
+        runtime_resource::RuntimeResourceState::initial) {
+      meshResource->uploadToRHI();
+    } else if (meshResource->isResourceReady()) {
       meshReady = true;
-      break;
-    default:;
     }
   }
 
@@ -109,16 +112,16 @@ void submitDrawCalls(scene::GameObject const& gameObject, rhi::RHI& rhi,
 
   if (gameObject.materialResources.size()) {
     for (auto& matResource : gameObject.materialResources) {
-      if (matResource->getResourceState() == rhi::ResourceState::initial) {
+      if (matResource->getResourceState() ==
+          runtime_resource::RuntimeResourceState::initial) {
         matResource->uploadToRHI();
       }
     }
 
     materialsReady = std::all_of(
         gameObject.materialResources.cbegin(),
-        gameObject.materialResources.cend(), [](auto const matResPtr) {
-          return matResPtr->getResourceState() == rhi::ResourceState::uploaded;
-        });
+        gameObject.materialResources.cend(),
+        [](auto const matResPtr) { return matResPtr->isResourceReady(); });
   }
 
   if (meshReady && materialsReady) {

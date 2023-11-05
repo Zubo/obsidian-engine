@@ -67,13 +67,13 @@ bool loadAssetFromFile(fs::path const& path, Asset& outAsset) {
   bool const metadataLoaded = outAsset.metadata.has_value();
 
   if (!metadataLoaded) {
-    outAsset.metadata = {};
+    outAsset.metadata.emplace();
     readAssetMetadata(inputFileStream, *outAsset.metadata);
   } else {
     std::size_t metadataSize =
-        sizeof(AssetMetadata::type) + sizeof(AssetMetadata::version) +
-        sizeof(AssetMetadata::jsonSize) +
-        sizeof(AssetMetadata::binaryBlobSize) + outAsset.metadata->jsonSize;
+        sizeof(AssetMetadata::type) + sizeof(AssetMetadata::jsonSize) +
+        sizeof(AssetMetadata::binaryBlobSize) + sizeof(AssetMetadata::version) +
+        outAsset.metadata->jsonSize;
     inputFileStream.seekg(metadataSize);
   }
 

@@ -87,7 +87,7 @@ void VulkanRHI::uploadTexture(rhi::ResourceIdRHI id,
   assert(_taskExecutor);
 
   _taskExecutor->enqueue(
-      task::TaskType::rhiUpload,
+      task::TaskType::rhiTransfer,
       [this, &newTexture, extent, info = std::move(uploadTextureInfoRHI)]() {
         std::size_t const size =
             info.width * info.height * core::getFormatPixelSize(info.format);
@@ -211,7 +211,7 @@ void VulkanRHI::uploadMesh(rhi::ResourceIdRHI id, rhi::UploadMeshRHI meshInfo) {
   mesh.indexCount = meshInfo.indexCount;
 
   _taskExecutor->enqueue(
-      task::TaskType::rhiUpload,
+      task::TaskType::rhiTransfer,
       [this, totalIndexBufferSize, &mesh, info = std::move(meshInfo)]() {
         AllocatedBuffer stagingBuffer = createBuffer(
             info.vertexBufferSize + totalIndexBufferSize,

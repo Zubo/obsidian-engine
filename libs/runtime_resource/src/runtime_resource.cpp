@@ -1,4 +1,3 @@
-#include <memory>
 #include <obsidian/asset/asset.hpp>
 #include <obsidian/asset/asset_info.hpp>
 #include <obsidian/asset/asset_io.hpp>
@@ -12,13 +11,17 @@
 #include <obsidian/runtime_resource/runtime_resource.hpp>
 #include <obsidian/runtime_resource/runtime_resource_manager.hpp>
 
+#include <memory>
+
 using namespace obsidian;
 using namespace obsidian::runtime_resource;
 
 RuntimeResource::RuntimeResource(std::filesystem::path path,
                                  RuntimeResourceManager& runtimeResourceManager,
+                                 RuntimeResourceLoader& runtimeResourceLoader,
                                  rhi::RHI& rhi)
-    : _runtimeResourceManager(runtimeResourceManager), _rhi{rhi},
+    : _runtimeResourceManager{runtimeResourceManager},
+      _runtimeResourceLoader{runtimeResourceLoader}, _rhi{rhi},
       _path{std::move(path)} {}
 
 RuntimeResource::~RuntimeResource() {
@@ -34,12 +37,46 @@ void RuntimeResource::unloadFromRHI() {
   }
 }
 
-bool RuntimeResource::loadAsset() {
-  if (!_asset || _asset->isLoaded) {
+RuntimeResourceState RuntimeResource::getResourceState() const {
+  return _resourceState;
+}
+
+bool RuntimeResource::isResourceReady() const {
+  return _resourceState == RuntimeResourceState::uploadedToRhi &&
+         _resourceRHI->state == rhi::ResourceState::uploaded;
+}
+
+rhi::ResourceIdRHI RuntimeResource::getResourceId() const {
+  return _resourceRHI ? _resourceRHI->id : rhi::rhiIdUninitialized;
+}
+
+void RuntimeResource::uploadToRHI() {
+  _runtimeResourceLoader.uploadResource(*this);
+}
+
+std::filesystem::path RuntimeResource::getRelativePath() const {
+  return _runtimeResourceManager.getProject().getRelativeToProjectRootPath(
+      _path);
+}
+
+bool RuntimeResource::performAssetLoad() {
+  if (_asset->isLoaded) {
+    return true;
+  }
+
+  _resourceState = RuntimeResourceState::assetLoading;
+
+  if (!_asset) {
     _asset = std::make_shared<asset::Asset>();
   }
 
-  return asset::loadAssetFromFile(_path, *_asset);
+  bool const loadResult = asset::loadAssetFromFile(_path, *_asset);
+
+  if (loadResult) {
+    _resourceState = RuntimeResourceState::assetLoaded;
+  }
+
+  return loadResult;
 }
 
 void RuntimeResource::releaseAsset() {
@@ -48,30 +85,21 @@ void RuntimeResource::releaseAsset() {
   }
 }
 
-rhi::ResourceState RuntimeResource::getResourceState() const {
-  if (_resourceRHI) {
-    return _resourceRHI->state;
-  }
-
-  return rhi::ResourceState::initial;
-}
-
-rhi::ResourceIdRHI RuntimeResource::getResourceId() const {
-  return _resourceRHI ? _resourceRHI->id : rhi::rhiIdUninitialized;
-}
-
-void RuntimeResource::uploadToRHI() {
+void RuntimeResource::performUploadToRHI() {
   if (_resourceRHI && _resourceRHI->state != rhi::ResourceState::initial) {
-    OBS_LOG_WARN("Trying to upload laready uploaded resource.");
+    OBS_LOG_WARN("Trying to upload laready uploaded resource. Resource path: " +
+                 _path.string());
     return;
   }
 
-  if (!_asset) {
-    if (!loadAsset()) {
-      OBS_LOG_ERR("Failed to load asset." + _path.string());
-      return;
-    }
+  if (!_asset || !_asset->isLoaded) {
+    OBS_LOG_ERR("Can't upload resource to RHI before the asset is loaded. "
+                "Resource path: " +
+                _path.string());
+    return;
   }
+
+  _resourceState = RuntimeResourceState::uploadingToRhi;
 
   asset::AssetType const assetType =
       asset::getAssetType(_asset->metadata->type);
@@ -141,11 +169,6 @@ void RuntimeResource::uploadToRHI() {
       RuntimeResource& diffuseTexResource =
           _runtimeResourceManager.getResource(info.diffuseTexturePath);
 
-      if (diffuseTexResource.getResourceState() ==
-          rhi::ResourceState::initial) {
-        diffuseTexResource.uploadToRHI();
-      }
-
       uploadMaterial.diffuseTextureId = diffuseTexResource.getResourceId();
     }
 
@@ -153,19 +176,11 @@ void RuntimeResource::uploadToRHI() {
       RuntimeResource& normalMapResource =
           _runtimeResourceManager.getResource(info.normalMapTexturePath);
 
-      if (normalMapResource.getResourceState() == rhi::ResourceState::initial) {
-        normalMapResource.uploadToRHI();
-      }
-
       uploadMaterial.normalTextureId = normalMapResource.getResourceId();
     }
 
     RuntimeResource& shaderResource =
         _runtimeResourceManager.getResource(info.shaderPath);
-
-    if (shaderResource.getResourceState() == rhi::ResourceState::initial) {
-      shaderResource.uploadToRHI();
-    }
 
     uploadMaterial.shaderId = shaderResource.getResourceId();
 
@@ -206,36 +221,40 @@ void RuntimeResource::uploadToRHI() {
   default:
     OBS_LOG_ERR("Trying to upload unknown asset type");
   }
+
+  _resourceState = RuntimeResourceState::uploadedToRhi;
 }
 
-rhi::ResourceIdRHI RuntimeResource::getResourceIdRHI() const {
-  return _resourceRHI ? _resourceRHI->id : rhi::rhiIdUninitialized;
-}
-
-std::filesystem::path RuntimeResource::getRelativePath() const {
-  return _runtimeResourceManager.getProject().getRelativeToProjectRootPath(
-      _path);
-}
-
-std::vector<RuntimeResource const*> const&
-RuntimeResource::fetchDependencies() {
+std::vector<RuntimeResource*> const& RuntimeResource::fetchDependencies() {
   if (!_dependencies) {
-    _dependencies = {};
+    _dependencies.emplace();
 
     if (!_asset) {
       _asset = std::make_shared<asset::Asset>();
     }
 
     if (!_asset->metadata) {
-      _asset->metadata = {};
+      _asset->metadata.emplace();
       asset::loadAssetMetadataFromFile(_path, *_asset->metadata);
     }
 
     if (asset::getAssetType(_asset->metadata->type) ==
         asset::AssetType::material) {
-      asset::TextureAssetInfo texAssetInfo;
-      // asset::readTextureAssetInfo(const Asset &asset, TextureAssetInfo
-      // &outTextureAssetInfo)
+      asset::MaterialAssetInfo materialAssetInfo;
+      asset::readMaterialAssetInfo(*_asset->metadata, materialAssetInfo);
+
+      if (!materialAssetInfo.diffuseTexturePath.empty()) {
+        _dependencies->push_back(&_runtimeResourceManager.getResource(
+            materialAssetInfo.diffuseTexturePath));
+      }
+
+      if (!materialAssetInfo.normalMapTexturePath.empty()) {
+        _dependencies->push_back(&_runtimeResourceManager.getResource(
+            materialAssetInfo.normalMapTexturePath));
+      }
+
+      _dependencies->push_back(
+          &_runtimeResourceManager.getResource(materialAssetInfo.shaderPath));
     }
   }
 
