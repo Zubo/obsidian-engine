@@ -80,6 +80,8 @@ bool loadAssetFromFile(fs::path const& path, Asset& outAsset) {
   outAsset.binaryBlob.resize(outAsset.metadata->binaryBlobSize);
   inputFileStream.read(outAsset.binaryBlob.data(), outAsset.binaryBlob.size());
 
+  outAsset.isLoaded = true;
+
   return true;
 }
 

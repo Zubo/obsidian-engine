@@ -25,6 +25,7 @@ struct AssetMetadata {
 struct Asset {
   std::optional<AssetMetadata> metadata;
   std::vector<char> binaryBlob;
+  bool isLoaded = false;
 };
 
 AssetType getAssetType(char const typeStr[4]);
