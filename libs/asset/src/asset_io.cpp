@@ -11,6 +11,41 @@ namespace fs = std::filesystem;
 
 namespace obsidian::asset {
 
+void readAssetMetadata(std::ifstream& inputFileStream,
+                       asset::AssetMetadata& outAssetMetadata) {
+  inputFileStream.read(outAssetMetadata.type, std::size(outAssetMetadata.type));
+  inputFileStream.read(reinterpret_cast<char*>(&outAssetMetadata.version),
+                       sizeof(outAssetMetadata.version));
+
+  inputFileStream.read(reinterpret_cast<char*>(&outAssetMetadata.jsonSize),
+                       sizeof(AssetMetadata::SizeType));
+
+  inputFileStream.read(
+      reinterpret_cast<char*>(&outAssetMetadata.binaryBlobSize),
+      sizeof(AssetMetadata::SizeType));
+
+  outAssetMetadata.json.resize(outAssetMetadata.jsonSize);
+  inputFileStream.read(outAssetMetadata.json.data(),
+                       outAssetMetadata.json.length());
+}
+
+bool loadAssetMetadataFromFile(std::filesystem::path const& path,
+                               asset::AssetMetadata& outAssetMetadata) {
+  std::ifstream inputFileStream;
+  inputFileStream.exceptions(std::ios::failbit);
+
+  try {
+    inputFileStream.open(path, std::ios_base::in | std::ios_base::binary);
+  } catch (std::ios_base::failure const& e) {
+    OBS_LOG_ERR(e.what());
+    return false;
+  }
+
+  readAssetMetadata(inputFileStream, outAssetMetadata);
+
+  return true;
+}
+
 bool loadAssetFromFile(fs::path const& path, Asset& outAsset) {
   ZoneScoped;
 
@@ -33,22 +68,7 @@ bool loadAssetFromFile(fs::path const& path, Asset& outAsset) {
 
   if (!metadataLoaded) {
     outAsset.metadata = {};
-
-    inputFileStream.read(outAsset.metadata->type,
-                         std::size(outAsset.metadata->type));
-    inputFileStream.read(reinterpret_cast<char*>(&outAsset.metadata->version),
-                         sizeof(outAsset.metadata->version));
-
-    inputFileStream.read(reinterpret_cast<char*>(&outAsset.metadata->jsonSize),
-                         sizeof(AssetMetadata::SizeType));
-
-    inputFileStream.read(
-        reinterpret_cast<char*>(&outAsset.metadata->binaryBlobSize),
-        sizeof(AssetMetadata::SizeType));
-
-    outAsset.metadata->json.resize(outAsset.metadata->jsonSize);
-    inputFileStream.read(outAsset.metadata->json.data(),
-                         outAsset.metadata->json.length());
+    readAssetMetadata(inputFileStream, *outAsset.metadata);
   } else {
     std::size_t metadataSize =
         sizeof(AssetMetadata::type) + sizeof(AssetMetadata::version) +
