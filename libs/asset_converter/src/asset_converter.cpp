@@ -442,7 +442,7 @@ std::optional<asset::TextureAssetInfo> AssetConverter::getOrCreateTexture(
     std::optional<core::TextureFormat> overrideTextureFormat) {
   if (std::filesystem::exists(dstPath)) {
     asset::Asset asset;
-    if (!asset::loadFromFile(dstPath, asset)) {
+    if (!asset::loadAssetFromFile(dstPath, asset)) {
       return std::nullopt;
     }
 

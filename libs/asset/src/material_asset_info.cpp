@@ -24,7 +24,7 @@ bool readMaterialAssetInfo(Asset const& asset,
   ZoneScoped;
 
   try {
-    nlohmann::json json = nlohmann::json::parse(asset.json);
+    nlohmann::json json = nlohmann::json::parse(asset.metadata->json);
     outMaterialAssetInfo.unpackedSize = json[unpackedSizeJsonName];
     outMaterialAssetInfo.compressionMode = json[compressionModeJsonName];
     outMaterialAssetInfo.materialType = json[materialTypeJsonName];
@@ -57,12 +57,12 @@ bool packMaterial(MaterialAssetInfo const& materialAssetInfo,
                   std::vector<char> materialData, Asset& outAsset) {
   ZoneScoped;
 
-  outAsset.type[0] = 'm';
-  outAsset.type[1] = 'a';
-  outAsset.type[2] = 't';
-  outAsset.type[3] = 'l';
+  outAsset.metadata->type[0] = 'm';
+  outAsset.metadata->type[1] = 'a';
+  outAsset.metadata->type[2] = 't';
+  outAsset.metadata->type[3] = 'l';
 
-  outAsset.version = currentAssetVersion;
+  outAsset.metadata->version = currentAssetVersion;
 
   try {
     nlohmann::json json;
@@ -87,7 +87,7 @@ bool packMaterial(MaterialAssetInfo const& materialAssetInfo,
     json[specularColorJsonName]["a"] = materialAssetInfo.specularColor.a;
     json[transparentJsonName] = materialAssetInfo.transparent;
 
-    outAsset.json = json.dump();
+    outAsset.metadata->json = json.dump();
 
     if (materialAssetInfo.compressionMode == CompressionMode::none) {
       outAsset.binaryBlob = std::move(materialData);

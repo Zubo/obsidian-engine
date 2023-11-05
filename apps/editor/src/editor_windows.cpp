@@ -122,7 +122,8 @@ int indexorDefault(TCollection const& collection, TValue const& val,
 void loadScene(char const scenePath[], scene::SceneState& sceneState,
                ObsidianEngine& engine) {
   asset::Asset sceneAsset;
-  if (!asset::loadFromFile(project.getAbsolutePath(scenePath), sceneAsset)) {
+  if (!asset::loadAssetFromFile(project.getAbsolutePath(scenePath),
+                                sceneAsset)) {
     OBS_LOG_ERR("Failed to load scene asset.");
     return;
   }
@@ -208,7 +209,8 @@ void selectGameObjMesh(int gameObjMeshInd) {
   fs::path const& meshRelativePath = meshesInProj[gameObjMeshInd];
 
   asset::Asset meshAsset;
-  asset::loadFromFile(project.getAbsolutePath(meshRelativePath), meshAsset);
+  asset::loadAssetFromFile(project.getAbsolutePath(meshRelativePath),
+                           meshAsset);
   asset::readMeshAssetInfo(meshAsset, selectedGameObjMeshAssetInfo);
 
   selectedGameObjMats.clear();
@@ -702,8 +704,8 @@ void textureEditorTab() {
 
     auto const loadTextureData = [](fs::path const& texturePath) {
       selectedTextureAsset = {};
-      asset::loadFromFile(project.getAbsolutePath(texturePath),
-                          selectedTextureAsset);
+      asset::loadAssetFromFile(project.getAbsolutePath(texturePath),
+                               selectedTextureAsset);
       selectedTextureAssetInfo = {};
       asset::readTextureAssetInfo(selectedTextureAsset,
                                   selectedTextureAssetInfo);

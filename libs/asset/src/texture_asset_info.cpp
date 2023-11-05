@@ -22,7 +22,7 @@ bool readTextureAssetInfo(Asset const& asset,
   ZoneScoped;
 
   try {
-    nlohmann::json textureJson = nlohmann::json::parse(asset.json);
+    nlohmann::json textureJson = nlohmann::json::parse(asset.metadata->json);
 
     outTextureAssetInfo.unpackedSize = textureJson[unpackedSizeJsonName];
     outTextureAssetInfo.compressionMode = textureJson[compressionModeJsonName];
@@ -42,12 +42,12 @@ bool packTexture(TextureAssetInfo const& textureAssetInfo,
                  void const* pixelData, Asset& outAsset) {
   ZoneScoped;
 
-  outAsset.type[0] = 't';
-  outAsset.type[1] = 'e';
-  outAsset.type[2] = 'x';
-  outAsset.type[3] = 'i';
+  outAsset.metadata->type[0] = 't';
+  outAsset.metadata->type[1] = 'e';
+  outAsset.metadata->type[2] = 'x';
+  outAsset.metadata->type[3] = 'i';
 
-  outAsset.version = currentAssetVersion;
+  outAsset.metadata->version = currentAssetVersion;
 
   if (!updateTextureAssetInfo(textureAssetInfo, outAsset)) {
     return false;
@@ -85,7 +85,7 @@ bool updateTextureAssetInfo(TextureAssetInfo const& textureAssetInfo,
     assetJson[textureHeightJsonName] = textureAssetInfo.height;
     assetJson[transparentJsonName] = textureAssetInfo.transparent;
 
-    outAsset.json = assetJson.dump();
+    outAsset.metadata->json = assetJson.dump();
   } catch (std::exception const& e) {
     OBS_LOG_ERR(e.what());
     return false;

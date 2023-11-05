@@ -15,7 +15,7 @@ bool readShaderAssetInfo(Asset const& asset,
   ZoneScoped;
 
   try {
-    nlohmann::json json = nlohmann::json::parse(asset.json);
+    nlohmann::json json = nlohmann::json::parse(asset.metadata->json);
     outShaderAssetInfo.unpackedSize = json[unpackedSizeJsonName];
     outShaderAssetInfo.compressionMode = json[compressionModeJsonName];
   } catch (std::exception const& e) {
@@ -30,19 +30,19 @@ bool packShader(ShaderAssetInfo const& shaderAssetInfo,
                 std::vector<char> shaderData, Asset& outAsset) {
   ZoneScoped;
 
-  outAsset.type[0] = 's';
-  outAsset.type[1] = 'h';
-  outAsset.type[2] = 'a';
-  outAsset.type[3] = 'd';
+  outAsset.metadata->type[0] = 's';
+  outAsset.metadata->type[1] = 'h';
+  outAsset.metadata->type[2] = 'a';
+  outAsset.metadata->type[3] = 'd';
 
-  outAsset.version = currentAssetVersion;
+  outAsset.metadata->version = currentAssetVersion;
 
   try {
     nlohmann::json json;
     json[unpackedSizeJsonName] = shaderAssetInfo.unpackedSize;
     json[compressionModeJsonName] = shaderAssetInfo.compressionMode;
 
-    outAsset.json = json.dump();
+    outAsset.metadata->json = json.dump();
 
     if (shaderAssetInfo.compressionMode == CompressionMode::none) {
       outAsset.binaryBlob = std::move(shaderData);

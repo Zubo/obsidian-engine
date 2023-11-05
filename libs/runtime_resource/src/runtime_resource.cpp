@@ -36,7 +36,7 @@ void RuntimeResource::unloadFromRHI() {
 
 bool RuntimeResource::loadAsset() {
   _asset = std::make_shared<asset::Asset>();
-  return asset::loadFromFile(_path, *_asset);
+  return asset::loadAssetFromFile(_path, *_asset);
 }
 
 void RuntimeResource::releaseAsset() {
@@ -69,7 +69,9 @@ void RuntimeResource::uploadToRHI() {
       return;
     }
   }
-  asset::AssetType const assetType = asset::getAssetType(_asset->type);
+
+  asset::AssetType const assetType =
+      asset::getAssetType(_asset->metadata->type);
 
   switch (assetType) {
   case asset::AssetType::mesh: {

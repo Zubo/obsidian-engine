@@ -26,7 +26,7 @@ bool readMeshAssetInfo(Asset const& asset, MeshAssetInfo& outMeshAssetInfo) {
   ZoneScoped;
 
   try {
-    nlohmann::json json = nlohmann::json::parse(asset.json);
+    nlohmann::json json = nlohmann::json::parse(asset.metadata->json);
     outMeshAssetInfo.unpackedSize = json[unpackedSizeJsonName];
     outMeshAssetInfo.compressionMode = json[compressionModeJsonName];
     outMeshAssetInfo.vertexCount = json[vertexCountJsonName];
@@ -58,12 +58,12 @@ bool packMeshAsset(MeshAssetInfo const& meshAssetInfo,
                    std::vector<char> meshData, Asset& outAsset) {
   ZoneScoped;
 
-  outAsset.type[0] = 'm';
-  outAsset.type[1] = 'e';
-  outAsset.type[2] = 's';
-  outAsset.type[3] = 'h';
+  outAsset.metadata->type[0] = 'm';
+  outAsset.metadata->type[1] = 'e';
+  outAsset.metadata->type[2] = 's';
+  outAsset.metadata->type[3] = 'h';
 
-  outAsset.version = currentAssetVersion;
+  outAsset.metadata->version = currentAssetVersion;
 
   try {
     nlohmann::json json;
@@ -88,7 +88,7 @@ bool packMeshAsset(MeshAssetInfo const& meshAssetInfo,
       defaultMatPathsJson.push_back(matPath);
     }
 
-    outAsset.json = json.dump();
+    outAsset.metadata->json = json.dump();
 
     if (meshAssetInfo.compressionMode == CompressionMode::none) {
       outAsset.binaryBlob = std::move(meshData);

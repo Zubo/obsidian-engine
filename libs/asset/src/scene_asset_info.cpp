@@ -17,8 +17,10 @@ namespace obsidian::asset {
 bool readSceneAssetInfo(Asset const& asset, SceneAssetInfo& outSceneAssetInfo) {
   ZoneScoped;
 
+  assert(asset.metadata);
+
   try {
-    nlohmann::json json = nlohmann::json::parse(asset.json);
+    nlohmann::json json = nlohmann::json::parse(asset.metadata->json);
     outSceneAssetInfo.unpackedSize = json[unpackedSizeJsonName];
     outSceneAssetInfo.compressionMode = json[compressionModeJsonName];
   } catch (std::exception const& e) {
@@ -33,12 +35,12 @@ bool packSceneAsset(SceneAssetInfo const& sceneAssetInfo,
                     std::vector<char> sceneData, Asset& outAsset) {
   ZoneScoped;
 
-  outAsset.type[0] = 's';
-  outAsset.type[1] = 'c';
-  outAsset.type[2] = 'e';
-  outAsset.type[3] = 'n';
+  outAsset.metadata->type[0] = 's';
+  outAsset.metadata->type[1] = 'c';
+  outAsset.metadata->type[2] = 'e';
+  outAsset.metadata->type[3] = 'n';
 
-  outAsset.version = currentAssetVersion;
+  outAsset.metadata->version = currentAssetVersion;
 
   try {
     nlohmann::json json;
@@ -46,7 +48,7 @@ bool packSceneAsset(SceneAssetInfo const& sceneAssetInfo,
     json[unpackedSizeJsonName] = sceneAssetInfo.unpackedSize;
     json[compressionModeJsonName] = sceneAssetInfo.compressionMode;
 
-    outAsset.json = json.dump();
+    outAsset.metadata->json = json.dump();
 
     if (sceneAssetInfo.compressionMode == CompressionMode::none) {
       outAsset.binaryBlob = std::move(sceneData);

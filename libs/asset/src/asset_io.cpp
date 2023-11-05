@@ -11,7 +11,7 @@ namespace fs = std::filesystem;
 
 namespace obsidian::asset {
 
-bool loadFromFile(fs::path const& path, Asset& outAsset) {
+bool loadAssetFromFile(fs::path const& path, Asset& outAsset) {
   ZoneScoped;
 
   std::ifstream inputFileStream;
@@ -29,21 +29,35 @@ bool loadFromFile(fs::path const& path, Asset& outAsset) {
     return false;
   }
 
-  inputFileStream.read(outAsset.type, std::size(outAsset.type));
-  inputFileStream.read(reinterpret_cast<char*>(&outAsset.version),
-                       sizeof(outAsset.version));
+  bool const metadataLoaded = outAsset.metadata.has_value();
 
-  Asset::SizeType jsonSize;
-  inputFileStream.read(reinterpret_cast<char*>(&jsonSize), sizeof(jsonSize));
+  if (!metadataLoaded) {
+    outAsset.metadata = {};
 
-  Asset::SizeType binaryBlobSize;
-  inputFileStream.read(reinterpret_cast<char*>(&binaryBlobSize),
-                       sizeof(binaryBlobSize));
+    inputFileStream.read(outAsset.metadata->type,
+                         std::size(outAsset.metadata->type));
+    inputFileStream.read(reinterpret_cast<char*>(&outAsset.metadata->version),
+                         sizeof(outAsset.metadata->version));
 
-  outAsset.json.resize(jsonSize);
-  inputFileStream.read(outAsset.json.data(), outAsset.json.length());
+    inputFileStream.read(reinterpret_cast<char*>(&outAsset.metadata->jsonSize),
+                         sizeof(AssetMetadata::SizeType));
 
-  outAsset.binaryBlob.resize(binaryBlobSize);
+    inputFileStream.read(
+        reinterpret_cast<char*>(&outAsset.metadata->binaryBlobSize),
+        sizeof(AssetMetadata::SizeType));
+
+    outAsset.metadata->json.resize(outAsset.metadata->jsonSize);
+    inputFileStream.read(outAsset.metadata->json.data(),
+                         outAsset.metadata->json.length());
+  } else {
+    std::size_t metadataSize =
+        sizeof(AssetMetadata::type) + sizeof(AssetMetadata::version) +
+        sizeof(AssetMetadata::jsonSize) +
+        sizeof(AssetMetadata::binaryBlobSize) + outAsset.metadata->jsonSize;
+    inputFileStream.seekg(metadataSize);
+  }
+
+  outAsset.binaryBlob.resize(outAsset.metadata->binaryBlobSize);
   inputFileStream.read(outAsset.binaryBlob.data(), outAsset.binaryBlob.size());
 
   return true;
@@ -62,19 +76,21 @@ bool saveToFile(fs::path const& path, Asset const& asset) {
     return false;
   }
 
-  outputFileStream.write(asset.type, std::size(asset.type));
-  outputFileStream.write(reinterpret_cast<char const*>(&asset.version),
-                         sizeof(asset.version));
+  outputFileStream.write(asset.metadata->type, std::size(asset.metadata->type));
+  outputFileStream.write(
+      reinterpret_cast<char const*>(&asset.metadata->version),
+      sizeof(asset.metadata->version));
 
-  Asset::SizeType const jsonSize{asset.json.size()};
+  AssetMetadata::SizeType const jsonSize{asset.metadata->json.size()};
   outputFileStream.write(reinterpret_cast<char const*>(&jsonSize),
                          sizeof(jsonSize));
 
-  Asset::SizeType const binaryBlobSize{asset.binaryBlob.size()};
+  AssetMetadata::SizeType const binaryBlobSize{asset.binaryBlob.size()};
   outputFileStream.write(reinterpret_cast<char const*>(&binaryBlobSize),
                          sizeof(binaryBlobSize));
 
-  outputFileStream.write(asset.json.data(), asset.json.size());
+  outputFileStream.write(asset.metadata->json.data(),
+                         asset.metadata->json.size());
   outputFileStream.write(asset.binaryBlob.data(), asset.binaryBlob.size());
 
   return true;
