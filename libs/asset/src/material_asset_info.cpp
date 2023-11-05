@@ -1,3 +1,4 @@
+#include <obsidian/asset/asset.hpp>
 #include <obsidian/asset/material_asset_info.hpp>
 #include <obsidian/asset/utility.hpp>
 #include <obsidian/core/logging.hpp>
@@ -19,12 +20,12 @@ constexpr char const* diffuseColorJsonName = "diffuseColor";
 constexpr char const* specularColorJsonName = "specularColor";
 constexpr char const* transparentJsonName = "transparent";
 
-bool readMaterialAssetInfo(Asset const& asset,
+bool readMaterialAssetInfo(AssetMetadata const& assetmetadata,
                            MaterialAssetInfo& outMaterialAssetInfo) {
   ZoneScoped;
 
   try {
-    nlohmann::json json = nlohmann::json::parse(asset.metadata->json);
+    nlohmann::json json = nlohmann::json::parse(assetmetadata.json);
     outMaterialAssetInfo.unpackedSize = json[unpackedSizeJsonName];
     outMaterialAssetInfo.compressionMode = json[compressionModeJsonName];
     outMaterialAssetInfo.materialType = json[materialTypeJsonName];

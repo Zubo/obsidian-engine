@@ -1,6 +1,5 @@
 #pragma once
 
-#include <obsidian/asset/asset.hpp>
 #include <obsidian/asset/asset_info.hpp>
 #include <obsidian/core/material.hpp>
 
@@ -10,6 +9,9 @@
 #include <vector>
 
 namespace obsidian::asset {
+
+struct Asset;
+struct AssetMetadata;
 
 struct MaterialAssetInfo : public AssetInfo {
   core::MaterialType materialType;
@@ -23,7 +25,7 @@ struct MaterialAssetInfo : public AssetInfo {
   bool transparent;
 };
 
-bool readMaterialAssetInfo(Asset const& asset,
+bool readMaterialAssetInfo(AssetMetadata const& assetMetadata,
                            MaterialAssetInfo& outMaterialAssetInfo);
 
 bool packMaterial(MaterialAssetInfo const& materialAssetInfo,

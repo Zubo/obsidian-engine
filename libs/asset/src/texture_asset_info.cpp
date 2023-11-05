@@ -17,12 +17,12 @@ constexpr char const* textureWidthJsonName = "width";
 constexpr char const* textureHeightJsonName = "height";
 constexpr char const* transparentJsonName = "transparent";
 
-bool readTextureAssetInfo(Asset const& asset,
+bool readTextureAssetInfo(AssetMetadata const& assetMetadata,
                           TextureAssetInfo& outTextureAssetInfo) {
   ZoneScoped;
 
   try {
-    nlohmann::json textureJson = nlohmann::json::parse(asset.metadata->json);
+    nlohmann::json textureJson = nlohmann::json::parse(assetMetadata.json);
 
     outTextureAssetInfo.unpackedSize = textureJson[unpackedSizeJsonName];
     outTextureAssetInfo.compressionMode = textureJson[compressionModeJsonName];

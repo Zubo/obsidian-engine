@@ -7,10 +7,12 @@
 namespace obsidian::asset {
 
 struct Asset;
+struct AssetMetadata;
 
 struct SceneAssetInfo : public AssetInfo {};
 
-bool readSceneAssetInfo(Asset const& asset, SceneAssetInfo& outSceneAssetInfo);
+bool readSceneAssetInfo(AssetMetadata const& assetMetadata,
+                        SceneAssetInfo& outSceneAssetInfo);
 
 bool packSceneAsset(SceneAssetInfo const& sceneAssetInfo,
                     std::vector<char> sceneData, Asset& outAsset);

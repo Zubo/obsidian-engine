@@ -35,7 +35,10 @@ void RuntimeResource::unloadFromRHI() {
 }
 
 bool RuntimeResource::loadAsset() {
-  _asset = std::make_shared<asset::Asset>();
+  if (!_asset || _asset->isLoaded) {
+    _asset = std::make_shared<asset::Asset>();
+  }
+
   return asset::loadAssetFromFile(_path, *_asset);
 }
 
@@ -76,10 +79,12 @@ void RuntimeResource::uploadToRHI() {
   switch (assetType) {
   case asset::AssetType::mesh: {
     asset::MeshAssetInfo info;
-    if (!asset::readMeshAssetInfo(*_asset, info)) {
+
+    if (!asset::readMeshAssetInfo(*_asset->metadata, info)) {
       OBS_LOG_ERR("Failed to read mesh asset info");
       break;
     }
+
     rhi::UploadMeshRHI uploadMesh;
     uploadMesh.vertexCount = info.vertexCount;
     uploadMesh.vertexBufferSize = info.vertexBufferSize;
@@ -98,7 +103,8 @@ void RuntimeResource::uploadToRHI() {
   }
   case asset::AssetType::texture: {
     asset::TextureAssetInfo info;
-    if (!asset::readTextureAssetInfo(*_asset, info)) {
+
+    if (!asset::readTextureAssetInfo(*_asset->metadata, info)) {
       OBS_LOG_ERR("Failed to read texture asset info");
       break;
     }
@@ -122,7 +128,8 @@ void RuntimeResource::uploadToRHI() {
   }
   case asset::AssetType::material: {
     asset::MaterialAssetInfo info;
-    if (!asset::readMaterialAssetInfo(*_asset, info)) {
+
+    if (!asset::readMaterialAssetInfo(*_asset->metadata, info)) {
       OBS_LOG_ERR("Failed to read material asset info");
       break;
     }
@@ -177,7 +184,7 @@ void RuntimeResource::uploadToRHI() {
   }
   case asset::AssetType::shader: {
     asset::ShaderAssetInfo info;
-    if (!asset::readShaderAssetInfo(*_asset, info)) {
+    if (!asset::readShaderAssetInfo(*_asset->metadata, info)) {
       OBS_LOG_ERR("Failed to read shader asset info");
       break;
     }
@@ -208,4 +215,29 @@ rhi::ResourceIdRHI RuntimeResource::getResourceIdRHI() const {
 std::filesystem::path RuntimeResource::getRelativePath() const {
   return _runtimeResourceManager.getProject().getRelativeToProjectRootPath(
       _path);
+}
+
+std::vector<RuntimeResource const*> const&
+RuntimeResource::fetchDependencies() {
+  if (!_dependencies) {
+    _dependencies = {};
+
+    if (!_asset) {
+      _asset = std::make_shared<asset::Asset>();
+    }
+
+    if (!_asset->metadata) {
+      _asset->metadata = {};
+      asset::loadAssetMetadataFromFile(_path, *_asset->metadata);
+    }
+
+    if (asset::getAssetType(_asset->metadata->type) ==
+        asset::AssetType::material) {
+      asset::TextureAssetInfo texAssetInfo;
+      // asset::readTextureAssetInfo(const Asset &asset, TextureAssetInfo
+      // &outTextureAssetInfo)
+    }
+  }
+
+  return *_dependencies;
 }

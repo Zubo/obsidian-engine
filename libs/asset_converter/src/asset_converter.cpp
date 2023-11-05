@@ -447,7 +447,8 @@ std::optional<asset::TextureAssetInfo> AssetConverter::getOrCreateTexture(
     }
 
     asset::TextureAssetInfo outInfo;
-    if (!asset::readTextureAssetInfo(asset, outInfo)) {
+    asset.metadata = {};
+    if (!asset::readTextureAssetInfo(*asset.metadata, outInfo)) {
       return std::nullopt;
     }
 

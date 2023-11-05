@@ -33,7 +33,9 @@ void RuntimeResourceManager::uploadInitRHIResources() {
   assert(result && "Depth only shader asset failed to load");
 
   asset::ShaderAssetInfo depthShaderAssetInfo;
-  result = asset::readShaderAssetInfo(depthShaderAsset, depthShaderAssetInfo);
+  depthShaderAsset.metadata = {};
+  result = asset::readShaderAssetInfo(*depthShaderAsset.metadata,
+                                      depthShaderAssetInfo);
 
   assert(result && "Depth only shader asset info failed to load");
 
@@ -54,7 +56,9 @@ void RuntimeResourceManager::uploadInitRHIResources() {
   assert(result && "Ssao shader asset failed to load");
 
   asset::ShaderAssetInfo ssaoShaderAssetInfo;
-  result = asset::readShaderAssetInfo(ssaoShaderAsset, ssaoShaderAssetInfo);
+  ssaoShaderAsset.metadata = {};
+  result = asset::readShaderAssetInfo(*ssaoShaderAsset.metadata,
+                                      ssaoShaderAssetInfo);
 
   assert(result && "Ssao shader asset info failed to load");
 
@@ -73,7 +77,8 @@ void RuntimeResourceManager::uploadInitRHIResources() {
   assert(result && "Post processing shader asset failed to load");
 
   asset::ShaderAssetInfo postProcessingShaderAssetInfo;
-  result = asset::readShaderAssetInfo(postProcessingShaderAsset,
+  postProcessingShaderAsset.metadata = {};
+  result = asset::readShaderAssetInfo(*postProcessingShaderAsset.metadata,
                                       postProcessingShaderAssetInfo);
 
   assert(result && "Post processing shader asset info failed to load");

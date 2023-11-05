@@ -129,8 +129,7 @@ void loadScene(char const scenePath[], scene::SceneState& sceneState,
   }
 
   asset::SceneAssetInfo sceneAssetInfo;
-
-  if (!asset::readSceneAssetInfo(sceneAsset, sceneAssetInfo)) {
+  if (!asset::readSceneAssetInfo(*sceneAsset.metadata, sceneAssetInfo)) {
     OBS_LOG_ERR("Failed to read scene asset info.");
     return;
   }
@@ -211,7 +210,7 @@ void selectGameObjMesh(int gameObjMeshInd) {
   asset::Asset meshAsset;
   asset::loadAssetFromFile(project.getAbsolutePath(meshRelativePath),
                            meshAsset);
-  asset::readMeshAssetInfo(meshAsset, selectedGameObjMeshAssetInfo);
+  asset::readMeshAssetInfo(*meshAsset.metadata, selectedGameObjMeshAssetInfo);
 
   selectedGameObjMats.clear();
   selectedGameObjMats.resize(
@@ -707,7 +706,7 @@ void textureEditorTab() {
       asset::loadAssetFromFile(project.getAbsolutePath(texturePath),
                                selectedTextureAsset);
       selectedTextureAssetInfo = {};
-      asset::readTextureAssetInfo(selectedTextureAsset,
+      asset::readTextureAssetInfo(*selectedTextureAsset.metadata,
                                   selectedTextureAssetInfo);
     };
 

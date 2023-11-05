@@ -14,13 +14,12 @@
 
 namespace obsidian::asset {
 
-bool readSceneAssetInfo(Asset const& asset, SceneAssetInfo& outSceneAssetInfo) {
+bool readSceneAssetInfo(AssetMetadata const& assetMetadata,
+                        SceneAssetInfo& outSceneAssetInfo) {
   ZoneScoped;
 
-  assert(asset.metadata);
-
   try {
-    nlohmann::json json = nlohmann::json::parse(asset.metadata->json);
+    nlohmann::json json = nlohmann::json::parse(assetMetadata.json);
     outSceneAssetInfo.unpackedSize = json[unpackedSizeJsonName];
     outSceneAssetInfo.compressionMode = json[compressionModeJsonName];
   } catch (std::exception const& e) {

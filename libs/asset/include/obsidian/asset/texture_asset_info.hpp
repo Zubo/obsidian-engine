@@ -9,6 +9,7 @@
 namespace obsidian::asset {
 
 struct Asset;
+struct AssetMetadata;
 
 struct TextureAssetInfo : public AssetInfo {
   core::TextureFormat format;
@@ -17,7 +18,7 @@ struct TextureAssetInfo : public AssetInfo {
   bool transparent;
 };
 
-bool readTextureAssetInfo(Asset const& asset,
+bool readTextureAssetInfo(AssetMetadata const& assetMetadata,
                           TextureAssetInfo& outTextureAssetInfo);
 
 bool packTexture(TextureAssetInfo const& textureAssetInfo,

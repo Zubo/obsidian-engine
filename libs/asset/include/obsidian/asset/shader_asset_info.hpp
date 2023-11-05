@@ -1,15 +1,17 @@
 #pragma once
 
-#include <obsidian/asset/asset.hpp>
 #include <obsidian/asset/asset_info.hpp>
 
 #include <vector>
 
 namespace obsidian::asset {
 
+struct Asset;
+struct AssetMetadata;
+
 struct ShaderAssetInfo : AssetInfo {};
 
-bool readShaderAssetInfo(Asset const& asset,
+bool readShaderAssetInfo(AssetMetadata const& assetMetadata,
                          ShaderAssetInfo& outShaderAssetInfo);
 
 bool packShader(ShaderAssetInfo const& shaderAssetInfo,

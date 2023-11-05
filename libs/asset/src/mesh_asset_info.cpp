@@ -22,11 +22,12 @@ constexpr char const* hasUVJsonName = "hasUV";
 constexpr char const* hasColorsJsonName = "hasColors";
 constexpr char const* defaultMatPathsJsonName = "defaultMatPaths";
 
-bool readMeshAssetInfo(Asset const& asset, MeshAssetInfo& outMeshAssetInfo) {
+bool readMeshAssetInfo(AssetMetadata const& assetMetadata,
+                       MeshAssetInfo& outMeshAssetInfo) {
   ZoneScoped;
 
   try {
-    nlohmann::json json = nlohmann::json::parse(asset.metadata->json);
+    nlohmann::json json = nlohmann::json::parse(assetMetadata.json);
     outMeshAssetInfo.unpackedSize = json[unpackedSizeJsonName];
     outMeshAssetInfo.compressionMode = json[compressionModeJsonName];
     outMeshAssetInfo.vertexCount = json[vertexCountJsonName];

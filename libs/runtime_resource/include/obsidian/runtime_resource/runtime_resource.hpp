@@ -5,6 +5,8 @@
 
 #include <filesystem>
 #include <memory>
+#include <optional>
+#include <vector>
 
 namespace obsidian::rhi {
 
@@ -35,6 +37,7 @@ public:
   void unloadFromRHI();
   rhi::ResourceIdRHI getResourceIdRHI() const;
   std::filesystem::path getRelativePath() const;
+  std::vector<RuntimeResource const*> const& fetchDependencies();
 
 private:
   using ReleaseRHIResource = void (*)(rhi::RHI&, rhi::ResourceIdRHI);
@@ -44,6 +47,7 @@ private:
   std::shared_ptr<asset::Asset> _asset;
   rhi::ResourceRHI* _resourceRHI = nullptr;
   ReleaseRHIResource _releaseFunc = nullptr;
+  std::optional<std::vector<RuntimeResource const*>> _dependencies;
 };
 
 } /*namespace obsidian::runtime_resource*/

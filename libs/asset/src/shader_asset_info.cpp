@@ -1,3 +1,4 @@
+#include <obsidian/asset/asset.hpp>
 #include <obsidian/asset/shader_asset_info.hpp>
 #include <obsidian/asset/utility.hpp>
 #include <obsidian/core/logging.hpp>
@@ -10,12 +11,12 @@
 
 namespace obsidian::asset {
 
-bool readShaderAssetInfo(Asset const& asset,
+bool readShaderAssetInfo(AssetMetadata const& assetMetadata,
                          ShaderAssetInfo& outShaderAssetInfo) {
   ZoneScoped;
 
   try {
-    nlohmann::json json = nlohmann::json::parse(asset.metadata->json);
+    nlohmann::json json = nlohmann::json::parse(assetMetadata.json);
     outShaderAssetInfo.unpackedSize = json[unpackedSizeJsonName];
     outShaderAssetInfo.compressionMode = json[compressionModeJsonName];
   } catch (std::exception const& e) {

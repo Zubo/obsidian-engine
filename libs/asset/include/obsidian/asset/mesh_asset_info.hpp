@@ -9,6 +9,7 @@
 namespace obsidian::asset {
 
 struct Asset;
+struct AssetMetadata;
 
 struct MeshAssetInfo : public AssetInfo {
   std::size_t vertexCount;
@@ -21,7 +22,8 @@ struct MeshAssetInfo : public AssetInfo {
   bool hasUV;
 };
 
-bool readMeshAssetInfo(Asset const& asset, MeshAssetInfo& outMeshAssetInfo);
+bool readMeshAssetInfo(AssetMetadata const& assetMetadata,
+                       MeshAssetInfo& outMeshAssetInfo);
 
 bool packMeshAsset(MeshAssetInfo const& meshAssetInfo,
                    std::vector<char> meshData, Asset& outAsset);
