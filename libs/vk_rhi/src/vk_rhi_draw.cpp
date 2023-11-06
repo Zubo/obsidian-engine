@@ -401,6 +401,7 @@ void VulkanRHI::drawWithMaterials(
       vkCmdBindDescriptorSets(cmd, pipelineBindPoint, material.vkPipelineLayout,
                               0, descriptorSets.size(), descriptorSets.data(),
                               dynamicOffsets.size(), dynamicOffsets.data());
+      lastMaterial = &material;
     }
 
     VkDeviceSize const bufferOffset = 0;

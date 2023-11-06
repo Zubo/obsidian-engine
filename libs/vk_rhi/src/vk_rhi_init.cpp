@@ -296,7 +296,7 @@ void VulkanRHI::initDepthPrepassFramebuffers() {
 void VulkanRHI::initShadowPassFramebuffers() {
   for (std::size_t i = 0; i < _frameDataArray.size(); ++i) {
     for (std::size_t j = 0; j < rhi::maxLightsPerDrawPass; ++j) {
-      AllocatedImage& imageShadowPassAttachment =
+      AllocatedImage const& imageShadowPassAttachment =
           _frameDataArray[i].shadowFrameBuffers[j].depthBufferImage;
 
       VkExtent2D const extent = {shadowPassAttachmentWidth,

@@ -5,8 +5,10 @@
 #include <obsidian/scene/scene.hpp>
 #include <obsidian/scene/serialization.hpp>
 
+#include <algorithm>
 #include <cstring>
 #include <exception>
+#include <iterator>
 
 namespace obsidian::scene {
 
@@ -51,7 +53,6 @@ std::array<float, arrSize> vecToArray(VectorType const& v) {
 
 template <typename VectorType>
 VectorType arrayToVector(nlohmann::json const& arrayJson, VectorType& result) {
-  float* const resultPtr = reinterpret_cast<float*>(&result);
   constexpr std::size_t numberOfElements = sizeof(VectorType) / sizeof(float);
 
   for (std::size_t i = 0; i < numberOfElements; ++i) {
@@ -134,9 +135,10 @@ nlohmann::json serializeGameObject(scene::GameObject const& gameObject) {
 
   if (gameObject.materialResources.size()) {
     nlohmann::json& materialsJson = gameObjectJson[gameObjectMaterialsJsonName];
-    for (auto const& materialResource : gameObject.materialResources) {
-      materialsJson.push_back(materialResource->getRelativePath().string());
-    }
+    std::transform(
+        gameObject.materialResources.cbegin(),
+        gameObject.materialResources.cend(), std::back_inserter(materialsJson),
+        [](auto const& matRes) { return matRes->getRelativePath().string(); });
   }
 
   if (gameObject.meshResource) {

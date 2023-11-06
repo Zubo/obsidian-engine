@@ -29,7 +29,7 @@ SDLBackend& SDLBackend::instance() {
 SDLBackend::~SDLBackend() { SDL_Quit(); }
 
 void SDLBackend::init() {
-  if (int result = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) != 0) {
+  if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) != 0) {
     OBS_LOG_ERR(std::string("Error: ") + SDL_GetError());
   }
 

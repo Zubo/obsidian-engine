@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <obsidian/asset/asset.hpp>
 #include <obsidian/asset/asset_info.hpp>
 #include <obsidian/asset/mesh_asset_info.hpp>
@@ -7,9 +8,11 @@
 #include <nlohmann/json.hpp>
 #include <tracy/Tracy.hpp>
 
+#include <algorithm>
 #include <cassert>
 #include <cstring>
 #include <exception>
+#include <iterator>
 
 namespace obsidian::asset {
 
@@ -79,15 +82,15 @@ bool packMeshAsset(MeshAssetInfo const& meshAssetInfo,
 
     nlohmann::json& indexBufferSizesJson = json[indexBufferSizesJsonName];
 
-    for (std::size_t const indBuffSize : meshAssetInfo.indexBufferSizes) {
-      indexBufferSizesJson.push_back(indBuffSize);
-    }
+    std::copy(meshAssetInfo.indexBufferSizes.cbegin(),
+              meshAssetInfo.indexBufferSizes.cend(),
+              std::back_inserter(indexBufferSizesJson));
 
     nlohmann::json& defaultMatPathsJson = json[defaultMatPathsJsonName];
 
-    for (std::string const& matPath : meshAssetInfo.defaultMatRelativePaths) {
-      defaultMatPathsJson.push_back(matPath);
-    }
+    std::copy(meshAssetInfo.defaultMatRelativePaths.cbegin(),
+              meshAssetInfo.defaultMatRelativePaths.cend(),
+              std::back_inserter(defaultMatPathsJson));
 
     outAsset.metadata->json = json.dump();
 

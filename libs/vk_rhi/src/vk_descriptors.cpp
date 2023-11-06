@@ -118,7 +118,7 @@ bool DescriptorLayoutCache::DescriptorLayoutInfo::operator==(
   if (other.descriptorLayoutBindings.size() != descriptorLayoutBindings.size())
     return false;
 
-  for (std::size_t i; i < descriptorLayoutBindings.size(); ++i) {
+  for (std::size_t i = 0; i < descriptorLayoutBindings.size(); ++i) {
     if (other.descriptorLayoutBindings[i].binding !=
         descriptorLayoutBindings[i].binding)
       return false;

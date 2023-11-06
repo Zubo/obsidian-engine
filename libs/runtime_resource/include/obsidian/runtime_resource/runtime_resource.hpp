@@ -42,7 +42,7 @@ public:
   bool isResourceReady() const;
   rhi::ResourceIdRHI getResourceId() const;
   void uploadToRHI();
-  void unloadFromRHI();
+  void releaseFromRHI();
   std::filesystem::path getRelativePath() const;
 
 private:

@@ -133,10 +133,10 @@ generateVertices(tinyobj::attrib_t const& attrib,
         glm::vec2 const deltaUV1 = faceUVs[2] - faceUVs[1];
 
         // factor for determinant of delta UV values matrix:
-        float const f =
+        float const factor =
             1 / (deltaUV0[0] * deltaUV1[1] - deltaUV1[0] * deltaUV0[1]);
 
-        tangent = f * edgeMtx * glm::vec2{deltaUV1[1], -deltaUV0[1]};
+        tangent = factor * edgeMtx * glm::vec2{deltaUV1[1], -deltaUV0[1]};
         tangent = glm::normalize(tangent);
       }
 

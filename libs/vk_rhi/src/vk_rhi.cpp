@@ -421,8 +421,6 @@ void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
         uploadMaterial.diffuseTextureId != rhi::rhiIdUninitialized;
     materialData.diffuseColor = uploadMaterial.diffuseColor;
 
-    VkDescriptorBufferInfo materialDataBufferInfo;
-
     createAndBindMaterialDataBuffer(materialData, builder,
                                     materialDataBufferInfo);
   }

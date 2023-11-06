@@ -26,10 +26,10 @@ RuntimeResource::RuntimeResource(std::filesystem::path path,
 
 RuntimeResource::~RuntimeResource() {
   releaseAsset();
-  unloadFromRHI();
+  releaseFromRHI();
 }
 
-void RuntimeResource::unloadFromRHI() {
+void RuntimeResource::releaseFromRHI() {
   if (_releaseFunc && _resourceRHI &&
       _resourceRHI->state != rhi::ResourceState::invalid) {
     _releaseFunc(_rhi, _resourceRHI->id);

@@ -14,8 +14,8 @@ void loadRenderdocLibrary() {
   if (void* mod = dlopen(RENDERDOC_PATH, RTLD_NOW | RTLD_LOCAL)) {
     pRENDERDOC_GetAPI RENDERDOC_GetAPI =
         (pRENDERDOC_GetAPI)dlsym(mod, "RENDERDOC_GetAPI");
-    int ret =
-        RENDERDOC_GetAPI(eRENDERDOC_API_Version_1_6_0, (void**)&renderdocApi);
+    int ret = RENDERDOC_GetAPI(eRENDERDOC_API_Version_1_6_0,
+                               reinterpret_cast<void**>(&renderdocApi));
     assert(ret == 1);
   };
 }

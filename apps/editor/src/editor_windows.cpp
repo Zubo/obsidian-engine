@@ -38,6 +38,7 @@
 #include <imgui_internal.h>
 #include <nlohmann/json.hpp>
 
+#include <algorithm>
 #include <array>
 #include <cstring>
 #include <filesystem>
@@ -79,31 +80,28 @@ void refreshAssetLists() {
 
   texturePathStringPtrs.push_back("none");
 
-  for (auto const& tex : texturesInProj) {
-    texturePathStringPtrs.push_back(tex.c_str());
-  }
+  auto transformToStr = [](auto& dst, auto& src) {
+    std::transform(src.cbegin(), src.cend(), std::back_inserter(dst),
+                   [](auto const& arg) { return arg.c_str(); });
+  };
+
+  transformToStr(texturePathStringPtrs, texturesInProj);
 
   shaderPathStringPtrs.clear();
   shadersInProj = project.getAllFilesWithExtension(globals::shaderAssetExt);
 
-  for (auto const& shad : shadersInProj) {
-    shaderPathStringPtrs.push_back(shad.c_str());
-  }
+  transformToStr(shaderPathStringPtrs, shadersInProj);
 
   materialPathStringPtrs.clear();
   materialsInProj = project.getAllFilesWithExtension(globals::materialAssetExt);
 
-  for (auto const& mat : materialsInProj) {
-    materialPathStringPtrs.push_back(mat.c_str());
-  }
+  transformToStr(materialPathStringPtrs, materialsInProj);
 
   meshesInProj = project.getAllFilesWithExtension(globals::meshAssetExt);
 
   meshesPathStringPtrs.clear();
   meshesPathStringPtrs.push_back("none");
-  for (auto const& mesh : meshesInProj) {
-    meshesPathStringPtrs.push_back(mesh.c_str());
-  }
+  transformToStr(meshesPathStringPtrs, meshesInProj);
 }
 
 template <typename TCollection, typename TValue>
@@ -297,8 +295,8 @@ void gameObjectHierarchy(scene::GameObject& gameObject,
     ImGui::PopID();
 
     if (!deleted) {
-      for (scene::GameObject& gameObject : gameObject.getChildren()) {
-        gameObjectHierarchy(gameObject, sceneState);
+      for (scene::GameObject& childObject : gameObject.getChildren()) {
+        gameObjectHierarchy(childObject, sceneState);
       }
     }
 
@@ -746,8 +744,6 @@ void textureEditorTab() {
 
 void projectTab(ObsidianEngine& engine, bool& engineStarted) {
   if (ImGui::BeginTabItem("Project")) {
-    fs::path projPath = project.getOpenProjectPath();
-
     static char projPathBuf[maxPathSize];
     ImGui::InputText("Project Path", projPathBuf, std::size(projPathBuf));
 
