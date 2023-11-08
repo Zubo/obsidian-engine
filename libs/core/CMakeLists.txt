@@ -8,7 +8,10 @@ add_library(Core
     "include/obsidian/core/vertex_type.hpp"
     "include/obsidian/core/utils/visitor.hpp"
     "include/obsidian/core/utils/functions.hpp"
+    "include/obsidian/core/utils/utils.hpp"
+    "include/obsidian/core/utils/texture_utils.hpp"
     "src/texture_format.cpp"
+    "src/utils/texture_utils.cpp"
 )
 
 target_include_directories(Core
@@ -20,3 +23,19 @@ target_link_libraries(Core
     PUBLIC
         glm
 )
+
+add_executable(TestCore
+    "test/test_texture_utils.cpp"
+)
+
+target_link_libraries(TestCore
+    PRIVATE
+        Core
+        GTest::gtest
+        GTest::gtest_main
+)
+
+include(GoogleTest)
+
+gtest_discover_tests(TestCore)
+

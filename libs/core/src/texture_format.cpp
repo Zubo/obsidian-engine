@@ -1,6 +1,8 @@
 #include <obsidian/core/logging.hpp>
 #include <obsidian/core/texture_format.hpp>
 
+#include <cassert>
+
 namespace obsidian::core {
 
 std::size_t getFormatPixelSize(TextureFormat format) {
@@ -20,11 +22,25 @@ std::size_t getFormatPixelSize(TextureFormat format) {
 TextureFormat getDefaultFormatForChannelCount(std::size_t channelCount) {
   switch (channelCount) {
   case 4:
+  case 3:
     return TextureFormat::R8G8B8A8_SRGB;
   default: {
     OBS_LOG_WARN("Unsupported texture format.");
     return TextureFormat::unknown;
   }
+  }
+}
+
+bool isFormatLinear(TextureFormat format) {
+  switch (format) {
+  case TextureFormat::R8G8B8A8_SRGB:
+    return false;
+  case TextureFormat::R8G8B8A8_LINEAR:
+  case TextureFormat::R32G32_SFLOAT:
+    return true;
+  default:
+    assert("Unknown texture format");
+    return false;
   }
 }
 

@@ -14,5 +14,6 @@ enum class TextureFormat : std::uint32_t {
 
 std::size_t getFormatPixelSize(TextureFormat format);
 TextureFormat getDefaultFormatForChannelCount(std::size_t channelCount);
+bool isFormatLinear(TextureFormat format);
 
 } /*namespace obsidian::core*/

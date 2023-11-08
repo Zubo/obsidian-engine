@@ -9,6 +9,8 @@
 #include <obsidian/core/logging.hpp>
 #include <obsidian/core/material.hpp>
 #include <obsidian/core/texture_format.hpp>
+#include <obsidian/core/utils/texture_utils.hpp>
+#include <obsidian/core/utils/utils.hpp>
 #include <obsidian/core/vertex_type.hpp>
 #include <obsidian/globals/file_extensions.hpp>
 #include <obsidian/task/task.hpp>
@@ -212,15 +214,42 @@ std::optional<asset::TextureAssetInfo> AssetConverter::convertImgToAsset(
     data = stbi_load(srcPath.c_str(), &w, &h, &channelCnt, 4);
   }
 
+  constexpr int maxTextureSize = 1024;
+  bool const reduceSize =
+      (w > maxTextureSize) && core::isPowerOfTwo(w) && core::isPowerOfTwo(h);
+
+  core::TextureFormat const textureFormat =
+      overrideTextureFormat ? *overrideTextureFormat
+                            : core::getDefaultFormatForChannelCount(channelCnt);
+
+  std::vector<unsigned char> reducedImg;
+
+  if (reduceSize) {
+    ZoneScopedN("Image size reduction");
+
+    int const reductionFactor = (w > h ? w : h) / maxTextureSize;
+    bool const isTextureLinear = isFormatLinear(textureFormat);
+    reducedImg = core::utils::reduceTextureSize(data, 4, w, h, reductionFactor,
+                                                isTextureLinear);
+
+    {
+      ZoneScopedN("STBI free");
+      stbi_image_free(data);
+    }
+
+    data = reducedImg.data();
+
+    w = w / reductionFactor;
+    h = h / reductionFactor;
+  }
+
   bool const shouldAddAlpha = (channelCnt == 3);
   channelCnt = shouldAddAlpha ? channelCnt + 1 : channelCnt;
   asset::Asset outAsset;
   asset::TextureAssetInfo textureAssetInfo;
   textureAssetInfo.unpackedSize = w * h * 4;
   textureAssetInfo.compressionMode = asset::CompressionMode::LZ4;
-  textureAssetInfo.format =
-      overrideTextureFormat ? *overrideTextureFormat
-                            : core::getDefaultFormatForChannelCount(channelCnt);
+  textureAssetInfo.format = textureFormat;
 
   if (textureAssetInfo.format == core::TextureFormat::unknown) {
     OBS_LOG_ERR("Failed to convert image to asset. Unsupported image format.");
@@ -266,7 +295,7 @@ std::optional<asset::TextureAssetInfo> AssetConverter::convertImgToAsset(
     packResult = asset::packTexture(textureAssetInfo, data, outAsset);
   }
 
-  {
+  if (!reduceSize) {
     ZoneScopedN("STBI free");
     stbi_image_free(data);
   }
