@@ -29,7 +29,8 @@ void main() {
 
   const mat3x3 TBN = mat3x3(tangent, bitangent, normal);
 
-  const float offsetRadius = 5.0f;
+  const float offsetRadius = 1.0f;
+  const float maxDepthDiff = 0.001f;
 
   float occlusionFactor = 0.0f;
 
@@ -40,9 +41,14 @@ void main() {
     const vec4 samplePosClipSpace =
         cameraData.viewProj * vec4(sampleWorldPos, 1.0f);
     const vec3 samplePosNDC = samplePosClipSpace.xyz / samplePosClipSpace.w;
-    const float sampleDepth = texture(depth, (samplePosNDC.xy * 0.5f + 0.5f)).r;
+    const float depthMapValue =
+        texture(depth, (samplePosNDC.xy * 0.5f + 0.5f)).r;
 
-    occlusionFactor += (sampleDepth >= samplePosNDC.z + 0.00001f) ? 1.0f : 0.0f;
+    const float rangeCheck = smoothstep(
+        0.0f, 1.0f, offsetRadius / abs(depthMapValue - samplePosNDC.z));
+    const float bias = 0.0005f;
+
+    occlusionFactor += depthMapValue >= samplePosNDC.z - bias ? 1.0f : 0.0f;
   }
 
   outFragColor = occlusionFactor;

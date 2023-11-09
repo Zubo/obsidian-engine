@@ -33,10 +33,11 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
 
   constexpr std::uint64_t timeoutNanoseconds = 1000000000;
   {
-    ZoneScopedN("Wait For Fences");
+    ZoneScopedN("Wait For Render Fence");
     VK_CHECK(vkWaitForFences(_vkDevice, 1, &currentFrameData.vkRenderFence,
                              true, timeoutNanoseconds));
   }
+
   VK_CHECK(vkResetFences(_vkDevice, 1, &currentFrameData.vkRenderFence));
 
   destroyUnreferencedResources();
