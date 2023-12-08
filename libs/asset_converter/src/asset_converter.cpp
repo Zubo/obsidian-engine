@@ -19,6 +19,7 @@
 
 #include <glm/glm.hpp>
 #include <stb/stb_image.h>
+#include <tiny_gltf.h>
 #include <tiny_obj_loader.h>
 #include <tracy/Tracy.hpp>
 
@@ -407,6 +408,35 @@ bool AssetConverter::convertObjToAsset(fs::path const& srcPath,
     return false;
   }
   return saveAsset(srcPath, dstPath, meshAsset);
+}
+
+bool AssetConverter::convertGltfToAsset(fs::path const& srcPath,
+                                        fs::path const& dstPath) {
+  tinygltf::TinyGLTF loader;
+  tinygltf::Model model;
+  std::string err, warn;
+
+  if (srcPath.extension() == ".gltf" &&
+      loader.LoadASCIIFromFile(&model, &err, &warn, srcPath)) {
+    // ascii
+
+  } else if (srcPath.extension() == ".glb" &&
+             loader.LoadBinaryFromFile(&model, &err, &warn, srcPath)) {
+    // binary
+  } else {
+    // invalid file extension
+    if (!err.empty()) {
+      OBS_LOG_ERR(err);
+    }
+
+    return false;
+  }
+
+  if (!warn.empty()) {
+    OBS_LOG_WARN(warn);
+  }
+
+  return true;
 }
 
 bool AssetConverter::convertSpirvToAsset(fs::path const& srcPath,

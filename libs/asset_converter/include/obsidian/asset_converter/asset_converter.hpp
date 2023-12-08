@@ -42,6 +42,9 @@ private:
   bool convertObjToAsset(std::filesystem::path const& srcPath,
                          std::filesystem::path const& dstPath);
 
+  bool convertGltfToAsset(std::filesystem::path const& srcPath,
+                          std::filesystem::path const& dstPath);
+
   bool convertSpirvToAsset(std::filesystem::path const& srcPath,
                            std::filesystem::path const& dstPath);
 

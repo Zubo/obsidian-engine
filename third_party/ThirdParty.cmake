@@ -41,12 +41,22 @@ FetchContent_Declare(fetch_glm
 FetchContent_MakeAvailable(fetch_glm)
 
 FetchContent_Declare(fetch_tinyobjloader
-
     GIT_REPOSITORY https://github.com/tinyobjloader/tinyobjloader.git
     GIT_TAG v2.0.0rc10
     GIT_PROGRESS TRUE
 )
+
 FetchContent_MakeAvailable(fetch_tinyobjloader)
+
+set(TINYGLTF_HEADER_ONLY ON)
+FetchContent_Declare(fetch_tinygltf
+    GIT_REPOSITORY https://github.com/syoyo/tinygltf.git
+    GIT_TAG release
+    GIT_PROGRESS TRUE
+
+)
+
+FetchContent_MakeAvailable(fetch_tinygltf)
 
 option(TRACY_ENABLE "" OFF)
 
