@@ -48,11 +48,11 @@ private:
   bool convertSpirvToAsset(std::filesystem::path const& srcPath,
                            std::filesystem::path const& dstPath);
 
+  template <typename MaterialType>
   std::vector<std::string>
-  extractMaterialsForObj(AssetConverter& converter,
-                         std::filesystem::path const& srcDirPath,
-                         std::filesystem::path const& projectPath,
-                         std::vector<tinyobj::material_t> const& materials);
+  extractMaterials(std::filesystem::path const& srcDirPath,
+                   std::filesystem::path const& projectPath,
+                   std::vector<MaterialType> const& materials);
 
   std::optional<asset::TextureAssetInfo> getOrCreateTexture(
       std::filesystem::path const& srcPath,

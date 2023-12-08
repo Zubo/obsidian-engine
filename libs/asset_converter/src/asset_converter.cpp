@@ -6,6 +6,7 @@
 #include <obsidian/asset/shader_asset_info.hpp>
 #include <obsidian/asset/texture_asset_info.hpp>
 #include <obsidian/asset_converter/asset_converter.hpp>
+#include <obsidian/asset_converter/helpers.hpp>
 #include <obsidian/core/logging.hpp>
 #include <obsidian/core/material.hpp>
 #include <obsidian/core/texture_format.hpp>
@@ -67,11 +68,10 @@ bool saveAsset(fs::path const& srcPath, fs::path const& dstPath,
 }
 
 template <typename V>
-std::size_t
-generateVertices(tinyobj::attrib_t const& attrib,
-                 std::vector<tinyobj::shape_t> const& shapes,
-                 std::vector<char>& outVertices,
-                 std::vector<std::vector<core::MeshIndexType>>& outSurfaces) {
+std::size_t generateVerticesFromobj(
+    tinyobj::attrib_t const& attrib,
+    std::vector<tinyobj::shape_t> const& shapes, std::vector<char>& outVertices,
+    std::vector<std::vector<core::MeshIndexType>>& outSurfaces) {
   ZoneScoped;
 
   using Vertex = typename V::Vertex;
@@ -316,6 +316,8 @@ std::optional<asset::TextureAssetInfo> AssetConverter::convertImgToAsset(
 
 bool AssetConverter::convertObjToAsset(fs::path const& srcPath,
                                        fs::path const& dstPath) {
+  ZoneScoped;
+
   asset::MeshAssetInfo meshAssetInfo;
   meshAssetInfo.compressionMode = asset::CompressionMode::LZ4;
 
@@ -353,24 +355,28 @@ bool AssetConverter::convertObjToAsset(fs::path const& srcPath,
       _taskExecutor.enqueue(task::TaskType::general, [&]() {
         if (meshAssetInfo.hasNormals && meshAssetInfo.hasColors &&
             meshAssetInfo.hasUV) {
-          vertexCount = generateVertices<core::VertexType<true, true, true>>(
-              attrib, shapes, outVertices, outSurfaces);
+          vertexCount =
+              generateVerticesFromobj<core::VertexType<true, true, true>>(
+                  attrib, shapes, outVertices, outSurfaces);
         } else if (meshAssetInfo.hasNormals && meshAssetInfo.hasColors) {
-          vertexCount = generateVertices<core::VertexType<true, true, false>>(
-              attrib, shapes, outVertices, outSurfaces);
+          vertexCount =
+              generateVerticesFromobj<core::VertexType<true, true, false>>(
+                  attrib, shapes, outVertices, outSurfaces);
         } else if (meshAssetInfo.hasNormals) {
-          vertexCount = generateVertices<core::VertexType<true, false, false>>(
-              attrib, shapes, outVertices, outSurfaces);
+          vertexCount =
+              generateVerticesFromobj<core::VertexType<true, false, false>>(
+                  attrib, shapes, outVertices, outSurfaces);
         } else {
-          vertexCount = generateVertices<core::VertexType<false, false, false>>(
-              attrib, shapes, outVertices, outSurfaces);
+          vertexCount =
+              generateVerticesFromobj<core::VertexType<false, false, false>>(
+                  attrib, shapes, outVertices, outSurfaces);
         }
       });
 
-  meshAssetInfo.defaultMatRelativePaths = extractMaterialsForObj(
-      *this, srcPath.parent_path(), dstPath.parent_path(), materials);
+  meshAssetInfo.defaultMatRelativePaths =
+      extractMaterials(srcPath.parent_path(), dstPath.parent_path(), materials);
 
-  while (!genVertTask.getDone())
+  while (!genVertTask.isDone())
     ;
 
   meshAssetInfo.vertexCount = vertexCount;
@@ -412,19 +418,18 @@ bool AssetConverter::convertObjToAsset(fs::path const& srcPath,
 
 bool AssetConverter::convertGltfToAsset(fs::path const& srcPath,
                                         fs::path const& dstPath) {
+  ZoneScoped;
+
   tinygltf::TinyGLTF loader;
   tinygltf::Model model;
   std::string err, warn;
 
-  if (srcPath.extension() == ".gltf" &&
-      loader.LoadASCIIFromFile(&model, &err, &warn, srcPath)) {
-    // ascii
-
-  } else if (srcPath.extension() == ".glb" &&
-             loader.LoadBinaryFromFile(&model, &err, &warn, srcPath)) {
-    // binary
-  } else {
-    // invalid file extension
+  bool const loadResult =
+      (srcPath.extension() == ".gltf" &&
+       loader.LoadASCIIFromFile(&model, &err, &warn, srcPath)) ||
+      (srcPath.extension() == ".glb" &&
+       loader.LoadBinaryFromFile(&model, &err, &warn, srcPath));
+  if (!loadResult) {
     if (!err.empty()) {
       OBS_LOG_ERR(err);
     }
@@ -435,6 +440,17 @@ bool AssetConverter::convertGltfToAsset(fs::path const& srcPath,
   if (!warn.empty()) {
     OBS_LOG_WARN(warn);
   }
+
+  std::vector<TinyGltfMaterialWrapper> materials;
+  materials.reserve(model.materials.size());
+
+  for (std::size_t i = 0; i < model.materials.size(); ++i) {
+    materials.push_back(
+        TinyGltfMaterialWrapper{model.materials[i], model.textures});
+  }
+
+  std::vector<std::string> materialNames =
+      extractMaterials(srcPath.parent_path(), dstPath.parent_path(), materials);
 
   return true;
 }
@@ -488,6 +504,8 @@ bool AssetConverter::convertAsset(fs::path const& srcPath,
     return convertImgToAsset(srcPath, dstPath).has_value();
   } else if (extension == ".obj") {
     return convertObjToAsset(srcPath, dstPath);
+  } else if (extension == ".gltf" || extension == ".glb") {
+    return convertGltfToAsset(srcPath, dstPath);
   } else if (extension == ".spv") {
     return convertSpirvToAsset(srcPath, dstPath);
   }
@@ -516,10 +534,11 @@ std::optional<asset::TextureAssetInfo> AssetConverter::getOrCreateTexture(
   }
 }
 
-std::vector<std::string> AssetConverter::extractMaterialsForObj(
-    AssetConverter& converter, fs::path const& srcDirPath,
-    fs::path const& projectPath,
-    std::vector<tinyobj::material_t> const& materials) {
+template <typename MaterialType>
+std::vector<std::string>
+AssetConverter::extractMaterials(fs::path const& srcDirPath,
+                                 fs::path const& projectPath,
+                                 std::vector<MaterialType> const& materials) {
   ZoneScoped;
 
   std::vector<std::string> extractedMaterialPaths;
@@ -530,13 +549,9 @@ std::vector<std::string> AssetConverter::extractMaterialsForObj(
 
   std::unordered_map<std::string, task::TaskBase const*> textureLoadTasks;
 
-  auto const getDiffuseTexName = [](tinyobj::material_t const& m) {
-    return !m.diffuse_texname.empty() ? m.diffuse_texname : m.ambient_texname;
-  };
-
   if (texDirExists) {
     for (std::size_t i = 0; i < materials.size(); ++i) {
-      tinyobj::material_t const& mat = materials[i];
+      MaterialType const& mat = materials[i];
 
       std::string const diffuseTexName = getDiffuseTexName(mat);
 
@@ -554,9 +569,10 @@ std::vector<std::string> AssetConverter::extractMaterialsForObj(
         textureLoadTasks[diffuseTexName] = task;
       }
 
-      if (!mat.bump_texname.empty()) {
-        fs::path const srcPath = texDir.path() / mat.bump_texname;
-        fs::path dstPath = projectPath / mat.bump_texname;
+      std::string const normalTexName = getNormalTexName(mat);
+      if (!normalTexName.empty()) {
+        fs::path const srcPath = texDir.path() / normalTexName;
+        fs::path dstPath = projectPath / normalTexName;
         dstPath.replace_extension(".obstex");
 
         task::TaskBase const* task = &_taskExecutor.enqueue(
@@ -565,7 +581,7 @@ std::vector<std::string> AssetConverter::extractMaterialsForObj(
                                         core::TextureFormat::R8G8B8A8_LINEAR);
             });
 
-        textureLoadTasks[mat.bump_texname] = task;
+        textureLoadTasks[normalTexName] = task;
       }
     }
   }
@@ -573,29 +589,24 @@ std::vector<std::string> AssetConverter::extractMaterialsForObj(
   // Wait for all texture tasks to finish
   while (true) {
     if (std::all_of(textureLoadTasks.cbegin(), textureLoadTasks.cend(),
-                    [](auto const& it) { return it.second->getDone(); }))
+                    [](auto const& it) { return it.second->isDone(); }))
       break;
   }
 
   extractedMaterialPaths.resize(materials.size());
 
   for (std::size_t i = 0; i < materials.size(); ++i) {
-    tinyobj::material_t const& mat = materials[i];
+    MaterialType const& mat = materials[i];
     asset::MaterialAssetInfo newMatAssetInfo;
     newMatAssetInfo.compressionMode = asset::CompressionMode::none;
     newMatAssetInfo.materialType = core::MaterialType::lit;
     newMatAssetInfo.shaderPath = "obsidian/shaders/default.obsshad";
-    newMatAssetInfo.ambientColor =
-        glm::vec4(mat.ambient[0], mat.ambient[1], mat.ambient[2], mat.dissolve);
+    newMatAssetInfo.ambientColor = getAmbientColor(mat);
+    newMatAssetInfo.diffuseColor = getDiffuseColor(mat);
+    newMatAssetInfo.specularColor = getSpecularColor(mat);
 
-    newMatAssetInfo.diffuseColor =
-        glm::vec4(mat.diffuse[0], mat.diffuse[1], mat.diffuse[2], mat.dissolve);
-
-    newMatAssetInfo.specularColor =
-        glm::vec4(mat.specular[0], mat.specular[1], mat.specular[2], 1.0f);
-
-    newMatAssetInfo.shininess = mat.shininess;
-    newMatAssetInfo.transparent = mat.dissolve < 1.0f;
+    newMatAssetInfo.shininess = getShininess(mat);
+    newMatAssetInfo.transparent = isMaterialTransparent(mat);
 
     if (texDirExists) {
       std::string diffuseTexName = getDiffuseTexName(mat);
@@ -611,13 +622,14 @@ std::vector<std::string> AssetConverter::extractMaterialsForObj(
         newMatAssetInfo.diffuseTexturePath = dstPath;
       }
 
-      if (!mat.bump_texname.empty()) {
+      std::string const normalTexName = getNormalTexName(mat);
+      if (!normalTexName.empty()) {
         std::optional<asset::TextureAssetInfo> const* texInfo =
             static_cast<std::optional<asset::TextureAssetInfo> const*>(
-                textureLoadTasks[mat.bump_texname]->getReturn().get());
+                textureLoadTasks[normalTexName]->getReturn().get());
         assert(texInfo);
 
-        fs::path dstPath = mat.bump_texname;
+        fs::path dstPath = normalTexName;
         dstPath.replace_extension(".obstex");
         newMatAssetInfo.normalMapTexturePath = dstPath;
       }
@@ -625,7 +637,7 @@ std::vector<std::string> AssetConverter::extractMaterialsForObj(
 
     asset::Asset matAsset;
     if (asset::packMaterial(newMatAssetInfo, {}, matAsset)) {
-      fs::path materialPath = projectPath / mat.name;
+      fs::path materialPath = projectPath / getMaterialName(mat);
       materialPath.replace_extension(".obsmat");
 
       if (asset::saveToFile(materialPath, matAsset)) {

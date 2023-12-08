@@ -29,7 +29,7 @@ public:
 
   TaskType getType() const;
 
-  bool getDone() const;
+  bool isDone() const;
 
 protected:
   std::shared_ptr<void const> _argPtr = nullptr;

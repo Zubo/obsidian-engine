@@ -14,4 +14,4 @@ TaskId TaskBase::getId() const { return _taskId; };
 
 TaskType TaskBase::getType() const { return _type; }
 
-bool TaskBase::getDone() const { return _done; }
+bool TaskBase::isDone() const { return _done; }

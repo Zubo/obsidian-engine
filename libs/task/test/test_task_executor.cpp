@@ -38,7 +38,7 @@ TEST(task, task_executor_basic_execution) {
   // assert
   while (true) {
     if (std::all_of(tasks.cbegin(), tasks.cend(),
-                    [](auto t) { return t->getDone(); })) {
+                    [](auto t) { return t->isDone(); })) {
       break;
     }
   }
