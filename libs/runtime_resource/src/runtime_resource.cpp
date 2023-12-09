@@ -122,6 +122,12 @@ void RuntimeResource::performUploadToRHI() {
       asset::unpackAsset(info, asset->binaryBlob.data(),
                          asset->binaryBlob.size(), dst);
     };
+
+    uploadMesh.hasNormals = info.hasNormals;
+    uploadMesh.hasColors = info.hasColors;
+    uploadMesh.hasUV = info.hasUV;
+    uploadMesh.hasTangents = info.hasTangents;
+
     _resourceRHI = &_rhi.initMeshResource();
     _rhi.uploadMesh(_resourceRHI->id, uploadMesh);
     _releaseFunc = [](rhi::RHI& rhi, rhi::ResourceIdRHI id) {

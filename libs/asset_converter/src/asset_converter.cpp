@@ -210,6 +210,7 @@ bool AssetConverter::convertObjToAsset(fs::path const& srcPath,
   meshAssetInfo.hasNormals = attrib.normals.size();
   meshAssetInfo.hasColors = attrib.colors.size();
   meshAssetInfo.hasUV = attrib.texcoords.size();
+  meshAssetInfo.hasTangents = meshAssetInfo.hasUV && meshAssetInfo.hasNormals;
 
   std::vector<char> outVertices;
   std::vector<std::vector<core::MeshIndexType>> outSurfaces{
@@ -339,6 +340,8 @@ bool AssetConverter::convertGltfToAsset(fs::path const& srcPath,
         std::all_of(primitives.cbegin(), primitives.cend(), [](auto const& p) {
           return p.attributes.contains("TEXCOORD_0");
         });
+
+    meshAssetInfo.hasTangents = meshAssetInfo.hasNormals && meshAssetInfo.hasUV;
 
     task::TaskBase const& generateVerticesTask = _taskExecutor.enqueue(
         task::TaskType::general,

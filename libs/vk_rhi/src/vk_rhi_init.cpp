@@ -23,6 +23,7 @@
 #include <cstring>
 #include <numeric>
 #include <random>
+#include <vulkan/vulkan_core.h>
 
 using namespace obsidian::vk_rhi;
 
@@ -65,6 +66,9 @@ void VulkanRHI::init(rhi::WindowExtentRHI extent,
   waitDeviceIdle();
 
   IsInitialized = true;
+
+  _vkCmdSetVertexInput = reinterpret_cast<PFN_vkCmdSetVertexInputEXT>(
+      vkGetDeviceProcAddr(_vkDevice, "vkCmdSetVertexInputEXT"));
 }
 
 void VulkanRHI::initResources(rhi::InitResourcesRHI const& initResources) {
@@ -115,10 +119,13 @@ void VulkanRHI::initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider) {
   surfaceProvider.provideSurface(*this);
 
   vkb::PhysicalDeviceSelector vkbSelector{vkbInstance};
-  vkb::PhysicalDevice vkbPhysicalDevice = vkbSelector.set_minimum_version(1, 2)
-                                              .set_surface(_vkSurface)
-                                              .select()
-                                              .value();
+  vkb::PhysicalDevice vkbPhysicalDevice =
+      vkbSelector.set_minimum_version(1, 2)
+          .set_surface(_vkSurface)
+          .add_required_extension(
+              VK_EXT_VERTEX_INPUT_DYNAMIC_STATE_EXTENSION_NAME)
+          .select()
+          .value();
 
   vkb::DeviceBuilder vkbDeviceBuilder{vkbPhysicalDevice};
   VkPhysicalDeviceVulkan12Features vkDeviceFeatures = {};
@@ -126,7 +133,17 @@ void VulkanRHI::initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider) {
       VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
   vkDeviceFeatures.pNext = nullptr;
   vkDeviceFeatures.descriptorBindingPartiallyBound = VK_TRUE;
+
   vkbDeviceBuilder.add_pNext(&vkDeviceFeatures);
+
+  VkPhysicalDeviceVertexInputDynamicStateFeaturesEXT
+      vkVertexInputDynamicStateFeatures = {};
+  vkVertexInputDynamicStateFeatures.sType =
+      VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VERTEX_INPUT_DYNAMIC_STATE_FEATURES_EXT;
+  vkVertexInputDynamicStateFeatures.vertexInputDynamicState = true;
+
+  vkbDeviceBuilder.add_pNext(&vkVertexInputDynamicStateFeatures);
+
   vkb::Device vkbDevice = vkbDeviceBuilder.build().value();
 
   _vkDevice = vkbDevice.device;
@@ -400,6 +417,7 @@ void VulkanRHI::initMainPipelineAndLayouts() {
 
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
+  pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VERTEX_INPUT_EXT);
 
   pipelineBuilder._vkRasterizationCreateInfo =
       vkinit::rasterizationCreateInfo(VK_POLYGON_MODE_FILL);
@@ -408,7 +426,8 @@ void VulkanRHI::initMainPipelineAndLayouts() {
   pipelineBuilder._vkMultisampleStateCreateInfo =
       vkinit::multisampleStateCreateInfo();
 
-  pipelineBuilder._vertexInputDescription = Vertex::getVertexInputDescription();
+  // pipelineBuilder._vertexInputDescription =
+  // Vertex::getVertexInputDescription();
 
   VkPipelineLayoutCreateInfo meshPipelineLayoutInfo =
       vkinit::pipelineLayoutCreateInfo();
@@ -516,8 +535,10 @@ void VulkanRHI::initShadowPassPipeline() {
   pipelineBuilder._vkMultisampleStateCreateInfo =
       vkinit::multisampleStateCreateInfo();
 
-  pipelineBuilder._vertexInputDescription =
-      Vertex::getVertexInputDescription(true, false, false, false, false);
+  // pipelineBuilder._vertexInputDescription =
+  //     Vertex::getVertexInputDescription(true, false, false, false, false);
+
+  pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VERTEX_INPUT_EXT);
 
   pipelineBuilder._vkViewport.x = 0.f;
   pipelineBuilder._vkViewport.y = 0.f;
@@ -529,9 +550,6 @@ void VulkanRHI::initShadowPassPipeline() {
   pipelineBuilder._vkScissor.offset = {0, 0};
   pipelineBuilder._vkScissor.extent = {shadowPassAttachmentWidth,
                                        shadowPassAttachmentHeight};
-
-  VertexInputDescription shadowPassVertexInputDescription =
-      Vertex::getVertexInputDescription(true, false, false, false, false);
 
   VkShaderModule const shaderModule =
       _shaderModules[_depthPassShaderId].vkShaderModule;
@@ -568,11 +586,12 @@ void VulkanRHI::initDepthPrepassPipeline() {
   pipelineBuilder._vkMultisampleStateCreateInfo =
       vkinit::multisampleStateCreateInfo();
 
-  pipelineBuilder._vertexInputDescription =
-      Vertex::getVertexInputDescription(true, false, false, false, false);
+  // pipelineBuilder._vertexInputDescription =
+  //     Vertex::getVertexInputDescription(true, false, false, false, false);
 
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
+  pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VERTEX_INPUT_EXT);
 
   VkShaderModule const shaderModule =
       _shaderModules[_depthPassShaderId].vkShaderModule;
@@ -647,11 +666,13 @@ void VulkanRHI::initSsaoPipeline() {
   });
 
   pipelineBuilder._vkPipelineLayout = _vkSsaoPipelineLayout;
-  pipelineBuilder._vertexInputDescription =
-      Vertex::getVertexInputDescription(true, true, false, true, false);
+
+  // pipelineBuilder._vertexInputDescription =
+  //     Vertex::getVertexInputDescription(true, true, false, true, false);
 
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
+  pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VERTEX_INPUT_EXT);
 
   _vkSsaoPipeline =
       pipelineBuilder.buildPipeline(_vkDevice, _ssaoRenderPass.vkRenderPass);
@@ -717,21 +738,9 @@ void VulkanRHI::initSsaoPostProcessingPipeline() {
 
   pipelineBuilder._vkPipelineLayout = _vkSsaoPostProcessingPipelineLayout;
 
-  VkVertexInputBindingDescription& bindingDescr =
-      pipelineBuilder._vertexInputDescription.bindings.emplace_back();
-  bindingDescr.binding = 0;
-  bindingDescr.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-  bindingDescr.stride = sizeof(glm::vec2);
-
-  VkVertexInputAttributeDescription& attrDescr =
-      pipelineBuilder._vertexInputDescription.attributes.emplace_back();
-  attrDescr.location = 0;
-  attrDescr.binding = 0;
-  attrDescr.format = VK_FORMAT_R32G32_SFLOAT;
-  attrDescr.offset = 0;
-
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
+  pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VERTEX_INPUT_EXT);
 
   _vkSsaoPostProcessingPipeline = pipelineBuilder.buildPipeline(
       _vkDevice, _postProcessingRenderPass.vkRenderPass);

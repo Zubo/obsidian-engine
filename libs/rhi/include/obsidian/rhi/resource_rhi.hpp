@@ -36,6 +36,10 @@ struct UploadMeshRHI {
   std::size_t indexCount;
   std::vector<std::size_t> indexBufferSizes;
   std::function<void(char*)> unpackFunc;
+  bool hasNormals;
+  bool hasColors;
+  bool hasUV;
+  bool hasTangents;
 };
 
 struct UploadShaderRHI {

@@ -17,8 +17,8 @@ namespace obsidian::vk_rhi {
 enum class ResourceState { pendingUpload, uploaded, unloaded };
 
 struct VertexInputDescription {
-  std::vector<VkVertexInputBindingDescription> bindings;
-  std::vector<VkVertexInputAttributeDescription> attributes;
+  std::vector<VkVertexInputBindingDescription2EXT> bindings;
+  std::vector<VkVertexInputAttributeDescription2EXT> attributes;
 
   VkPipelineVertexInputStateCreateFlags flags = 0;
 };

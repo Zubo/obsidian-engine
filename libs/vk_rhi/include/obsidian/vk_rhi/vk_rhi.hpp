@@ -120,6 +120,7 @@ private:
   std::vector<VkImageView> _swapchainImageViews;
   std::uint32_t _frameNumber = 0;
   bool _skipFrame = false;
+  PFN_vkCmdSetVertexInputEXT _vkCmdSetVertexInput;
 
   // Default pass
   RenderPass _mainRenderPass;
@@ -255,6 +256,7 @@ private:
                       VkPipeline pipeline, VkPipelineLayout pipelineLayout,
                       std::vector<std::uint32_t> const& dynamicOffsets,
                       VkDescriptorSet passDescriptorSet,
+                      VertexInputSpec vertexInputSpec,
                       std::optional<VkViewport> dynamicViewport = std::nullopt,
                       std::optional<VkRect2D> dynamicScissor = std::nullopt);
   void

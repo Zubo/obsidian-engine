@@ -6,18 +6,6 @@
 using namespace obsidian::vk_rhi;
 
 VkPipeline PipelineBuilder::buildPipeline(VkDevice device, VkRenderPass pass) {
-  VkPipelineVertexInputStateCreateInfo vkVertexInputInfo =
-      vkinit::vertexInputStateCreateInfo();
-  vkVertexInputInfo.vertexBindingDescriptionCount =
-      _vertexInputDescription.bindings.size();
-  vkVertexInputInfo.pVertexBindingDescriptions =
-      _vertexInputDescription.bindings.data();
-
-  vkVertexInputInfo.vertexAttributeDescriptionCount =
-      _vertexInputDescription.attributes.size();
-  vkVertexInputInfo.pVertexAttributeDescriptions =
-      _vertexInputDescription.attributes.data();
-
   VkPipelineViewportStateCreateInfo viewportStateCreateInfo = {};
   viewportStateCreateInfo.sType =
       VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -49,7 +37,6 @@ VkPipeline PipelineBuilder::buildPipeline(VkDevice device, VkRenderPass pass) {
 
   graphicsPipelineCreateInfo.stageCount = _vkShaderStageCreateInfos.size();
   graphicsPipelineCreateInfo.pStages = _vkShaderStageCreateInfos.data();
-  graphicsPipelineCreateInfo.pVertexInputState = &vkVertexInputInfo;
   graphicsPipelineCreateInfo.pInputAssemblyState = &_vkInputAssemblyCreateInfo;
   graphicsPipelineCreateInfo.pTessellationState = nullptr;
   graphicsPipelineCreateInfo.pViewportState = &viewportStateCreateInfo;

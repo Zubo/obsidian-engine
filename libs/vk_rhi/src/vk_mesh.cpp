@@ -4,72 +4,101 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <vulkan/vulkan_core.h>
 
 using namespace obsidian::vk_rhi;
 
-VertexInputDescription Vertex::getVertexInputDescription(bool bindPosition,
-                                                         bool bindNormals,
-                                                         bool bindColors,
-                                                         bool bindUV,
-                                                         bool bindTangents) {
+VertexInputDescription
+Mesh::getVertexInputDescription(VertexInputSpec inputSpec) const {
   VertexInputDescription description;
 
-  VkVertexInputBindingDescription mainBinding = {};
+  VkVertexInputBindingDescription2EXT mainBinding = {};
+  mainBinding.sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_BINDING_DESCRIPTION_2_EXT;
   mainBinding.binding = 0;
-  mainBinding.stride = sizeof(Vertex);
   mainBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+  mainBinding.divisor = 1;
 
-  description.bindings.push_back(mainBinding);
+  mainBinding.stride = 0;
 
-  if (bindPosition) {
-    VkVertexInputAttributeDescription positionAttribute = {};
+  if (inputSpec.bindPosition) {
+    VkVertexInputAttributeDescription2EXT positionAttribute = {};
+    positionAttribute.sType =
+        VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT;
     positionAttribute.binding = 0;
     positionAttribute.location = 0;
     positionAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
-    positionAttribute.offset = offsetof(Vertex, position);
+    positionAttribute.offset = mainBinding.stride;
 
     description.attributes.push_back(positionAttribute);
   }
 
-  if (bindNormals) {
-    VkVertexInputAttributeDescription normalAttribute = {};
+  mainBinding.stride += sizeof(Vertex::position);
+
+  if (inputSpec.bindNormals && hasNormals) {
+    VkVertexInputAttributeDescription2EXT normalAttribute = {};
+    normalAttribute.sType =
+        VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT;
     normalAttribute.binding = 0;
     normalAttribute.location = 1;
     normalAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
-    normalAttribute.offset = offsetof(Vertex, normal);
+    normalAttribute.offset = mainBinding.stride;
 
     description.attributes.push_back(normalAttribute);
   }
 
-  if (bindColors) {
-    VkVertexInputAttributeDescription colorAttribute = {};
+  if (hasNormals) {
+    mainBinding.stride += sizeof(Vertex::normal);
+  }
+
+  if (inputSpec.bindColors && hasColors) {
+    VkVertexInputAttributeDescription2EXT colorAttribute = {};
+    colorAttribute.sType =
+        VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT;
     colorAttribute.binding = 0;
     colorAttribute.location = 2;
     colorAttribute.format = VK_FORMAT_R32G32_SFLOAT;
-    colorAttribute.offset = offsetof(Vertex, color);
+    colorAttribute.offset = mainBinding.stride;
 
     description.attributes.push_back(colorAttribute);
   }
 
-  if (bindUV) {
-    VkVertexInputAttributeDescription uvAttribute = {};
+  if (hasColors) {
+    mainBinding.stride += sizeof(Vertex::color);
+  }
+
+  if (inputSpec.bindUV && hasUV) {
+    VkVertexInputAttributeDescription2EXT uvAttribute = {};
+    uvAttribute.sType =
+        VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT;
     uvAttribute.binding = 0;
     uvAttribute.location = 3;
     uvAttribute.format = VK_FORMAT_R32G32_SFLOAT;
-    uvAttribute.offset = offsetof(Vertex, uv);
+    uvAttribute.offset = mainBinding.stride;
 
     description.attributes.push_back(uvAttribute);
   }
 
-  if (bindTangents) {
-    VkVertexInputAttributeDescription tangentAttribute = {};
+  if (hasUV) {
+    mainBinding.stride += sizeof(Vertex::uv);
+  }
+
+  if (inputSpec.bindTangents && hasTangents) {
+    VkVertexInputAttributeDescription2EXT tangentAttribute = {};
+    tangentAttribute.sType =
+        VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT;
     tangentAttribute.binding = 0;
     tangentAttribute.location = 4;
     tangentAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
-    tangentAttribute.offset = offsetof(Vertex, tangent);
+    tangentAttribute.offset = mainBinding.stride;
 
     description.attributes.push_back(tangentAttribute);
   }
+
+  if (hasTangents) {
+    mainBinding.stride += sizeof(Vertex::tangent);
+  }
+
+  description.bindings.push_back(mainBinding);
 
   return description;
 }

@@ -20,6 +20,7 @@ struct MeshAssetInfo : public AssetInfo {
   bool hasNormals;
   bool hasColors;
   bool hasUV;
+  bool hasTangents;
 };
 
 bool readMeshAssetInfo(AssetMetadata const& assetMetadata,
@@ -27,7 +28,5 @@ bool readMeshAssetInfo(AssetMetadata const& assetMetadata,
 
 bool packMeshAsset(MeshAssetInfo const& meshAssetInfo,
                    std::vector<char> meshData, Asset& outAsset);
-
-std::size_t getVertexSize(MeshAssetInfo const& meshAssetInfo);
 
 } // namespace obsidian::asset

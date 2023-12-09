@@ -21,8 +21,9 @@ constexpr char const* vertexBufferSizeJsonName = "vertexBufferSize";
 constexpr char const* indexBufferSizesJsonName = "indexBufferSizes";
 constexpr char const* indexCountJsonName = "indexCount";
 constexpr char const* hasNormalsJsonName = "hasNormals";
-constexpr char const* hasUVJsonName = "hasUV";
 constexpr char const* hasColorsJsonName = "hasColors";
+constexpr char const* hasUVJsonName = "hasUV";
+constexpr char const* hasTangentsJsonName = "hasTangents";
 constexpr char const* defaultMatPathsJsonName = "defaultMatPaths";
 
 bool readMeshAssetInfo(AssetMetadata const& assetMetadata,
@@ -50,6 +51,7 @@ bool readMeshAssetInfo(AssetMetadata const& assetMetadata,
     outMeshAssetInfo.hasNormals = json[hasNormalsJsonName];
     outMeshAssetInfo.hasColors = json[hasColorsJsonName];
     outMeshAssetInfo.hasUV = json[hasUVJsonName];
+    outMeshAssetInfo.hasTangents = json[hasTangentsJsonName];
   } catch (std::exception const& e) {
     OBS_LOG_ERR(e.what());
     return false;
@@ -78,6 +80,7 @@ bool packMeshAsset(MeshAssetInfo const& meshAssetInfo,
     json[hasNormalsJsonName] = meshAssetInfo.hasNormals;
     json[hasColorsJsonName] = meshAssetInfo.hasColors;
     json[hasUVJsonName] = meshAssetInfo.hasUV;
+    json[hasTangentsJsonName] = meshAssetInfo.hasTangents;
     json[indexCountJsonName] = meshAssetInfo.indexCount;
 
     nlohmann::json& indexBufferSizesJson = json[indexBufferSizesJsonName];
@@ -108,24 +111,6 @@ bool packMeshAsset(MeshAssetInfo const& meshAssetInfo,
   }
 
   return true;
-}
-
-std::size_t getVertexSize(MeshAssetInfo const& meshAssetInfo) {
-  std::size_t size = 3 * sizeof(float);
-
-  if (meshAssetInfo.hasNormals) {
-    size += 3 * sizeof(float);
-  }
-
-  if (meshAssetInfo.hasColors) {
-    size += 3 * sizeof(float);
-  }
-
-  if (meshAssetInfo.hasUV) {
-    size += 2 * sizeof(float);
-  }
-
-  return size;
 }
 
 } /*namespace obsidian::asset*/

@@ -209,6 +209,10 @@ void VulkanRHI::uploadMesh(rhi::ResourceIdRHI id, rhi::UploadMeshRHI meshInfo) {
 
   mesh.indexBufferSizes = meshInfo.indexBufferSizes;
   mesh.indexCount = meshInfo.indexCount;
+  mesh.hasNormals = meshInfo.hasNormals;
+  mesh.hasColors = meshInfo.hasColors;
+  mesh.hasUV = meshInfo.hasUV;
+  mesh.hasTangents = meshInfo.hasTangents;
 
   _taskExecutor->enqueue(
       task::TaskType::rhiTransfer,

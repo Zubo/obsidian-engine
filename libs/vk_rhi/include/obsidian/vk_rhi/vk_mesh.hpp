@@ -17,11 +17,14 @@ struct Vertex {
   glm::vec3 color;
   glm::vec2 uv;
   glm::vec3 tangent;
+};
 
-  static VertexInputDescription
-  getVertexInputDescription(bool bindPosition = true, bool bindNormals = true,
-                            bool bindColors = true, bool bindUV = true,
-                            bool bindTangents = true);
+struct VertexInputSpec {
+  bool bindPosition = true;
+  bool bindNormals = true;
+  bool bindColors = true;
+  bool bindUV = true;
+  bool bindTangents = true;
 };
 
 struct Mesh {
@@ -31,6 +34,13 @@ struct Mesh {
   AllocatedBuffer indexBuffer;
   std::vector<std::size_t> indexBufferSizes;
   rhi::ResourceRHI resource;
+  bool hasNormals;
+  bool hasColors;
+  bool hasUV;
+  bool hasTangents;
+
+  VertexInputDescription getVertexInputDescription(
+      VertexInputSpec inputSpec = VertexInputSpec()) const;
 };
 
 } /*namespace obsidian::vk_rhi*/

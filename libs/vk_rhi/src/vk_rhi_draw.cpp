@@ -2,6 +2,7 @@
 #include <obsidian/rhi/rhi.hpp>
 #include <obsidian/vk_rhi/vk_check.hpp>
 #include <obsidian/vk_rhi/vk_initializers.hpp>
+#include <obsidian/vk_rhi/vk_mesh.hpp>
 #include <obsidian/vk_rhi/vk_rhi.hpp>
 #include <obsidian/vk_rhi/vk_types.hpp>
 
@@ -104,15 +105,18 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
       static_cast<std::uint32_t>(frameInd *
                                  getPaddedBufferSize(sizeof(GPUCameraData)))};
 
+  VertexInputSpec const depthPrepassInputSpec = {true, false, false, false,
+                                                 false};
+
   drawPassNoMaterials(cmd, _drawCallQueue.data(), _drawCallQueue.size(),
                       _vkDepthPrepassPipeline, _vkDepthPipelineLayout,
                       depthPassDynamicOffsets, _depthPrepassDescriptorSet,
-                      viewport, scissor);
+                      depthPrepassInputSpec, viewport, scissor);
 
-  drawPassNoMaterials(cmd, _transparentDrawCallQueue.data(),
-                      _transparentDrawCallQueue.size(), _vkDepthPrepassPipeline,
-                      _vkDepthPipelineLayout, depthPassDynamicOffsets,
-                      _depthPrepassDescriptorSet, viewport, scissor);
+  drawPassNoMaterials(
+      cmd, _transparentDrawCallQueue.data(), _transparentDrawCallQueue.size(),
+      _vkDepthPrepassPipeline, _vkDepthPipelineLayout, depthPassDynamicOffsets,
+      _depthPrepassDescriptorSet, depthPrepassInputSpec, viewport, scissor);
 
   vkCmdEndRenderPass(cmd);
 
@@ -154,15 +158,20 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
                                  getPaddedBufferSize(sizeof(GPUCameraData))),
       static_cast<std::uint32_t>(frameInd *
                                  getPaddedBufferSize(sizeof(GPUSceneData)))};
-  drawPassNoMaterials(
-      cmd, _drawCallQueue.data(), _drawCallQueue.size(), _vkSsaoPipeline,
-      _vkSsaoPipelineLayout, ssaoDynamicOffsets,
-      currentFrameData.vkSsaoRenderPassDescriptorSet, viewport, scissor);
 
-  drawPassNoMaterials(
-      cmd, _transparentDrawCallQueue.data(), _transparentDrawCallQueue.size(),
-      _vkSsaoPipeline, _vkSsaoPipelineLayout, ssaoDynamicOffsets,
-      currentFrameData.vkSsaoRenderPassDescriptorSet, viewport, scissor);
+  VertexInputSpec const ssaoVertInputSpec = {true, true, false, true, false};
+
+  drawPassNoMaterials(cmd, _drawCallQueue.data(), _drawCallQueue.size(),
+                      _vkSsaoPipeline, _vkSsaoPipelineLayout,
+                      ssaoDynamicOffsets,
+                      currentFrameData.vkSsaoRenderPassDescriptorSet,
+                      ssaoVertInputSpec, viewport, scissor);
+
+  drawPassNoMaterials(cmd, _transparentDrawCallQueue.data(),
+                      _transparentDrawCallQueue.size(), _vkSsaoPipeline,
+                      _vkSsaoPipelineLayout, ssaoDynamicOffsets,
+                      currentFrameData.vkSsaoRenderPassDescriptorSet,
+                      ssaoVertInputSpec, viewport, scissor);
 
   vkCmdEndRenderPass(cmd);
 
@@ -225,6 +234,9 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   std::vector<ShadowPassParams> submittedParams =
       getSubmittedShadowPassParams();
 
+  VertexInputSpec const shadowPassVertInputSpec = {true, false, false, false,
+                                                   false};
+
   depthPassBeginInfo.renderArea.extent = {shadowPassAttachmentWidth,
                                           shadowPassAttachmentHeight};
 
@@ -250,7 +262,8 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
 
     drawPassNoMaterials(cmd, _drawCallQueue.data(), _drawCallQueue.size(),
                         _vkShadowPassPipeline, _vkDepthPipelineLayout,
-                        dynamicOffsets, _vkShadowPassDescriptorSet);
+                        dynamicOffsets, _vkShadowPassDescriptorSet,
+                        shadowPassVertInputSpec);
 
     vkCmdEndRenderPass(cmd);
   }
@@ -405,6 +418,14 @@ void VulkanRHI::drawWithMaterials(
       lastMaterial = &material;
     }
 
+    VertexInputDescription const vertInputDescr =
+        mesh.getVertexInputDescription({true, mesh.hasNormals, mesh.hasColors,
+                                        mesh.hasUV, mesh.hasTangents});
+
+    _vkCmdSetVertexInput(
+        cmd, vertInputDescr.bindings.size(), vertInputDescr.bindings.data(),
+        vertInputDescr.attributes.size(), vertInputDescr.attributes.data());
+
     VkDeviceSize const bufferOffset = 0;
     vkCmdBindVertexBuffers(cmd, 0, 1, &mesh.vertexBuffer.buffer, &bufferOffset);
 
@@ -428,7 +449,7 @@ void VulkanRHI::drawPassNoMaterials(
     VkCommandBuffer cmd, VKDrawCall* first, int count, VkPipeline pipeline,
     VkPipelineLayout pipelineLayout,
     std::vector<std::uint32_t> const& dynamicOffsets,
-    VkDescriptorSet passDescriptorSet,
+    VkDescriptorSet passDescriptorSet, VertexInputSpec vertexInputSpec,
     std::optional<VkViewport> dynamicViewport,
     std::optional<VkRect2D> dynamicScissor) {
   ZoneScoped;
@@ -460,6 +481,12 @@ void VulkanRHI::drawPassNoMaterials(
 
     Mesh& mesh = *drawCall.mesh;
 
+    VertexInputDescription const vertInputDescr =
+        mesh.getVertexInputDescription(vertexInputSpec);
+    _vkCmdSetVertexInput(
+        cmd, vertInputDescr.bindings.size(), vertInputDescr.bindings.data(),
+        vertInputDescr.attributes.size(), vertInputDescr.attributes.data());
+
     VkDeviceSize const vertBufferOffset = 0;
 
     vkCmdBindVertexBuffers(cmd, 0, 1, &mesh.vertexBuffer.buffer,
@@ -488,6 +515,29 @@ void VulkanRHI::drawPostProcessing(VkCommandBuffer cmd,
                                    VkDescriptorSet passDescriptorSet,
                                    std::optional<VkViewport> dynamicViewport,
                                    std::optional<VkRect2D> dynamicScissor) {
+  std::vector<VkVertexInputBindingDescription2EXT> bindings;
+  VkVertexInputBindingDescription2EXT& bindingDescr = bindings.emplace_back();
+  bindingDescr = {};
+  bindingDescr.sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_BINDING_DESCRIPTION_2_EXT;
+  bindingDescr.pNext = nullptr;
+  bindingDescr.binding = 0;
+  bindingDescr.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+  bindingDescr.stride = sizeof(glm::vec2);
+  bindingDescr.divisor = 1;
+
+  std::vector<VkVertexInputAttributeDescription2EXT> attributes;
+  VkVertexInputAttributeDescription2EXT& attrDescr = attributes.emplace_back();
+  attrDescr = {};
+  attrDescr.sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT;
+  attrDescr.pNext = nullptr;
+  attrDescr.location = 0;
+  attrDescr.binding = 0;
+  attrDescr.format = VK_FORMAT_R32G32_SFLOAT;
+  attrDescr.offset = 0;
+
+  _vkCmdSetVertexInput(cmd, bindings.size(), bindings.data(), attributes.size(),
+                       attributes.data());
+
   vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                     _vkSsaoPostProcessingPipeline);
 
