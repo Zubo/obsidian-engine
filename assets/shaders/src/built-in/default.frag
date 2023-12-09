@@ -235,7 +235,7 @@ void main() {
   vec4 ambientColor =
       (ssao / 128.0f) * materialData.ambientColor * sceneData.ambientColor;
 
-  vec4 diffuseColor = materialData.diffuseColor;
+  vec4 diffuseColor = vec4(inColor, 1.0f) * materialData.diffuseColor;
 
   if (diffuseColor.w == 0.0) {
     discard;

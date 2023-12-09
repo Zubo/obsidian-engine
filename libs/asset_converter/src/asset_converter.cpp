@@ -49,7 +49,8 @@ AssetConverter::AssetConverter(task::TaskExecutor& taskExecutor)
 std::unordered_map<std::string, std::string> extensionMap = {
     {".bmp", globals::textureAssetExt}, {".jpeg", globals::textureAssetExt},
     {".jpg", globals::textureAssetExt}, {".png", globals::textureAssetExt},
-    {".obj", globals::meshAssetExt},    {".spv", globals::shaderAssetExt}};
+    {".obj", globals::meshAssetExt},    {".gltf", globals::meshAssetExt},
+    {".glb", globals::meshAssetExt},    {".spv", globals::shaderAssetExt}};
 
 bool saveAsset(fs::path const& srcPath, fs::path const& dstPath,
                asset::Asset const& textureAsset) {
@@ -210,8 +211,6 @@ bool AssetConverter::convertObjToAsset(fs::path const& srcPath,
   meshAssetInfo.hasColors = attrib.colors.size();
   meshAssetInfo.hasUV = attrib.texcoords.size();
 
-  asset::Asset meshAsset;
-
   std::vector<char> outVertices;
   std::vector<std::vector<core::MeshIndexType>> outSurfaces{
       materials.size() ? materials.size() : 1};
@@ -276,6 +275,8 @@ bool AssetConverter::convertObjToAsset(fs::path const& srcPath,
 
   (void)indCopyDest;
 
+  asset::Asset meshAsset;
+
   if (!asset::packMeshAsset(meshAssetInfo, std::move(outVertices), meshAsset)) {
     return false;
   }
@@ -307,31 +308,22 @@ bool AssetConverter::convertGltfToAsset(fs::path const& srcPath,
     OBS_LOG_WARN(warn);
   }
 
-  std::vector<GltfMaterialWrapper> materials;
-  materials.reserve(model.materials.size());
+  std::size_t const modelCount = model.meshes.size();
+  std::vector<task::TaskBase const*> modelConversionTasks;
+  modelConversionTasks.reserve(modelCount);
 
-  for (std::size_t i = 0; i < model.materials.size(); ++i) {
-    materials.push_back(
-        GltfMaterialWrapper{model.materials[i], model.textures});
-  }
+  std::vector<std::size_t> vertexCountPerModel;
+  vertexCountPerModel.reserve(modelCount);
+  std::vector<std::vector<char>> outVerticesPerModel;
+  outVerticesPerModel.reserve(modelCount);
+  std::vector<std::vector<std::vector<core::MeshIndexType>>>
+      outSurfacesPerModel;
+  outSurfacesPerModel.reserve(modelCount);
+  std::vector<asset::MeshAssetInfo> meshAssetInfoPerModel;
+  meshAssetInfoPerModel.reserve(modelCount);
 
-  std::vector<std::string> materialNames =
-      extractMaterials(srcPath.parent_path(), dstPath.parent_path(), materials);
-
-  std::vector<task::TaskBase const*> genVerticesTasks;
-  genVerticesTasks.reserve(model.meshes.size());
-
-  std::vector<std::size_t> vertexCountPerMesh;
-  vertexCountPerMesh.reserve(model.meshes.size());
-  std::vector<std::vector<char>> outVerticesPerMesh;
-  outVerticesPerMesh.reserve(model.meshes.size());
-  std::vector<std::vector<std::vector<core::MeshIndexType>>> outSurfacesPerMesh;
-  outSurfacesPerMesh.reserve(model.meshes.size());
-  std::vector<asset::MeshAssetInfo> meshAssetInfoPerMesh;
-  meshAssetInfoPerMesh.reserve(model.meshes.size());
-
-  for (std::size_t i = 0; i < model.meshes.size(); ++i) {
-    asset::MeshAssetInfo& meshAssetInfo = meshAssetInfoPerMesh.emplace_back();
+  for (std::size_t i = 0; i < modelCount; ++i) {
+    asset::MeshAssetInfo& meshAssetInfo = meshAssetInfoPerModel.emplace_back();
     meshAssetInfo.compressionMode = asset::CompressionMode::LZ4;
 
     auto const& primitives = model.meshes[i].primitives;
@@ -348,13 +340,13 @@ bool AssetConverter::convertGltfToAsset(fs::path const& srcPath,
           return p.attributes.contains("TEXCOORD_0");
         });
 
-    task::TaskBase const& genVertTask = _taskExecutor.enqueue(
+    task::TaskBase const& generateVerticesTask = _taskExecutor.enqueue(
         task::TaskType::general,
         // capturing vector members by reference won't cause problems because
         // the vector memory was reserved in advance
-        [&meshAssetInfo, &vertexCount = vertexCountPerMesh.emplace_back(),
-         &model, meshInd = i, &outVertices = outVerticesPerMesh.emplace_back(),
-         &outSurfaces = outSurfacesPerMesh.emplace_back()]() {
+        [&meshAssetInfo, &vertexCount = vertexCountPerModel.emplace_back(),
+         &model, meshInd = i, &outVertices = outVerticesPerModel.emplace_back(),
+         &outSurfaces = outSurfacesPerModel.emplace_back()]() {
           outSurfaces.resize(model.materials.size());
 
           if (meshAssetInfo.hasNormals && meshAssetInfo.hasColors &&
@@ -377,14 +369,83 @@ bool AssetConverter::convertGltfToAsset(fs::path const& srcPath,
           }
         });
 
-    genVerticesTasks.push_back(&genVertTask);
+    modelConversionTasks.push_back(&generateVerticesTask);
   }
 
-  while (std::any_of(genVerticesTasks.cbegin(), genVerticesTasks.cend(),
+  std::vector<GltfMaterialWrapper> materials;
+  materials.reserve(model.materials.size());
+
+  for (std::size_t i = 0; i < model.materials.size(); ++i) {
+    materials.push_back(
+        GltfMaterialWrapper{model.materials[i], model.textures});
+  }
+
+  std::vector<std::string> materialNames =
+      extractMaterials(srcPath.parent_path(), dstPath.parent_path(), materials);
+
+  while (std::any_of(modelConversionTasks.cbegin(), modelConversionTasks.cend(),
                      [](task::TaskBase const* t) { return !t->isDone(); }))
     ;
+  bool success = true;
 
-  return true;
+  modelConversionTasks.clear();
+
+  for (std::size_t i = 0; i < modelCount; ++i) {
+    asset::MeshAssetInfo& meshAssetInfo = meshAssetInfoPerModel[i];
+    meshAssetInfo.vertexCount = vertexCountPerModel[i];
+
+    std::vector<char>& outVertices = outVerticesPerModel[i];
+
+    meshAssetInfo.vertexBufferSize = outVertices.size();
+    meshAssetInfo.indexCount = 0;
+
+    meshAssetInfo.defaultMatRelativePaths.reserve(
+        meshAssetInfo.indexBufferSizes.size());
+
+    std::vector<std::vector<core::MeshIndexType>>& outSurfaces =
+        outSurfacesPerModel[i];
+
+    auto const removeIt =
+        std::remove_if(outSurfaces.begin(), outSurfaces.end(),
+                       [](auto const& s) { return s.empty(); });
+    outSurfaces.erase(removeIt, outSurfaces.end());
+
+    for (std::size_t j = 0; j < outSurfaces.size(); ++j) {
+      meshAssetInfo.indexBufferSizes.push_back(sizeof(core::MeshIndexType) *
+                                               outSurfaces[j].size());
+      meshAssetInfo.indexCount += outSurfaces[j].size();
+      meshAssetInfo.defaultMatRelativePaths.push_back(materialNames[j]);
+    }
+
+    std::size_t const totalIndexBufferSize =
+        std::accumulate(meshAssetInfo.indexBufferSizes.cbegin(),
+                        meshAssetInfo.indexBufferSizes.cend(), 0);
+    meshAssetInfo.unpackedSize =
+        meshAssetInfo.vertexBufferSize + totalIndexBufferSize;
+    outVertices.resize(outVertices.size() + totalIndexBufferSize);
+
+    char* indCopyDest = outVertices.data() + meshAssetInfo.vertexBufferSize;
+
+    for (std::size_t j = 0; j < outSurfaces.size(); ++j) {
+      auto const& surface = outSurfaces[j];
+      std::size_t const surfaceBufferSize = meshAssetInfo.indexBufferSizes[j];
+      std::memcpy(indCopyDest, surface.data(), surfaceBufferSize);
+      indCopyDest += surfaceBufferSize;
+    }
+
+    (void)indCopyDest;
+
+    asset::Asset meshAsset;
+
+    if (!asset::packMeshAsset(meshAssetInfo, std::move(outVertices),
+                              meshAsset)) {
+      return false;
+    }
+
+    success &= saveAsset(srcPath, dstPath, meshAsset);
+  }
+
+  return success;
 }
 
 bool AssetConverter::convertSpirvToAsset(fs::path const& srcPath,

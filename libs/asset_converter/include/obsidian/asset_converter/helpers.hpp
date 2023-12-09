@@ -242,8 +242,8 @@ std::size_t generateVerticesFromGltf(
        ++primitiveInd) {
     tinygltf::Primitive const& primitive = mesh.primitives[primitiveInd];
 
-    int const materialIndex = outSurfaces.size() == 1 ? 0 : primitive.material;
-    std::vector<core::MeshIndexType>& surface = outSurfaces[materialIndex];
+    int const matInd = outSurfaces.size() == 1 ? 0 : primitive.material;
+    std::vector<core::MeshIndexType>& surface = outSurfaces[matInd];
 
     tinygltf::Accessor const& indAccessor = model.accessors[primitive.indices];
     tinygltf::BufferView const& indBufferView =
