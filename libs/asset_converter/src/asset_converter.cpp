@@ -67,140 +67,6 @@ bool saveAsset(fs::path const& srcPath, fs::path const& dstPath,
   return asset::saveToFile(dstPath, textureAsset);
 }
 
-template <typename V>
-std::size_t generateVerticesFromobj(
-    tinyobj::attrib_t const& attrib,
-    std::vector<tinyobj::shape_t> const& shapes, std::vector<char>& outVertices,
-    std::vector<std::vector<core::MeshIndexType>>& outSurfaces) {
-  ZoneScoped;
-
-  using Vertex = typename V::Vertex;
-
-  assert(!outVertices.size() &&
-         !std::accumulate(outSurfaces.cbegin(), outSurfaces.cend(), 0,
-                          [](std::size_t acc, auto const& surfaceIndices) {
-                            return surfaceIndices.size() + acc;
-                          }) &&
-         "Error: outVertices and outSurfaces have to be empty.");
-
-  struct Ind {
-    int v;
-    int n;
-    int t;
-    glm::vec3 tangent = {};
-
-    bool operator==(Ind const& other) const {
-      constexpr const float tangentEpsilon = 0.001;
-      return other.v == v && other.n == n && other.t == t &&
-             (!V::hasTangent ||
-              std::abs(1.0f - glm::dot(other.tangent, tangent)) <
-                  tangentEpsilon);
-    };
-
-    struct hash {
-      std::size_t operator()(Ind k) const {
-        return ((std::uint64_t)k.v << 42) | ((std::uint64_t)k.n << 21) | k.t;
-      }
-    };
-  };
-
-  std::unordered_map<Ind, std::size_t, typename Ind::hash> uniqueIdx;
-
-  for (std::size_t s = 0; s < shapes.size(); ++s) {
-    tinyobj::shape_t const& shape = shapes[s];
-
-    std::size_t faceIndOffset = 0;
-
-    for (std::size_t f = 0; f < shape.mesh.num_face_vertices.size(); ++f) {
-      unsigned char const vertexCount = shape.mesh.num_face_vertices[f];
-
-      glm::vec3 tangent;
-
-      if constexpr (V::hasTangent) {
-        std::array<glm::vec3, 3> facePositions = {};
-        std::array<glm::vec2, 3> faceUVs = {};
-
-        for (std::size_t i = 0; i < 3; ++i) {
-          tinyobj::index_t const idx = shape.mesh.indices[faceIndOffset + i];
-          facePositions[i] = {attrib.vertices[3 * idx.vertex_index + 0],
-                              attrib.vertices[3 * idx.vertex_index + 1],
-                              attrib.vertices[3 * idx.vertex_index + 2]};
-
-          faceUVs[i] = {attrib.texcoords[2 * idx.texcoord_index + 0],
-                        1.f - attrib.texcoords[2 * idx.texcoord_index + 1]};
-        }
-
-        glm::mat2x3 const edgeMtx = {facePositions[0] - facePositions[1],
-                                     facePositions[2] - facePositions[1]};
-        glm::vec2 const deltaUV0 = faceUVs[0] - faceUVs[1];
-        glm::vec2 const deltaUV1 = faceUVs[2] - faceUVs[1];
-
-        // factor for determinant of delta UV values matrix:
-        float const factor =
-            1 / (deltaUV0[0] * deltaUV1[1] - deltaUV1[0] * deltaUV0[1]);
-
-        tangent = factor * edgeMtx * glm::vec2{deltaUV1[1], -deltaUV0[1]};
-        tangent = glm::normalize(tangent);
-      }
-
-      for (std::size_t v = 0; v < vertexCount; ++v) {
-        tinyobj::index_t const idx = shape.mesh.indices[faceIndOffset + v];
-
-        auto insertResult =
-            uniqueIdx.emplace(Ind{idx.vertex_index, idx.normal_index,
-                                  idx.texcoord_index, tangent},
-                              outVertices.size() / sizeof(Vertex));
-        int const matInd =
-            outSurfaces.size() > 1 ? shape.mesh.material_ids[f] : 0;
-
-        if (insertResult.second) {
-          // New vertex detected
-          outSurfaces[matInd].push_back(outVertices.size() / sizeof(Vertex));
-          std::size_t const newVertOffset = outVertices.size();
-          outVertices.resize(outVertices.size() + sizeof(Vertex));
-
-          Vertex* const vertexPtr =
-              reinterpret_cast<Vertex*>(outVertices.data() + newVertOffset);
-
-          vertexPtr->pos = {attrib.vertices[3 * idx.vertex_index + 0],
-                            attrib.vertices[3 * idx.vertex_index + 1],
-                            attrib.vertices[3 * idx.vertex_index + 2]};
-
-          if constexpr (V::hasNormal) {
-            vertexPtr->normal = {attrib.normals[3 * idx.normal_index + 0],
-                                 attrib.normals[3 * idx.normal_index + 1],
-                                 attrib.normals[3 * idx.normal_index + 2]};
-          }
-
-          if constexpr (V::hasColor) {
-            vertexPtr->color = {attrib.colors[3 * idx.vertex_index + 0],
-                                attrib.colors[3 * idx.vertex_index + 1],
-                                attrib.colors[3 * idx.vertex_index + 2]};
-          }
-
-          if constexpr (V::hasUV) {
-            vertexPtr->uv = {attrib.texcoords[2 * idx.texcoord_index + 0],
-                             1.f -
-                                 attrib.texcoords[2 * idx.texcoord_index + 1]};
-          }
-
-          if constexpr (V::hasTangent) {
-            vertexPtr->tangent = tangent;
-          }
-
-        } else {
-          // Insert the index of already added vertex
-          outSurfaces[matInd].push_back(insertResult.first->second);
-        }
-      }
-
-      faceIndOffset += vertexCount;
-    }
-  }
-
-  return outVertices.size() / sizeof(Vertex);
-}
-
 std::optional<asset::TextureAssetInfo> AssetConverter::convertImgToAsset(
     fs::path const& srcPath, fs::path const& dstPath,
     std::optional<core::TextureFormat> overrideTextureFormat) {
@@ -356,19 +222,19 @@ bool AssetConverter::convertObjToAsset(fs::path const& srcPath,
         if (meshAssetInfo.hasNormals && meshAssetInfo.hasColors &&
             meshAssetInfo.hasUV) {
           vertexCount =
-              generateVerticesFromobj<core::VertexType<true, true, true>>(
+              generateVerticesFromObj<core::VertexType<true, true, true>>(
                   attrib, shapes, outVertices, outSurfaces);
         } else if (meshAssetInfo.hasNormals && meshAssetInfo.hasColors) {
           vertexCount =
-              generateVerticesFromobj<core::VertexType<true, true, false>>(
+              generateVerticesFromObj<core::VertexType<true, true, false>>(
                   attrib, shapes, outVertices, outSurfaces);
         } else if (meshAssetInfo.hasNormals) {
           vertexCount =
-              generateVerticesFromobj<core::VertexType<true, false, false>>(
+              generateVerticesFromObj<core::VertexType<true, false, false>>(
                   attrib, shapes, outVertices, outSurfaces);
         } else {
           vertexCount =
-              generateVerticesFromobj<core::VertexType<false, false, false>>(
+              generateVerticesFromObj<core::VertexType<false, false, false>>(
                   attrib, shapes, outVertices, outSurfaces);
         }
       });
@@ -441,16 +307,82 @@ bool AssetConverter::convertGltfToAsset(fs::path const& srcPath,
     OBS_LOG_WARN(warn);
   }
 
-  std::vector<TinyGltfMaterialWrapper> materials;
+  std::vector<GltfMaterialWrapper> materials;
   materials.reserve(model.materials.size());
 
   for (std::size_t i = 0; i < model.materials.size(); ++i) {
     materials.push_back(
-        TinyGltfMaterialWrapper{model.materials[i], model.textures});
+        GltfMaterialWrapper{model.materials[i], model.textures});
   }
 
   std::vector<std::string> materialNames =
       extractMaterials(srcPath.parent_path(), dstPath.parent_path(), materials);
+
+  std::vector<task::TaskBase const*> genVerticesTasks;
+  genVerticesTasks.reserve(model.meshes.size());
+
+  std::vector<std::size_t> vertexCountPerMesh;
+  vertexCountPerMesh.reserve(model.meshes.size());
+  std::vector<std::vector<char>> outVerticesPerMesh;
+  outVerticesPerMesh.reserve(model.meshes.size());
+  std::vector<std::vector<std::vector<core::MeshIndexType>>> outSurfacesPerMesh;
+  outSurfacesPerMesh.reserve(model.meshes.size());
+  std::vector<asset::MeshAssetInfo> meshAssetInfoPerMesh;
+  meshAssetInfoPerMesh.reserve(model.meshes.size());
+
+  for (std::size_t i = 0; i < model.meshes.size(); ++i) {
+    asset::MeshAssetInfo& meshAssetInfo = meshAssetInfoPerMesh.emplace_back();
+    meshAssetInfo.compressionMode = asset::CompressionMode::LZ4;
+
+    auto const& primitives = model.meshes[i].primitives;
+
+    meshAssetInfo.hasNormals = std::all_of(
+        primitives.cbegin(), primitives.cbegin(),
+        [](auto const& p) { return p.attributes.contains("NORMAL"); });
+    meshAssetInfo.hasColors =
+        std::all_of(primitives.cbegin(), primitives.cend(), [](auto const& p) {
+          return p.attributes.contains("COLOR_0");
+        });
+    meshAssetInfo.hasUV =
+        std::all_of(primitives.cbegin(), primitives.cend(), [](auto const& p) {
+          return p.attributes.contains("TEXCOORD_0");
+        });
+
+    task::TaskBase const& genVertTask = _taskExecutor.enqueue(
+        task::TaskType::general,
+        // capturing vector members by reference won't cause problems because
+        // the vector memory was reserved in advance
+        [&meshAssetInfo, &vertexCount = vertexCountPerMesh.emplace_back(),
+         &model, meshInd = i, &outVertices = outVerticesPerMesh.emplace_back(),
+         &outSurfaces = outSurfacesPerMesh.emplace_back()]() {
+          outSurfaces.resize(model.materials.size());
+
+          if (meshAssetInfo.hasNormals && meshAssetInfo.hasColors &&
+              meshAssetInfo.hasUV) {
+            vertexCount =
+                generateVerticesFromGltf<core::VertexType<true, true, true>>(
+                    model, meshInd, outVertices, outSurfaces);
+          } else if (meshAssetInfo.hasNormals && meshAssetInfo.hasColors) {
+            vertexCount =
+                generateVerticesFromGltf<core::VertexType<true, true, false>>(
+                    model, meshInd, outVertices, outSurfaces);
+          } else if (meshAssetInfo.hasNormals) {
+            vertexCount =
+                generateVerticesFromGltf<core::VertexType<true, false, false>>(
+                    model, meshInd, outVertices, outSurfaces);
+          } else {
+            vertexCount =
+                generateVerticesFromGltf<core::VertexType<false, false, false>>(
+                    model, meshInd, outVertices, outSurfaces);
+          }
+        });
+
+    genVerticesTasks.push_back(&genVertTask);
+  }
+
+  while (std::any_of(genVerticesTasks.cbegin(), genVerticesTasks.cend(),
+                     [](task::TaskBase const* t) { return !t->isDone(); }))
+    ;
 
   return true;
 }
