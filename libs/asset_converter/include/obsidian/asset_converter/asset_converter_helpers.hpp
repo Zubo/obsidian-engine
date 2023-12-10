@@ -29,6 +29,7 @@ private:
 
 inline glm::vec3 calculateTangent(std::array<glm::vec3, 3> const& facePositions,
                                   std::array<glm::vec2, 3> const& faceUVs) {
+  ZoneScoped;
   glm::mat2x3 const edgeMtx = {facePositions[0] - facePositions[1],
                                facePositions[2] - facePositions[1]};
   glm::vec2 const deltaUV0 = faceUVs[0] - faceUVs[1];
@@ -175,6 +176,7 @@ std::size_t callGenerateVerticesFromObj(
 
 inline std::uint32_t getUnsignedIntegerViaAccessor(tinygltf::Accessor const& a,
                                                    unsigned char const* ptr) {
+  ZoneScoped;
   if (a.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT) {
     return *reinterpret_cast<std::uint16_t const*>(ptr);
   } else if (a.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT) {
@@ -192,6 +194,7 @@ inline std::uint32_t getUnsignedIntegerViaAccessor(tinygltf::Accessor const& a,
 
 inline float getFloatViaAccessor(tinygltf::Accessor const& a,
                                  unsigned char const* ptr) {
+  ZoneScoped;
   if (a.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT) {
     return *reinterpret_cast<float const*>(ptr);
   } else if (a.componentType == TINYGLTF_COMPONENT_TYPE_DOUBLE) {
@@ -214,9 +217,10 @@ inline float getFloatViaAccessor(tinygltf::Accessor const& a,
 
 template <typename V>
 std::size_t generateVerticesFromGltf(
-    tinygltf::Model const& model, std::size_t meshInd,
-    std::vector<char>& outVertices,
+    tinygltf::Model const& model, std::vector<char>& outVertices,
     std::vector<std::vector<core::MeshIndexType>>& outSurfaces) {
+  ZoneScoped;
+
   using Vertex = typename V::Vertex;
 
   assert(!outVertices.size() &&
@@ -252,175 +256,193 @@ std::size_t generateVerticesFromGltf(
 
   std::unordered_map<Ind, std::size_t, typename Ind::hash> uniqueIdx;
 
-  tinygltf::Mesh const& mesh = model.meshes[meshInd];
+  for (tinygltf::Mesh const& mesh : model.meshes) {
+    ZoneScopedN("GLTF mesh");
 
-  for (std::size_t primitiveInd = 0; primitiveInd < mesh.primitives.size();
-       ++primitiveInd) {
-    tinygltf::Primitive const& primitive = mesh.primitives[primitiveInd];
+    for (std::size_t primitiveInd = 0; primitiveInd < mesh.primitives.size();
+         ++primitiveInd) {
+      ZoneScopedN("GLTF primitive");
 
-    int const matInd = outSurfaces.size() == 1 ? 0 : primitive.material;
-    std::vector<core::MeshIndexType>& surface = outSurfaces[matInd];
+      tinygltf::Primitive const& primitive = mesh.primitives[primitiveInd];
 
-    tinygltf::Accessor const& indAccessor = model.accessors[primitive.indices];
-    tinygltf::BufferView const& indBufferView =
-        model.bufferViews[indAccessor.bufferView];
-    tinygltf::Buffer const& indBuffer = model.buffers[indBufferView.buffer];
-    unsigned char const* const indData = indBuffer.data.data() +
-                                         indBufferView.byteOffset +
-                                         indAccessor.byteOffset;
-    std::size_t const indByteStride =
-        indBufferView.byteStride ? indBufferView.byteStride
-                                 : indBufferView.byteLength / indAccessor.count;
+      int const matInd = outSurfaces.size() == 1 ? 0 : primitive.material;
+      std::vector<core::MeshIndexType>& surface = outSurfaces[matInd];
 
-    tinygltf::Accessor const& posAccessor =
-        model.accessors[primitive.attributes.at("POSITION")];
-    tinygltf::BufferView const& posBufferView =
-        model.bufferViews[posAccessor.bufferView];
-    tinygltf::Buffer const& posBuffer = model.buffers[posBufferView.buffer];
-    unsigned char const* const posData = posBuffer.data.data() +
-                                         posBufferView.byteOffset +
-                                         posAccessor.byteOffset;
-    std::size_t const vertexPosSize =
-        posBufferView.byteLength / posAccessor.count;
-    std::size_t const posByteStride =
-        posBufferView.byteStride ? posBufferView.byteStride : vertexPosSize;
+      tinygltf::Accessor const& indAccessor =
+          model.accessors[primitive.indices];
+      tinygltf::BufferView const& indBufferView =
+          model.bufferViews[indAccessor.bufferView];
+      tinygltf::Buffer const& indBuffer = model.buffers[indBufferView.buffer];
+      unsigned char const* const indData = indBuffer.data.data() +
+                                           indBufferView.byteOffset +
+                                           indAccessor.byteOffset;
+      std::size_t const indByteStride =
+          indBufferView.byteStride
+              ? indBufferView.byteStride
+              : indBufferView.byteLength / indAccessor.count;
 
-    tinygltf::Accessor const* normalAccessor = nullptr;
-    tinygltf::BufferView const* normalBufferView = nullptr;
-    tinygltf::Buffer const* normalBuffer = nullptr;
-    unsigned char const* normalData = nullptr;
-    std::size_t normalSize = 0;
-    std::size_t normalByteStride = 0;
+      tinygltf::Accessor const& posAccessor =
+          model.accessors[primitive.attributes.at("POSITION")];
+      tinygltf::BufferView const& posBufferView =
+          model.bufferViews[posAccessor.bufferView];
+      tinygltf::Buffer const& posBuffer = model.buffers[posBufferView.buffer];
+      unsigned char const* const posData = posBuffer.data.data() +
+                                           posBufferView.byteOffset +
+                                           posAccessor.byteOffset;
+      std::size_t const vertexPosSize =
+          posBufferView.byteLength / posAccessor.count;
+      std::size_t const posByteStride =
+          posBufferView.byteStride ? posBufferView.byteStride : vertexPosSize;
 
-    if constexpr (V::hasNormal) {
-      normalAccessor = &model.accessors[primitive.attributes.at("NORMAL")];
-      normalBufferView = &model.bufferViews[normalAccessor->bufferView];
-      normalBuffer = &model.buffers[normalBufferView->buffer];
-      normalData = normalBuffer->data.data() + normalBufferView->byteOffset +
-                   normalAccessor->byteOffset;
-      normalSize = normalBufferView->byteLength / normalAccessor->count;
-      normalByteStride = normalBufferView->byteStride
-                             ? normalBufferView->byteStride
-                             : normalSize;
-    }
+      tinygltf::Accessor const* normalAccessor = nullptr;
+      tinygltf::BufferView const* normalBufferView = nullptr;
+      tinygltf::Buffer const* normalBuffer = nullptr;
+      unsigned char const* normalData = nullptr;
+      std::size_t normalSize = 0;
+      std::size_t normalByteStride = 0;
 
-    tinygltf::Accessor const* colorAccessor = nullptr;
-    tinygltf::BufferView const* colorBufferView = nullptr;
-    tinygltf::Buffer const* colorBuffer = nullptr;
-    unsigned char const* colorData = nullptr;
-    std::size_t colorSize = 0;
-    std::size_t colorByteStride = 0;
-
-    if constexpr (V::hasColor) {
-      colorAccessor = &model.accessors[primitive.attributes.at("COLOR_0")];
-      colorBufferView = &model.bufferViews[colorAccessor->bufferView];
-      colorBuffer = &model.buffers[colorBufferView->buffer];
-      colorData = colorBuffer->data.data() + colorBufferView->byteOffset +
-                  colorAccessor->byteOffset;
-      colorSize = colorBufferView->byteLength / colorAccessor->count;
-      colorByteStride =
-          colorBufferView->byteStride ? colorBufferView->byteStride : colorSize;
-    }
-
-    tinygltf::Accessor const* uvAccessor = nullptr;
-    tinygltf::BufferView const* uvBufferView = nullptr;
-    tinygltf::Buffer const* uvBuffer = nullptr;
-    unsigned char const* uvBufferData = nullptr;
-    std::size_t uvSize = 0;
-    std::size_t uvByteStride = 0;
-
-    if (V::hasUV) {
-      uvAccessor = &model.accessors[primitive.attributes.at("TEXCOORD_0")];
-      uvBufferView = &model.bufferViews[uvAccessor->bufferView];
-      uvBuffer = &model.buffers[uvBufferView->buffer];
-      uvBufferData = uvBuffer->data.data() + uvBufferView->byteOffset +
-                     uvAccessor->byteOffset;
-      uvSize = uvBufferView->byteLength / uvAccessor->count;
-      uvByteStride =
-          uvBufferView->byteStride ? uvBufferView->byteStride : uvSize;
-    }
-
-    for (std::size_t triangleInd = 0; triangleInd < indAccessor.count / 3;
-         ++triangleInd) {
-      std::array<std::uint32_t, 3> triangleIndices;
-
-      for (std::size_t i = 0; i < triangleIndices.size(); ++i) {
-        triangleIndices[i] = getUnsignedIntegerViaAccessor(
-            indAccessor, indData + (3 * triangleInd + i) * indByteStride);
+      if constexpr (V::hasNormal) {
+        normalAccessor = &model.accessors[primitive.attributes.at("NORMAL")];
+        normalBufferView = &model.bufferViews[normalAccessor->bufferView];
+        normalBuffer = &model.buffers[normalBufferView->buffer];
+        normalData = normalBuffer->data.data() + normalBufferView->byteOffset +
+                     normalAccessor->byteOffset;
+        normalSize = normalBufferView->byteLength / normalAccessor->count;
+        normalByteStride = normalBufferView->byteStride
+                               ? normalBufferView->byteStride
+                               : normalSize;
       }
 
-      glm::vec3 tangent = {};
+      tinygltf::Accessor const* colorAccessor = nullptr;
+      tinygltf::BufferView const* colorBufferView = nullptr;
+      tinygltf::Buffer const* colorBuffer = nullptr;
+      unsigned char const* colorData = nullptr;
+      std::size_t colorSize = 0;
+      std::size_t colorByteStride = 0;
 
-      std::array<glm::vec3, 3> facePositions;
-      std::array<glm::vec2, 3> faceUvs;
+      if constexpr (V::hasColor) {
+        colorAccessor = &model.accessors[primitive.attributes.at("COLOR_0")];
+        colorBufferView = &model.bufferViews[colorAccessor->bufferView];
+        colorBuffer = &model.buffers[colorBufferView->buffer];
+        colorData = colorBuffer->data.data() + colorBufferView->byteOffset +
+                    colorAccessor->byteOffset;
+        colorSize = colorBufferView->byteLength / colorAccessor->count;
+        colorByteStride = colorBufferView->byteStride
+                              ? colorBufferView->byteStride
+                              : colorSize;
+      }
 
-      for (std::size_t i = 0; i < triangleIndices.size(); ++i) {
-        for (std::size_t j = 0; j < 3; ++j) {
-          facePositions[i][j] = getFloatViaAccessor(
-              posAccessor, posData + (triangleIndices[i] * posByteStride +
-                                      j * vertexPosSize / 3));
+      tinygltf::Accessor const* uvAccessor = nullptr;
+      tinygltf::BufferView const* uvBufferView = nullptr;
+      tinygltf::Buffer const* uvBuffer = nullptr;
+      unsigned char const* uvBufferData = nullptr;
+      std::size_t uvSize = 0;
+      std::size_t uvByteStride = 0;
+
+      if (V::hasUV) {
+        uvAccessor = &model.accessors[primitive.attributes.at("TEXCOORD_0")];
+        uvBufferView = &model.bufferViews[uvAccessor->bufferView];
+        uvBuffer = &model.buffers[uvBufferView->buffer];
+        uvBufferData = uvBuffer->data.data() + uvBufferView->byteOffset +
+                       uvAccessor->byteOffset;
+        uvSize = uvBufferView->byteLength / uvAccessor->count;
+        uvByteStride =
+            uvBufferView->byteStride ? uvBufferView->byteStride : uvSize;
+      }
+
+      for (std::size_t triangleInd = 0; triangleInd < indAccessor.count / 3;
+           ++triangleInd) {
+        ZoneScopedN("GLTF triangle");
+
+        std::array<std::uint32_t, 3> triangleIndices;
+
+        for (std::size_t i = 0; i < triangleIndices.size(); ++i) {
+          triangleIndices[i] = getUnsignedIntegerViaAccessor(
+              indAccessor, indData + (3 * triangleInd + i) * indByteStride);
         }
 
-        if constexpr (V::hasUV) {
-          for (std::size_t j = 0; j < 2; ++j) {
-            faceUvs[i][j] = getFloatViaAccessor(
-                *uvAccessor, uvBufferData + (triangleIndices[i] * uvByteStride +
-                                             j * uvSize / 2));
-          }
-        }
-      }
+        glm::vec3 tangent = {};
 
-      if constexpr (V::hasTangent) {
-        tangent = calculateTangent(facePositions, faceUvs);
-      }
+        std::array<glm::vec3, 3> facePositions;
+        std::array<glm::vec2, 3> faceUvs;
 
-      for (std::size_t i = 0; i < triangleIndices.size(); ++i) {
-        std::uint32_t const vertInd = triangleIndices[i];
-
-        auto const insertResult = uniqueIdx.emplace(
-            Ind{vertInd, posBufferView.buffer,
-                normalBufferView ? normalBufferView->buffer : 0,
-                uvBufferView ? uvBufferView->buffer : 0, tangent},
-            outVertices.size() / sizeof(Vertex));
-
-        if (insertResult.second) {
-          // new vertex detected
-          surface.push_back(outVertices.size() / sizeof(Vertex));
-
-          std::size_t const newVertOffset = outVertices.size();
-          outVertices.resize(outVertices.size() + sizeof(Vertex));
-
-          Vertex* const vertexPtr =
-              reinterpret_cast<Vertex*>(outVertices.data() + newVertOffset);
-
-          vertexPtr->pos = facePositions[i];
-
-          if constexpr (V::hasNormal) {
-            for (std::size_t i = 0; i < 3; ++i) {
-              vertexPtr->normal[i] = getFloatViaAccessor(
-                  *normalAccessor, normalData + (vertInd * normalByteStride +
-                                                 i * normalSize / 3));
-            }
-          }
-
-          if constexpr (V::hasColor) {
-            for (std::size_t i = 0; i < 3; ++i) {
-              vertexPtr->color[i] = getFloatViaAccessor(
-                  *colorAccessor,
-                  colorData + (vertInd * colorByteStride + i * colorSize / 3));
-            }
+        for (std::size_t i = 0; i < triangleIndices.size(); ++i) {
+          for (std::size_t j = 0; j < 3; ++j) {
+            facePositions[i][j] = getFloatViaAccessor(
+                posAccessor, posData + (triangleIndices[i] * posByteStride +
+                                        j * vertexPosSize / 3));
           }
 
           if constexpr (V::hasUV) {
-            vertexPtr->uv = faceUvs[i]; //{faceUvs[i].x, 1.0f - faceUvs[i].y};
+            for (std::size_t j = 0; j < 2; ++j) {
+              faceUvs[i][j] = getFloatViaAccessor(
+                  *uvAccessor,
+                  uvBufferData +
+                      (triangleIndices[i] * uvByteStride + j * uvSize / 2));
+            }
+          }
+        }
+
+        if constexpr (V::hasTangent) {
+          tangent = calculateTangent(facePositions, faceUvs);
+        }
+
+        for (std::size_t i = 0; i < triangleIndices.size(); ++i) {
+          std::uint32_t const vertInd = triangleIndices[i];
+
+          decltype(uniqueIdx.emplace()) insertResult;
+
+          {
+            ZoneScopedN("GLTF unique idx mapping");
+            insertResult = uniqueIdx.emplace(
+                Ind{vertInd, posBufferView.buffer,
+                    normalBufferView ? normalBufferView->buffer : 0,
+                    uvBufferView ? uvBufferView->buffer : 0, tangent},
+                outVertices.size() / sizeof(Vertex));
           }
 
-          if constexpr (V::hasTangent) {
-            vertexPtr->tangent = tangent;
-          }
+          if (insertResult.second) {
+            // new vertex detected
+            surface.push_back(outVertices.size() / sizeof(Vertex));
 
-        } else {
-          surface.emplace_back(insertResult.first->second);
+            std::size_t const newVertOffset = outVertices.size();
+            {
+              ZoneScopedN("Vertex buffer resizing");
+              outVertices.resize(outVertices.size() + sizeof(Vertex));
+            }
+
+            Vertex* const vertexPtr =
+                reinterpret_cast<Vertex*>(outVertices.data() + newVertOffset);
+
+            vertexPtr->pos = facePositions[i];
+
+            if constexpr (V::hasNormal) {
+              for (std::size_t i = 0; i < 3; ++i) {
+                vertexPtr->normal[i] = getFloatViaAccessor(
+                    *normalAccessor, normalData + (vertInd * normalByteStride +
+                                                   i * normalSize / 3));
+              }
+            }
+
+            if constexpr (V::hasColor) {
+              for (std::size_t i = 0; i < 3; ++i) {
+                vertexPtr->color[i] = getFloatViaAccessor(
+                    *colorAccessor, colorData + (vertInd * colorByteStride +
+                                                 i * colorSize / 3));
+              }
+            }
+
+            if constexpr (V::hasUV) {
+              vertexPtr->uv = faceUvs[i]; //{faceUvs[i].x, 1.0f - faceUvs[i].y};
+            }
+
+            if constexpr (V::hasTangent) {
+              vertexPtr->tangent = tangent;
+            }
+
+          } else {
+            surface.emplace_back(insertResult.first->second);
+          }
         }
       }
     }
@@ -431,7 +453,7 @@ std::size_t generateVerticesFromGltf(
 
 std::size_t callGenerateVerticesFromGltf(
     asset::MeshAssetInfo const& meshAssetInfo, tinygltf::Model const& model,
-    std::size_t meshInd, std::vector<char>& outVertices,
+    std::vector<char>& outVertices,
     std::vector<std::vector<core::MeshIndexType>>& outSurfaces);
 
 struct GltfMaterialWrapper {
@@ -475,6 +497,17 @@ inline std::string getNormalTexName(tinyobj::material_t const& m) {
 inline std::string getNormalTexName(GltfMaterialWrapper const& m) {
   int const index = m.mat.normalTexture.index;
 
+  if (index < 0) {
+    return "";
+  }
+
+  int const source = m.textures[index].source;
+
+  if (source < 0) {
+    return "";
+  }
+
+  return m.images[source].uri;
   return index >= 0 ? m.textures[index].name : "";
 }
 

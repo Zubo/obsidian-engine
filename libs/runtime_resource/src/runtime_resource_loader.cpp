@@ -17,7 +17,7 @@ RuntimeResourceLoader::~RuntimeResourceLoader() {
 
   l.unlock();
 
-  _queueMutexCondVar.notify_one();
+  _queueMutexCondVar.notify_all();
   _loaderThread.join();
 }
 

@@ -59,33 +59,33 @@ std::size_t callGenerateVerticesFromObj(
 
 std::size_t callGenerateVerticesFromGltf(
     asset::MeshAssetInfo const& meshAssetInfo, tinygltf::Model const& model,
-    std::size_t meshInd, std::vector<char>& outVertices,
+    std::vector<char>& outVertices,
     std::vector<std::vector<core::MeshIndexType>>& outSurfaces) {
   if (meshAssetInfo.hasNormals && meshAssetInfo.hasColors &&
       meshAssetInfo.hasUV) {
     return generateVerticesFromGltf<core::VertexType<true, true, true>>(
-        model, meshInd, outVertices, outSurfaces);
+        model, outVertices, outSurfaces);
   } else if (meshAssetInfo.hasNormals && meshAssetInfo.hasColors) {
     return generateVerticesFromGltf<core::VertexType<true, true, false>>(
-        model, meshInd, outVertices, outSurfaces);
+        model, outVertices, outSurfaces);
   } else if (meshAssetInfo.hasNormals && meshAssetInfo.hasUV) {
     return generateVerticesFromGltf<core::VertexType<true, false, true>>(
-        model, meshInd, outVertices, outSurfaces);
+        model, outVertices, outSurfaces);
   } else if (meshAssetInfo.hasColors && meshAssetInfo.hasUV) {
     return generateVerticesFromGltf<core::VertexType<false, true, true>>(
-        model, meshInd, outVertices, outSurfaces);
+        model, outVertices, outSurfaces);
   } else if (meshAssetInfo.hasNormals) {
     return generateVerticesFromGltf<core::VertexType<true, false, false>>(
-        model, meshInd, outVertices, outSurfaces);
+        model, outVertices, outSurfaces);
   } else if (meshAssetInfo.hasColors) {
     return generateVerticesFromGltf<core::VertexType<false, true, false>>(
-        model, meshInd, outVertices, outSurfaces);
+        model, outVertices, outSurfaces);
   } else if (meshAssetInfo.hasUV) {
     return generateVerticesFromGltf<core::VertexType<false, false, true>>(
-        model, meshInd, outVertices, outSurfaces);
+        model, outVertices, outSurfaces);
   } else {
     return generateVerticesFromGltf<core::VertexType<false, false, false>>(
-        model, meshInd, outVertices, outSurfaces);
+        model, outVertices, outSurfaces);
   }
 };
 
