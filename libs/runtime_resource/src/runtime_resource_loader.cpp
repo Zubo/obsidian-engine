@@ -17,8 +17,11 @@ RuntimeResourceLoader::~RuntimeResourceLoader() {
 
   l.unlock();
 
-  _queueMutexCondVar.notify_all();
-  _loaderThread.join();
+  _queueMutexCondVar.notify_one();
+
+  if (_loaderThread.joinable()) {
+    _loaderThread.join();
+  }
 }
 
 void RuntimeResourceLoader::init(task::TaskExecutor& taskExecutor) {
