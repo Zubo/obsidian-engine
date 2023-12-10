@@ -1,5 +1,6 @@
 #pragma once
 
+#include <obsidian/asset/mesh_asset_info.hpp>
 #include <obsidian/core/logging.hpp>
 #include <obsidian/core/vertex_type.hpp>
 
@@ -167,17 +168,24 @@ std::size_t generateVerticesFromObj(
   return outVertices.size() / sizeof(Vertex);
 }
 
-inline std::uint32_t getIntegerViaAccessor(tinygltf::Accessor const& a,
-                                           unsigned char const* ptr) {
+std::size_t callGenerateVerticesFromObj(
+    asset::MeshAssetInfo const& meshAssetInfo, tinyobj::attrib_t const& attrib,
+    std::vector<tinyobj::shape_t> const& shapes, std::vector<char>& outVertices,
+    std::vector<std::vector<core::MeshIndexType>>& outSurfaces);
+
+inline std::uint32_t getUnsignedIntegerViaAccessor(tinygltf::Accessor const& a,
+                                                   unsigned char const* ptr) {
   if (a.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT) {
     return *reinterpret_cast<std::uint16_t const*>(ptr);
   } else if (a.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT) {
     return *reinterpret_cast<std::uint32_t const*>(ptr);
+  } else if (a.componentType == TINYGLTF_COMPONENT_TYPE_SHORT) {
+    return *reinterpret_cast<std::int16_t const*>(ptr);
+  } else if (a.componentType == TINYGLTF_COMPONENT_TYPE_INT) {
+    return *reinterpret_cast<std::int32_t const*>(ptr);
   }
 
-  OBS_LOG_ERR("Expected component type to be either "
-              "TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT or "
-              "TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT.");
+  OBS_LOG_ERR("Expected component type to be any of the integer types.");
   assert(false);
   return 0;
 }
@@ -188,11 +196,18 @@ inline float getFloatViaAccessor(tinygltf::Accessor const& a,
     return *reinterpret_cast<float const*>(ptr);
   } else if (a.componentType == TINYGLTF_COMPONENT_TYPE_DOUBLE) {
     return static_cast<float>(*reinterpret_cast<double const*>(ptr));
+  } else if (a.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT) {
+    return static_cast<float>(*reinterpret_cast<std::uint16_t const*>(ptr));
+  } else if (a.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT) {
+    return static_cast<float>(*reinterpret_cast<std::uint32_t const*>(ptr));
+  } else if (a.componentType == TINYGLTF_COMPONENT_TYPE_SHORT) {
+    return static_cast<float>(*reinterpret_cast<std::int16_t const*>(ptr));
+  } else if (a.componentType == TINYGLTF_COMPONENT_TYPE_INT) {
+    return static_cast<float>(*reinterpret_cast<std::int32_t const*>(ptr));
   }
 
-  OBS_LOG_ERR("Expected component type to be either "
-              "TINYGLTF_COMPONENT_TYPE_FLOAT or "
-              "TINYGLTF_COMPONENT_TYPE_DOUBLE.");
+  OBS_LOG_ERR("Component type expected to be either any floating point type or "
+              "any integer type");
 
   return 0;
 }
@@ -307,9 +322,9 @@ std::size_t generateVerticesFromGltf(
           colorBufferView->byteStride ? colorBufferView->byteStride : colorSize;
     }
 
-    tinygltf::Accessor const* uvAccessor;
-    tinygltf::BufferView const* uvBufferView;
-    tinygltf::Buffer const* uvBuffer;
+    tinygltf::Accessor const* uvAccessor = nullptr;
+    tinygltf::BufferView const* uvBufferView = nullptr;
+    tinygltf::Buffer const* uvBuffer = nullptr;
     unsigned char const* uvBufferData = nullptr;
     std::size_t uvSize = 0;
     std::size_t uvByteStride = 0;
@@ -330,7 +345,7 @@ std::size_t generateVerticesFromGltf(
       std::array<std::uint32_t, 3> triangleIndices;
 
       for (std::size_t i = 0; i < triangleIndices.size(); ++i) {
-        triangleIndices[i] = getIntegerViaAccessor(
+        triangleIndices[i] = getUnsignedIntegerViaAccessor(
             indAccessor, indData + (3 * triangleInd + i) * indByteStride);
       }
 
@@ -339,28 +354,28 @@ std::size_t generateVerticesFromGltf(
       std::array<glm::vec3, 3> facePositions;
       std::array<glm::vec2, 3> faceUvs;
 
-      if constexpr (V::hasTangent) {
-        for (std::size_t i = 0; i < triangleIndices.size(); ++i) {
-          for (std::size_t j = 0; j < 3; ++j) {
-            facePositions[i][j] = getFloatViaAccessor(
-                posAccessor, posData + (triangleIndices[i] * posByteStride +
-                                        j * vertexPosSize / 3));
-          }
+      for (std::size_t i = 0; i < triangleIndices.size(); ++i) {
+        for (std::size_t j = 0; j < 3; ++j) {
+          facePositions[i][j] = getFloatViaAccessor(
+              posAccessor, posData + (triangleIndices[i] * posByteStride +
+                                      j * vertexPosSize / 3));
+        }
 
+        if constexpr (V::hasUV) {
           for (std::size_t j = 0; j < 2; ++j) {
             faceUvs[i][j] = getFloatViaAccessor(
                 *uvAccessor, uvBufferData + (triangleIndices[i] * uvByteStride +
                                              j * uvSize / 2));
           }
         }
+      }
 
+      if constexpr (V::hasTangent) {
         tangent = calculateTangent(facePositions, faceUvs);
       }
 
       for (std::size_t i = 0; i < triangleIndices.size(); ++i) {
         std::uint32_t const vertInd = triangleIndices[i];
-
-        triangleIndices[i] = vertInd;
 
         auto const insertResult = uniqueIdx.emplace(
             Ind{vertInd, posBufferView.buffer,
@@ -397,7 +412,7 @@ std::size_t generateVerticesFromGltf(
           }
 
           if constexpr (V::hasUV) {
-            vertexPtr->uv = faceUvs[i];
+            vertexPtr->uv = {faceUvs[i].x, 1.0f - faceUvs[i].y};
           }
 
           if constexpr (V::hasTangent) {
@@ -413,6 +428,11 @@ std::size_t generateVerticesFromGltf(
 
   return outVertices.size() / sizeof(Vertex);
 }
+
+std::size_t callGenerateVerticesFromGltf(
+    asset::MeshAssetInfo const& meshAssetInfo, tinygltf::Model const& model,
+    std::size_t meshInd, std::vector<char>& outVertices,
+    std::vector<std::vector<core::MeshIndexType>>& outSurfaces);
 
 struct GltfMaterialWrapper {
   tinygltf::Material const& mat;

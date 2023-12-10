@@ -219,24 +219,8 @@ bool AssetConverter::convertObjToAsset(fs::path const& srcPath,
 
   task::TaskBase const& genVertTask =
       _taskExecutor.enqueue(task::TaskType::general, [&]() {
-        if (meshAssetInfo.hasNormals && meshAssetInfo.hasColors &&
-            meshAssetInfo.hasUV) {
-          vertexCount =
-              generateVerticesFromObj<core::VertexType<true, true, true>>(
-                  attrib, shapes, outVertices, outSurfaces);
-        } else if (meshAssetInfo.hasNormals && meshAssetInfo.hasColors) {
-          vertexCount =
-              generateVerticesFromObj<core::VertexType<true, true, false>>(
-                  attrib, shapes, outVertices, outSurfaces);
-        } else if (meshAssetInfo.hasNormals) {
-          vertexCount =
-              generateVerticesFromObj<core::VertexType<true, false, false>>(
-                  attrib, shapes, outVertices, outSurfaces);
-        } else {
-          vertexCount =
-              generateVerticesFromObj<core::VertexType<false, false, false>>(
-                  attrib, shapes, outVertices, outSurfaces);
-        }
+        vertexCount = callGenerateVerticesFromObj(meshAssetInfo, attrib, shapes,
+                                                  outVertices, outSurfaces);
       });
 
   VertexContentInfo const vertInfo = {
@@ -354,27 +338,9 @@ bool AssetConverter::convertGltfToAsset(fs::path const& srcPath,
          &model, meshInd = i, &outVertices = outVerticesPerModel.emplace_back(),
          &outSurfaces = outSurfacesPerModel.emplace_back()]() {
           outSurfaces.resize(model.materials.size());
-
-          if (meshAssetInfo.hasNormals && meshAssetInfo.hasColors &&
-              meshAssetInfo.hasUV) {
-            vertexCount =
-                generateVerticesFromGltf<core::VertexType<true, true, true>>(
-                    model, meshInd, outVertices, outSurfaces);
-          } else if (meshAssetInfo.hasNormals && meshAssetInfo.hasColors) {
-            vertexCount =
-                generateVerticesFromGltf<core::VertexType<true, true, false>>(
-                    model, meshInd, outVertices, outSurfaces);
-          } else if (meshAssetInfo.hasNormals) {
-            vertexCount =
-                generateVerticesFromGltf<core::VertexType<true, false, false>>(
-                    model, meshInd, outVertices, outSurfaces);
-          } else {
-            vertexCount =
-                generateVerticesFromGltf<core::VertexType<false, false, false>>(
-                    model, meshInd, outVertices, outSurfaces);
-          }
+          vertexCount = callGenerateVerticesFromGltf(
+              meshAssetInfo, model, meshInd, outVertices, outSurfaces);
         });
-
     modelConversionTasks.push_back(&generateVerticesTask);
   }
 
