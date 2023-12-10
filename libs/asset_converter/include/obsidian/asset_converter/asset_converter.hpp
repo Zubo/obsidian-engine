@@ -55,7 +55,7 @@ private:
   extractMaterials(std::filesystem::path const& srcDirPath,
                    std::filesystem::path const& projectPath,
                    std::vector<MaterialType> const& materials,
-                   VertexContentInfo const& info);
+                   VertexContentInfo const& info, bool tryFindingTextureSubdir);
 
   std::optional<asset::TextureAssetInfo> getOrCreateTexture(
       std::filesystem::path const& srcPath,

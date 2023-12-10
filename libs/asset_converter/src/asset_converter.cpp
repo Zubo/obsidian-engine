@@ -227,7 +227,7 @@ bool AssetConverter::convertObjToAsset(fs::path const& srcPath,
       meshAssetInfo.hasNormals, meshAssetInfo.hasColors, meshAssetInfo.hasUV,
       meshAssetInfo.hasTangents};
   meshAssetInfo.defaultMatRelativePaths = extractMaterials(
-      srcPath.parent_path(), dstPath.parent_path(), materials, vertInfo);
+      srcPath.parent_path(), dstPath.parent_path(), materials, vertInfo, true);
 
   while (!genVertTask.isDone())
     ;
@@ -349,14 +349,14 @@ bool AssetConverter::convertGltfToAsset(fs::path const& srcPath,
 
   for (std::size_t i = 0; i < model.materials.size(); ++i) {
     materials.push_back(
-        GltfMaterialWrapper{model.materials[i], model.textures});
+        GltfMaterialWrapper{model.materials[i], model.textures, model.images});
   }
 
   asset::MeshAssetInfo const& assetInfo = meshAssetInfoPerModel[0];
   VertexContentInfo const vertInfo = {assetInfo.hasNormals, assetInfo.hasColors,
                                       assetInfo.hasUV, assetInfo.hasTangents};
   std::vector<std::string> materialNames = extractMaterials(
-      srcPath.parent_path(), dstPath.parent_path(), materials, vertInfo);
+      srcPath.parent_path(), dstPath.parent_path(), materials, vertInfo, false);
 
   while (std::any_of(modelConversionTasks.cbegin(), modelConversionTasks.cend(),
                      [](task::TaskBase const* t) { return !t->isDone(); }))
@@ -505,51 +505,53 @@ std::optional<asset::TextureAssetInfo> AssetConverter::getOrCreateTexture(
 template <typename MaterialType>
 std::vector<std::string> AssetConverter::extractMaterials(
     fs::path const& srcDirPath, fs::path const& projectPath,
-    std::vector<MaterialType> const& materials, VertexContentInfo const& info) {
+    std::vector<MaterialType> const& materials, VertexContentInfo const& info,
+    bool tryFindingTextureSubdir) {
   ZoneScoped;
 
   std::vector<std::string> extractedMaterialPaths;
+  fs::directory_entry texDir;
 
-  fs::directory_entry const texDir(srcDirPath / "textures");
+  if (tryFindingTextureSubdir) {
+    texDir = fs::directory_entry(srcDirPath / "textures");
+  }
 
-  bool texDirExists = texDir.exists();
+  if (!tryFindingTextureSubdir || !texDir.exists()) {
+    texDir = fs::directory_entry{srcDirPath};
+  }
 
   std::unordered_map<std::string, task::TaskBase const*> textureLoadTasks;
+  for (std::size_t i = 0; i < materials.size(); ++i) {
+    MaterialType const& mat = materials[i];
 
-  if (texDirExists) {
-    for (std::size_t i = 0; i < materials.size(); ++i) {
-      MaterialType const& mat = materials[i];
+    std::string const diffuseTexName = getDiffuseTexName(mat);
 
-      std::string const diffuseTexName = getDiffuseTexName(mat);
+    if (!diffuseTexName.empty() && !textureLoadTasks.contains(diffuseTexName)) {
+      fs::path const srcPath = texDir.path() / diffuseTexName;
+      fs::path dstPath = projectPath / diffuseTexName;
+      dstPath.replace_extension(".obstex");
 
-      if (!diffuseTexName.empty() &&
-          !textureLoadTasks.contains(diffuseTexName)) {
-        fs::path const srcPath = texDir.path() / diffuseTexName;
-        fs::path dstPath = projectPath / diffuseTexName;
-        dstPath.replace_extension(".obstex");
+      task::TaskBase const* task = &_taskExecutor.enqueue(
+          task::TaskType::general, [this, srcPath, dstPath]() {
+            return getOrCreateTexture(srcPath, dstPath);
+          });
 
-        task::TaskBase const* task = &_taskExecutor.enqueue(
-            task::TaskType::general, [this, srcPath, dstPath]() {
-              return getOrCreateTexture(srcPath, dstPath);
-            });
+      textureLoadTasks[diffuseTexName] = task;
+    }
 
-        textureLoadTasks[diffuseTexName] = task;
-      }
+    std::string const normalTexName = getNormalTexName(mat);
+    if (!normalTexName.empty()) {
+      fs::path const srcPath = texDir.path() / normalTexName;
+      fs::path dstPath = projectPath / normalTexName;
+      dstPath.replace_extension(".obstex");
 
-      std::string const normalTexName = getNormalTexName(mat);
-      if (!normalTexName.empty()) {
-        fs::path const srcPath = texDir.path() / normalTexName;
-        fs::path dstPath = projectPath / normalTexName;
-        dstPath.replace_extension(".obstex");
+      task::TaskBase const* task = &_taskExecutor.enqueue(
+          task::TaskType::general, [this, srcPath, dstPath]() {
+            return getOrCreateTexture(srcPath, dstPath,
+                                      core::TextureFormat::R8G8B8A8_LINEAR);
+          });
 
-        task::TaskBase const* task = &_taskExecutor.enqueue(
-            task::TaskType::general, [this, srcPath, dstPath]() {
-              return getOrCreateTexture(srcPath, dstPath,
-                                        core::TextureFormat::R8G8B8A8_LINEAR);
-            });
-
-        textureLoadTasks[normalTexName] = task;
-      }
+      textureLoadTasks[normalTexName] = task;
     }
   }
 
@@ -575,31 +577,29 @@ std::vector<std::string> AssetConverter::extractMaterials(
     newMatAssetInfo.shininess = getShininess(mat);
     newMatAssetInfo.transparent = isMaterialTransparent(mat);
 
-    if (texDirExists) {
-      std::string diffuseTexName = getDiffuseTexName(mat);
-      if (!diffuseTexName.empty()) {
-        std::optional<asset::TextureAssetInfo> const* texInfo =
-            static_cast<std::optional<asset::TextureAssetInfo> const*>(
-                textureLoadTasks[diffuseTexName]->getReturn().get());
-        assert(texInfo);
+    std::string diffuseTexName = getDiffuseTexName(mat);
+    if (!diffuseTexName.empty()) {
+      std::optional<asset::TextureAssetInfo> const* texInfo =
+          static_cast<std::optional<asset::TextureAssetInfo> const*>(
+              textureLoadTasks[diffuseTexName]->getReturn().get());
+      assert(texInfo);
 
-        newMatAssetInfo.transparent |= (*texInfo && (*texInfo)->transparent);
-        fs::path dstPath = diffuseTexName;
-        dstPath.replace_extension(".obstex");
-        newMatAssetInfo.diffuseTexturePath = dstPath;
-      }
+      newMatAssetInfo.transparent |= (*texInfo && (*texInfo)->transparent);
+      fs::path dstPath = diffuseTexName;
+      dstPath.replace_extension(".obstex");
+      newMatAssetInfo.diffuseTexturePath = dstPath;
+    }
 
-      std::string const normalTexName = getNormalTexName(mat);
-      if (!normalTexName.empty()) {
-        std::optional<asset::TextureAssetInfo> const* texInfo =
-            static_cast<std::optional<asset::TextureAssetInfo> const*>(
-                textureLoadTasks[normalTexName]->getReturn().get());
-        assert(texInfo);
+    std::string const normalTexName = getNormalTexName(mat);
+    if (!normalTexName.empty()) {
+      std::optional<asset::TextureAssetInfo> const* texInfo =
+          static_cast<std::optional<asset::TextureAssetInfo> const*>(
+              textureLoadTasks[normalTexName]->getReturn().get());
+      assert(texInfo);
 
-        fs::path dstPath = normalTexName;
-        dstPath.replace_extension(".obstex");
-        newMatAssetInfo.normalMapTexturePath = dstPath;
-      }
+      fs::path dstPath = normalTexName;
+      dstPath.replace_extension(".obstex");
+      newMatAssetInfo.normalMapTexturePath = dstPath;
     }
 
     asset::Asset matAsset;

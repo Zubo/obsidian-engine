@@ -4,6 +4,7 @@
 
 #include <tracy/Tracy.hpp>
 
+#include <filesystem>
 #include <fstream>
 #include <ios>
 
@@ -92,6 +93,10 @@ bool saveToFile(fs::path const& path, Asset const& asset) {
   outputFileStream.exceptions(std::ios_base::failbit);
 
   try {
+    fs::path const directoryPath = path.parent_path();
+    if (!fs::exists(directoryPath)) {
+      fs::create_directories(directoryPath);
+    }
     outputFileStream.open(path, std::ios_base::out | std::ios_base::binary);
   } catch (std::ios_base::failure const& e) {
     OBS_LOG_ERR(e.what());

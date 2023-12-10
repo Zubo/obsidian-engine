@@ -412,7 +412,7 @@ std::size_t generateVerticesFromGltf(
           }
 
           if constexpr (V::hasUV) {
-            vertexPtr->uv = {faceUvs[i].x, 1.0f - faceUvs[i].y};
+            vertexPtr->uv = faceUvs[i]; //{faceUvs[i].x, 1.0f - faceUvs[i].y};
           }
 
           if constexpr (V::hasTangent) {
@@ -437,6 +437,7 @@ std::size_t callGenerateVerticesFromGltf(
 struct GltfMaterialWrapper {
   tinygltf::Material const& mat;
   std::vector<tinygltf::Texture> const& textures;
+  std::vector<tinygltf::Image> const& images;
 };
 
 inline std::string getMaterialName(tinyobj::material_t const& m) {
@@ -452,9 +453,19 @@ inline std::string getDiffuseTexName(tinyobj::material_t const& m) {
 }
 
 inline std::string getDiffuseTexName(GltfMaterialWrapper const& m) {
-  int const index = m.mat.pbrMetallicRoughness.metallicRoughnessTexture.index;
+  int const index = m.mat.pbrMetallicRoughness.baseColorTexture.index;
 
-  return index >= 0 ? m.textures[index].name : "";
+  if (index < 0) {
+    return "";
+  }
+
+  int const source = m.textures[index].source;
+
+  if (source < 0) {
+    return "";
+  }
+
+  return m.images[source].uri;
 }
 
 inline std::string getNormalTexName(tinyobj::material_t const& m) {
