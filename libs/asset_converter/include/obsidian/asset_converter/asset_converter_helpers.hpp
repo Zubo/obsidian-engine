@@ -545,7 +545,8 @@ inline glm::vec4 getSpecularColor(GltfMaterialWrapper const& m) {
 inline float getShininess(tinyobj::material_t const& m) { return m.shininess; }
 
 inline float getShininess(GltfMaterialWrapper const& m) {
-  return 1.0f - m.mat.pbrMetallicRoughness.roughnessFactor;
+  // roughness factor: smooth - 0.0, rough - 1.0:
+  return 1.0f + 511.0f * (1.0f - m.mat.pbrMetallicRoughness.roughnessFactor);
 }
 
 inline bool isMaterialTransparent(tinyobj::material_t const& m) {
