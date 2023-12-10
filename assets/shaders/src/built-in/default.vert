@@ -9,9 +9,8 @@ layout(location = 2) in vec3 vColor;
 
 #ifdef _HAS_UV
 layout(location = 3) in vec2 vUV;
-#endif
-
 layout(location = 4) in vec3 vTangent;
+#endif
 
 layout(location = 0) out vec3 outWorldPos;
 
@@ -23,9 +22,8 @@ layout(location = 2) out vec3 outNormals;
 
 #ifdef _HAS_UV
 layout(location = 3) out vec2 outUV;
-#endif
-
 layout(location = 4) out mat3 outTBN;
+#endif
 
 layout(set = 0, binding = 0) uniform CameraBuffer {
   mat4 view;
@@ -55,9 +53,8 @@ void main() {
 
 #ifdef _HAS_UV
   outUV = vUV;
-#endif
-
   vec3 transformedTan = mat3(modelMat) * vTangent;
   vec3 bitangent = cross(outNormals, transformedTan);
   outTBN = mat3(transformedTan, bitangent, outNormals);
+#endif
 }

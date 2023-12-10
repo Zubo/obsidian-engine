@@ -574,6 +574,10 @@ void VulkanRHI::submitDrawCall(rhi::DrawCall const& drawCall) {
     } else {
       _drawCallQueue.push_back(vkDrawCall);
     }
+
+    if (vkDrawCall.mesh->hasTangents) {
+      _ssaoDrawCallQueue.push_back(vkDrawCall);
+    }
   }
 }
 

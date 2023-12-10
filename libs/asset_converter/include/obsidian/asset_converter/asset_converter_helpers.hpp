@@ -279,7 +279,7 @@ std::size_t generateVerticesFromGltf(
       std::size_t const indByteStride =
           indBufferView.byteStride
               ? indBufferView.byteStride
-              : indBufferView.byteLength / indAccessor.count;
+              : tinygltf::GetComponentSizeInBytes(indAccessor.componentType);
 
       tinygltf::Accessor const& posAccessor =
           model.accessors[primitive.attributes.at("POSITION")];
@@ -290,7 +290,7 @@ std::size_t generateVerticesFromGltf(
                                            posBufferView.byteOffset +
                                            posAccessor.byteOffset;
       std::size_t const vertexPosSize =
-          posBufferView.byteLength / posAccessor.count;
+          3 * tinygltf::GetComponentSizeInBytes(posAccessor.componentType);
       std::size_t const posByteStride =
           posBufferView.byteStride ? posBufferView.byteStride : vertexPosSize;
 
@@ -307,7 +307,8 @@ std::size_t generateVerticesFromGltf(
         normalBuffer = &model.buffers[normalBufferView->buffer];
         normalData = normalBuffer->data.data() + normalBufferView->byteOffset +
                      normalAccessor->byteOffset;
-        normalSize = normalBufferView->byteLength / normalAccessor->count;
+        normalSize = 3 * tinygltf::GetComponentSizeInBytes(
+                             normalAccessor->componentType);
         normalByteStride = normalBufferView->byteStride
                                ? normalBufferView->byteStride
                                : normalSize;
@@ -326,7 +327,8 @@ std::size_t generateVerticesFromGltf(
         colorBuffer = &model.buffers[colorBufferView->buffer];
         colorData = colorBuffer->data.data() + colorBufferView->byteOffset +
                     colorAccessor->byteOffset;
-        colorSize = colorBufferView->byteLength / colorAccessor->count;
+        colorSize =
+            3 * tinygltf::GetComponentSizeInBytes(colorAccessor->componentType);
         colorByteStride = colorBufferView->byteStride
                               ? colorBufferView->byteStride
                               : colorSize;
@@ -345,7 +347,8 @@ std::size_t generateVerticesFromGltf(
         uvBuffer = &model.buffers[uvBufferView->buffer];
         uvBufferData = uvBuffer->data.data() + uvBufferView->byteOffset +
                        uvAccessor->byteOffset;
-        uvSize = uvBufferView->byteLength / uvAccessor->count;
+        uvSize =
+            2 * tinygltf::GetComponentSizeInBytes(uvAccessor->componentType);
         uvByteStride =
             uvBufferView->byteStride ? uvBufferView->byteStride : uvSize;
       }

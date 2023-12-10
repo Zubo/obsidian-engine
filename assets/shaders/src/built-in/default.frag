@@ -10,9 +10,8 @@ layout(location = 2) in vec3 inNormals;
 
 #ifdef _HAS_UV
 layout(location = 3) in vec2 inUV;
-#endif
-
 layout(location = 4) in mat3 inTBN;
+#endif
 
 layout(location = 0) out vec4 outFragColor;
 
@@ -239,10 +238,12 @@ void main() {
   LightingResult directionalLightResult = calculateDirectionalLighting(normal);
   LightingResult spotlightResult = calculateSpotlights(normal);
 
-  const float ssao = getSsao();
+  vec4 ambientColor = materialData.ambientColor * sceneData.ambientColor;
 
-  vec4 ambientColor =
-      (ssao / 128.0f) * materialData.ambientColor * sceneData.ambientColor;
+#ifdef _HAS_UV
+  const float ssao = getSsao();
+  ambientColor *= (ssao / 128.0f);
+#endif
 
   vec4 diffuseColor = materialData.diffuseColor;
 

@@ -112,6 +112,7 @@ private:
   std::unordered_map<std::uint32_t, VkQueue> _gpuQueues;
   std::unordered_map<std::uint32_t, std::mutex> _gpuQueueMutexes;
   std::vector<VKDrawCall> _drawCallQueue;
+  std::vector<VKDrawCall> _ssaoDrawCallQueue;
   std::vector<VKDrawCall> _transparentDrawCallQueue;
   std::vector<rhi::DirectionalLight> _submittedDirectionalLights;
   std::vector<rhi::Spotlight> _submittedSpotlights;

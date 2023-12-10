@@ -25,6 +25,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
     _submittedDirectionalLights.clear();
     _submittedSpotlights.clear();
     _drawCallQueue.clear();
+    _ssaoDrawCallQueue.clear();
     _transparentDrawCallQueue.clear();
     _skipFrame = false;
     return;
@@ -161,15 +162,9 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
 
   VertexInputSpec const ssaoVertInputSpec = {true, true, false, true, false};
 
-  drawPassNoMaterials(cmd, _drawCallQueue.data(), _drawCallQueue.size(),
+  drawPassNoMaterials(cmd, _ssaoDrawCallQueue.data(), _ssaoDrawCallQueue.size(),
                       _vkSsaoPipeline, _vkSsaoPipelineLayout,
                       ssaoDynamicOffsets,
-                      currentFrameData.vkSsaoRenderPassDescriptorSet,
-                      ssaoVertInputSpec, viewport, scissor);
-
-  drawPassNoMaterials(cmd, _transparentDrawCallQueue.data(),
-                      _transparentDrawCallQueue.size(), _vkSsaoPipeline,
-                      _vkSsaoPipelineLayout, ssaoDynamicOffsets,
                       currentFrameData.vkSsaoRenderPassDescriptorSet,
                       ssaoVertInputSpec, viewport, scissor);
 
@@ -372,6 +367,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   _submittedSpotlights.clear();
   _drawCallQueue.clear();
   _transparentDrawCallQueue.clear();
+  _ssaoDrawCallQueue.clear();
   ++_frameNumber;
 
   FrameMark;
