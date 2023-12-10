@@ -2,9 +2,9 @@ cmake_minimum_required(VERSION 3.24)
 
 add_library(AssetConverter
     "src/asset_converter.cpp"
-    "src/helpers.cpp"
+    "src/asset_converter_helpers.cpp"
     "include/obsidian/asset_converter/asset_converter.hpp"
-    "include/obsidian/asset_converter/helpers.hpp"
+    "include/obsidian/asset_converter/asset_converter_helpers.hpp"
 )
 
 target_include_directories(AssetConverter

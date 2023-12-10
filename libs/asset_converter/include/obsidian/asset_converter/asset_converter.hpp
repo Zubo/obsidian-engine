@@ -25,6 +25,8 @@ namespace obsidian::asset_converter {
 
 extern std::unordered_map<std::string, std::string> extensionMap;
 
+struct VertexContentInfo;
+
 class AssetConverter {
 
 public:
@@ -52,7 +54,8 @@ private:
   std::vector<std::string>
   extractMaterials(std::filesystem::path const& srcDirPath,
                    std::filesystem::path const& projectPath,
-                   std::vector<MaterialType> const& materials);
+                   std::vector<MaterialType> const& materials,
+                   VertexContentInfo const& info);
 
   std::optional<asset::TextureAssetInfo> getOrCreateTexture(
       std::filesystem::path const& srcPath,

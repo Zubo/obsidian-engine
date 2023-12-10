@@ -11,7 +11,36 @@ parser = argparse.ArgumentParser(prog='Obsidian Shader Compiler', description='C
 parser.add_argument('-o', '--output', default='../build/shaders')
 args = parser.parse_args()
 
-def compileShaders(shader_src_dir, shader_out_dir):
+shader_define_variants = {
+    "default-vert": {
+        "c-" : ["-D_HAS_COLOR"],
+        "u-" : ["-Duv"],
+        "cu-" : ["-D_HAS_COLOR", "-D_HAS_UV"]
+    }, 
+    "default-frag": {
+        "c-" : ["-D_HAS_COLOR"],
+        "u-" : ["-D_HAS_UV"],
+        "cu-" : ["-D_HAS_COLOR", "-D_HAS_UV"]
+    }, 
+    "default-unlit-vert": {
+        "c-" : ["-D_HAS_COLOR"],
+        "u-" : ["-D_HAS_UV"],
+        "cu-" : ["-D_HAS_COLOR", "-D_HAS_UV"]
+    },
+    "default-unlit-frag": {
+        "c-" : ["-D_HAS_COLOR"],
+        "u-" : ["-D_HAS_UV"],
+        "cu-" : ["-D_HAS_COLOR", "-D_HAS_UV"]
+    }
+}
+
+def execute_compilation(shader_src_path, shader_temp_dir, shader_out_name, defines = []):
+    subprocess.check_output(["glslc", "-c", f"{shader_src_path}", "--target-env=vulkan1.2", "-Werror"] + defines + ["-o", f"{shader_temp_dir}/{shader_out_name}.spv"] )
+    subprocess.check_output(["glslc", "-c", f"{shader_src_path}", "--target-env=vulkan1.2", "-Werror", "-g", "-O0"] + defines + ["-o", f"{shader_temp_dir}/{shader_out_name}-dbg.spv"])
+
+
+
+def compile_shaders(shader_src_dir, shader_out_dir):
     if not os.path.exists(shader_out_dir):
         os.makedirs(shader_out_dir)
     shader_temp_dir = os.path.join(shader_out_dir, "temp")
@@ -23,8 +52,11 @@ def compileShaders(shader_src_dir, shader_out_dir):
         shader_src_path = os.path.join(shader_src_dir, shader_src_name)
         shader_names.add(Path(shader_src_name).stem)
         shader_out_name = shader_src_name.replace(".", "-")
-        subprocess.check_output(["glslc", "-c", f"{shader_src_path}", "--target-env=vulkan1.2", "-Werror", "-o", f"{shader_temp_dir}/{shader_out_name}.spv"])
-        subprocess.check_output(["glslc", "-c", f"{shader_src_path}", "--target-env=vulkan1.2", "-Werror", "-g", "-O0", "-o", f"{shader_temp_dir}/{shader_out_name}-dbg.spv"])
+        execute_compilation(shader_src_path, shader_temp_dir, shader_out_name)
+        if shader_out_name in shader_define_variants:
+            for key in shader_define_variants[shader_out_name]:
+                execute_compilation(shader_src_path, shader_temp_dir, key + shader_out_name, shader_define_variants[shader_out_name][key])
+                shader_names.add(key + Path(shader_src_name).stem)
     for shader_file in shader_names:
         subprocess.check_output([
             "spirv-link",
@@ -40,5 +72,5 @@ def compileShaders(shader_src_dir, shader_out_dir):
             f"{shader_out_dir}/{shader_file}-dbg.spv"])
     shutil.rmtree(shader_temp_dir)
 
-compileShaders("../assets/shaders/src", args.output)
-compileShaders("../assets/shaders/src/built-in", f"{args.output}/built-in")
+compile_shaders("../assets/shaders/src", args.output)
+compile_shaders("../assets/shaders/src/built-in", f"{args.output}/built-in")

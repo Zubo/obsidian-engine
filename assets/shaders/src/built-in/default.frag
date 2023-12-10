@@ -1,9 +1,17 @@
 #version 450
 
 layout(location = 0) in vec3 inWorldPos;
+
+#ifdef _HAS_COLOR
 layout(location = 1) in vec3 inColor;
+#endif
+
 layout(location = 2) in vec3 inNormals;
+
+#ifdef _HAS_UV
 layout(location = 3) in vec2 inUV;
+#endif
+
 layout(location = 4) in mat3 inTBN;
 layout(location = 0) out vec4 outFragColor;
 
@@ -219,13 +227,13 @@ float getSsao() {
 }
 
 void main() {
-  vec3 normal;
+  vec3 normal = inNormals;
 
+#ifdef _HAS_UV
   if (materialData.hasNormalMap) {
     normal = normalize(inTBN * (texture(normalMapTex, inUV).rgb * 2.0f - 1.0f));
-  } else {
-    normal = inNormals;
   }
+#endif
 
   LightingResult directionalLightResult = calculateDirectionalLighting(normal);
   LightingResult spotlightResult = calculateSpotlights(normal);
@@ -235,7 +243,11 @@ void main() {
   vec4 ambientColor =
       (ssao / 128.0f) * materialData.ambientColor * sceneData.ambientColor;
 
-  vec4 diffuseColor = vec4(inColor, 1.0f) * materialData.diffuseColor;
+  vec4 diffuseColor = materialData.diffuseColor;
+
+#ifdef _HAS_COLOR
+  diffuseColor *= vec4(inColor, 1.0f);
+#endif
 
   if (diffuseColor.w == 0.0) {
     discard;
@@ -248,12 +260,14 @@ void main() {
       materialData.specularColor *
       vec4((spotlightResult.specular + directionalLightResult.specular), 1.0f);
 
+#ifdef _HAS_UV
   if (materialData.hasDiffuseTex) {
     vec4 diffuseTexSample = texture(diffuseTex, inUV);
     ambientColor *= diffuseTexSample;
     diffuseColor *= diffuseTexSample;
     specularColor *= diffuseTexSample;
   }
+#endif
 
   outFragColor =
       vec4((ambientColor + diffuseColor + specularColor).xyz, diffuseColor.w);

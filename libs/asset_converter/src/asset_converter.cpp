@@ -6,7 +6,7 @@
 #include <obsidian/asset/shader_asset_info.hpp>
 #include <obsidian/asset/texture_asset_info.hpp>
 #include <obsidian/asset_converter/asset_converter.hpp>
-#include <obsidian/asset_converter/helpers.hpp>
+#include <obsidian/asset_converter/asset_converter_helpers.hpp>
 #include <obsidian/core/logging.hpp>
 #include <obsidian/core/material.hpp>
 #include <obsidian/core/texture_format.hpp>
@@ -239,8 +239,11 @@ bool AssetConverter::convertObjToAsset(fs::path const& srcPath,
         }
       });
 
-  meshAssetInfo.defaultMatRelativePaths =
-      extractMaterials(srcPath.parent_path(), dstPath.parent_path(), materials);
+  VertexContentInfo const vertInfo = {
+      meshAssetInfo.hasNormals, meshAssetInfo.hasColors, meshAssetInfo.hasUV,
+      meshAssetInfo.hasTangents};
+  meshAssetInfo.defaultMatRelativePaths = extractMaterials(
+      srcPath.parent_path(), dstPath.parent_path(), materials, vertInfo);
 
   while (!genVertTask.isDone())
     ;
@@ -383,8 +386,11 @@ bool AssetConverter::convertGltfToAsset(fs::path const& srcPath,
         GltfMaterialWrapper{model.materials[i], model.textures});
   }
 
-  std::vector<std::string> materialNames =
-      extractMaterials(srcPath.parent_path(), dstPath.parent_path(), materials);
+  asset::MeshAssetInfo const& assetInfo = meshAssetInfoPerModel[0];
+  VertexContentInfo const vertInfo = {assetInfo.hasNormals, assetInfo.hasColors,
+                                      assetInfo.hasUV, assetInfo.hasTangents};
+  std::vector<std::string> materialNames = extractMaterials(
+      srcPath.parent_path(), dstPath.parent_path(), materials, vertInfo);
 
   while (std::any_of(modelConversionTasks.cbegin(), modelConversionTasks.cend(),
                      [](task::TaskBase const* t) { return !t->isDone(); }))
@@ -531,10 +537,9 @@ std::optional<asset::TextureAssetInfo> AssetConverter::getOrCreateTexture(
 }
 
 template <typename MaterialType>
-std::vector<std::string>
-AssetConverter::extractMaterials(fs::path const& srcDirPath,
-                                 fs::path const& projectPath,
-                                 std::vector<MaterialType> const& materials) {
+std::vector<std::string> AssetConverter::extractMaterials(
+    fs::path const& srcDirPath, fs::path const& projectPath,
+    std::vector<MaterialType> const& materials, VertexContentInfo const& info) {
   ZoneScoped;
 
   std::vector<std::string> extractedMaterialPaths;
@@ -596,7 +601,7 @@ AssetConverter::extractMaterials(fs::path const& srcDirPath,
     asset::MaterialAssetInfo newMatAssetInfo;
     newMatAssetInfo.compressionMode = asset::CompressionMode::none;
     newMatAssetInfo.materialType = core::MaterialType::lit;
-    newMatAssetInfo.shaderPath = "obsidian/shaders/default.obsshad";
+    newMatAssetInfo.shaderPath = shaderPicker(info);
     newMatAssetInfo.ambientColor = getAmbientColor(mat);
     newMatAssetInfo.diffuseColor = getDiffuseColor(mat);
     newMatAssetInfo.specularColor = getSpecularColor(mat);

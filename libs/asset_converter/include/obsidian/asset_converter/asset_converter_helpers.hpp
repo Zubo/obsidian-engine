@@ -12,6 +12,7 @@
 #include <cassert>
 #include <cstddef>
 #include <numeric>
+#include <string>
 #include <unordered_map>
 
 namespace obsidian::asset_converter {
@@ -490,5 +491,14 @@ inline bool isMaterialTransparent(tinyobj::material_t const& m) {
 inline bool isMaterialTransparent(GltfMaterialWrapper const& m) {
   return m.mat.alphaMode == "OPAQUE";
 }
+
+struct VertexContentInfo {
+  bool hasNormal;
+  bool hasColor;
+  bool hasUV;
+  bool hasTangent;
+};
+
+std::string shaderPicker(VertexContentInfo const& vertexInfo);
 
 } /*namespace obsidian::asset_converter */
