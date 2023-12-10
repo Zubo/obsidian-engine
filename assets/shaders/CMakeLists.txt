@@ -1,16 +1,18 @@
 cmake_minimum_required(VERSION 3.24)
 
+set (SHADER_SRC_DIR "built-in")
+
 set(SHADER_SRC_FILES
-    "built-in/default-unlit.frag"
-    "built-in/default-unlit.vert"
-    "built-in/default.frag"
-    "built-in/default.vert"
-    "built-in/depth-only.vert"
-    "built-in/depth-only.frag"
-    "built-in/ssao.vert"
-    "built-in/ssao.frag"
-    "built-in/post-processing.vert"
-    "built-in/post-processing.frag"
+    "default-unlit.frag"
+    "default-unlit.vert"
+    "default.frag"
+    "default.vert"
+    "depth-only.vert"
+    "depth-only.frag"
+    "ssao.vert"
+    "ssao.frag"
+    "post-processing.vert"
+    "post-processing.frag"
 )
 
 set(SHADER_OUTPUT_DIR "${CMAKE_BINARY_DIR}/shaders")
@@ -21,14 +23,24 @@ set(SHADER_OUTPUT_LIST)
 foreach(SHADER_SRC ${SHADER_SRC_FILES})
     list(APPEND
         SHADER_INPUT_LIST
-            "src/${SHADER_SRC}"
+            "src/${SHADER_SRC_DIR}/${SHADER_SRC}"
     )
+
     string(REPLACE "." "-" SHADER_OUTPUT_FILE_NAME ${SHADER_SRC})
     list(APPEND
         SHADER_OUTPUT_LIST
-            "${SHADER_OUTPUT_DIR}/${SHADER_OUTPUT_FILE_NAME}.spv"
-            "${SHADER_OUTPUT_DIR}/${SHADER_OUTPUT_FILE_NAME}-dbg.spv"
+            "${SHADER_OUTPUT_DIR}/${SHADER_SRC_DIR}/${SHADER_OUTPUT_FILE_NAME}.spv"
+            "${SHADER_OUTPUT_DIR}/${SHADER_SRC_DIR}/${SHADER_OUTPUT_FILE_NAME}-dbg.spv"
     )
+
+    if (${SHADER_OUTPUT_FILE_NAME} MATCHES "^default")
+        list(APPEND
+            SHADER_OUTPUT_LIST
+                "${SHADER_OUTPUT_DIR}/${SHADER_SRC_DIR}/c-${SHADER_OUTPUT_FILE_NAME}.spv"
+                "${SHADER_OUTPUT_DIR}/${SHADER_SRC_DIR}/u-${SHADER_OUTPUT_FILE_NAME}-dbg.spv"
+                "${SHADER_OUTPUT_DIR}/${SHADER_SRC_DIR}/cu-${SHADER_OUTPUT_FILE_NAME}-dbg.spv"
+        )
+    endif()
 endforeach()
 
 add_custom_command(

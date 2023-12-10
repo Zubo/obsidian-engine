@@ -586,9 +586,6 @@ void VulkanRHI::initDepthPrepassPipeline() {
   pipelineBuilder._vkMultisampleStateCreateInfo =
       vkinit::multisampleStateCreateInfo();
 
-  // pipelineBuilder._vertexInputDescription =
-  //     Vertex::getVertexInputDescription(true, false, false, false, false);
-
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VERTEX_INPUT_EXT);

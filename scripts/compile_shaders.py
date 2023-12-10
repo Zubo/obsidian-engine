@@ -14,7 +14,7 @@ args = parser.parse_args()
 shader_define_variants = {
     "default-vert": {
         "c-" : ["-D_HAS_COLOR"],
-        "u-" : ["-Duv"],
+        "u-" : ["-D_HAS_UV"],
         "cu-" : ["-D_HAS_COLOR", "-D_HAS_UV"]
     }, 
     "default-frag": {
