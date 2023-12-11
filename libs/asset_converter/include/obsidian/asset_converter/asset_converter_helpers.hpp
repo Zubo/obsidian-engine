@@ -232,25 +232,23 @@ std::size_t generateVerticesFromGltf(
 
   struct Ind {
     std::uint32_t vertexInd;
-    int vBufferInd;
-    int nBufferInd;
-    int tBufferInd;
+    unsigned char const* posDataPtr;
+    unsigned char const* normalDataPtr;
+    unsigned char const* uvDataPtr;
     glm::vec3 tangent = {};
 
     bool operator==(Ind const& other) const {
       constexpr const float tangentEpsilon = 0.001;
-      return other.vertexInd == vertexInd && other.vBufferInd == vBufferInd &&
-             other.nBufferInd == nBufferInd && other.tBufferInd == tBufferInd &&
+      return other.vertexInd == vertexInd && other.posDataPtr == posDataPtr &&
+             other.normalDataPtr == normalDataPtr &&
+             other.uvDataPtr == uvDataPtr &&
              (!V::hasTangent ||
               std::abs(1.0f - glm::dot(other.tangent, tangent)) <
                   tangentEpsilon);
     };
 
     struct hash {
-      std::size_t operator()(Ind k) const {
-        return ((std::uint64_t)k.vertexInd << 32) |
-               ((std::uint64_t)(k.vBufferInd | k.nBufferInd | k.tBufferInd));
-      }
+      std::size_t operator()(Ind k) const { return k.vertexInd; }
     };
   };
 
@@ -258,7 +256,6 @@ std::size_t generateVerticesFromGltf(
 
   for (tinygltf::Mesh const& mesh : model.meshes) {
     ZoneScopedN("GLTF mesh");
-
     for (std::size_t primitiveInd = 0; primitiveInd < mesh.primitives.size();
          ++primitiveInd) {
       ZoneScopedN("GLTF primitive");
@@ -356,7 +353,6 @@ std::size_t generateVerticesFromGltf(
       for (std::size_t triangleInd = 0; triangleInd < indAccessor.count / 3;
            ++triangleInd) {
         ZoneScopedN("GLTF triangle");
-
         std::array<std::uint32_t, 3> triangleIndices;
 
         for (std::size_t i = 0; i < triangleIndices.size(); ++i) {
@@ -398,9 +394,7 @@ std::size_t generateVerticesFromGltf(
           {
             ZoneScopedN("GLTF unique idx mapping");
             insertResult = uniqueIdx.emplace(
-                Ind{vertInd, posBufferView.buffer,
-                    normalBufferView ? normalBufferView->buffer : 0,
-                    uvBufferView ? uvBufferView->buffer : 0, tangent},
+                Ind{vertInd, posData, normalData, uvBufferData, tangent},
                 outVertices.size() / sizeof(Vertex));
           }
 
