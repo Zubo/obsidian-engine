@@ -8,15 +8,17 @@
 namespace obsidian::window {
 
 enum class WindowEventType {
-  Unknown = 0,
+  unknown,
 
-  KeyDown = 1,
-  KeyUp = 2,
-  MouseMotion = 3,
-  WindowResized = 4,
-  FocusGainedEvent = 5,
-  FocusLostEvent = 6,
-  ShouldQuit = 1000
+  keyDown,
+  keyUp,
+  mouseMotion,
+  mouseButtonUp,
+  windowResized,
+  mouseButtonDown,
+  focusGainedEvent,
+  focusLostEvent,
+  shouldQuit
 };
 
 struct KeyDownEvent {
@@ -33,6 +35,16 @@ struct MouseMotionEvent {
   WindowEventType type;
   std::int32_t deltaXPixel;
   std::int32_t deltaYPixel;
+};
+
+struct MouseButtonDownEvent {
+  WindowEventType type;
+  core::MouseButtonType button;
+};
+
+struct MouseButtonUpEvent {
+  WindowEventType type;
+  core::MouseButtonType button;
 };
 
 struct WindowResizedEvent {
@@ -58,6 +70,8 @@ union WindowEvent {
   KeyDownEvent keyDownEvent;
   KeyUpEvent keyUpEvent;
   MouseMotionEvent mouseMotionEvent;
+  MouseButtonDownEvent mouseButtonDownEvent;
+  MouseButtonUpEvent mouseButtonUpEvent;
   WindowResizedEvent windowResized;
   FocusGainedEvent focusGained;
   FocusLostEvent focusLost;

@@ -94,4 +94,6 @@ enum class KeyCode {
 
 };
 
+enum class MouseButtonType { unknown, left, right, middle, x1, x2 };
+
 } /*namespace obsidian::core*/

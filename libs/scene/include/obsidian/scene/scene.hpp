@@ -2,7 +2,7 @@
 
 #include <obsidian/input/input_context.hpp>
 #include <obsidian/input/key_input_emitter.hpp>
-#include <obsidian/input/mouse_motion_emitter.hpp>
+#include <obsidian/input/mouse_event_emitter.hpp>
 #include <obsidian/scene/camera.hpp>
 #include <obsidian/scene/game_object.hpp>
 
@@ -34,6 +34,7 @@ public:
 
 private:
   SceneState _state = {};
+  bool _leftClickDown = false;
 };
 
 } /*namespace obsidian::scene*/

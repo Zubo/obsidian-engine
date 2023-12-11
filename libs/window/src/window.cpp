@@ -1,7 +1,7 @@
 #include <obsidian/core/keycode.hpp>
 #include <obsidian/input/input_context.hpp>
 #include <obsidian/input/key_input_emitter.hpp>
-#include <obsidian/input/mouse_motion_emitter.hpp>
+#include <obsidian/input/mouse_event_emitter.hpp>
 #include <obsidian/window/window.hpp>
 #include <obsidian/window/window_events.hpp>
 
@@ -31,22 +31,30 @@ void Window::pollEvents() {
   for (WindowEvent const& e : _polledEvents) {
     if (_hasFocus) {
       switch (e.type) {
-      case WindowEventType::ShouldQuit:
+      case WindowEventType::shouldQuit:
         _shouldQuit = true;
         break;
-      case WindowEventType::KeyDown:
+      case WindowEventType::keyDown:
         _inputContext->keyInputEmitter.fireKeyPressedEvent(
             e.keyDownEvent.keyCode);
         break;
-      case WindowEventType::KeyUp:
+      case WindowEventType::keyUp:
         _inputContext->keyInputEmitter.fireKeyReleasedEvent(
             e.keyUpEvent.keyCode);
         break;
-      case WindowEventType::MouseMotion:
-        _inputContext->mouseMotionEmitter.fireMouseMotionEvent(
+      case WindowEventType::mouseMotion:
+        _inputContext->mouseEventEmitter.fireMouseMotionEvent(
             e.mouseMotionEvent.deltaXPixel, e.mouseMotionEvent.deltaYPixel);
         break;
-      case WindowEventType::WindowResized:
+      case WindowEventType::mouseButtonDown:
+        _inputContext->mouseEventEmitter.fireMouseButtonDownEvent(
+            e.mouseButtonDownEvent.button);
+        break;
+      case WindowEventType::mouseButtonUp:
+        _inputContext->mouseEventEmitter.fireMouseButtonUpEvent(
+            e.mouseButtonUpEvent.button);
+        break;
+      case WindowEventType::windowResized:
         _inputContext->windowEventEmitter.fireWindowResizedEvent(
             e.windowResized.width, e.windowResized.height);
         break;
@@ -55,9 +63,9 @@ void Window::pollEvents() {
       }
     }
 
-    if (e.type == WindowEventType::FocusGainedEvent) {
+    if (e.type == WindowEventType::focusGainedEvent) {
       _inputContext->windowEventEmitter.fireFocusChangedEvent(true);
-    } else if (e.type == WindowEventType::FocusLostEvent) {
+    } else if (e.type == WindowEventType::focusLostEvent) {
       _inputContext->windowEventEmitter.fireFocusChangedEvent(false);
     }
   }

@@ -1,6 +1,7 @@
+#include <obsidian/core/keycode.hpp>
 #include <obsidian/input/input_context.hpp>
 #include <obsidian/input/key_input_emitter.hpp>
-#include <obsidian/input/mouse_motion_emitter.hpp>
+#include <obsidian/input/mouse_event_emitter.hpp>
 #include <obsidian/scene/scene.hpp>
 
 #include <glm/gtx/transform.hpp>
@@ -33,11 +34,14 @@ void Scene::init(input::InputContext& inputContext) {
       core::KeyCode::w);
 
   // camera rotation
-  input::MouseMotionEmitter& mouseMotionEmitter =
-      inputContext.mouseMotionEmitter;
+  input::MouseEventEmitter& mouseEventEmitter = inputContext.mouseEventEmitter;
 
-  mouseMotionEmitter.subscribeToMouseMotionEvent(
+  mouseEventEmitter.subscribeToMouseMotionEvent(
       [this](std::int32_t mouseDeltaXPixel, std::int32_t mouseDeltaYPixel) {
+        if (!_leftClickDown) {
+          return;
+        }
+
         constexpr float pi = 3.14f;
         constexpr float camMotionFactor = 0.01f;
 
@@ -45,6 +49,20 @@ void Scene::init(input::InputContext& inputContext) {
             camMotionFactor * glm::vec2{-mouseDeltaYPixel, -mouseDeltaXPixel};
         _state.camera.rotationRad.x =
             glm::clamp(_state.camera.rotationRad.x, -0.5f * pi, 0.5f * pi);
+      });
+
+  mouseEventEmitter.subscribeToMouseButtonDownEvent(
+      [this](core::MouseButtonType buttonType) {
+        if (buttonType == core::MouseButtonType::left) {
+          _leftClickDown = true;
+        }
+      });
+
+  mouseEventEmitter.subscribeToMouseButtonUpEvent(
+      [this](core::MouseButtonType buttonType) {
+        if (buttonType == core::MouseButtonType::left) {
+          _leftClickDown = false;
+        }
       });
 }
 

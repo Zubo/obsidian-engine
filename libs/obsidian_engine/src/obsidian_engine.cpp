@@ -83,7 +83,7 @@ bool ObsidianEngine::init(IWindowBackendProvider const& windowBackendProvider,
 
 void ObsidianEngine::cleanup() {
   _context.inputContext.keyInputEmitter.cleanup();
-  _context.inputContext.mouseMotionEmitter.cleanup();
+  _context.inputContext.mouseEventEmitter.cleanup();
   _context.inputContext.windowEventEmitter.cleanup();
   _context.resourceManager.cleanup();
   _context.taskExecutor.shutdown();
