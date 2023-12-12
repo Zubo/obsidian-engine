@@ -1,5 +1,6 @@
 #pragma once
 
+#include <obsidian/core/logging.hpp>
 #include <obsidian/core/utils/functions.hpp>
 #include <obsidian/task/task_type.hpp>
 
@@ -21,7 +22,7 @@ public:
   TaskBase(TaskType type);
   virtual ~TaskBase() = default;
 
-  virtual std::shared_ptr<void const> getReturn() const = 0;
+  virtual void const* getReturn() const = 0;
   virtual void execute() = 0;
   virtual void setArg(std::shared_ptr<void const> const& argPtr);
 
@@ -49,7 +50,7 @@ public:
   Task(TaskType type, F&& func)
       : TaskBase(type), _func{std::forward<F>(func)} {}
 
-  std::shared_ptr<void const> getReturn() const override { return _returnVal; }
+  void const* getReturn() const override { return _returnVal.get(); }
 
   void execute() override {
     if constexpr (std::is_void_v<core::ResultOf<F>>) {

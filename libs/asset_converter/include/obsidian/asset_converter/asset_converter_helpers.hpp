@@ -1,6 +1,7 @@
 #pragma once
 
 #include <obsidian/asset/mesh_asset_info.hpp>
+#include <obsidian/asset_converter/vertex_content_info.hpp>
 #include <obsidian/core/logging.hpp>
 #include <obsidian/core/vertex_type.hpp>
 
@@ -217,7 +218,7 @@ inline float getFloatViaAccessor(tinygltf::Accessor const& a,
 
 template <typename V>
 std::size_t generateVerticesFromGltf(
-    tinygltf::Model const& model, std::vector<char>& outVertices,
+    tinygltf::Model const& model, int meshInd, std::vector<char>& outVertices,
     std::vector<std::vector<core::MeshIndexType>>& outSurfaces) {
   ZoneScoped;
 
@@ -253,193 +254,187 @@ std::size_t generateVerticesFromGltf(
   };
 
   std::unordered_map<Ind, std::size_t, typename Ind::hash> uniqueIdx;
+  tinygltf::Mesh const& mesh = model.meshes[meshInd];
 
-  for (tinygltf::Mesh const& mesh : model.meshes) {
-    ZoneScopedN("GLTF mesh");
-    for (std::size_t primitiveInd = 0; primitiveInd < mesh.primitives.size();
-         ++primitiveInd) {
-      ZoneScopedN("GLTF primitive");
+  for (std::size_t primitiveInd = 0; primitiveInd < mesh.primitives.size();
+       ++primitiveInd) {
+    ZoneScopedN("GLTF primitive");
 
-      tinygltf::Primitive const& primitive = mesh.primitives[primitiveInd];
+    tinygltf::Primitive const& primitive = mesh.primitives[primitiveInd];
 
-      int const matInd = outSurfaces.size() == 1 ? 0 : primitive.material;
-      std::vector<core::MeshIndexType>& surface = outSurfaces[matInd];
+    int const matInd = outSurfaces.size() == 1 ? 0 : primitive.material;
+    std::vector<core::MeshIndexType>& surface = outSurfaces[matInd];
 
-      tinygltf::Accessor const& indAccessor =
-          model.accessors[primitive.indices];
-      tinygltf::BufferView const& indBufferView =
-          model.bufferViews[indAccessor.bufferView];
-      tinygltf::Buffer const& indBuffer = model.buffers[indBufferView.buffer];
-      unsigned char const* const indData = indBuffer.data.data() +
-                                           indBufferView.byteOffset +
-                                           indAccessor.byteOffset;
-      std::size_t const indByteStride =
-          indBufferView.byteStride
-              ? indBufferView.byteStride
-              : tinygltf::GetComponentSizeInBytes(indAccessor.componentType);
+    tinygltf::Accessor const& indAccessor = model.accessors[primitive.indices];
+    tinygltf::BufferView const& indBufferView =
+        model.bufferViews[indAccessor.bufferView];
+    tinygltf::Buffer const& indBuffer = model.buffers[indBufferView.buffer];
+    unsigned char const* const indData = indBuffer.data.data() +
+                                         indBufferView.byteOffset +
+                                         indAccessor.byteOffset;
+    std::size_t const indByteStride =
+        indBufferView.byteStride
+            ? indBufferView.byteStride
+            : tinygltf::GetComponentSizeInBytes(indAccessor.componentType);
 
-      tinygltf::Accessor const& posAccessor =
-          model.accessors[primitive.attributes.at("POSITION")];
-      tinygltf::BufferView const& posBufferView =
-          model.bufferViews[posAccessor.bufferView];
-      tinygltf::Buffer const& posBuffer = model.buffers[posBufferView.buffer];
-      unsigned char const* const posData = posBuffer.data.data() +
-                                           posBufferView.byteOffset +
-                                           posAccessor.byteOffset;
-      std::size_t const vertexPosSize =
-          3 * tinygltf::GetComponentSizeInBytes(posAccessor.componentType);
-      std::size_t const posByteStride =
-          posBufferView.byteStride ? posBufferView.byteStride : vertexPosSize;
+    tinygltf::Accessor const& posAccessor =
+        model.accessors[primitive.attributes.at("POSITION")];
+    tinygltf::BufferView const& posBufferView =
+        model.bufferViews[posAccessor.bufferView];
+    tinygltf::Buffer const& posBuffer = model.buffers[posBufferView.buffer];
+    unsigned char const* const posData = posBuffer.data.data() +
+                                         posBufferView.byteOffset +
+                                         posAccessor.byteOffset;
+    std::size_t const vertexPosSize =
+        3 * tinygltf::GetComponentSizeInBytes(posAccessor.componentType);
+    std::size_t const posByteStride =
+        posBufferView.byteStride ? posBufferView.byteStride : vertexPosSize;
 
-      tinygltf::Accessor const* normalAccessor = nullptr;
-      tinygltf::BufferView const* normalBufferView = nullptr;
-      tinygltf::Buffer const* normalBuffer = nullptr;
-      unsigned char const* normalData = nullptr;
-      std::size_t normalSize = 0;
-      std::size_t normalByteStride = 0;
+    tinygltf::Accessor const* normalAccessor = nullptr;
+    tinygltf::BufferView const* normalBufferView = nullptr;
+    tinygltf::Buffer const* normalBuffer = nullptr;
+    unsigned char const* normalData = nullptr;
+    std::size_t normalSize = 0;
+    std::size_t normalByteStride = 0;
 
-      if constexpr (V::hasNormal) {
-        normalAccessor = &model.accessors[primitive.attributes.at("NORMAL")];
-        normalBufferView = &model.bufferViews[normalAccessor->bufferView];
-        normalBuffer = &model.buffers[normalBufferView->buffer];
-        normalData = normalBuffer->data.data() + normalBufferView->byteOffset +
-                     normalAccessor->byteOffset;
-        normalSize = 3 * tinygltf::GetComponentSizeInBytes(
-                             normalAccessor->componentType);
-        normalByteStride = normalBufferView->byteStride
-                               ? normalBufferView->byteStride
-                               : normalSize;
+    if constexpr (V::hasNormal) {
+      normalAccessor = &model.accessors[primitive.attributes.at("NORMAL")];
+      normalBufferView = &model.bufferViews[normalAccessor->bufferView];
+      normalBuffer = &model.buffers[normalBufferView->buffer];
+      normalData = normalBuffer->data.data() + normalBufferView->byteOffset +
+                   normalAccessor->byteOffset;
+      normalSize =
+          3 * tinygltf::GetComponentSizeInBytes(normalAccessor->componentType);
+      normalByteStride = normalBufferView->byteStride
+                             ? normalBufferView->byteStride
+                             : normalSize;
+    }
+
+    tinygltf::Accessor const* colorAccessor = nullptr;
+    tinygltf::BufferView const* colorBufferView = nullptr;
+    tinygltf::Buffer const* colorBuffer = nullptr;
+    unsigned char const* colorData = nullptr;
+    std::size_t colorSize = 0;
+    std::size_t colorByteStride = 0;
+
+    if constexpr (V::hasColor) {
+      colorAccessor = &model.accessors[primitive.attributes.at("COLOR_0")];
+      colorBufferView = &model.bufferViews[colorAccessor->bufferView];
+      colorBuffer = &model.buffers[colorBufferView->buffer];
+      colorData = colorBuffer->data.data() + colorBufferView->byteOffset +
+                  colorAccessor->byteOffset;
+      colorSize =
+          3 * tinygltf::GetComponentSizeInBytes(colorAccessor->componentType);
+      colorByteStride =
+          colorBufferView->byteStride ? colorBufferView->byteStride : colorSize;
+    }
+
+    tinygltf::Accessor const* uvAccessor = nullptr;
+    tinygltf::BufferView const* uvBufferView = nullptr;
+    tinygltf::Buffer const* uvBuffer = nullptr;
+    unsigned char const* uvBufferData = nullptr;
+    std::size_t uvSize = 0;
+    std::size_t uvByteStride = 0;
+
+    if (V::hasUV) {
+      uvAccessor = &model.accessors[primitive.attributes.at("TEXCOORD_0")];
+      uvBufferView = &model.bufferViews[uvAccessor->bufferView];
+      uvBuffer = &model.buffers[uvBufferView->buffer];
+      uvBufferData = uvBuffer->data.data() + uvBufferView->byteOffset +
+                     uvAccessor->byteOffset;
+      uvSize = 2 * tinygltf::GetComponentSizeInBytes(uvAccessor->componentType);
+      uvByteStride =
+          uvBufferView->byteStride ? uvBufferView->byteStride : uvSize;
+    }
+
+    for (std::size_t triangleInd = 0; triangleInd < indAccessor.count / 3;
+         ++triangleInd) {
+      ZoneScopedN("GLTF triangle");
+      std::array<std::uint32_t, 3> triangleIndices;
+
+      for (std::size_t i = 0; i < triangleIndices.size(); ++i) {
+        triangleIndices[i] = getUnsignedIntegerViaAccessor(
+            indAccessor, indData + (3 * triangleInd + i) * indByteStride);
       }
 
-      tinygltf::Accessor const* colorAccessor = nullptr;
-      tinygltf::BufferView const* colorBufferView = nullptr;
-      tinygltf::Buffer const* colorBuffer = nullptr;
-      unsigned char const* colorData = nullptr;
-      std::size_t colorSize = 0;
-      std::size_t colorByteStride = 0;
+      glm::vec3 tangent = {};
 
-      if constexpr (V::hasColor) {
-        colorAccessor = &model.accessors[primitive.attributes.at("COLOR_0")];
-        colorBufferView = &model.bufferViews[colorAccessor->bufferView];
-        colorBuffer = &model.buffers[colorBufferView->buffer];
-        colorData = colorBuffer->data.data() + colorBufferView->byteOffset +
-                    colorAccessor->byteOffset;
-        colorSize =
-            3 * tinygltf::GetComponentSizeInBytes(colorAccessor->componentType);
-        colorByteStride = colorBufferView->byteStride
-                              ? colorBufferView->byteStride
-                              : colorSize;
-      }
+      std::array<glm::vec3, 3> facePositions;
+      std::array<glm::vec2, 3> faceUvs;
 
-      tinygltf::Accessor const* uvAccessor = nullptr;
-      tinygltf::BufferView const* uvBufferView = nullptr;
-      tinygltf::Buffer const* uvBuffer = nullptr;
-      unsigned char const* uvBufferData = nullptr;
-      std::size_t uvSize = 0;
-      std::size_t uvByteStride = 0;
-
-      if (V::hasUV) {
-        uvAccessor = &model.accessors[primitive.attributes.at("TEXCOORD_0")];
-        uvBufferView = &model.bufferViews[uvAccessor->bufferView];
-        uvBuffer = &model.buffers[uvBufferView->buffer];
-        uvBufferData = uvBuffer->data.data() + uvBufferView->byteOffset +
-                       uvAccessor->byteOffset;
-        uvSize =
-            2 * tinygltf::GetComponentSizeInBytes(uvAccessor->componentType);
-        uvByteStride =
-            uvBufferView->byteStride ? uvBufferView->byteStride : uvSize;
-      }
-
-      for (std::size_t triangleInd = 0; triangleInd < indAccessor.count / 3;
-           ++triangleInd) {
-        ZoneScopedN("GLTF triangle");
-        std::array<std::uint32_t, 3> triangleIndices;
-
-        for (std::size_t i = 0; i < triangleIndices.size(); ++i) {
-          triangleIndices[i] = getUnsignedIntegerViaAccessor(
-              indAccessor, indData + (3 * triangleInd + i) * indByteStride);
+      for (std::size_t i = 0; i < triangleIndices.size(); ++i) {
+        for (std::size_t j = 0; j < 3; ++j) {
+          facePositions[i][j] = getFloatViaAccessor(
+              posAccessor, posData + (triangleIndices[i] * posByteStride +
+                                      j * vertexPosSize / 3));
         }
 
-        glm::vec3 tangent = {};
+        if constexpr (V::hasUV) {
+          for (std::size_t j = 0; j < 2; ++j) {
+            faceUvs[i][j] = getFloatViaAccessor(
+                *uvAccessor, uvBufferData + (triangleIndices[i] * uvByteStride +
+                                             j * uvSize / 2));
+          }
+        }
+      }
 
-        std::array<glm::vec3, 3> facePositions;
-        std::array<glm::vec2, 3> faceUvs;
+      if constexpr (V::hasTangent) {
+        tangent = calculateTangent(facePositions, faceUvs);
+      }
 
-        for (std::size_t i = 0; i < triangleIndices.size(); ++i) {
-          for (std::size_t j = 0; j < 3; ++j) {
-            facePositions[i][j] = getFloatViaAccessor(
-                posAccessor, posData + (triangleIndices[i] * posByteStride +
-                                        j * vertexPosSize / 3));
+      for (std::size_t i = 0; i < triangleIndices.size(); ++i) {
+        std::uint32_t const vertInd = triangleIndices[i];
+
+        decltype(uniqueIdx.emplace()) insertResult;
+
+        {
+          ZoneScopedN("GLTF unique idx mapping");
+          insertResult = uniqueIdx.emplace(
+              Ind{vertInd, posData, normalData, uvBufferData, tangent},
+              outVertices.size() / sizeof(Vertex));
+        }
+
+        if (insertResult.second) {
+          // new vertex detected
+          surface.push_back(outVertices.size() / sizeof(Vertex));
+
+          std::size_t const newVertOffset = outVertices.size();
+          {
+            ZoneScopedN("Vertex buffer resizing");
+            outVertices.resize(outVertices.size() + sizeof(Vertex));
+          }
+
+          Vertex* const vertexPtr =
+              reinterpret_cast<Vertex*>(outVertices.data() + newVertOffset);
+
+          vertexPtr->pos = facePositions[i];
+
+          if constexpr (V::hasNormal) {
+            for (std::size_t i = 0; i < 3; ++i) {
+              vertexPtr->normal[i] = getFloatViaAccessor(
+                  *normalAccessor, normalData + (vertInd * normalByteStride +
+                                                 i * normalSize / 3));
+            }
+          }
+
+          if constexpr (V::hasColor) {
+            for (std::size_t i = 0; i < 3; ++i) {
+              vertexPtr->color[i] = getFloatViaAccessor(
+                  *colorAccessor,
+                  colorData + (vertInd * colorByteStride + i * colorSize / 3));
+            }
           }
 
           if constexpr (V::hasUV) {
-            for (std::size_t j = 0; j < 2; ++j) {
-              faceUvs[i][j] = getFloatViaAccessor(
-                  *uvAccessor,
-                  uvBufferData +
-                      (triangleIndices[i] * uvByteStride + j * uvSize / 2));
-            }
-          }
-        }
-
-        if constexpr (V::hasTangent) {
-          tangent = calculateTangent(facePositions, faceUvs);
-        }
-
-        for (std::size_t i = 0; i < triangleIndices.size(); ++i) {
-          std::uint32_t const vertInd = triangleIndices[i];
-
-          decltype(uniqueIdx.emplace()) insertResult;
-
-          {
-            ZoneScopedN("GLTF unique idx mapping");
-            insertResult = uniqueIdx.emplace(
-                Ind{vertInd, posData, normalData, uvBufferData, tangent},
-                outVertices.size() / sizeof(Vertex));
+            vertexPtr->uv = faceUvs[i]; //{faceUvs[i].x, 1.0f - faceUvs[i].y};
           }
 
-          if (insertResult.second) {
-            // new vertex detected
-            surface.push_back(outVertices.size() / sizeof(Vertex));
-
-            std::size_t const newVertOffset = outVertices.size();
-            {
-              ZoneScopedN("Vertex buffer resizing");
-              outVertices.resize(outVertices.size() + sizeof(Vertex));
-            }
-
-            Vertex* const vertexPtr =
-                reinterpret_cast<Vertex*>(outVertices.data() + newVertOffset);
-
-            vertexPtr->pos = facePositions[i];
-
-            if constexpr (V::hasNormal) {
-              for (std::size_t i = 0; i < 3; ++i) {
-                vertexPtr->normal[i] = getFloatViaAccessor(
-                    *normalAccessor, normalData + (vertInd * normalByteStride +
-                                                   i * normalSize / 3));
-              }
-            }
-
-            if constexpr (V::hasColor) {
-              for (std::size_t i = 0; i < 3; ++i) {
-                vertexPtr->color[i] = getFloatViaAccessor(
-                    *colorAccessor, colorData + (vertInd * colorByteStride +
-                                                 i * colorSize / 3));
-              }
-            }
-
-            if constexpr (V::hasUV) {
-              vertexPtr->uv = faceUvs[i]; //{faceUvs[i].x, 1.0f - faceUvs[i].y};
-            }
-
-            if constexpr (V::hasTangent) {
-              vertexPtr->tangent = tangent;
-            }
-
-          } else {
-            surface.emplace_back(insertResult.first->second);
+          if constexpr (V::hasTangent) {
+            vertexPtr->tangent = tangent;
           }
+
+        } else {
+          surface.emplace_back(insertResult.first->second);
         }
       }
     }
@@ -448,119 +443,174 @@ std::size_t generateVerticesFromGltf(
   return outVertices.size() / sizeof(Vertex);
 }
 
-std::size_t callGenerateVerticesFromGltf(
-    asset::MeshAssetInfo const& meshAssetInfo, tinygltf::Model const& model,
-    std::vector<char>& outVertices,
-    std::vector<std::vector<core::MeshIndexType>>& outSurfaces);
-
 struct GltfMaterialWrapper {
-  tinygltf::Material const& mat;
-  std::vector<tinygltf::Texture> const& textures;
-  std::vector<tinygltf::Image> const& images;
+  tinygltf::Model const& model;
+  int matInd;
+  VertexContentInfo vertexInfo;
 };
 
-inline std::string getMaterialName(tinyobj::material_t const& m) {
-  return m.name;
+struct ObjMaterialWrapper {
+  tinyobj::material_t const& mat;
+  int matInd;
+  VertexContentInfo vertexInfo;
+};
+
+inline std::string getMaterialName(ObjMaterialWrapper const& m,
+                                   VertexContentInfo const& vertexInfo) {
+  std::string result = m.mat.name;
+
+  if (vertexInfo.hasNormal) {
+    result += "_n";
+  }
+  if (vertexInfo.hasColor) {
+    result += "_c";
+  }
+  if (vertexInfo.hasUV) {
+    result += "_uv";
+  }
+  if (vertexInfo.hasTangent) {
+    result += "_t";
+  }
+
+  return result;
 }
 
-inline std::string getMaterialName(GltfMaterialWrapper const& m) {
-  return m.mat.name;
+inline std::string getMaterialName(GltfMaterialWrapper const& m,
+                                   VertexContentInfo const& vertexInfo) {
+  tinygltf::Material const& mat = m.model.materials[m.matInd];
+  std::string result = mat.name;
+
+  if (vertexInfo.hasNormal) {
+    result += "_n";
+  }
+  if (vertexInfo.hasColor) {
+    result += "_c";
+  }
+  if (vertexInfo.hasUV) {
+    result += "_uv";
+  }
+  if (vertexInfo.hasTangent) {
+    result += "_t";
+  }
+
+  return result;
 }
 
-inline std::string getDiffuseTexName(tinyobj::material_t const& m) {
-  return !m.diffuse_texname.empty() ? m.diffuse_texname : m.ambient_texname;
+inline std::string getDiffuseTexName(ObjMaterialWrapper const& m) {
+  return !m.mat.diffuse_texname.empty() ? m.mat.diffuse_texname
+                                        : m.mat.ambient_texname;
 }
 
 inline std::string getDiffuseTexName(GltfMaterialWrapper const& m) {
-  int const index = m.mat.pbrMetallicRoughness.baseColorTexture.index;
+  tinygltf::Material const& mat = m.model.materials[m.matInd];
+  int const index = mat.pbrMetallicRoughness.baseColorTexture.index;
 
   if (index < 0) {
     return "";
   }
 
-  int const source = m.textures[index].source;
+  int const source = m.model.textures[index].source;
 
   if (source < 0) {
     return "";
   }
 
-  return m.images[source].uri;
+  return m.model.images[source].uri;
 }
 
-inline std::string getNormalTexName(tinyobj::material_t const& m) {
-  return m.bump_texname;
+inline std::string getNormalTexName(ObjMaterialWrapper const& m) {
+  return m.mat.bump_texname;
 }
 
 inline std::string getNormalTexName(GltfMaterialWrapper const& m) {
-  int const index = m.mat.normalTexture.index;
+  tinygltf::Material const& mat = m.model.materials[m.matInd];
+  int const index = mat.normalTexture.index;
 
   if (index < 0) {
     return "";
   }
 
-  int const source = m.textures[index].source;
+  int const source = m.model.textures[index].source;
 
   if (source < 0) {
     return "";
   }
 
-  return m.images[source].uri;
-  return index >= 0 ? m.textures[index].name : "";
+  return m.model.images[source].uri;
+  return index >= 0 ? m.model.textures[index].name : "";
 }
 
-inline glm::vec4 getAmbientColor(tinyobj::material_t const& m) {
-  return glm::vec4(m.ambient[0], m.ambient[1], m.ambient[2], m.dissolve);
+inline VertexContentInfo getVertInfo(ObjMaterialWrapper const& m) {
+  return m.vertexInfo;
+}
+
+inline VertexContentInfo getVertInfo(GltfMaterialWrapper const& m) {
+  return m.vertexInfo;
+}
+
+inline int getMatInd(ObjMaterialWrapper const& m) { return m.matInd; }
+
+inline int getMatInd(GltfMaterialWrapper const& m) { return m.matInd; }
+
+inline glm::vec4 getAmbientColor(ObjMaterialWrapper const& m) {
+  return glm::vec4(m.mat.ambient[0], m.mat.ambient[1], m.mat.ambient[2],
+                   m.mat.dissolve);
 }
 
 inline glm::vec4 getAmbientColor(GltfMaterialWrapper const& m) {
   return glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 }
 
-inline glm::vec4 getDiffuseColor(tinyobj::material_t const& m) {
-  return glm::vec4(m.diffuse[0], m.diffuse[1], m.diffuse[2], m.dissolve);
+inline glm::vec4 getDiffuseColor(ObjMaterialWrapper const& m) {
+  return glm::vec4(m.mat.diffuse[0], m.mat.diffuse[1], m.mat.diffuse[2],
+                   m.mat.dissolve);
 }
 
 inline glm::vec4 getDiffuseColor(GltfMaterialWrapper const& m) {
-  return glm::vec4(m.mat.pbrMetallicRoughness.baseColorFactor[0],
-                   m.mat.pbrMetallicRoughness.baseColorFactor[1],
-                   m.mat.pbrMetallicRoughness.baseColorFactor[2],
-                   m.mat.alphaMode == "OPAQUE"
+  tinygltf::Material const& mat = m.model.materials[m.matInd];
+  return glm::vec4(mat.pbrMetallicRoughness.baseColorFactor[0],
+                   mat.pbrMetallicRoughness.baseColorFactor[1],
+                   mat.pbrMetallicRoughness.baseColorFactor[2],
+                   mat.alphaMode == "OPAQUE"
                        ? 1.0f
-                       : m.mat.pbrMetallicRoughness.baseColorFactor[3]);
+                       : mat.pbrMetallicRoughness.baseColorFactor[3]);
 }
 
-inline glm::vec4 getSpecularColor(tinyobj::material_t const& m) {
-  return glm::vec4(m.specular[0], m.specular[1], m.specular[2], 1.0f);
+inline glm::vec4 getSpecularColor(ObjMaterialWrapper const& m) {
+  return glm::vec4(m.mat.specular[0], m.mat.specular[1], m.mat.specular[2],
+                   1.0f);
 }
 
 inline glm::vec4 getSpecularColor(GltfMaterialWrapper const& m) {
-  return glm::vec4((1.0f - m.mat.pbrMetallicRoughness.roughnessFactor),
-                   (1.0f - m.mat.pbrMetallicRoughness.roughnessFactor),
-                   (1.0f - m.mat.pbrMetallicRoughness.roughnessFactor), 1.0f);
+  tinygltf::Material const& mat = m.model.materials[m.matInd];
+  return glm::vec4((1.0f - mat.pbrMetallicRoughness.roughnessFactor),
+                   (1.0f - mat.pbrMetallicRoughness.roughnessFactor),
+                   (1.0f - mat.pbrMetallicRoughness.roughnessFactor), 1.0f);
 }
 
-inline float getShininess(tinyobj::material_t const& m) { return m.shininess; }
+inline float getShininess(ObjMaterialWrapper const& m) {
+  return m.mat.shininess;
+}
 
 inline float getShininess(GltfMaterialWrapper const& m) {
+  tinygltf::Material const& mat = m.model.materials[m.matInd];
   // roughness factor: smooth - 0.0, rough - 1.0:
-  return 1.0f + 511.0f * (1.0f - m.mat.pbrMetallicRoughness.roughnessFactor);
+  return 1.0f + 511.0f * (1.0f - mat.pbrMetallicRoughness.roughnessFactor);
 }
 
-inline bool isMaterialTransparent(tinyobj::material_t const& m) {
-  return m.dissolve < 1.0f;
+inline bool isMaterialTransparent(ObjMaterialWrapper const& m) {
+  return m.mat.dissolve < 1.0f;
 }
 
 inline bool isMaterialTransparent(GltfMaterialWrapper const& m) {
-  return m.mat.alphaMode == "OPAQUE";
+  tinygltf::Material const& mat = m.model.materials[m.matInd];
+  return mat.alphaMode == "OPAQUE";
 }
 
-struct VertexContentInfo {
-  bool hasNormal;
-  bool hasColor;
-  bool hasUV;
-  bool hasTangent;
-};
-
 std::string shaderPicker(VertexContentInfo const& vertexInfo);
+
+std::string shaderPicker(GltfMaterialWrapper const& m);
+
+std::string shaderPicker(ObjMaterialWrapper const& m);
 
 } /*namespace obsidian::asset_converter */

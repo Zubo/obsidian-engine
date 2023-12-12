@@ -44,7 +44,7 @@ TEST(task, task_execute_ret_val) {
   t.execute();
 
   // assert
-  std::shared_ptr<void const> const returnVal = t.getReturn();
+  void const* returnVal = t.getReturn();
   EXPECT_NE(returnVal, nullptr);
-  EXPECT_EQ(val, *reinterpret_cast<int const*>(returnVal.get()));
+  EXPECT_EQ(val, *reinterpret_cast<int const*>(returnVal));
 }

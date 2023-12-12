@@ -1,6 +1,7 @@
 #pragma once
 
 #include <obsidian/asset/texture_asset_info.hpp>
+#include <obsidian/asset_converter/vertex_content_info.hpp>
 #include <obsidian/core/texture_format.hpp>
 
 #include <filesystem>
@@ -50,14 +51,28 @@ private:
   bool convertSpirvToAsset(std::filesystem::path const& srcPath,
                            std::filesystem::path const& dstPath);
 
+  using TextureAssetInfoMap =
+      std::unordered_map<std::string, std::optional<asset::TextureAssetInfo>>;
+
   template <typename MaterialType>
-  std::vector<std::string>
+  TextureAssetInfoMap
+  extractTexturesForMaterials(std::filesystem::path const& srcDirPath,
+                              std::filesystem::path const& projectPath,
+                              std::vector<MaterialType> const& materials,
+                              bool tryFindingTextureSubdir);
+
+  using MaterialPathTable =
+      std::array<std::vector<std::string>, intRepresentationMax() + 1>;
+
+  template <typename MaterialType>
+  MaterialPathTable
   extractMaterials(std::filesystem::path const& srcDirPath,
                    std::filesystem::path const& projectPath,
+                   TextureAssetInfoMap const& textureAssetInfoMap,
                    std::vector<MaterialType> const& materials,
-                   VertexContentInfo const& info, bool tryFindingTextureSubdir);
+                   std::size_t totalMaterialCount);
 
-  std::optional<asset::TextureAssetInfo> getOrCreateTexture(
+  std::optional<asset::TextureAssetInfo> getOrImportTexture(
       std::filesystem::path const& srcPath,
       std::filesystem::path const& dstPath,
       std::optional<core::TextureFormat> overrideTextureFormat = std::nullopt);

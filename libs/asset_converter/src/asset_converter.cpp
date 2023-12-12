@@ -1,3 +1,5 @@
+#include "obsidian/asset_converter/vertex_content_info.hpp"
+#include <iterator>
 #include <obsidian/asset/asset.hpp>
 #include <obsidian/asset/asset_info.hpp>
 #include <obsidian/asset/asset_io.hpp>
@@ -231,8 +233,29 @@ bool AssetConverter::convertObjToAsset(fs::path const& srcPath,
   VertexContentInfo const vertInfo = {
       meshAssetInfo.hasNormals, meshAssetInfo.hasColors, meshAssetInfo.hasUV,
       meshAssetInfo.hasTangents};
-  meshAssetInfo.defaultMatRelativePaths = extractMaterials(
-      srcPath.parent_path(), dstPath.parent_path(), materials, vertInfo, true);
+
+  std::vector<ObjMaterialWrapper> requestedMaterials;
+  requestedMaterials.reserve(materials.size());
+
+  for (std::size_t i = 0; i < materials.size(); ++i) {
+    requestedMaterials.push_back({materials[i], (int)i, vertInfo});
+  }
+
+  fs::path const projectPath = dstPath.parent_path();
+
+  TextureAssetInfoMap const texAssetInfoMap = extractTexturesForMaterials(
+      srcDirPath, projectPath, requestedMaterials, true);
+
+  MaterialPathTable const extractedMaterials =
+      extractMaterials(srcPath.parent_path(), dstPath.parent_path(),
+                       texAssetInfoMap, requestedMaterials, materials.size());
+
+  meshAssetInfo.defaultMatRelativePaths.reserve(materials.size());
+
+  for (std::string const& path :
+       extractedMaterials[representAsInteger(vertInfo)]) {
+    meshAssetInfo.defaultMatRelativePaths.push_back(path);
+  }
 
   while (!genVertTask.isDone())
     ;
@@ -277,6 +300,11 @@ bool AssetConverter::convertObjToAsset(fs::path const& srcPath,
   return saveAsset(srcPath, dstPath, meshAsset);
 }
 
+std::size_t callGenerateVerticesFromGltfMesh(
+    asset::MeshAssetInfo const& meshAssetInfo, tinygltf::Model const& model,
+    int meshInd, std::vector<char>& outVertices,
+    std::vector<std::vector<core::MeshIndexType>>& outSurfaces);
+
 bool AssetConverter::convertGltfToAsset(fs::path const& srcPath,
                                         fs::path const& dstPath) {
   ZoneScoped;
@@ -302,107 +330,165 @@ bool AssetConverter::convertGltfToAsset(fs::path const& srcPath,
     OBS_LOG_WARN(warn);
   }
 
-  std::size_t vertexCount;
-  std::vector<char> outVertices;
-  std::vector<std::vector<core::MeshIndexType>> outSurfaces;
-  asset::MeshAssetInfo meshAssetInfo;
+  std::size_t meshCount = model.meshes.size();
 
-  meshAssetInfo.compressionMode = asset::CompressionMode::LZ4;
+  std::vector<std::size_t> vertexCountPerMesh;
+  vertexCountPerMesh.resize(meshCount, 0);
+  std::vector<std::vector<char>> outVerticesPerMesh;
+  outVerticesPerMesh.resize(meshCount);
+  std::vector<std::vector<std::vector<core::MeshIndexType>>> outSurfacesPerMesh{
+      meshCount};
+  std::vector<asset::MeshAssetInfo> meshAssetInfoPerMesh;
+  meshAssetInfoPerMesh.resize(meshCount);
 
-  meshAssetInfo.hasNormals = std::all_of(
-      model.meshes.cbegin(), model.meshes.cend(), [](auto const& m) {
-        return std::all_of(
-            m.primitives.cbegin(), m.primitives.cend(),
-            [](auto const& p) { return p.attributes.contains("NORMAL"); });
-      });
-  meshAssetInfo.hasColors = std::all_of(
-      model.meshes.cbegin(), model.meshes.cend(), [](auto const& m) {
-        return std::all_of(
-            m.primitives.cbegin(), m.primitives.cend(),
-            [](auto const& p) { return p.attributes.contains("COLOR_0"); });
-      });
-  meshAssetInfo.hasUV = std::all_of(
-      model.meshes.cbegin(), model.meshes.cend(), [](auto const& m) {
-        return std::all_of(
-            m.primitives.cbegin(), m.primitives.cend(),
-            [](auto const& p) { return p.attributes.contains("TEXCOORD_0"); });
-      });
+  std::vector<task::TaskBase const*> generateVerticesTasks;
+  generateVerticesTasks.reserve(meshCount);
 
-  meshAssetInfo.hasTangents = meshAssetInfo.hasNormals && meshAssetInfo.hasUV;
+  for (std::size_t i = 0; i < model.meshes.size(); ++i) {
+    asset::MeshAssetInfo& meshAssetInfo = meshAssetInfoPerMesh[i];
+    meshAssetInfo.compressionMode = asset::CompressionMode::LZ4;
 
-  task::TaskBase const& generateVerticesTask = _taskExecutor.enqueue(
-      task::TaskType::general,
-      // capturing vector members by reference won't cause problems because
-      // the vector memory was reserved in advance
-      [&meshAssetInfo, &vertexCount, &model, &outVertices, &outSurfaces]() {
-        outSurfaces.resize(model.materials.size());
-        vertexCount = callGenerateVerticesFromGltf(meshAssetInfo, model,
-                                                   outVertices, outSurfaces);
-      });
+    meshAssetInfo.hasNormals = std::all_of(
+        model.meshes[i].primitives.cbegin(), model.meshes[i].primitives.cend(),
+        [](auto const& p) { return p.attributes.contains("NORMAL"); });
+    meshAssetInfo.hasColors = std::all_of(
+        model.meshes[i].primitives.cbegin(), model.meshes[i].primitives.cend(),
+        [](auto const& p) { return p.attributes.contains("COLOR_0"); });
+    meshAssetInfo.hasUV = std::all_of(
+        model.meshes[i].primitives.cbegin(), model.meshes[i].primitives.cend(),
+        [](auto const& p) { return p.attributes.contains("TEXCOORD_0"); });
 
-  std::vector<GltfMaterialWrapper> materials;
-  materials.reserve(model.materials.size());
+    meshAssetInfo.hasTangents = meshAssetInfo.hasNormals && meshAssetInfo.hasUV;
 
-  for (std::size_t i = 0; i < model.materials.size(); ++i) {
-    materials.push_back(
-        GltfMaterialWrapper{model.materials[i], model.textures, model.images});
+    task::TaskBase const& generateVerticesTask = _taskExecutor.enqueue(
+        task::TaskType::general,
+        // capturing vector members by reference won't cause problems because
+        // the vector memory was reserved in advance
+        [meshInd = i, &meshAssetInfo, &vertexCount = vertexCountPerMesh[i],
+         &model, &outVertices = outVerticesPerMesh[i],
+         &outSurfaces = outSurfacesPerMesh[i]]() {
+          outSurfaces.resize(model.materials.size());
+          vertexCount = callGenerateVerticesFromGltfMesh(
+              meshAssetInfo, model, meshInd, outVertices, outSurfaces);
+        });
+
+    generateVerticesTasks.push_back(&generateVerticesTask);
   }
 
-  VertexContentInfo const vertInfo = {
-      meshAssetInfo.hasNormals, meshAssetInfo.hasColors, meshAssetInfo.hasUV,
-      meshAssetInfo.hasTangents};
-  std::vector<std::string> materialNames = extractMaterials(
-      srcPath.parent_path(), dstPath.parent_path(), materials, vertInfo, false);
+  std::vector<GltfMaterialWrapper> requestedMaterials;
 
-  while (!generateVerticesTask.isDone())
+  std::vector<std::vector<int>> materialIndicesPerMesh;
+  materialIndicesPerMesh.resize(meshCount);
+
+  for (std::size_t meshInd = 0; meshInd < meshCount; ++meshInd) {
+    asset::MeshAssetInfo const& meshAssetInfo = meshAssetInfoPerMesh[meshInd];
+    VertexContentInfo vertInfo = {meshAssetInfo.hasNormals,
+                                  meshAssetInfo.hasColors, meshAssetInfo.hasUV,
+                                  meshAssetInfo.hasTangents};
+
+    for (tinygltf::Primitive const& primitive :
+         model.meshes[meshInd].primitives) {
+      if (primitive.material < 0) {
+        continue;
+      }
+
+      requestedMaterials.push_back({model, primitive.material, vertInfo});
+      materialIndicesPerMesh[meshInd].push_back(primitive.material);
+    }
+  }
+
+  fs::path const projectPath = dstPath.parent_path();
+  fs::path const srcDirPath = srcPath.parent_path();
+
+  TextureAssetInfoMap const texAssetInfoMap = extractTexturesForMaterials(
+      srcDirPath, projectPath, requestedMaterials, false);
+
+  MaterialPathTable extractedMaterialPaths =
+      extractMaterials(srcPath, projectPath, texAssetInfoMap,
+                       requestedMaterials, model.materials.size());
+
+  while (std::any_of(generateVerticesTasks.cbegin(),
+                     generateVerticesTasks.cend(),
+                     [](task::TaskBase const* t) { return !t->isDone(); }))
     ;
 
-  meshAssetInfo.vertexCount = vertexCount;
+  bool exportSuccess = true;
 
-  meshAssetInfo.vertexBufferSize = outVertices.size();
-  meshAssetInfo.indexCount = 0;
+  for (std::size_t i = 0; i < meshCount; ++i) {
+    asset::MeshAssetInfo& meshAssetInfo = meshAssetInfoPerMesh[i];
+    meshAssetInfo.vertexCount = vertexCountPerMesh[i];
 
-  meshAssetInfo.defaultMatRelativePaths.reserve(
-      meshAssetInfo.indexBufferSizes.size());
+    std::vector<char>& outVertices = outVerticesPerMesh[i];
 
-  auto const removeIt = std::remove_if(outSurfaces.begin(), outSurfaces.end(),
-                                       [](auto const& s) { return s.empty(); });
-  outSurfaces.erase(removeIt, outSurfaces.end());
+    meshAssetInfo.vertexBufferSize = outVerticesPerMesh[i].size();
+    meshAssetInfo.indexCount = 0;
 
-  for (std::size_t j = 0; j < outSurfaces.size(); ++j) {
-    meshAssetInfo.indexBufferSizes.push_back(sizeof(core::MeshIndexType) *
-                                             outSurfaces[j].size());
-    meshAssetInfo.indexCount += outSurfaces[j].size();
-    meshAssetInfo.defaultMatRelativePaths.push_back(materialNames[j]);
+    meshAssetInfo.defaultMatRelativePaths.reserve(
+        meshAssetInfo.indexBufferSizes.size());
+
+    std::vector<std::vector<core::MeshIndexType>>& outSurfaces =
+        outSurfacesPerMesh[i];
+
+    auto const removeIt =
+        std::remove_if(outSurfaces.begin(), outSurfaces.end(),
+                       [](auto const& s) { return s.empty(); });
+    outSurfaces.erase(removeIt, outSurfaces.end());
+
+    std::size_t const vertInfoInt =
+        representAsInteger({meshAssetInfo.hasNormals, meshAssetInfo.hasColors,
+                            meshAssetInfo.hasUV, meshAssetInfo.hasTangents});
+
+    std::vector<int> const& materialIndices = materialIndicesPerMesh[i];
+
+    for (std::size_t j = 0; j < outSurfaces.size(); ++j) {
+      meshAssetInfo.indexBufferSizes.push_back(sizeof(core::MeshIndexType) *
+                                               outSurfaces[j].size());
+      meshAssetInfo.indexCount += outSurfaces[j].size();
+
+      int const matInd = materialIndices[j];
+      meshAssetInfo.defaultMatRelativePaths.push_back(
+          extractedMaterialPaths[vertInfoInt][matInd]);
+    }
+
+    std::size_t const totalIndexBufferSize =
+        std::accumulate(meshAssetInfo.indexBufferSizes.cbegin(),
+                        meshAssetInfo.indexBufferSizes.cend(), 0);
+    meshAssetInfo.unpackedSize =
+        meshAssetInfo.vertexBufferSize + totalIndexBufferSize;
+    outVertices.resize(outVertices.size() + totalIndexBufferSize);
+
+    char* indCopyDest = outVertices.data() + meshAssetInfo.vertexBufferSize;
+
+    for (std::size_t j = 0; j < outSurfaces.size(); ++j) {
+      auto const& surface = outSurfaces[j];
+      std::size_t const surfaceBufferSize = meshAssetInfo.indexBufferSizes[j];
+      std::memcpy(indCopyDest, surface.data(), surfaceBufferSize);
+      indCopyDest += surfaceBufferSize;
+    }
+
+    (void)indCopyDest;
+
+    asset::Asset meshAsset;
+
+    if (!asset::packMeshAsset(meshAssetInfo, std::move(outVertices),
+                              meshAsset)) {
+      exportSuccess = false;
+      break;
+    }
+
+    if (!saveAsset(srcPath, dstPath.string() + std::to_string(i), meshAsset)) {
+      exportSuccess = false;
+      break;
+    }
   }
 
-  std::size_t const totalIndexBufferSize =
-      std::accumulate(meshAssetInfo.indexBufferSizes.cbegin(),
-                      meshAssetInfo.indexBufferSizes.cend(), 0);
-  meshAssetInfo.unpackedSize =
-      meshAssetInfo.vertexBufferSize + totalIndexBufferSize;
-  outVertices.resize(outVertices.size() + totalIndexBufferSize);
-
-  char* indCopyDest = outVertices.data() + meshAssetInfo.vertexBufferSize;
-
-  for (std::size_t j = 0; j < outSurfaces.size(); ++j) {
-    auto const& surface = outSurfaces[j];
-    std::size_t const surfaceBufferSize = meshAssetInfo.indexBufferSizes[j];
-    std::memcpy(indCopyDest, surface.data(), surfaceBufferSize);
-    indCopyDest += surfaceBufferSize;
-  }
-
-  (void)indCopyDest;
-
-  asset::Asset meshAsset;
-
-  if (!asset::packMeshAsset(meshAssetInfo, std::move(outVertices), meshAsset)) {
+  if (!exportSuccess) {
     OBS_LOG_ERR("Failed to convert " + srcPath.string() + " to asset.");
     return false;
   }
 
-  return saveAsset(srcPath, dstPath, meshAsset);
-}
+  return true;
+} // namespace obsidian::asset_converter
 
 bool AssetConverter::convertSpirvToAsset(fs::path const& srcPath,
                                          fs::path const& dstPath) {
@@ -464,7 +550,7 @@ bool AssetConverter::convertAsset(fs::path const& srcPath,
   return false;
 }
 
-std::optional<asset::TextureAssetInfo> AssetConverter::getOrCreateTexture(
+std::optional<asset::TextureAssetInfo> AssetConverter::getOrImportTexture(
     fs::path const& srcPath, fs::path const& dstPath,
     std::optional<core::TextureFormat> overrideTextureFormat) {
   if (std::filesystem::exists(dstPath)) {
@@ -485,13 +571,11 @@ std::optional<asset::TextureAssetInfo> AssetConverter::getOrCreateTexture(
 }
 
 template <typename MaterialType>
-std::vector<std::string> AssetConverter::extractMaterials(
+AssetConverter::TextureAssetInfoMap AssetConverter::extractTexturesForMaterials(
     fs::path const& srcDirPath, fs::path const& projectPath,
-    std::vector<MaterialType> const& materials, VertexContentInfo const& info,
-    bool tryFindingTextureSubdir) {
+    std::vector<MaterialType> const& materials, bool tryFindingTextureSubdir) {
   ZoneScoped;
 
-  std::vector<std::string> extractedMaterialPaths;
   fs::directory_entry texDir;
 
   if (tryFindingTextureSubdir) {
@@ -503,6 +587,7 @@ std::vector<std::string> AssetConverter::extractMaterials(
   }
 
   std::unordered_map<std::string, task::TaskBase const*> textureLoadTasks;
+
   for (std::size_t i = 0; i < materials.size(); ++i) {
     MaterialType const& mat = materials[i];
 
@@ -515,21 +600,21 @@ std::vector<std::string> AssetConverter::extractMaterials(
 
       task::TaskBase const* task = &_taskExecutor.enqueue(
           task::TaskType::general, [this, srcPath, dstPath]() {
-            return getOrCreateTexture(srcPath, dstPath);
+            return getOrImportTexture(srcPath, dstPath);
           });
 
       textureLoadTasks[diffuseTexName] = task;
     }
 
     std::string const normalTexName = getNormalTexName(mat);
-    if (!normalTexName.empty()) {
+    if (!normalTexName.empty() && !textureLoadTasks.contains(normalTexName)) {
       fs::path const srcPath = texDir.path() / normalTexName;
       fs::path dstPath = projectPath / normalTexName;
       dstPath.replace_extension(".obstex");
 
       task::TaskBase const* task = &_taskExecutor.enqueue(
           task::TaskType::general, [this, srcPath, dstPath]() {
-            return getOrCreateTexture(srcPath, dstPath,
+            return getOrImportTexture(srcPath, dstPath,
                                       core::TextureFormat::R8G8B8A8_LINEAR);
           });
 
@@ -544,14 +629,36 @@ std::vector<std::string> AssetConverter::extractMaterials(
       break;
   }
 
-  extractedMaterialPaths.resize(materials.size());
+  TextureAssetInfoMap resultTextureInfos;
+
+  for (auto const& t : textureLoadTasks) {
+    std::optional<asset::TextureAssetInfo> texInfoOpt =
+        *reinterpret_cast<std::optional<asset::TextureAssetInfo> const*>(
+            t.second->getReturn());
+    resultTextureInfos[t.first] = texInfoOpt;
+  }
+
+  return resultTextureInfos;
+}
+
+template <typename MaterialType>
+AssetConverter::MaterialPathTable
+AssetConverter::extractMaterials(fs::path const& srcDirPath,
+                                 fs::path const& projectPath,
+                                 TextureAssetInfoMap const& textureAssetInfoMap,
+                                 std::vector<MaterialType> const& materials,
+                                 std::size_t totalMaterialCount) {
+  MaterialPathTable materialPathTable;
+  for (auto& row : materialPathTable) {
+    row.resize(totalMaterialCount);
+  }
 
   for (std::size_t i = 0; i < materials.size(); ++i) {
     MaterialType const& mat = materials[i];
     asset::MaterialAssetInfo newMatAssetInfo;
     newMatAssetInfo.compressionMode = asset::CompressionMode::none;
     newMatAssetInfo.materialType = core::MaterialType::lit;
-    newMatAssetInfo.shaderPath = shaderPicker(info);
+    newMatAssetInfo.shaderPath = shaderPicker(mat);
     newMatAssetInfo.ambientColor = getAmbientColor(mat);
     newMatAssetInfo.diffuseColor = getDiffuseColor(mat);
     newMatAssetInfo.specularColor = getSpecularColor(mat);
@@ -559,14 +666,13 @@ std::vector<std::string> AssetConverter::extractMaterials(
     newMatAssetInfo.shininess = getShininess(mat);
     newMatAssetInfo.transparent = isMaterialTransparent(mat);
 
-    std::string diffuseTexName = getDiffuseTexName(mat);
+    std::string const diffuseTexName = getDiffuseTexName(mat);
     if (!diffuseTexName.empty()) {
-      std::optional<asset::TextureAssetInfo> const* texInfo =
-          static_cast<std::optional<asset::TextureAssetInfo> const*>(
-              textureLoadTasks[diffuseTexName]->getReturn().get());
+      std::optional<asset::TextureAssetInfo> const& texInfo =
+          textureAssetInfoMap.at(diffuseTexName);
       assert(texInfo);
 
-      newMatAssetInfo.transparent |= (*texInfo && (*texInfo)->transparent);
+      newMatAssetInfo.transparent |= (texInfo && texInfo->transparent);
       fs::path dstPath = diffuseTexName;
       dstPath.replace_extension(".obstex");
       newMatAssetInfo.diffuseTexturePath = dstPath;
@@ -574,9 +680,8 @@ std::vector<std::string> AssetConverter::extractMaterials(
 
     std::string const normalTexName = getNormalTexName(mat);
     if (!normalTexName.empty()) {
-      std::optional<asset::TextureAssetInfo> const* texInfo =
-          static_cast<std::optional<asset::TextureAssetInfo> const*>(
-              textureLoadTasks[normalTexName]->getReturn().get());
+      std::optional<asset::TextureAssetInfo> const& texInfo =
+          textureAssetInfoMap.at(normalTexName);
       assert(texInfo);
 
       fs::path dstPath = normalTexName;
@@ -584,18 +689,23 @@ std::vector<std::string> AssetConverter::extractMaterials(
       newMatAssetInfo.normalMapTexturePath = dstPath;
     }
 
+    VertexContentInfo const vertInfo = getVertInfo(mat);
+
     asset::Asset matAsset;
     if (asset::packMaterial(newMatAssetInfo, {}, matAsset)) {
-      fs::path materialPath = projectPath / getMaterialName(mat);
+      fs::path materialPath = projectPath / getMaterialName(mat, vertInfo);
       materialPath.replace_extension(".obsmat");
 
       if (asset::saveToFile(materialPath, matAsset)) {
-        extractedMaterialPaths[i] = fs::relative(materialPath, projectPath);
+        std::size_t vertInfoInteger = representAsInteger(vertInfo);
+        int matInd = getMatInd(mat);
+        materialPathTable[vertInfoInteger][matInd] =
+            fs::relative(materialPath, projectPath);
       }
     }
   }
 
-  return extractedMaterialPaths;
+  return materialPathTable;
 }
 
 } /*namespace obsidian::asset_converter*/

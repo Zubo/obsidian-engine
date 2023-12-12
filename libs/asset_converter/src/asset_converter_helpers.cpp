@@ -25,6 +25,14 @@ std::string shaderPicker(VertexContentInfo const& vertexInfo) {
   return result;
 }
 
+std::string shaderPicker(GltfMaterialWrapper const& m) {
+  return shaderPicker(m.vertexInfo);
+}
+
+std::string shaderPicker(ObjMaterialWrapper const& m) {
+  return shaderPicker(m.vertexInfo);
+}
+
 std::size_t callGenerateVerticesFromObj(
     asset::MeshAssetInfo const& meshAssetInfo, tinyobj::attrib_t const& attrib,
     std::vector<tinyobj::shape_t> const& shapes, std::vector<char>& outVertices,
@@ -57,35 +65,35 @@ std::size_t callGenerateVerticesFromObj(
   }
 };
 
-std::size_t callGenerateVerticesFromGltf(
+std::size_t callGenerateVerticesFromGltfMesh(
     asset::MeshAssetInfo const& meshAssetInfo, tinygltf::Model const& model,
-    std::vector<char>& outVertices,
+    int meshInd, std::vector<char>& outVertices,
     std::vector<std::vector<core::MeshIndexType>>& outSurfaces) {
   if (meshAssetInfo.hasNormals && meshAssetInfo.hasColors &&
       meshAssetInfo.hasUV) {
     return generateVerticesFromGltf<core::VertexType<true, true, true>>(
-        model, outVertices, outSurfaces);
+        model, meshInd, outVertices, outSurfaces);
   } else if (meshAssetInfo.hasNormals && meshAssetInfo.hasColors) {
     return generateVerticesFromGltf<core::VertexType<true, true, false>>(
-        model, outVertices, outSurfaces);
+        model, meshInd, outVertices, outSurfaces);
   } else if (meshAssetInfo.hasNormals && meshAssetInfo.hasUV) {
     return generateVerticesFromGltf<core::VertexType<true, false, true>>(
-        model, outVertices, outSurfaces);
+        model, meshInd, outVertices, outSurfaces);
   } else if (meshAssetInfo.hasColors && meshAssetInfo.hasUV) {
     return generateVerticesFromGltf<core::VertexType<false, true, true>>(
-        model, outVertices, outSurfaces);
+        model, meshInd, outVertices, outSurfaces);
   } else if (meshAssetInfo.hasNormals) {
     return generateVerticesFromGltf<core::VertexType<true, false, false>>(
-        model, outVertices, outSurfaces);
+        model, meshInd, outVertices, outSurfaces);
   } else if (meshAssetInfo.hasColors) {
     return generateVerticesFromGltf<core::VertexType<false, true, false>>(
-        model, outVertices, outSurfaces);
+        model, meshInd, outVertices, outSurfaces);
   } else if (meshAssetInfo.hasUV) {
     return generateVerticesFromGltf<core::VertexType<false, false, true>>(
-        model, outVertices, outSurfaces);
+        model, meshInd, outVertices, outSurfaces);
   } else {
     return generateVerticesFromGltf<core::VertexType<false, false, false>>(
-        model, outVertices, outSurfaces);
+        model, meshInd, outVertices, outSurfaces);
   }
 };
 

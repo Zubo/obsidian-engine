@@ -5,6 +5,7 @@ add_library(AssetConverter
     "src/asset_converter_helpers.cpp"
     "include/obsidian/asset_converter/asset_converter.hpp"
     "include/obsidian/asset_converter/asset_converter_helpers.hpp"
+    "include/obsidian/asset_converter/vertex_content_info.hpp"
 )
 
 target_include_directories(AssetConverter

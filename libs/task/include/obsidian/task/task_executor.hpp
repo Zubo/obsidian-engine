@@ -6,10 +6,10 @@
 #include <cassert>
 #include <condition_variable>
 #include <cstdint>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <thread>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -57,7 +57,7 @@ public:
   bool shutdownComplete() const;
 
 private:
-  std::unordered_map<TaskType, TaskQueue> _taskQueues;
+  std::map<TaskType, TaskQueue> _taskQueues;
   std::vector<std::unique_ptr<TaskBase>> _dequeuedTasks;
   std::vector<std::thread> _threads;
   std::mutex taskQueueMutex;
