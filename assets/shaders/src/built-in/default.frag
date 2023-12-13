@@ -247,10 +247,6 @@ void main() {
 
   vec4 diffuseColor = materialData.diffuseColor;
 
-#ifdef _HAS_COLOR
-  diffuseColor *= vec4(inColor, 1.0f);
-#endif
-
   if (diffuseColor.w == 0.0) {
     discard;
   }
@@ -271,6 +267,13 @@ void main() {
   }
 #endif
 
-  outFragColor =
-      vec4((ambientColor + diffuseColor + specularColor).xyz, diffuseColor.w);
+#ifdef _HAS_COLOR
+  if (!materialData.hasDiffuseTex) {
+    diffuseColor *= vec4(inColor, 1.0f);
+  }
+#endif
+
+  vec3 finalColor = (ambientColor + diffuseColor + specularColor).xyz;
+
+  outFragColor = vec4(finalColor, diffuseColor.w);
 }

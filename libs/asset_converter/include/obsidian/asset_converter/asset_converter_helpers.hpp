@@ -615,7 +615,7 @@ inline bool isMaterialTransparent(ObjMaterialWrapper const& m) {
 
 inline bool isMaterialTransparent(GltfMaterialWrapper const& m) {
   tinygltf::Material const& mat = m.model.materials[m.matInd];
-  return mat.alphaMode == "OPAQUE";
+  return mat.alphaMode != "OPAQUE";
 }
 
 std::string shaderPicker(VertexContentInfo const& vertexInfo);
