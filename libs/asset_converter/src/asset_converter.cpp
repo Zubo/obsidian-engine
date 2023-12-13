@@ -3,6 +3,7 @@
 #include <obsidian/asset/asset_io.hpp>
 #include <obsidian/asset/material_asset_info.hpp>
 #include <obsidian/asset/mesh_asset_info.hpp>
+#include <obsidian/asset/prefab_asset_info.hpp>
 #include <obsidian/asset/shader_asset_info.hpp>
 #include <obsidian/asset/texture_asset_info.hpp>
 #include <obsidian/asset_converter/asset_converter.hpp>
@@ -20,6 +21,7 @@
 #include <obsidian/task/task_type.hpp>
 
 #include <glm/glm.hpp>
+#include <nlohmann/json.hpp>
 #include <stb/stb_image.h>
 #include <tiny_gltf.h>
 #include <tiny_obj_loader.h>
@@ -299,11 +301,6 @@ bool AssetConverter::convertObjToAsset(fs::path const& srcPath,
   return saveAsset(srcPath, dstPath, meshAsset);
 }
 
-std::size_t callGenerateVerticesFromGltfMesh(
-    asset::MeshAssetInfo const& meshAssetInfo, tinygltf::Model const& model,
-    int meshInd, std::vector<char>& outVertices,
-    std::vector<std::vector<core::MeshIndexType>>& outSurfaces);
-
 bool AssetConverter::convertGltfToAsset(fs::path const& srcPath,
                                         fs::path const& dstPath) {
   ZoneScoped;
@@ -413,6 +410,9 @@ bool AssetConverter::convertGltfToAsset(fs::path const& srcPath,
 
   bool exportSuccess = true;
 
+  std::vector<std::string> meshExportPaths;
+  meshExportPaths.reserve(meshCount);
+
   for (std::size_t i = 0; i < meshCount; ++i) {
     asset::MeshAssetInfo& meshAssetInfo = meshAssetInfoPerMesh[i];
     meshAssetInfo.vertexCount = vertexCountPerMesh[i];
@@ -475,7 +475,11 @@ bool AssetConverter::convertGltfToAsset(fs::path const& srcPath,
       break;
     }
 
-    if (!saveAsset(srcPath, dstPath.string() + std::to_string(i), meshAsset)) {
+    tinygltf::Mesh const& mesh = model.meshes[i];
+    std::string& exportpath = meshExportPaths.emplace_back(
+        dstPath.string() + (mesh.name.empty() ? std::to_string(i) : mesh.name));
+
+    if (!saveAsset(srcPath, exportpath, meshAsset)) {
       exportSuccess = false;
       break;
     }
@@ -484,6 +488,48 @@ bool AssetConverter::convertGltfToAsset(fs::path const& srcPath,
   if (!exportSuccess) {
     OBS_LOG_ERR("Failed to convert " + srcPath.string() + " to asset.");
     return false;
+  }
+
+  for (std::size_t sceneInd = 0; sceneInd < model.scenes.size(); ++sceneInd) {
+    tinygltf::Scene const& scene = model.scenes[sceneInd];
+
+    for (int nodeInd : scene.nodes) {
+      serialization::GameObjectData rootNodeObjData = nodeToGameObjectData(
+          nodeInd, model, meshExportPaths, meshAssetInfoPerMesh);
+
+      nlohmann::json gameObjectJson;
+
+      if (serialization::serializeGameObject(rootNodeObjData, gameObjectJson)) {
+        std::string gameObjectJsonString = gameObjectJson.dump();
+        std::vector<char> prefabData;
+        prefabData.resize(gameObjectJsonString.size());
+        std::memcpy(prefabData.data(), gameObjectJsonString.data(),
+                    gameObjectJsonString.size());
+
+        asset::PrefabAssetInfo prefabAssetInfo;
+        prefabAssetInfo.compressionMode = asset::CompressionMode::LZ4;
+        prefabAssetInfo.unpackedSize = gameObjectJsonString.size();
+
+        asset::Asset prefabAsset;
+        if (!asset::packPrefab(prefabAssetInfo, std::move(prefabData),
+                               prefabAsset)) {
+          OBS_LOG_ERR("Failed packing scene on index " +
+                      std::to_string(sceneInd) + std::to_string(nodeInd));
+          continue;
+        }
+
+        tinygltf::Node const& node = model.nodes[nodeInd];
+        fs::path prefabPath =
+            dstPath.string() +
+            (node.name.empty() ? std::to_string(nodeInd) : node.name);
+
+        prefabPath.replace_extension(globals::prefabAssetExt);
+
+        if (!asset::saveToFile(prefabPath, prefabAsset)) {
+          OBS_LOG_ERR("Failed saving prefab to path " + prefabPath.string());
+        }
+      }
+    }
   }
 
   return true;
@@ -595,7 +641,7 @@ AssetConverter::TextureAssetInfoMap AssetConverter::extractTexturesForMaterials(
     if (!diffuseTexName.empty() && !textureLoadTasks.contains(diffuseTexName)) {
       fs::path const srcPath = texDir.path() / diffuseTexName;
       fs::path dstPath = projectPath / diffuseTexName;
-      dstPath.replace_extension(".obstex");
+      dstPath.replace_extension(globals::textureAssetExt);
 
       task::TaskBase const* task = &_taskExecutor.enqueue(
           task::TaskType::general, [this, srcPath, dstPath]() {
@@ -609,7 +655,7 @@ AssetConverter::TextureAssetInfoMap AssetConverter::extractTexturesForMaterials(
     if (!normalTexName.empty() && !textureLoadTasks.contains(normalTexName)) {
       fs::path const srcPath = texDir.path() / normalTexName;
       fs::path dstPath = projectPath / normalTexName;
-      dstPath.replace_extension(".obstex");
+      dstPath.replace_extension(globals::textureAssetExt);
 
       task::TaskBase const* task = &_taskExecutor.enqueue(
           task::TaskType::general, [this, srcPath, dstPath]() {
@@ -673,7 +719,7 @@ AssetConverter::extractMaterials(fs::path const& srcDirPath,
 
       newMatAssetInfo.transparent |= (texInfo && texInfo->transparent);
       fs::path dstPath = diffuseTexName;
-      dstPath.replace_extension(".obstex");
+      dstPath.replace_extension(globals::textureAssetExt);
       newMatAssetInfo.diffuseTexturePath = dstPath;
     }
 
@@ -684,7 +730,7 @@ AssetConverter::extractMaterials(fs::path const& srcDirPath,
       assert(texInfo);
 
       fs::path dstPath = normalTexName;
-      dstPath.replace_extension(".obstex");
+      dstPath.replace_extension(globals::textureAssetExt);
       newMatAssetInfo.normalMapTexturePath = dstPath;
     }
 

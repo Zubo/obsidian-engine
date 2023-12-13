@@ -97,4 +97,47 @@ std::size_t callGenerateVerticesFromGltfMesh(
   }
 };
 
+serialization::GameObjectData
+nodeToGameObjectData(int nodeInd, tinygltf::Model const& model,
+                     std::vector<std::string> const& meshPaths,
+                     std::vector<asset::MeshAssetInfo> const& meshAssetInfos) {
+  tinygltf::Node const& node = model.nodes[nodeInd];
+
+  serialization::GameObjectData resultGameObjectData = {};
+
+  resultGameObjectData.gameObjectName = node.name;
+
+  if (node.mesh >= 0) {
+    resultGameObjectData.meshPath = meshPaths[node.mesh];
+    asset::MeshAssetInfo const& meshAssetInf = meshAssetInfos[node.mesh];
+
+    resultGameObjectData.materialPaths = meshAssetInf.defaultMatRelativePaths;
+  }
+
+  if (node.translation.size()) {
+    resultGameObjectData.position.x = node.translation[0];
+    resultGameObjectData.position.y = node.translation[1];
+    resultGameObjectData.position.z = node.translation[2];
+  }
+
+  if (node.rotation.size()) {
+    resultGameObjectData.euler.x = glm::degrees(node.rotation[0]);
+    resultGameObjectData.euler.y = glm::degrees(node.rotation[1]);
+    resultGameObjectData.euler.z = glm::degrees(node.rotation[2]);
+  }
+
+  if (node.scale.size()) {
+    resultGameObjectData.scale.x = node.scale[0];
+    resultGameObjectData.scale.y = node.scale[1];
+    resultGameObjectData.scale.z = node.scale[2];
+  }
+
+  for (int childInd : node.children) {
+    resultGameObjectData.children.push_back(
+        nodeToGameObjectData(childInd, model, meshPaths, meshAssetInfos));
+  }
+
+  return resultGameObjectData;
+}
+
 } /*namespace obsidian::asset_converter*/

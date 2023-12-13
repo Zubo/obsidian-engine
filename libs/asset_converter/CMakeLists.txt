@@ -25,4 +25,6 @@ target_link_libraries(AssetConverter
         tinygltf
         StbImage
         TracyClient
+        Serialization
+        nlohmann_json::nlohmann_json
 )

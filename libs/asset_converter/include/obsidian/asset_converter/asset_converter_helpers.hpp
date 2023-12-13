@@ -4,6 +4,7 @@
 #include <obsidian/asset_converter/vertex_content_info.hpp>
 #include <obsidian/core/logging.hpp>
 #include <obsidian/core/vertex_type.hpp>
+#include <obsidian/serialization/game_object_data_serialization.hpp>
 
 #include <glm/glm.hpp>
 #include <tiny_gltf.h>
@@ -442,6 +443,16 @@ std::size_t generateVerticesFromGltf(
 
   return outVertices.size() / sizeof(Vertex);
 }
+
+serialization::GameObjectData
+nodeToGameObjectData(int nodeInd, tinygltf::Model const& model,
+                     std::vector<std::string> const& meshPaths,
+                     std::vector<asset::MeshAssetInfo> const& meshAssetInfos);
+
+std::size_t callGenerateVerticesFromGltfMesh(
+    asset::MeshAssetInfo const& meshAssetInfo, tinygltf::Model const& model,
+    int meshInd, std::vector<char>& outVertices,
+    std::vector<std::vector<core::MeshIndexType>>& outSurfaces);
 
 struct GltfMaterialWrapper {
   tinygltf::Model const& model;
