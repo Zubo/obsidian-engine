@@ -56,15 +56,10 @@ void GameObject::updateTransform() {
 }
 
 GameObject& GameObject::createChild() {
-  GameObject& child = _children.emplace_back();
+  GameObject& child = *_children.emplace_back(std::make_unique<GameObject>());
   child.parent = this;
 
   return child;
-}
-
-void GameObject::addChild(GameObject&& gameObject) {
-  GameObject& child = _children.emplace_back(std::move(gameObject));
-  child.parent = this;
 }
 
 GameObject* GameObject::getParent() { return parent; }
@@ -72,17 +67,20 @@ GameObject* GameObject::getParent() { return parent; }
 void GameObject::destroyChild(GameObjectId id) {
   auto const childIter =
       std::find_if(_children.cbegin(), _children.cend(),
-                   [id](auto const& child) { return child.getId() == id; });
+                   [id](auto const& child) { return child->getId() == id; });
   if (childIter != _children.cend()) {
     _children.erase(childIter);
   }
 }
 
-std::deque<GameObject> const& GameObject::getChildren() const {
+std::vector<std::unique_ptr<GameObject>> const&
+GameObject::getChildren() const {
   return _children;
 }
 
-std::deque<GameObject>& GameObject::getChildren() { return _children; }
+std::vector<std::unique_ptr<GameObject>>& GameObject::getChildren() {
+  return _children;
+}
 
 serialization::GameObjectData GameObject::getGameObjectData() const {
   serialization::GameObjectData result = {};
@@ -106,7 +104,7 @@ serialization::GameObjectData GameObject::getGameObjectData() const {
   result.children.reserve(_children.size());
 
   for (auto const& child : _children) {
-    result.children.push_back(child.getGameObjectData());
+    result.children.push_back(child->getGameObjectData());
   }
 
   return result;

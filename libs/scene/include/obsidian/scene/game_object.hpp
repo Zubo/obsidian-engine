@@ -6,15 +6,17 @@
 
 #include <glm/glm.hpp>
 
-#include <deque>
+#include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace obsidian::scene {
 
 class GameObject {
 public:
   using GameObjectId = std::size_t;
+  static constexpr std::size_t invalidId = (std::size_t)-1;
 
   GameObject();
   GameObject(GameObject const& other) = delete;
@@ -36,14 +38,13 @@ public:
 
   GameObject& createChild();
 
-  void addChild(GameObject&& gameObject);
-
+  GameObjectId getParentId();
   GameObject* getParent();
 
   void destroyChild(GameObjectId id);
 
-  std::deque<GameObject> const& getChildren() const;
-  std::deque<GameObject>& getChildren();
+  std::vector<std::unique_ptr<GameObject>> const& getChildren() const;
+  std::vector<std::unique_ptr<GameObject>>& getChildren();
 
   serialization::GameObjectData getGameObjectData() const;
 
@@ -64,27 +65,9 @@ private:
   glm::mat4 _transform{1.0f};
 
   // TODO: use better data structure to store GameObjects
-  std::deque<GameObject> _children;
+  std::vector<std::unique_ptr<GameObject>> _children;
 
   static GameObjectId _idCounter;
 };
-
-inline void forEachGameObjAndChildren(std::deque<GameObject>& gameObjects,
-                                      void (*f)(GameObject&)) {
-  for (auto& obj : gameObjects) {
-    f(obj);
-
-    forEachGameObjAndChildren(obj.getChildren(), f);
-  }
-}
-
-inline void forEachGameObjAndChildren(std::deque<GameObject> const& gameObjects,
-                                      void (*f)(GameObject const&)) {
-  for (auto& obj : gameObjects) {
-    f(obj);
-
-    forEachGameObjAndChildren(obj.getChildren(), f);
-  }
-}
 
 } /*namespace obsidian::scene*/

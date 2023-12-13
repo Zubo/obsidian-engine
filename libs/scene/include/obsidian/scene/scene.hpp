@@ -8,7 +8,8 @@
 
 #include <glm/glm.hpp>
 
-#include <deque>
+#include <memory>
+#include <vector>
 
 namespace obsidian::input {
 
@@ -22,8 +23,7 @@ struct SceneState {
   glm::vec3 ambientColor;
 
   Camera camera;
-  // TODO: use better
-  std::deque<GameObject> gameObjects;
+  std::vector<std::unique_ptr<GameObject>> gameObjects;
 };
 
 class Scene {

@@ -23,38 +23,35 @@ constexpr char const* cameraJsonName = "camera";
 constexpr char const* cameraPosJsonName = "pos";
 constexpr char const* cameraRotationRadJsonName = "cameraRotationRad";
 
-GameObject instantiateGameObject(
+void populateGameObject(
     serialization::GameObjectData const& gameObjectData,
-    runtime_resource::RuntimeResourceManager& resourceManager) {
-  GameObject resultGameObject;
-
-  resultGameObject.name = gameObjectData.gameObjectName;
+    runtime_resource::RuntimeResourceManager& resourceManager,
+    scene::GameObject& outGameObject) {
+  outGameObject.name = gameObjectData.gameObjectName;
   std::transform(gameObjectData.materialPaths.cbegin(),
                  gameObjectData.materialPaths.cend(),
-                 std::back_inserter(resultGameObject.materialResources),
+                 std::back_inserter(outGameObject.materialResources),
                  [&resourceManager](std::string const& path) {
                    return &resourceManager.getResource(path);
                  });
 
   if (gameObjectData.meshPath.size()) {
-    resultGameObject.meshResource =
+    outGameObject.meshResource =
         &resourceManager.getResource(gameObjectData.meshPath);
   }
 
-  resultGameObject.directionalLight = gameObjectData.directionalLight;
-  resultGameObject.spotlight = gameObjectData.spotlight;
+  outGameObject.directionalLight = gameObjectData.directionalLight;
+  outGameObject.spotlight = gameObjectData.spotlight;
 
-  resultGameObject.setPosition(gameObjectData.position);
-  resultGameObject.setEuler(gameObjectData.euler);
-  resultGameObject.setScale(gameObjectData.scale);
+  outGameObject.setPosition(gameObjectData.position);
+  outGameObject.setEuler(gameObjectData.euler);
+  outGameObject.setScale(gameObjectData.scale);
 
   for (serialization::GameObjectData const& childData :
        gameObjectData.children) {
-    resultGameObject.addChild(
-        instantiateGameObject(childData, resourceManager));
+    GameObject& childGameObject = outGameObject.createChild();
+    populateGameObject(childData, resourceManager, childGameObject);
   }
-
-  return resultGameObject;
 }
 
 bool serializeScene(SceneState const& sceneState, nlohmann::json& outJson) {
@@ -68,10 +65,10 @@ bool serializeScene(SceneState const& sceneState, nlohmann::json& outJson) {
     camera[cameraRotationRadJsonName] =
         serialization::vecToArray(sceneState.camera.rotationRad);
 
-    for (GameObject const& gameObject : sceneState.gameObjects) {
+    for (auto const& gameObjectUniquePtr : sceneState.gameObjects) {
       nlohmann::json gameObjectJson;
-      if (serialization::serializeGameObject(gameObject.getGameObjectData(),
-                                             gameObjectJson)) {
+      if (serialization::serializeGameObject(
+              gameObjectUniquePtr->getGameObjectData(), gameObjectJson)) {
         outJson[gameObjectsJsonName].push_back(gameObjectJson);
       }
     }
@@ -102,8 +99,11 @@ bool deserializeScene(nlohmann::json const& sceneJson,
         serialization::GameObjectData gameObjectData;
         if (serialization::deserializeGameObject(gameObjectJson,
                                                  gameObjectData)) {
-          outSceneState.gameObjects.push_back(
-              instantiateGameObject(gameObjectData, resourceManager));
+          scene::GameObject& gameObject =
+              *outSceneState.gameObjects.emplace_back(
+                  std::make_unique<scene::GameObject>());
+          scene::populateGameObject(gameObjectData, resourceManager,
+                                    gameObject);
         }
       }
     }

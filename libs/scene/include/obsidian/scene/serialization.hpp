@@ -1,5 +1,6 @@
 #pragma once
 
+#include "obsidian/scene/game_object.hpp"
 #include <obsidian/runtime_resource/runtime_resource.hpp>
 #include <obsidian/scene/scene.hpp>
 
@@ -16,9 +17,10 @@ class RuntimeResourceManager;
 
 namespace obsidian::scene {
 
-GameObject instantiateGameObject(
+void populateGameObject(
     serialization::GameObjectData const& gameObjectData,
-    runtime_resource::RuntimeResourceManager& resourceManager);
+    runtime_resource::RuntimeResourceManager& resourceManager,
+    GameObject& outGameObject);
 
 bool serializeScene(SceneState const& sceneState, nlohmann::json& outJson);
 

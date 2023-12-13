@@ -48,6 +48,7 @@
 #include <fstream>
 #include <iostream>
 #include <iterator>
+#include <memory>
 #include <vector>
 
 namespace obsidian::editor {
@@ -76,6 +77,7 @@ static std::array<char const*, 2> materialTypes = {"unlit", "lit"};
 static std::array<char const*, 4> textureTypes = {
     "Unknown", "R8G8B8A8_SRGB", "R8G8B8A8_LINEAR", "R32G32_SFLOAT"};
 static bool engineInitialized = false;
+scene::GameObject* pendingObjDelete = nullptr;
 
 void refreshAssetLists() {
   texturesInProj = project.getAllFilesWithExtension(globals::textureAssetExt);
@@ -264,7 +266,6 @@ void gameObjectHierarchy(scene::GameObject& gameObject,
       ImGui::PopStyleColor();
     }
 
-    bool deleted = false;
     ImGui::PushID(gameObject.getId());
     if (ImGui::Button("+")) {
       gameObject.createChild();
@@ -273,33 +274,15 @@ void gameObjectHierarchy(scene::GameObject& gameObject,
     ImGui::SameLine();
 
     if (ImGui::Button("-")) {
-      scene::GameObject* const parent = gameObject.getParent();
-      if (selectedGameObj == &gameObject) {
-        selectedGameObj = nullptr;
-      }
-
-      if (parent) {
-        parent->destroyChild(gameObject.getId());
-        deleted = true;
-      } else {
-        auto const gameObjectIter = std::find_if(
-            sceneState.gameObjects.cbegin(), sceneState.gameObjects.cend(),
-            [&gameObject](scene::GameObject const& g) {
-              return gameObject.getId() == g.getId();
-            });
-
-        if (gameObjectIter != sceneState.gameObjects.cend()) {
-          sceneState.gameObjects.erase(gameObjectIter);
-          deleted = true;
-        }
-      }
+      pendingObjDelete = &gameObject;
     }
 
     ImGui::PopID();
 
-    if (!deleted) {
-      for (scene::GameObject& childObject : gameObject.getChildren()) {
-        gameObjectHierarchy(childObject, sceneState);
+    for (std::unique_ptr<scene::GameObject> const& childObject :
+         gameObject.getChildren()) {
+      if (childObject) {
+        gameObjectHierarchy(*childObject, sceneState);
       }
     }
 
@@ -392,12 +375,36 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
 
         if (ImGui::TreeNodeEx("", ImGuiTreeNodeFlags_DefaultOpen)) {
           if (ImGui::Button("+")) {
-            sceneState.gameObjects.emplace_back();
+            sceneState.gameObjects.emplace_back(
+                std::make_unique<scene::GameObject>());
           }
-          for (scene::GameObject& gameObject : sceneState.gameObjects) {
-            gameObjectHierarchy(gameObject, sceneState);
+          for (auto& gameObjectUniquePtr : sceneState.gameObjects) {
+            gameObjectHierarchy(*gameObjectUniquePtr, sceneState);
           }
           ImGui::TreePop();
+        }
+
+        if (pendingObjDelete) {
+          scene::GameObject* const parent = pendingObjDelete->getParent();
+
+          selectedGameObj = parent;
+
+          if (parent) {
+            selectedGameObj = parent;
+            parent->destroyChild(pendingObjDelete->getId());
+          } else {
+            auto const gameObjectIter = std::find_if(
+                sceneState.gameObjects.cbegin(), sceneState.gameObjects.cend(),
+                [d = pendingObjDelete](auto const& g) {
+                  return d->getId() == g->getId();
+                });
+
+            if (gameObjectIter != sceneState.gameObjects.cend()) {
+              sceneState.gameObjects.erase(gameObjectIter);
+            }
+          }
+
+          pendingObjDelete = nullptr;
         }
       }
 
@@ -887,8 +894,9 @@ void instantiatePrefab(fs::path const& prefabPath, ObsidianEngine& engine) {
   }
 
   ObsidianEngineContext& ctx = engine.getContext();
-  ctx.scene.getState().gameObjects.push_back(
-      scene::instantiateGameObject(gameObjectData, ctx.resourceManager));
+  scene::GameObject& obj = *ctx.scene.getState().gameObjects.emplace_back(
+      std::make_unique<scene::GameObject>());
+  scene::populateGameObject(gameObjectData, ctx.resourceManager, obj);
 }
 
 void fileDropped(const char* file, ObsidianEngine& engine) {
