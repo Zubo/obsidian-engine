@@ -16,6 +16,10 @@ class RuntimeResourceManager;
 
 namespace obsidian::scene {
 
+GameObject instantiateGameObject(
+    serialization::GameObjectData const& gameObjectData,
+    runtime_resource::RuntimeResourceManager& resourceManager);
+
 bool serializeScene(SceneState const& sceneState, nlohmann::json& outJson);
 
 bool deserializeScene(nlohmann::json const& sceneJson,

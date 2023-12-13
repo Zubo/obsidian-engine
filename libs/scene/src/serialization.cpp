@@ -36,8 +36,10 @@ GameObject instantiateGameObject(
                    return &resourceManager.getResource(path);
                  });
 
-  resultGameObject.meshResource =
-      &resourceManager.getResource(gameObjectData.meshPath);
+  if (gameObjectData.meshPath.size()) {
+    resultGameObject.meshResource =
+        &resourceManager.getResource(gameObjectData.meshPath);
+  }
 
   resultGameObject.directionalLight = gameObjectData.directionalLight;
   resultGameObject.spotlight = gameObjectData.spotlight;

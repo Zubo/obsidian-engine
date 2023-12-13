@@ -477,7 +477,9 @@ bool AssetConverter::convertGltfToAsset(fs::path const& srcPath,
 
     tinygltf::Mesh const& mesh = model.meshes[i];
     std::string& exportpath = meshExportPaths.emplace_back(
-        dstPath.string() + (mesh.name.empty() ? std::to_string(i) : mesh.name));
+        dstPath.string() + (mesh.name.empty()
+                                ? std::to_string(i)
+                                : mesh.name + globals::meshAssetExt));
 
     if (!saveAsset(srcPath, exportpath, meshAsset)) {
       exportSuccess = false;

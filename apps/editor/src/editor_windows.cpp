@@ -11,6 +11,7 @@
 #include <obsidian/asset/asset_io.hpp>
 #include <obsidian/asset/material_asset_info.hpp>
 #include <obsidian/asset/mesh_asset_info.hpp>
+#include <obsidian/asset/prefab_asset_info.hpp>
 #include <obsidian/asset/scene_asset_info.hpp>
 #include <obsidian/asset/texture_asset_info.hpp>
 #include <obsidian/asset_converter/asset_converter.hpp>
@@ -27,6 +28,7 @@
 #include <obsidian/scene/scene.hpp>
 #include <obsidian/scene/serialization.hpp>
 #include <obsidian/sdl_wrapper/sdl_backend.hpp>
+#include <obsidian/serialization/game_object_data_serialization.hpp>
 #include <obsidian/task/task.hpp>
 #include <obsidian/task/task_executor.hpp>
 #include <obsidian/task/task_type.hpp>
@@ -41,6 +43,7 @@
 #include <algorithm>
 #include <array>
 #include <cstring>
+#include <exception>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -318,7 +321,6 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
   ImGuiTabItemFlags engineTabFlags = 0;
   if (engineInitialized) {
     engineTabFlags = ImGuiTabItemFlags_SetSelected;
-    engineInitialized = false;
   }
 
   if (ImGui::BeginTabItem("Engine", NULL, engineTabFlags)) {
@@ -841,39 +843,99 @@ void editor(SDL_Renderer& renderer, ImGuiIO& imguiIO, DataContext& context,
   SDL_RenderPresent(&renderer);
 }
 
-void fileDropped(const char* file, ObsidianEngine& engine) {
-  if (project.getOpenProjectPath().empty()) {
-    OBS_LOG_ERR("File dropped in but no project was open.");
+void instantiatePrefab(fs::path const& prefabPath, ObsidianEngine& engine) {
+  asset::Asset prefabAsset;
+
+  if (!asset::loadAssetFromFile(prefabPath, prefabAsset)) {
+    OBS_LOG_ERR("Failed to load prefab on path " + prefabPath.string());
+    return;
+  } else if (!prefabAsset.metadata) {
+    OBS_LOG_ERR("Prefab asset metadata missing from loaded asset.");
     return;
   }
 
+  asset::PrefabAssetInfo prefabAssetInfo;
+
+  if (!asset::readPrefabAssetInfo(*prefabAsset.metadata, prefabAssetInfo)) {
+    OBS_LOG_ERR("Failed to read prefab asset info.");
+    return;
+  }
+
+  std::string prefabJsonStr;
+  prefabJsonStr.resize(prefabAssetInfo.unpackedSize);
+
+  if (!asset::unpackAsset(prefabAssetInfo, prefabAsset.binaryBlob.data(),
+                          prefabAsset.binaryBlob.size(),
+                          prefabJsonStr.data())) {
+    OBS_LOG_ERR("Failed to unpack asset.");
+    return;
+  }
+
+  nlohmann::json prefabJson;
+
+  try {
+    prefabJson = nlohmann::json::parse(prefabJsonStr);
+  } catch (std::exception const& e) {
+    OBS_LOG_ERR(e.what());
+    return;
+  }
+
+  serialization::GameObjectData gameObjectData;
+  if (!serialization::deserializeGameObject(prefabJson, gameObjectData)) {
+    OBS_LOG_ERR("Failed to deserialize game object data.");
+    return;
+  }
+
+  ObsidianEngineContext& ctx = engine.getContext();
+  ctx.scene.getState().gameObjects.push_back(
+      scene::instantiateGameObject(gameObjectData, ctx.resourceManager));
+}
+
+void fileDropped(const char* file, ObsidianEngine& engine) {
   fs::path const srcPath{file};
-  fs::path dstPath = project.getAbsolutePath(srcPath.filename());
-  dstPath.replace_extension("");
 
-  if (engineInitialized) {
-    engine.getContext().taskExecutor.enqueue(
-        task::TaskType::general, [&engine, srcPath, dstPath]() {
-          obsidian::asset_converter::AssetConverter converter{
-              engine.getContext().taskExecutor};
-          converter.convertAsset(srcPath, dstPath);
-          assetListDirty = true;
-        });
-  } else {
-    static obsidian::task::TaskExecutor executor;
-    static bool executorInitialized = false;
-
-    if (!executorInitialized) {
-      executor.initAndRun({{obsidian::task::TaskType::general,
-                            std::thread::hardware_concurrency()}});
-      executorInitialized = true;
+  if (srcPath.extension() == globals::prefabAssetExt) {
+    // prefab instantiation
+    if (!engineInitialized) {
+      OBS_LOG_ERR("Can't instantiate prefab if the engine is not initialized.");
+      return;
     }
 
-    executor.enqueue(task::TaskType::general, [srcPath, dstPath]() {
-      obsidian::asset_converter::AssetConverter converter{executor};
-      converter.convertAsset(srcPath, dstPath);
-      assetListDirty = true;
-    });
+    instantiatePrefab(srcPath, engine);
+  } else {
+    if (project.getOpenProjectPath().empty()) {
+      OBS_LOG_ERR("File dropped in but no project was open.");
+      return;
+    }
+
+    fs::path dstPath = project.getAbsolutePath(srcPath.filename());
+    dstPath.replace_extension("");
+
+    if (engineInitialized) {
+      engine.getContext().taskExecutor.enqueue(
+          task::TaskType::general, [&engine, srcPath, dstPath]() {
+            obsidian::asset_converter::AssetConverter converter{
+                engine.getContext().taskExecutor};
+            converter.convertAsset(srcPath, dstPath);
+            assetListDirty = true;
+          });
+    } else {
+      // asset import
+      static obsidian::task::TaskExecutor executor;
+      static bool executorInitialized = false;
+
+      if (!executorInitialized) {
+        executor.initAndRun({{obsidian::task::TaskType::general,
+                              std::thread::hardware_concurrency()}});
+        executorInitialized = true;
+      }
+
+      executor.enqueue(task::TaskType::general, [srcPath, dstPath]() {
+        obsidian::asset_converter::AssetConverter converter{executor};
+        converter.convertAsset(srcPath, dstPath);
+        assetListDirty = true;
+      });
+    }
   }
 }
 
