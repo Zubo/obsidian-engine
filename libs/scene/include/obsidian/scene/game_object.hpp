@@ -35,6 +35,8 @@ public:
 
   GameObject& createChild();
 
+  void addChild(GameObject&& gameObject);
+
   GameObject* getParent();
 
   void destroyChild(GameObjectId id);

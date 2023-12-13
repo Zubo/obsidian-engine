@@ -9,6 +9,7 @@ add_library(Asset
     "src/shader_asset_info.cpp"
     "src/material_asset_info.cpp"
     "src/scene_asset_info.cpp"
+    "src/prefab_asset_info.cpp"
     "src/utility.cpp"
     "include/obsidian/asset/asset.hpp"
     "include/obsidian/asset/asset_io.hpp"
@@ -18,6 +19,7 @@ add_library(Asset
     "include/obsidian/asset/shader_asset_info.hpp"
     "include/obsidian/asset/material_asset_info.hpp"
     "include/obsidian/asset/scene_asset_info.hpp"
+    "include/obsidian/asset/prefab_asset_info.hpp"
     "include/obsidian/asset/utility.hpp"
 )
 

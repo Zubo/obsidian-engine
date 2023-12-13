@@ -164,55 +164,79 @@ nlohmann::json serializeGameObject(scene::GameObject const& gameObject) {
   return gameObjectJson;
 }
 
-GameObject deserializeGameObject(
-    nlohmann::json const& gameObjectJson,
+GameObject instantiateGameObject(
+    GameObjectData const& gameObjectData,
     runtime_resource::RuntimeResourceManager& resourceManager) {
   GameObject resultGameObject;
 
-  resultGameObject.name = gameObjectJson[gameObjectNameJsonName];
+  resultGameObject.name = gameObjectData.gameObjectName;
+  std::transform(gameObjectData.materialPaths.cbegin(),
+                 gameObjectData.materialPaths.cend(),
+                 std::back_inserter(resultGameObject.materialResources),
+                 [&resourceManager](std::string const& path) {
+                   return &resourceManager.getResource(path);
+                 });
 
-  glm::vec3 outVec;
+  resultGameObject.meshResource =
+      &resourceManager.getResource(gameObjectData.meshPath);
 
-  arrayToVector(gameObjectJson[gameObjectPositionJsonName], outVec);
-  resultGameObject.setPosition(outVec);
+  resultGameObject.directionalLight = gameObjectData.directionalLight;
+  resultGameObject.spotlight = gameObjectData.spotlight;
 
-  arrayToVector(gameObjectJson[gameObjectEulerJsonName], outVec);
-  resultGameObject.setEuler(outVec);
+  resultGameObject.setPosition(gameObjectData.position);
+  resultGameObject.setEuler(gameObjectData.euler);
+  resultGameObject.setScale(gameObjectData.scale);
 
-  arrayToVector(gameObjectJson[gameObjectScaleJsonName], outVec);
-  resultGameObject.setScale(outVec);
+  for (GameObjectData const& childData : gameObjectData.children) {
+    resultGameObject.addChild(
+        instantiateGameObject(childData, resourceManager));
+  }
+
+  return resultGameObject;
+}
+
+GameObjectData deserializeGameObject(nlohmann::json const& gameObjectJson) {
+  GameObjectData resultGameObjectData;
+
+  resultGameObjectData.gameObjectName = gameObjectJson[gameObjectNameJsonName];
+
+  arrayToVector(gameObjectJson[gameObjectPositionJsonName],
+                resultGameObjectData.position);
+
+  arrayToVector(gameObjectJson[gameObjectEulerJsonName],
+                resultGameObjectData.euler);
+
+  arrayToVector(gameObjectJson[gameObjectScaleJsonName],
+                resultGameObjectData.scale);
 
   if (gameObjectJson.contains(gameObjectMaterialsJsonName)) {
     for (auto const& materialJson :
          gameObjectJson[gameObjectMaterialsJsonName]) {
-      resultGameObject.materialResources.push_back(
-          &resourceManager.getResource(materialJson));
+      resultGameObjectData.materialPaths.push_back(materialJson);
     }
   }
 
   if (gameObjectJson.contains(gameObjectMeshJsonName)) {
-    resultGameObject.meshResource =
-        &resourceManager.getResource(gameObjectJson[gameObjectMeshJsonName]);
+    resultGameObjectData.meshPath = gameObjectJson[gameObjectMeshJsonName];
   }
 
   if (gameObjectJson.contains(gameObjectSpotligthJsonName)) {
-    resultGameObject.spotlight.emplace(
+    resultGameObjectData.spotlight.emplace(
         deserializeSpotlight(gameObjectJson[gameObjectSpotligthJsonName]));
   }
 
   if (gameObjectJson.contains(gameObjectDirectionalLightJsonName)) {
-    resultGameObject.directionalLight.emplace(deserializeDirectionalLight(
+    resultGameObjectData.directionalLight.emplace(deserializeDirectionalLight(
         gameObjectJson[gameObjectDirectionalLightJsonName]));
   }
 
   if (gameObjectJson.contains(gameObjectChildrenJsonName)) {
     for (auto const& childJson : gameObjectJson[gameObjectChildrenJsonName]) {
-      resultGameObject.createChild() =
-          deserializeGameObject(childJson, resourceManager);
+      resultGameObjectData.children.push_back(deserializeGameObject(childJson));
     }
   }
 
-  return resultGameObject;
+  return resultGameObjectData;
 }
 
 bool serializeScene(SceneState const& sceneState, nlohmann::json& outJson) {
@@ -249,8 +273,8 @@ bool deserializeScene(nlohmann::json const& sceneJson,
 
       for (nlohmann::json const& gameObjectJson :
            sceneJson[gameObjectsJsonName]) {
-        outSceneState.gameObjects.push_back(
-            deserializeGameObject(gameObjectJson, resourceManager));
+        outSceneState.gameObjects.push_back(instantiateGameObject(
+            deserializeGameObject(gameObjectJson), resourceManager));
       }
     }
   } catch (std::exception const& e) {

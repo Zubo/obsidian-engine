@@ -59,6 +59,11 @@ GameObject& GameObject::createChild() {
   return child;
 }
 
+void GameObject::addChild(GameObject&& gameObject) {
+  GameObject& child = _children.emplace_back(std::move(gameObject));
+  child.parent = this;
+}
+
 GameObject* GameObject::getParent() { return parent; }
 
 void GameObject::destroyChild(GameObjectId id) {
