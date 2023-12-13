@@ -469,8 +469,7 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
           for (int selectedMaterial : selectedGameObjMats) {
             selectedGameObj->materialResources.push_back(
                 &engine.getContext().resourceManager.getResource(
-                    project.getAbsolutePath(
-                        materialsInProj[selectedMaterial])));
+                    materialsInProj[selectedMaterial]));
           }
         }
 

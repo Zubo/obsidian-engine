@@ -1,9 +1,12 @@
-#include <glm/gtx/transform.hpp>
-
 #include <obsidian/scene/game_object.hpp>
+#include <obsidian/serialization/game_object_data_serialization.hpp>
+
+#include <glm/glm.hpp>
+#include <glm/gtx/transform.hpp>
 
 #include <algorithm>
 
+using namespace obsidian;
 using namespace obsidian::scene;
 
 GameObject::GameObjectId GameObject::_idCounter = 0;
@@ -80,3 +83,31 @@ std::deque<GameObject> const& GameObject::getChildren() const {
 }
 
 std::deque<GameObject>& GameObject::getChildren() { return _children; }
+
+serialization::GameObjectData GameObject::getGameObjectData() const {
+  serialization::GameObjectData result = {};
+
+  result.gameObjectName = name;
+
+  std::transform(materialResources.cbegin(), materialResources.cend(),
+                 std::back_inserter(result.materialPaths),
+                 [](auto const* matRes) { return matRes->getRelativePath(); });
+
+  if (meshResource) {
+    result.meshPath = meshResource->getRelativePath();
+  }
+
+  result.directionalLight = directionalLight;
+  result.spotlight = spotlight;
+  result.position = getPosition();
+  result.euler = getEuler();
+  result.scale = getScale();
+
+  result.children.reserve(_children.size());
+
+  for (auto const& child : _children) {
+    result.children.push_back(child.getGameObjectData());
+  }
+
+  return result;
+}

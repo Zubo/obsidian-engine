@@ -1,5 +1,3 @@
-#include "obsidian/asset_converter/vertex_content_info.hpp"
-#include <iterator>
 #include <obsidian/asset/asset.hpp>
 #include <obsidian/asset/asset_info.hpp>
 #include <obsidian/asset/asset_io.hpp>
@@ -9,6 +7,7 @@
 #include <obsidian/asset/texture_asset_info.hpp>
 #include <obsidian/asset_converter/asset_converter.hpp>
 #include <obsidian/asset_converter/asset_converter_helpers.hpp>
+#include <obsidian/asset_converter/vertex_content_info.hpp>
 #include <obsidian/core/logging.hpp>
 #include <obsidian/core/material.hpp>
 #include <obsidian/core/texture_format.hpp>

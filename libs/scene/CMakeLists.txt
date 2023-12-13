@@ -19,6 +19,7 @@ target_include_directories(Scene
 target_link_libraries(Scene
     PUBLIC
         RuntimeResource
+        Serialization
     PRIVATE
         Input
         Core

@@ -2,6 +2,7 @@
 
 #include <obsidian/core/light_types.hpp>
 #include <obsidian/runtime_resource/runtime_resource.hpp>
+#include <obsidian/serialization/game_object_data_serialization.hpp>
 
 #include <glm/glm.hpp>
 
@@ -43,6 +44,8 @@ public:
 
   std::deque<GameObject> const& getChildren() const;
   std::deque<GameObject>& getChildren();
+
+  serialization::GameObjectData getGameObjectData() const;
 
   std::string name;
   std::vector<runtime_resource::RuntimeResource*> materialResources;
