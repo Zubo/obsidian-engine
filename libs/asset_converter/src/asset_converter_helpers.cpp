@@ -1,4 +1,7 @@
+#include "glm/ext/scalar_constants.hpp"
 #include <obsidian/asset_converter/asset_converter_helpers.hpp>
+
+#include <glm/gtc/quaternion.hpp>
 
 namespace obsidian::asset_converter {
 
@@ -121,9 +124,9 @@ nodeToGameObjectData(int nodeInd, tinygltf::Model const& model,
   }
 
   if (node.rotation.size()) {
-    resultGameObjectData.euler.x = glm::degrees(node.rotation[0]);
-    resultGameObjectData.euler.y = glm::degrees(node.rotation[1]);
-    resultGameObjectData.euler.z = glm::degrees(node.rotation[2]);
+    glm::quat const q(node.rotation[3], node.rotation[0], node.rotation[1],
+                      node.rotation[2]);
+    resultGameObjectData.euler = glm::degrees(glm::eulerAngles(q));
   }
 
   if (node.scale.size()) {
