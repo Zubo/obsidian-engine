@@ -22,6 +22,7 @@ target_include_directories(Core
 target_link_libraries(Core
     PUBLIC
         glm
+        TracyClient
 )
 
 add_executable(TestCore

@@ -309,17 +309,21 @@ bool AssetConverter::convertGltfToAsset(fs::path const& srcPath,
   tinygltf::Model model;
   std::string err, warn;
 
-  bool const loadResult =
-      (srcPath.extension() == ".gltf" &&
-       loader.LoadASCIIFromFile(&model, &err, &warn, srcPath)) ||
-      (srcPath.extension() == ".glb" &&
-       loader.LoadBinaryFromFile(&model, &err, &warn, srcPath));
-  if (!loadResult) {
-    if (!err.empty()) {
-      OBS_LOG_ERR(err);
-    }
+  {
+    ZoneScopedN("GLTF load from file");
 
-    return false;
+    bool const loadResult =
+        (srcPath.extension() == ".gltf" &&
+         loader.LoadASCIIFromFile(&model, &err, &warn, srcPath)) ||
+        (srcPath.extension() == ".glb" &&
+         loader.LoadBinaryFromFile(&model, &err, &warn, srcPath));
+    if (!loadResult) {
+      if (!err.empty()) {
+        OBS_LOG_ERR(err);
+      }
+
+      return false;
+    }
   }
 
   if (!warn.empty()) {
@@ -493,6 +497,8 @@ bool AssetConverter::convertGltfToAsset(fs::path const& srcPath,
   }
 
   for (std::size_t sceneInd = 0; sceneInd < model.scenes.size(); ++sceneInd) {
+    ZoneScopedN("GLTF prefab export");
+
     tinygltf::Scene const& scene = model.scenes[sceneInd];
 
     for (int nodeInd : scene.nodes) {
@@ -695,12 +701,16 @@ AssetConverter::extractMaterials(fs::path const& srcDirPath,
                                  TextureAssetInfoMap const& textureAssetInfoMap,
                                  std::vector<MaterialType> const& materials,
                                  std::size_t totalMaterialCount) {
+  ZoneScoped;
+
   MaterialPathTable materialPathTable;
   for (auto& row : materialPathTable) {
     row.resize(totalMaterialCount);
   }
 
   for (std::size_t i = 0; i < materials.size(); ++i) {
+    ZoneScopedN("Extract material");
+
     MaterialType const& mat = materials[i];
     asset::MaterialAssetInfo newMatAssetInfo;
     newMatAssetInfo.compressionMode = asset::CompressionMode::none;

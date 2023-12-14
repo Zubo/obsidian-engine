@@ -14,6 +14,8 @@ namespace obsidian::asset {
 
 void readAssetMetadata(std::ifstream& inputFileStream,
                        asset::AssetMetadata& outAssetMetadata) {
+  ZoneScoped;
+
   inputFileStream.read(outAssetMetadata.type, std::size(outAssetMetadata.type));
   inputFileStream.read(reinterpret_cast<char*>(&outAssetMetadata.version),
                        sizeof(outAssetMetadata.version));
@@ -32,6 +34,8 @@ void readAssetMetadata(std::ifstream& inputFileStream,
 
 bool loadAssetMetadataFromFile(std::filesystem::path const& path,
                                asset::AssetMetadata& outAssetMetadata) {
+  ZoneScoped;
+
   std::ifstream inputFileStream;
   inputFileStream.exceptions(std::ios::failbit);
 

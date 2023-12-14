@@ -3,6 +3,7 @@
 #include <obsidian/serialization/serialization.hpp>
 
 #include <nlohmann/json.hpp>
+#include <tracy/Tracy.hpp>
 
 #include <exception>
 
@@ -98,6 +99,8 @@ deserializeDirectionalLight(nlohmann::json const& directionalLightJson) {
 
 bool serialization::serializeGameObject(GameObjectData const& gameObject,
                                         nlohmann::json& outJson) {
+  ZoneScoped;
+
   try {
     outJson[gameObjectNameJsonName] = gameObject.gameObjectName;
     outJson[gameObjectPositionJsonName] = vecToArray(gameObject.position);
@@ -138,6 +141,8 @@ bool serialization::serializeGameObject(GameObjectData const& gameObject,
 
 bool serialization::deserializeGameObject(nlohmann::json const& gameObjectJson,
                                           GameObjectData& outGameObjectData) {
+  ZoneScoped;
+
   try {
     outGameObjectData.gameObjectName = gameObjectJson[gameObjectNameJsonName];
 
