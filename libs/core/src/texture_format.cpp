@@ -44,4 +44,18 @@ bool isFormatLinear(TextureFormat format) {
   }
 }
 
+std::size_t numberOfNonLinearChannels(TextureFormat format) {
+  switch (format) {
+  case TextureFormat::R8G8B8A8_SRGB:
+    return 3;
+  case TextureFormat::R8G8B8A8_LINEAR:
+    return 0;
+  case TextureFormat::R32G32_SFLOAT:
+    return 0;
+  default:
+    assert("Unknown texture format");
+    return false;
+  }
+}
+
 } /*namespace obsidian::core*/

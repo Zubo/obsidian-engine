@@ -78,11 +78,13 @@ std::optional<asset::TextureAssetInfo> AssetConverter::convertImgToAsset(
 
   int w, h, channelCnt;
 
+  constexpr const int loadedChannelCnt = 4;
+
   unsigned char* data;
 
   {
     ZoneScopedN("STBI load");
-    data = stbi_load(srcPath.c_str(), &w, &h, &channelCnt, 4);
+    data = stbi_load(srcPath.c_str(), &w, &h, &channelCnt, loadedChannelCnt);
   }
 
   if (!data) {
@@ -104,9 +106,10 @@ std::optional<asset::TextureAssetInfo> AssetConverter::convertImgToAsset(
     ZoneScopedN("Image size reduction");
 
     int const reductionFactor = (w > h ? w : h) / maxTextureSize;
-    bool const isTextureLinear = isFormatLinear(textureFormat);
-    reducedImg = core::utils::reduceTextureSize(data, 4, w, h, reductionFactor,
-                                                isTextureLinear);
+    std::size_t const nonLinearChannelCnt =
+        core::numberOfNonLinearChannels(textureFormat);
+    reducedImg = core::utils::reduceTextureSize(
+        data, loadedChannelCnt, w, h, reductionFactor, nonLinearChannelCnt);
 
     {
       ZoneScopedN("STBI free");
@@ -119,8 +122,6 @@ std::optional<asset::TextureAssetInfo> AssetConverter::convertImgToAsset(
     h = h / reductionFactor;
   }
 
-  bool const shouldAddAlpha = (channelCnt == 3);
-  channelCnt = shouldAddAlpha ? channelCnt + 1 : channelCnt;
   asset::Asset outAsset;
   asset::TextureAssetInfo textureAssetInfo;
   textureAssetInfo.unpackedSize = w * h * 4;
@@ -134,7 +135,8 @@ std::optional<asset::TextureAssetInfo> AssetConverter::convertImgToAsset(
 
   textureAssetInfo.transparent = false;
 
-  if (!shouldAddAlpha && channelCnt == 4) {
+  bool const alphaPresentInImgFile = channelCnt == loadedChannelCnt;
+  if (alphaPresentInImgFile) {
     ZoneScopedN("Transparency check");
 
     glm::vec4 const* pixels = reinterpret_cast<glm::vec4 const*>(data);
@@ -149,27 +151,7 @@ std::optional<asset::TextureAssetInfo> AssetConverter::convertImgToAsset(
   textureAssetInfo.width = w;
   textureAssetInfo.height = h;
 
-  bool packResult;
-
-  if (shouldAddAlpha) {
-    ZoneScopedN("Adding alpha to img");
-
-    // append alpha = 255 to all the pixels
-    std::vector<unsigned char> imgWithAlpha;
-    imgWithAlpha.resize(w * h * STBI_rgb_alpha);
-
-    for (std::size_t i = 0; i < w * h; ++i) {
-      for (std::size_t c = 0; c < 3; ++c) {
-        imgWithAlpha[4 * i + c] = data[4 * i + c];
-      }
-      imgWithAlpha[4 * i + 3] = '\xFF';
-    }
-
-    packResult =
-        asset::packTexture(textureAssetInfo, imgWithAlpha.data(), outAsset);
-  } else {
-    packResult = asset::packTexture(textureAssetInfo, data, outAsset);
-  }
+  bool const packResult = asset::packTexture(textureAssetInfo, data, outAsset);
 
   if (!reduceSize) {
     ZoneScopedN("STBI free");
