@@ -122,6 +122,7 @@ private:
   std::uint32_t _frameNumber = 0;
   bool _skipFrame = false;
   PFN_vkCmdSetVertexInputEXT _vkCmdSetVertexInput;
+  float _maxSamplerAnisotropy;
 
   // Default pass
   RenderPass _mainRenderPass;

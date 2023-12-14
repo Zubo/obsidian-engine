@@ -1,6 +1,5 @@
 #pragma once
 
-#include "obsidian/scene/game_object.hpp"
 #include <obsidian/runtime_resource/runtime_resource.hpp>
 #include <obsidian/scene/scene.hpp>
 

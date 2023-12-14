@@ -39,7 +39,7 @@ public:
 private:
   std::optional<asset::TextureAssetInfo> convertImgToAsset(
       std::filesystem::path const& srcPath,
-      std::filesystem::path const& dstPath,
+      std::filesystem::path const& dstPath, bool generateMips,
       std::optional<core::TextureFormat> overrideTextureFormat = std::nullopt);
 
   bool convertObjToAsset(std::filesystem::path const& srcPath,

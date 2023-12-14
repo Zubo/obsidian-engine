@@ -153,14 +153,15 @@ VkSemaphoreCreateInfo semaphoreCreateInfo(VkSemaphoreCreateFlags const flags) {
 
 VkImageCreateInfo imageCreateInfo(VkImageUsageFlags const usageFlags,
                                   VkExtent3D const extent,
-                                  VkFormat const format) {
+                                  VkFormat const format,
+                                  std::uint32_t mipLevels) {
   VkImageCreateInfo vkImageCreateInfo = {};
   vkImageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
   vkImageCreateInfo.pNext = nullptr;
   vkImageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
   vkImageCreateInfo.format = format;
   vkImageCreateInfo.extent = extent;
-  vkImageCreateInfo.mipLevels = 1;
+  vkImageCreateInfo.mipLevels = mipLevels;
   vkImageCreateInfo.arrayLayers = 1;
   vkImageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
   vkImageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
@@ -171,7 +172,8 @@ VkImageCreateInfo imageCreateInfo(VkImageUsageFlags const usageFlags,
 
 VkImageViewCreateInfo
 imageViewCreateInfo(VkImage const image, VkFormat const format,
-                    VkImageAspectFlags const imageAspectFlags) {
+                    VkImageAspectFlags const imageAspectFlags,
+                    std::uint32_t mipLevels) {
 
   VkImageViewCreateInfo imageViewCreateInfo = {};
   imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -182,7 +184,7 @@ imageViewCreateInfo(VkImage const image, VkFormat const format,
   imageViewCreateInfo.format = format;
   imageViewCreateInfo.subresourceRange.aspectMask = imageAspectFlags;
   imageViewCreateInfo.subresourceRange.baseMipLevel = 0;
-  imageViewCreateInfo.subresourceRange.levelCount = 1;
+  imageViewCreateInfo.subresourceRange.levelCount = mipLevels;
   imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
   imageViewCreateInfo.subresourceRange.layerCount = 1;
 
@@ -252,6 +254,7 @@ VkSamplerCreateInfo samplerCreateInfo(VkFilter filter,
   vkSamplerCreateInfo.addressModeV = addressMode;
   vkSamplerCreateInfo.addressModeW = addressMode;
   vkSamplerCreateInfo.anisotropyEnable = maxAnisotropy.has_value();
+  vkSamplerCreateInfo.maxLod = VK_LOD_CLAMP_NONE;
 
   if (maxAnisotropy) {
     vkSamplerCreateInfo.maxAnisotropy = *maxAnisotropy;
@@ -262,7 +265,8 @@ VkSamplerCreateInfo samplerCreateInfo(VkFilter filter,
 
 VkImageMemoryBarrier layoutImageBarrier(VkImage image, VkImageLayout oldLayout,
                                         VkImageLayout newLayout,
-                                        VkImageAspectFlagBits aspectMask) {
+                                        VkImageAspectFlagBits aspectMask,
+                                        std::uint32_t mipLevelCount) {
   VkImageMemoryBarrier barrier = {};
   barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
   barrier.pNext = nullptr;
@@ -272,7 +276,7 @@ VkImageMemoryBarrier layoutImageBarrier(VkImage image, VkImageLayout oldLayout,
   barrier.image = image;
   barrier.subresourceRange.aspectMask = aspectMask;
   barrier.subresourceRange.baseMipLevel = 0;
-  barrier.subresourceRange.levelCount = 1;
+  barrier.subresourceRange.levelCount = mipLevelCount;
   barrier.subresourceRange.baseArrayLayer = 0;
   barrier.subresourceRange.layerCount = 1;
 

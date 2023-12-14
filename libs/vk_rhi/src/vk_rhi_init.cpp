@@ -118,15 +118,21 @@ void VulkanRHI::initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider) {
 
   surfaceProvider.provideSurface(*this);
 
+  VkPhysicalDeviceFeatures vkPhysicalDeviceFeatures = {};
+  vkPhysicalDeviceFeatures.samplerAnisotropy = VK_TRUE;
+
   vkb::PhysicalDeviceSelector vkbSelector{vkbInstance};
   vkb::PhysicalDevice vkbPhysicalDevice =
       vkbSelector.set_minimum_version(1, 2)
           .set_surface(_vkSurface)
           .add_required_extension(
               VK_EXT_VERTEX_INPUT_DYNAMIC_STATE_EXTENSION_NAME)
+          .set_required_features(vkPhysicalDeviceFeatures)
           .select()
           .value();
 
+  _maxSamplerAnisotropy =
+      vkbPhysicalDevice.properties.limits.maxSamplerAnisotropy;
   vkb::DeviceBuilder vkbDeviceBuilder{vkbPhysicalDevice};
   VkPhysicalDeviceVulkan12Features vkDeviceFeatures = {};
   vkDeviceFeatures.sType =
@@ -426,9 +432,6 @@ void VulkanRHI::initMainPipelineAndLayouts() {
   pipelineBuilder._vkMultisampleStateCreateInfo =
       vkinit::multisampleStateCreateInfo();
 
-  // pipelineBuilder._vertexInputDescription =
-  // Vertex::getVertexInputDescription();
-
   VkPipelineLayoutCreateInfo meshPipelineLayoutInfo =
       vkinit::pipelineLayoutCreateInfo();
 
@@ -534,9 +537,6 @@ void VulkanRHI::initShadowPassPipeline() {
 
   pipelineBuilder._vkMultisampleStateCreateInfo =
       vkinit::multisampleStateCreateInfo();
-
-  // pipelineBuilder._vertexInputDescription =
-  //     Vertex::getVertexInputDescription(true, false, false, false, false);
 
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VERTEX_INPUT_EXT);
 
@@ -761,8 +761,8 @@ void VulkanRHI::initDescriptorBuilder() {
 
 void VulkanRHI::initDefaultSamplers() {
   VkSamplerCreateInfo diffuseSamplerCreateInfo = vkinit::samplerCreateInfo(
-      VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_NEAREST,
-      VK_SAMPLER_ADDRESS_MODE_REPEAT);
+      VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR,
+      VK_SAMPLER_ADDRESS_MODE_REPEAT, _maxSamplerAnisotropy);
 
   VK_CHECK(vkCreateSampler(_vkDevice, &diffuseSamplerCreateInfo, nullptr,
                            &_vkLinearRepeatSampler));
@@ -1087,6 +1087,7 @@ void VulkanRHI::initSsaoSamplesAndNoise() {
   uploadTextureRHI.format = core::TextureFormat::R32G32_SFLOAT;
   uploadTextureRHI.width = 4;
   uploadTextureRHI.height = 4;
+  uploadTextureRHI.mipLevels = 1;
   uploadTextureRHI.unpackFunc = [noise = std::move(noiseVectors)](char* dst) {
     std::memcpy(dst, reinterpret_cast<char const*>(noise.data()),
                 noise.size() * sizeof(decltype(noiseVectors)::value_type));

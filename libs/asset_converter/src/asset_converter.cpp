@@ -72,20 +72,23 @@ bool saveAsset(fs::path const& srcPath, fs::path const& dstPath,
 }
 
 std::optional<asset::TextureAssetInfo> AssetConverter::convertImgToAsset(
-    fs::path const& srcPath, fs::path const& dstPath,
+    fs::path const& srcPath, fs::path const& dstPath, bool generateMips,
     std::optional<core::TextureFormat> overrideTextureFormat) {
   ZoneScoped;
 
-  int w, h, channelCnt;
+  int w, h, fileChannelCnt;
 
-  constexpr const int loadedChannelCnt = 4;
+  constexpr const int channelCnt = 4;
 
-  unsigned char* data;
+  unsigned char* stbiImgData = nullptr;
 
   {
     ZoneScopedN("STBI load");
-    data = stbi_load(srcPath.c_str(), &w, &h, &channelCnt, loadedChannelCnt);
+    stbiImgData =
+        stbi_load(srcPath.c_str(), &w, &h, &fileChannelCnt, channelCnt);
   }
+
+  unsigned char* data = stbiImgData;
 
   if (!data) {
     OBS_LOG_ERR("Failed to load image with path: " + srcPath.string());
@@ -96,35 +99,77 @@ std::optional<asset::TextureAssetInfo> AssetConverter::convertImgToAsset(
   bool const reduceSize =
       (w > maxTextureSize) && core::isPowerOfTwo(w) && core::isPowerOfTwo(h);
 
-  core::TextureFormat const textureFormat =
-      overrideTextureFormat ? *overrideTextureFormat
-                            : core::getDefaultFormatForChannelCount(channelCnt);
+  bool const willGenerateMips =
+      generateMips && core::isPowerOfTwo(w) && core::isPowerOfTwo(h);
 
-  std::vector<unsigned char> reducedImg;
+  if (generateMips && !willGenerateMips) {
+    OBS_LOG_WARN("Mips won't be generated because the texture dimensions are "
+                 "not power of two.");
+  }
+
+  core::TextureFormat const textureFormat =
+      overrideTextureFormat
+          ? *overrideTextureFormat
+          : core::getDefaultFormatForChannelCount(fileChannelCnt);
+
+  std::vector<unsigned char> modifiedImageBuffer;
+  std::size_t resultW = w;
+  std::size_t resultH = h;
+
+  std::size_t const nonLinearChannelCnt =
+      core::numberOfNonLinearChannels(textureFormat);
 
   if (reduceSize) {
     ZoneScopedN("Image size reduction");
 
     int const reductionFactor = (w > h ? w : h) / maxTextureSize;
-    std::size_t const nonLinearChannelCnt =
-        core::numberOfNonLinearChannels(textureFormat);
-    reducedImg = core::utils::reduceTextureSize(
-        data, loadedChannelCnt, w, h, reductionFactor, nonLinearChannelCnt);
 
-    {
-      ZoneScopedN("STBI free");
-      stbi_image_free(data);
+    resultW = w / reductionFactor;
+    resultH = h / reductionFactor;
+    modifiedImageBuffer.resize(resultW * resultH * channelCnt *
+                               (willGenerateMips ? 2 : 1));
+
+    core::utils::reduceTextureSize(data, modifiedImageBuffer.data(), channelCnt,
+                                   w, h, reductionFactor, nonLinearChannelCnt);
+
+    data = modifiedImageBuffer.data();
+  }
+
+  std::size_t mipLevels = 1;
+
+  if (generateMips) {
+    if (!reduceSize) {
+      modifiedImageBuffer.resize(resultW * resultH * channelCnt * 2);
+      std::memcpy(modifiedImageBuffer.data(), data,
+                  modifiedImageBuffer.size() / 2);
+      data = modifiedImageBuffer.data();
     }
 
-    data = reducedImg.data();
+    std::size_t srcLevelW = resultW;
+    std::size_t srcLevelH = resultH;
+    std::size_t srcOffset = 0;
+    std::size_t dstOffset = srcLevelW * srcLevelH * channelCnt;
 
-    w = w / reductionFactor;
-    h = h / reductionFactor;
+    while ((srcLevelW > 1) && (srcLevelH > 1)) {
+      core::utils::reduceTextureSize(data + srcOffset, data + dstOffset,
+                                     channelCnt, srcLevelW, srcLevelH, 2,
+                                     nonLinearChannelCnt);
+
+      srcOffset += srcLevelW * srcLevelH * channelCnt;
+
+      srcLevelW >>= 1;
+      srcLevelH >>= 1;
+
+      dstOffset += srcLevelW * srcLevelH * channelCnt;
+
+      ++mipLevels;
+    }
   }
 
   asset::Asset outAsset;
   asset::TextureAssetInfo textureAssetInfo;
-  textureAssetInfo.unpackedSize = w * h * 4;
+  textureAssetInfo.unpackedSize =
+      resultW * resultH * channelCnt * (willGenerateMips ? 2 : 1);
   textureAssetInfo.compressionMode = asset::CompressionMode::LZ4;
   textureAssetInfo.format = textureFormat;
 
@@ -135,36 +180,37 @@ std::optional<asset::TextureAssetInfo> AssetConverter::convertImgToAsset(
 
   textureAssetInfo.transparent = false;
 
-  bool const alphaPresentInImgFile = channelCnt == loadedChannelCnt;
+  bool const alphaPresentInImgFile = fileChannelCnt == channelCnt;
   if (alphaPresentInImgFile) {
     ZoneScopedN("Transparency check");
 
-    glm::vec4 const* pixels = reinterpret_cast<glm::vec4 const*>(data);
-    for (glm::vec4 const* p = pixels; p < pixels + w * h; ++p) {
-      if (p->a < 1.0f) {
+    glm::u8vec4 const* pixels = reinterpret_cast<glm::u8vec4 const*>(data);
+    for (glm::u8vec4 const* p = pixels; p < pixels + w * h; ++p) {
+      if (p->a < 0xff) {
         textureAssetInfo.transparent = true;
         break;
       }
     }
   }
 
-  textureAssetInfo.width = w;
-  textureAssetInfo.height = h;
+  textureAssetInfo.width = resultW;
+  textureAssetInfo.height = resultH;
+  textureAssetInfo.mipLevels = mipLevels;
 
   bool const packResult = asset::packTexture(textureAssetInfo, data, outAsset);
 
-  if (!reduceSize) {
+  {
     ZoneScopedN("STBI free");
-    stbi_image_free(data);
+    stbi_image_free(stbiImgData);
   }
 
   if (!packResult) {
     return std::nullopt;
   }
 
-  OBS_LOG_MSG("Successfully converted " + srcPath.string() +
-              " to asset format.");
   if (saveAsset(srcPath, dstPath, outAsset)) {
+    OBS_LOG_MSG("Successfully converted " + srcPath.string() +
+                " to asset format.");
     return textureAssetInfo;
   }
 
@@ -572,7 +618,7 @@ bool AssetConverter::convertAsset(fs::path const& srcPath,
 
   if (extension == ".png" || extension == ".jpg" || extension == ".jpeg" ||
       extension == ".bmp") {
-    return convertImgToAsset(srcPath, dstPath).has_value();
+    return convertImgToAsset(srcPath, dstPath, true).has_value();
   } else if (extension == ".obj") {
     return convertObjToAsset(srcPath, dstPath);
   } else if (extension == ".gltf" || extension == ".glb") {
@@ -601,7 +647,7 @@ std::optional<asset::TextureAssetInfo> AssetConverter::getOrImportTexture(
 
     return {outInfo};
   } else {
-    return convertImgToAsset(srcPath, dstPath, overrideTextureFormat);
+    return convertImgToAsset(srcPath, dstPath, true, overrideTextureFormat);
   }
 }
 

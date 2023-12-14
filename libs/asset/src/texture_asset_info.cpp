@@ -15,6 +15,7 @@ namespace obsidian::asset {
 constexpr char const* formatJsonName = "format";
 constexpr char const* textureWidthJsonName = "width";
 constexpr char const* textureHeightJsonName = "height";
+constexpr char const* mipLevelsJsonName = "mipLevels";
 constexpr char const* transparentJsonName = "transparent";
 
 bool readTextureAssetInfo(AssetMetadata const& assetMetadata,
@@ -29,6 +30,7 @@ bool readTextureAssetInfo(AssetMetadata const& assetMetadata,
     outTextureAssetInfo.format = textureJson[formatJsonName];
     outTextureAssetInfo.width = textureJson[textureWidthJsonName];
     outTextureAssetInfo.height = textureJson[textureHeightJsonName];
+    outTextureAssetInfo.mipLevels = textureJson[mipLevelsJsonName];
     outTextureAssetInfo.transparent = textureJson[transparentJsonName];
   } catch (std::exception const& e) {
     OBS_LOG_ERR(e.what());
@@ -83,6 +85,7 @@ bool updateTextureAssetInfo(TextureAssetInfo const& textureAssetInfo,
     assetJson[compressionModeJsonName] = textureAssetInfo.compressionMode;
     assetJson[textureWidthJsonName] = textureAssetInfo.width;
     assetJson[textureHeightJsonName] = textureAssetInfo.height;
+    assetJson[mipLevelsJsonName] = textureAssetInfo.mipLevels;
     assetJson[transparentJsonName] = textureAssetInfo.transparent;
 
     outAsset.metadata->json = assetJson.dump();

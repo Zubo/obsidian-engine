@@ -67,8 +67,8 @@ void VulkanRHI::uploadTexture(rhi::ResourceIdRHI id,
   extent.depth = 1;
   VkFormat const format = getVkTextureFormat(uploadTextureInfoRHI.format);
 
-  VkImageCreateInfo vkImgCreateInfo =
-      vkinit::imageCreateInfo(imageUsageFlags, extent, format);
+  VkImageCreateInfo vkImgCreateInfo = vkinit::imageCreateInfo(
+      imageUsageFlags, extent, format, uploadTextureInfoRHI.mipLevels);
 
   VmaAllocationCreateInfo imgAllocationCreateInfo = {};
   imgAllocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
@@ -79,7 +79,7 @@ void VulkanRHI::uploadTexture(rhi::ResourceIdRHI id,
 
   VkImageViewCreateInfo imageViewCreateInfo = vkinit::imageViewCreateInfo(
       newTexture.image.vkImage, getVkTextureFormat(uploadTextureInfoRHI.format),
-      VK_IMAGE_ASPECT_COLOR_BIT);
+      VK_IMAGE_ASPECT_COLOR_BIT, uploadTextureInfoRHI.mipLevels);
 
   VK_CHECK(vkCreateImageView(_vkDevice, &imageViewCreateInfo, nullptr,
                              &newTexture.imageView));
@@ -89,8 +89,11 @@ void VulkanRHI::uploadTexture(rhi::ResourceIdRHI id,
   _taskExecutor->enqueue(
       task::TaskType::rhiTransfer,
       [this, &newTexture, extent, info = std::move(uploadTextureInfoRHI)]() {
-        std::size_t const size =
-            info.width * info.height * core::getFormatPixelSize(info.format);
+        bool const hasMips = info.mipLevels > 1;
+
+        std::size_t const size = info.width * info.height *
+                                 core::getFormatPixelSize(info.format) *
+                                 (hasMips ? 2 : 1);
 
         AllocatedBuffer stagingBuffer =
             createBuffer(size, VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
@@ -108,43 +111,57 @@ void VulkanRHI::uploadTexture(rhi::ResourceIdRHI id,
 
         vmaUnmapMemory(_vmaAllocator, stagingBuffer.allocation);
 
-        immediateSubmit(_transferQueueFamilyIndex, [&extent, &newTexture,
-                                                    &stagingBuffer](
+        immediateSubmit(_transferQueueFamilyIndex, [&newTexture, &info](
                                                        VkCommandBuffer cmd) {
           VkImageMemoryBarrier vkImgBarrierToTransfer =
-              vkinit::layoutImageBarrier(newTexture.image.vkImage,
-                                         VK_IMAGE_LAYOUT_UNDEFINED,
-                                         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                         VK_IMAGE_ASPECT_COLOR_BIT);
+              vkinit::layoutImageBarrier(
+                  newTexture.image.vkImage, VK_IMAGE_LAYOUT_UNDEFINED,
+                  VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                  VK_IMAGE_ASPECT_COLOR_BIT, info.mipLevels);
           vkImgBarrierToTransfer.srcAccessMask = VK_ACCESS_NONE;
           vkImgBarrierToTransfer.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 
           vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
                                VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
                                nullptr, 1, &vkImgBarrierToTransfer);
+        });
 
-          VkBufferImageCopy vkBufferImgCopy = {};
-          vkBufferImgCopy.imageExtent = extent;
-          vkBufferImgCopy.imageSubresource.aspectMask =
-              VK_IMAGE_ASPECT_COLOR_BIT;
-          vkBufferImgCopy.imageSubresource.layerCount = 1;
+        immediateSubmit(_transferQueueFamilyIndex, [&extent, &newTexture,
+                                                    &stagingBuffer, &info,
+                                                    size](VkCommandBuffer cmd) {
+          VkDeviceSize offset = 0;
+          VkDeviceSize const mipLevelSize =
+              info.mipLevels > 1 ? (size / 2) : size;
 
-          vkCmdCopyBufferToImage(
-              cmd, stagingBuffer.buffer, newTexture.image.vkImage,
-              VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &vkBufferImgCopy);
+          for (std::size_t i = 0; i < info.mipLevels; ++i) {
+            VkBufferImageCopy vkBufferImgCopy = {};
+            vkBufferImgCopy.bufferOffset = offset;
+            vkBufferImgCopy.imageExtent = {extent.width >> i,
+                                           extent.height >> i, extent.depth};
+            vkBufferImgCopy.imageSubresource.aspectMask =
+                VK_IMAGE_ASPECT_COLOR_BIT;
+            vkBufferImgCopy.imageSubresource.layerCount = 1;
+            vkBufferImgCopy.imageSubresource.mipLevel = i;
+
+            vkCmdCopyBufferToImage(
+                cmd, stagingBuffer.buffer, newTexture.image.vkImage,
+                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &vkBufferImgCopy);
+
+            offset += mipLevelSize >> (i * 2);
+          }
         });
 
         vmaDestroyBuffer(_vmaAllocator, stagingBuffer.buffer,
                          stagingBuffer.allocation);
 
-        immediateSubmit(_graphicsQueueFamilyIndex, [&newTexture](
+        immediateSubmit(_graphicsQueueFamilyIndex, [&newTexture, &info](
                                                        VkCommandBuffer cmd) {
           VkImageMemoryBarrier vkImageBarrierToRead =
               vkinit::layoutImageBarrier(
                   newTexture.image.vkImage,
                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                   VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                  VK_IMAGE_ASPECT_COLOR_BIT);
+                  VK_IMAGE_ASPECT_COLOR_BIT, info.mipLevels);
 
           vkImageBarrierToRead.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
           vkImageBarrierToRead.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;

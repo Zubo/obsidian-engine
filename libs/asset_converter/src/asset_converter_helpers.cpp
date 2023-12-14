@@ -1,4 +1,3 @@
-#include "glm/ext/scalar_constants.hpp"
 #include <obsidian/asset_converter/asset_converter_helpers.hpp>
 
 #include <glm/gtc/quaternion.hpp>

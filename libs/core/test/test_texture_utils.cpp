@@ -23,12 +23,14 @@ TEST(texture_utils, reduce_linear_texture_size) {
       Pixel{0, 1, 15, 3},
   };
   constexpr std::size_t reductionFactor = 2;
-  constexpr bool isLinear = true;
+  std::size_t const nonLinearChannelCnt = 0;
 
   // act
-  std::vector<unsigned char> result = obsidian::core::utils::reduceTextureSize(
-      reinterpret_cast<unsigned char const*>(pixels.data()), sizeof(Pixel), w,
-      h, reductionFactor, isLinear);
+  std::vector<unsigned char> result;
+  result.resize(sizeof(Pixel) * w * h / (reductionFactor * reductionFactor));
+  obsidian::core::utils::reduceTextureSize(
+      reinterpret_cast<unsigned char const*>(pixels.data()), result.data(),
+      sizeof(Pixel), w, h, reductionFactor, nonLinearChannelCnt);
 
   // assert
   constexpr unsigned char expectedR[] = {0, 0, 0, 0};
@@ -60,12 +62,14 @@ TEST(texture_utils, reduce_non_linear_texture_size) {
       Pixel{0, 1, 2, 3}};
 
   constexpr std::size_t reductionFactor = 2;
-  constexpr bool isLinear = false;
+  std::size_t const nonLinearChannelCnt = 3;
 
   // act
-  std::vector<unsigned char> result = obsidian::core::utils::reduceTextureSize(
-      reinterpret_cast<unsigned char const*>(pixels.data()), sizeof(Pixel), w,
-      h, reductionFactor, isLinear);
+  std::vector<unsigned char> result;
+  result.resize(sizeof(Pixel) * w * h / (reductionFactor * reductionFactor));
+  obsidian::core::utils::reduceTextureSize(
+      reinterpret_cast<unsigned char const*>(pixels.data()), result.data(),
+      sizeof(Pixel), w, h, reductionFactor, nonLinearChannelCnt);
 
   // assert
   Pixel expected = {0, 1, 2, 3};

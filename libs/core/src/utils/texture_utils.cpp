@@ -7,15 +7,12 @@
 
 namespace obsidian::core::utils {
 
-std::vector<unsigned char> reduceTextureSize(unsigned char const* srcData,
-                                             std::size_t channelCnt,
-                                             std::size_t w, std::size_t h,
-                                             std::size_t reductionFactor,
-                                             std::size_t nonLinearChannelCnt) {
+void reduceTextureSize(unsigned char const* srcData, unsigned char* dstData,
+                       std::size_t channelCnt, std::size_t w, std::size_t h,
+                       std::size_t reductionFactor,
+                       std::size_t nonLinearChannelCnt) {
   assert(isPowerOfTwo(w) && isPowerOfTwo(h));
   assert(nonLinearChannelCnt <= channelCnt);
-
-  std::vector<unsigned char> result;
 
   auto const linearizeF = [](float v) {
     // Formula taken from https://en.wikipedia.org/wiki/SRGB
@@ -30,8 +27,6 @@ std::vector<unsigned char> reduceTextureSize(unsigned char const* srcData,
 
   int const newW = w / reductionFactor;
   int const newH = h / reductionFactor;
-
-  result.resize(newW * newH * channelCnt);
 
   for (std::size_t y = 0; y < newH; ++y) {
     for (std::size_t x = 0; x < newW; ++x) {
@@ -55,8 +50,7 @@ std::vector<unsigned char> reduceTextureSize(unsigned char const* srcData,
         }
       }
 
-      unsigned char* const dstPixData =
-          result.data() + channelCnt * ((y * newH) + x);
+      unsigned char* const dstPixData = dstData + channelCnt * ((y * newH) + x);
       for (std::size_t i = 0; i < nonLinearChannelCnt; ++i) {
         float const delinearized =
             delinearizeF(sumPix[i] / (reductionFactor * reductionFactor)) *
@@ -70,8 +64,6 @@ std::vector<unsigned char> reduceTextureSize(unsigned char const* srcData,
       }
     }
   }
-
-  return result;
 }
 
 } // namespace obsidian::core::utils

@@ -147,6 +147,7 @@ void RuntimeResource::performUploadToRHI() {
     uploadTexture.format = info.format;
     uploadTexture.width = info.width;
     uploadTexture.height = info.height;
+    uploadTexture.mipLevels = info.mipLevels;
     uploadTexture.unpackFunc = [asset = _asset, info](char* dst) {
       asset::unpackAsset(info, asset->binaryBlob.data(),
                          asset->binaryBlob.size(), dst);

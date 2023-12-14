@@ -15,6 +15,7 @@ struct TextureAssetInfo : public AssetInfo {
   core::TextureFormat format;
   std::uint32_t width;
   std::uint32_t height;
+  std::uint32_t mipLevels;
   bool transparent;
 };
 

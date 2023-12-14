@@ -39,10 +39,12 @@ VkFenceCreateInfo fenceCreateInfo(VkFenceCreateFlags flags = 0);
 VkSemaphoreCreateInfo semaphoreCreateInfo(VkSemaphoreCreateFlags flags);
 
 VkImageCreateInfo imageCreateInfo(VkImageUsageFlags usageFlags,
-                                  VkExtent3D extent, VkFormat format);
+                                  VkExtent3D extent, VkFormat format,
+                                  std::uint32_t mipLevels = 1);
 
 VkImageViewCreateInfo imageViewCreateInfo(VkImage image, VkFormat format,
-                                          VkImageAspectFlags imageAspectFlags);
+                                          VkImageAspectFlags imageAspectFlagsm,
+                                          std::uint32_t mipLevels = 1);
 
 VkPipelineDepthStencilStateCreateInfo
 depthStencilStateCreateInfo(bool depthTestEnable);
@@ -60,7 +62,8 @@ samplerCreateInfo(VkFilter filter, VkSamplerMipmapMode mipmapMode,
 
 VkImageMemoryBarrier layoutImageBarrier(VkImage image, VkImageLayout oldLayout,
                                         VkImageLayout newLayout,
-                                        VkImageAspectFlagBits aspectMask);
+                                        VkImageAspectFlagBits aspectMask,
+                                        std::uint32_t mipLevelCount = 1);
 
 VkAttachmentDescription colorAttachmentDescription(VkFormat format,
                                                    VkImageLayout finalLayout);
