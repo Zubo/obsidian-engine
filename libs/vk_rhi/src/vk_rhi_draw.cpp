@@ -32,6 +32,14 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
     return;
   }
 
+  auto const drawCallSortComp = [](auto const& d1, auto const& d2) {
+    return d1.material < d2.material;
+  };
+
+  std::sort(_drawCallQueue.begin(), _drawCallQueue.end(), drawCallSortComp);
+  std::sort(_transparentDrawCallQueue.begin(), _transparentDrawCallQueue.end(),
+            drawCallSortComp);
+
   FrameData& currentFrameData = getCurrentFrameData();
 
   constexpr std::uint64_t timeoutNanoseconds = 10000000000;
