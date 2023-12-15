@@ -10,8 +10,11 @@ add_library(Core
     "include/obsidian/core/utils/functions.hpp"
     "include/obsidian/core/utils/utils.hpp"
     "include/obsidian/core/utils/texture_utils.hpp"
+    "include/obsidian/core/utils/aabb.hpp"
+    "include/obsidian/core/shapes.hpp"
     "src/texture_format.cpp"
     "src/utils/texture_utils.cpp"
+    "src/utils/aabb.cpp"
 )
 
 target_include_directories(Core

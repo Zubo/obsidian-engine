@@ -1,6 +1,7 @@
 #include <obsidian/core/logging.hpp>
 #include <obsidian/core/material.hpp>
 #include <obsidian/core/texture_format.hpp>
+#include <obsidian/core/utils/aabb.hpp>
 #include <obsidian/core/utils/visitor.hpp>
 #include <obsidian/rhi/resource_rhi.hpp>
 #include <obsidian/rhi/rhi.hpp>
@@ -28,7 +29,6 @@
 #include <numeric>
 #include <optional>
 #include <variant>
-#include <vulkan/vulkan_core.h>
 
 using namespace obsidian;
 using namespace obsidian::vk_rhi;
@@ -230,6 +230,7 @@ void VulkanRHI::uploadMesh(rhi::ResourceIdRHI id, rhi::UploadMeshRHI meshInfo) {
   mesh.hasColors = meshInfo.hasColors;
   mesh.hasUV = meshInfo.hasUV;
   mesh.hasTangents = meshInfo.hasTangents;
+  mesh.aabb = meshInfo.aabb;
 
   _taskExecutor->enqueue(
       task::TaskType::rhiTransfer,
@@ -580,9 +581,11 @@ void VulkanRHI::destroyUnreferencedResources() {
 }
 
 void VulkanRHI::submitDrawCall(rhi::DrawCall const& drawCall) {
+  Mesh& mesh = _meshes[drawCall.meshId];
+
   VKDrawCall vkDrawCall;
   vkDrawCall.model = drawCall.transform;
-  vkDrawCall.mesh = &_meshes[drawCall.meshId];
+  vkDrawCall.mesh = &mesh;
   for (std::size_t i = 0; i < drawCall.materialIds.size(); ++i) {
     vkDrawCall.material = &_materials[drawCall.materialIds[i]];
     vkDrawCall.indexBufferInd = i;

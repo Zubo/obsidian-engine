@@ -31,7 +31,7 @@ Mesh::getVertexInputDescription(VertexInputSpec inputSpec) const {
     description.attributes.push_back(positionAttribute);
   }
 
-  mainBinding.stride += sizeof(Vertex::position);
+  mainBinding.stride += sizeof(VertexPropertiesSpec::position);
 
   if (inputSpec.bindNormals && hasNormals) {
     VkVertexInputAttributeDescription2EXT normalAttribute = {};
@@ -46,7 +46,7 @@ Mesh::getVertexInputDescription(VertexInputSpec inputSpec) const {
   }
 
   if (hasNormals) {
-    mainBinding.stride += sizeof(Vertex::normal);
+    mainBinding.stride += sizeof(VertexPropertiesSpec::normal);
   }
 
   if (inputSpec.bindColors && hasColors) {
@@ -62,7 +62,7 @@ Mesh::getVertexInputDescription(VertexInputSpec inputSpec) const {
   }
 
   if (hasColors) {
-    mainBinding.stride += sizeof(Vertex::color);
+    mainBinding.stride += sizeof(VertexPropertiesSpec::color);
   }
 
   if (inputSpec.bindUV && hasUV) {
@@ -78,7 +78,7 @@ Mesh::getVertexInputDescription(VertexInputSpec inputSpec) const {
   }
 
   if (hasUV) {
-    mainBinding.stride += sizeof(Vertex::uv);
+    mainBinding.stride += sizeof(VertexPropertiesSpec::uv);
   }
 
   if (inputSpec.bindTangents && hasTangents) {
@@ -94,7 +94,7 @@ Mesh::getVertexInputDescription(VertexInputSpec inputSpec) const {
   }
 
   if (hasTangents) {
-    mainBinding.stride += sizeof(Vertex::tangent);
+    mainBinding.stride += sizeof(VertexPropertiesSpec::tangent);
   }
 
   description.bindings.push_back(mainBinding);

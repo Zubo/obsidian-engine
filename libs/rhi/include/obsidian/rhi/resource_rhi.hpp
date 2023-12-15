@@ -1,6 +1,7 @@
 #pragma once
 
 #include <obsidian/core/material.hpp>
+#include <obsidian/core/shapes.hpp>
 #include <obsidian/core/texture_format.hpp>
 
 #include <glm/glm.hpp>
@@ -37,6 +38,7 @@ struct UploadMeshRHI {
   std::size_t indexCount;
   std::vector<std::size_t> indexBufferSizes;
   std::function<void(char*)> unpackFunc;
+  core::Box3D aabb;
   bool hasNormals;
   bool hasColors;
   bool hasUV;

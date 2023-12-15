@@ -123,6 +123,7 @@ void RuntimeResource::performUploadToRHI() {
                          asset->binaryBlob.size(), dst);
     };
 
+    uploadMesh.aabb = info.aabb;
     uploadMesh.hasNormals = info.hasNormals;
     uploadMesh.hasColors = info.hasColors;
     uploadMesh.hasUV = info.hasUV;

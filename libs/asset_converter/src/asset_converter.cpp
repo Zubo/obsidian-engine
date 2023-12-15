@@ -256,7 +256,8 @@ bool AssetConverter::convertObjToAsset(fs::path const& srcPath,
   task::TaskBase const& genVertTask =
       _taskExecutor.enqueue(task::TaskType::general, [&]() {
         vertexCount = callGenerateVerticesFromObj(meshAssetInfo, attrib, shapes,
-                                                  outVertices, outSurfaces);
+                                                  outVertices, outSurfaces,
+                                                  meshAssetInfo.aabb);
       });
 
   VertexContentInfo const vertInfo = {
@@ -397,7 +398,8 @@ bool AssetConverter::convertGltfToAsset(fs::path const& srcPath,
          &outSurfaces = outSurfacesPerMesh[i]]() {
           outSurfaces.resize(model.materials.size());
           vertexCount = callGenerateVerticesFromGltfMesh(
-              meshAssetInfo, model, meshInd, outVertices, outSurfaces);
+              meshAssetInfo, model, meshInd, outVertices, outSurfaces,
+              meshAssetInfo.aabb);
         });
 
     generateVerticesTasks.push_back(&generateVerticesTask);

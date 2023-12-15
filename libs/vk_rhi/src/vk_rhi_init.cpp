@@ -23,7 +23,6 @@
 #include <cstring>
 #include <numeric>
 #include <random>
-#include <vulkan/vulkan_core.h>
 
 using namespace obsidian::vk_rhi;
 

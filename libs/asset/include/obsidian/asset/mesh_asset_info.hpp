@@ -1,6 +1,9 @@
 #pragma once
 
 #include <obsidian/asset/asset_info.hpp>
+#include <obsidian/core/shapes.hpp>
+
+#include <glm/glm.hpp>
 
 #include <cstddef>
 #include <string>
@@ -17,6 +20,7 @@ struct MeshAssetInfo : public AssetInfo {
   std::size_t indexCount;
   std::vector<std::size_t> indexBufferSizes;
   std::vector<std::string> defaultMatRelativePaths;
+  core::Box3D aabb;
   bool hasNormals;
   bool hasColors;
   bool hasUV;

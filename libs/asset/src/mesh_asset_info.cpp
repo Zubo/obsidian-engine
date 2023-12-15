@@ -25,6 +25,9 @@ constexpr char const* hasColorsJsonName = "hasColors";
 constexpr char const* hasUVJsonName = "hasUV";
 constexpr char const* hasTangentsJsonName = "hasTangents";
 constexpr char const* defaultMatPathsJsonName = "defaultMatPaths";
+constexpr char const* aabbJsonName = "aabb";
+constexpr char const* aabbTopRightJsonName = "topRight";
+constexpr char const* aabbBottomLeftJsonName = "bottomLeft";
 
 bool readMeshAssetInfo(AssetMetadata const& assetMetadata,
                        MeshAssetInfo& outMeshAssetInfo) {
@@ -47,6 +50,20 @@ bool readMeshAssetInfo(AssetMetadata const& assetMetadata,
       outMeshAssetInfo.defaultMatRelativePaths.push_back(
           matPathJson.get<std::string>());
     }
+
+    outMeshAssetInfo.aabb.topCorner.x =
+        json[aabbJsonName][aabbTopRightJsonName]["x"];
+    outMeshAssetInfo.aabb.topCorner.y =
+        json[aabbJsonName][aabbTopRightJsonName]["y"];
+    outMeshAssetInfo.aabb.topCorner.z =
+        json[aabbJsonName][aabbTopRightJsonName]["z"];
+
+    outMeshAssetInfo.aabb.bottomCorner.x =
+        json[aabbJsonName][aabbBottomLeftJsonName]["x"];
+    outMeshAssetInfo.aabb.bottomCorner.y =
+        json[aabbJsonName][aabbBottomLeftJsonName]["y"];
+    outMeshAssetInfo.aabb.bottomCorner.z =
+        json[aabbJsonName][aabbBottomLeftJsonName]["z"];
 
     outMeshAssetInfo.hasNormals = json[hasNormalsJsonName];
     outMeshAssetInfo.hasColors = json[hasColorsJsonName];
@@ -77,6 +94,21 @@ bool packMeshAsset(MeshAssetInfo const& meshAssetInfo,
     json[compressionModeJsonName] = meshAssetInfo.compressionMode;
     json[vertexCountJsonName] = meshAssetInfo.vertexCount;
     json[vertexBufferSizeJsonName] = meshAssetInfo.vertexBufferSize;
+
+    json[aabbJsonName][aabbTopRightJsonName]["x"] =
+        meshAssetInfo.aabb.topCorner.x;
+    json[aabbJsonName][aabbTopRightJsonName]["y"] =
+        meshAssetInfo.aabb.topCorner.y;
+    json[aabbJsonName][aabbTopRightJsonName]["z"] =
+        meshAssetInfo.aabb.topCorner.z;
+
+    json[aabbJsonName][aabbBottomLeftJsonName]["x"] =
+        meshAssetInfo.aabb.bottomCorner.x;
+    json[aabbJsonName][aabbBottomLeftJsonName]["y"] =
+        meshAssetInfo.aabb.bottomCorner.y;
+    json[aabbJsonName][aabbBottomLeftJsonName]["z"] =
+        meshAssetInfo.aabb.bottomCorner.z;
+
     json[hasNormalsJsonName] = meshAssetInfo.hasNormals;
     json[hasColorsJsonName] = meshAssetInfo.hasColors;
     json[hasUVJsonName] = meshAssetInfo.hasUV;

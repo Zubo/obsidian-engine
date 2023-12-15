@@ -1,3 +1,4 @@
+#include <obsidian/core/utils/aabb.hpp>
 #include <obsidian/core/vertex_type.hpp>
 #include <obsidian/rhi/rhi.hpp>
 #include <obsidian/vk_rhi/vk_check.hpp>
@@ -109,15 +110,16 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   VertexInputSpec const depthPrepassInputSpec = {true, false, false, false,
                                                  false};
 
-  drawPassNoMaterials(cmd, _drawCallQueue.data(), _drawCallQueue.size(),
+  drawPassNoMaterials(
+      cmd, _drawCallQueue.data(), _drawCallQueue.size(), sceneCameraData,
+      _vkDepthPrepassPipeline, _vkDepthPipelineLayout, depthPassDynamicOffsets,
+      _depthPrepassDescriptorSet, depthPrepassInputSpec, viewport, scissor);
+
+  drawPassNoMaterials(cmd, _transparentDrawCallQueue.data(),
+                      _transparentDrawCallQueue.size(), sceneCameraData,
                       _vkDepthPrepassPipeline, _vkDepthPipelineLayout,
                       depthPassDynamicOffsets, _depthPrepassDescriptorSet,
                       depthPrepassInputSpec, viewport, scissor);
-
-  drawPassNoMaterials(
-      cmd, _transparentDrawCallQueue.data(), _transparentDrawCallQueue.size(),
-      _vkDepthPrepassPipeline, _vkDepthPipelineLayout, depthPassDynamicOffsets,
-      _depthPrepassDescriptorSet, depthPrepassInputSpec, viewport, scissor);
 
   vkCmdEndRenderPass(cmd);
 
@@ -163,7 +165,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   VertexInputSpec const ssaoVertInputSpec = {true, true, false, true, false};
 
   drawPassNoMaterials(cmd, _ssaoDrawCallQueue.data(), _ssaoDrawCallQueue.size(),
-                      _vkSsaoPipeline, _vkSsaoPipelineLayout,
+                      sceneCameraData, _vkSsaoPipeline, _vkSsaoPipelineLayout,
                       ssaoDynamicOffsets,
                       currentFrameData.vkSsaoRenderPassDescriptorSet,
                       ssaoVertInputSpec, viewport, scissor);
@@ -256,9 +258,9 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
                                    getPaddedBufferSize(sizeof(GPUCameraData)))};
 
     drawPassNoMaterials(cmd, _drawCallQueue.data(), _drawCallQueue.size(),
-                        _vkShadowPassPipeline, _vkDepthPipelineLayout,
-                        dynamicOffsets, _vkShadowPassDescriptorSet,
-                        shadowPassVertInputSpec);
+                        sceneCameraData, _vkShadowPassPipeline,
+                        _vkDepthPipelineLayout, dynamicOffsets,
+                        _vkShadowPassDescriptorSet, shadowPassVertInputSpec);
 
     vkCmdEndRenderPass(cmd);
   }
@@ -308,14 +310,15 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
       static_cast<std::uint32_t>(frameInd *
                                  getPaddedBufferSize(sizeof(GPULightData)))};
 
-  drawWithMaterials(
-      cmd, _drawCallQueue.data(), _drawCallQueue.size(), defaultDynamicOffsets,
-      currentFrameData.vkMainRenderPassDescriptorSet, viewport, scissor);
-
-  drawWithMaterials(cmd, _transparentDrawCallQueue.data(),
-                    _transparentDrawCallQueue.size(), defaultDynamicOffsets,
+  drawWithMaterials(cmd, _drawCallQueue.data(), _drawCallQueue.size(),
+                    gpuCameraData, defaultDynamicOffsets,
                     currentFrameData.vkMainRenderPassDescriptorSet, viewport,
                     scissor);
+
+  drawWithMaterials(
+      cmd, _transparentDrawCallQueue.data(), _transparentDrawCallQueue.size(),
+      gpuCameraData, defaultDynamicOffsets,
+      currentFrameData.vkMainRenderPassDescriptorSet, viewport, scissor);
 
   vkCmdEndRenderPass(cmd);
   VK_CHECK(vkEndCommandBuffer(cmd));
@@ -375,6 +378,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
 
 void VulkanRHI::drawWithMaterials(
     VkCommandBuffer cmd, VKDrawCall* first, int count,
+    GPUCameraData const& cameraData,
     std::vector<std::uint32_t> const& dynamicOffsets,
     VkDescriptorSet drawPassDescriptorSet,
     std::optional<VkViewport> dynamicViewport,
@@ -391,6 +395,11 @@ void VulkanRHI::drawWithMaterials(
 
     assert(drawCall.mesh && "Error: Missing mesh");
     Mesh const& mesh = *drawCall.mesh;
+
+    if (!core::utils::isVisible(mesh.aabb,
+                                cameraData.viewProj * drawCall.model)) {
+      continue;
+    }
 
     constexpr VkPipelineBindPoint pipelineBindPoint =
         VK_PIPELINE_BIND_POINT_GRAPHICS;
@@ -442,7 +451,8 @@ void VulkanRHI::drawWithMaterials(
 }
 
 void VulkanRHI::drawPassNoMaterials(
-    VkCommandBuffer cmd, VKDrawCall* first, int count, VkPipeline pipeline,
+    VkCommandBuffer cmd, VKDrawCall* first, int count,
+    GPUCameraData const& cameraData, VkPipeline pipeline,
     VkPipelineLayout pipelineLayout,
     std::vector<std::uint32_t> const& dynamicOffsets,
     VkDescriptorSet passDescriptorSet, VertexInputSpec vertexInputSpec,
@@ -476,6 +486,11 @@ void VulkanRHI::drawPassNoMaterials(
     assert(drawCall.mesh && "Error: Missing mesh");
 
     Mesh& mesh = *drawCall.mesh;
+
+    if (!core::utils::isVisible(mesh.aabb,
+                                cameraData.viewProj * drawCall.model)) {
+      continue;
+    }
 
     VertexInputDescription const vertInputDescr =
         mesh.getVertexInputDescription(vertexInputSpec);

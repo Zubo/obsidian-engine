@@ -1,5 +1,6 @@
 #pragma once
 
+#include <obsidian/core/shapes.hpp>
 #include <obsidian/rhi/resource_rhi.hpp>
 #include <obsidian/vk_rhi/vk_types.hpp>
 
@@ -11,7 +12,7 @@
 
 namespace obsidian::vk_rhi {
 
-struct Vertex {
+struct VertexPropertiesSpec {
   glm::vec3 position;
   glm::vec3 normal;
   glm::vec3 color;
@@ -38,6 +39,7 @@ struct Mesh {
   bool hasColors;
   bool hasUV;
   bool hasTangents;
+  core::Box3D aabb;
 
   VertexInputDescription getVertexInputDescription(
       VertexInputSpec inputSpec = VertexInputSpec()) const;

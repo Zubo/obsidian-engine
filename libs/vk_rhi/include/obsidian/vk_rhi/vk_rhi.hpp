@@ -249,13 +249,15 @@ private:
   }
 
   void drawWithMaterials(VkCommandBuffer cmd, VKDrawCall* first, int count,
+                         GPUCameraData const& cameraData,
                          std::vector<std::uint32_t> const& dynamicOffsets,
                          VkDescriptorSet drawPassDescriptorSet,
                          std::optional<VkViewport> dynamicViewport,
                          std::optional<VkRect2D> dynamicScissor);
   void
   drawPassNoMaterials(VkCommandBuffer, VKDrawCall* first, int count,
-                      VkPipeline pipeline, VkPipelineLayout pipelineLayout,
+                      GPUCameraData const& cameraData, VkPipeline pipeline,
+                      VkPipelineLayout pipelineLayout,
                       std::vector<std::uint32_t> const& dynamicOffsets,
                       VkDescriptorSet passDescriptorSet,
                       VertexInputSpec vertexInputSpec,
