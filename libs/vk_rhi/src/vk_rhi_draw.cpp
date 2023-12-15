@@ -258,7 +258,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
                                    getPaddedBufferSize(sizeof(GPUCameraData)))};
 
     drawPassNoMaterials(cmd, _drawCallQueue.data(), _drawCallQueue.size(),
-                        sceneCameraData, _vkShadowPassPipeline,
+                        shadowPass.gpuCameraData, _vkShadowPassPipeline,
                         _vkDepthPipelineLayout, dynamicOffsets,
                         _vkShadowPassDescriptorSet, shadowPassVertInputSpec);
 
