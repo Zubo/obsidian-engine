@@ -150,21 +150,20 @@ LightingResult calculateSpotlights(vec3 normal) {
     const float shadowMultiplier =
         calculatePCF(shadowMapIdx, depthSpacePos, bias);
 
-    if (cosAngle > cosCutoffAngle) {
-      result.diffuse +=
-          shadowMultiplier * intensity * lights.spotlights[lightIdx].color.xyz;
+    const float cutoff = step(cosAngle, cosCutoffAngle);
 
-      if (shadowMultiplier > 0.5f) {
-        result.specular += shadowMultiplier * specularIntensity * intensity *
-                           lights.spotlights[lightIdx].color.xyz;
-      }
-    } else {
-      result.diffuse += shadowMultiplier * intensity *
-                        clamp((cosAngle - cosFadeoutAngle) /
-                                  (cosCutoffAngle - cosFadeoutAngle),
-                              0.0f, 1.0f) *
-                        lights.spotlights[lightIdx].color.xyz;
-    }
+    result.diffuse += (1.0f - cutoff) * shadowMultiplier * intensity *
+                      lights.spotlights[lightIdx].color.xyz;
+
+    result.specular += (1.0f - cutoff) * step(0.5f, shadowMultiplier) *
+                       shadowMultiplier * specularIntensity * intensity *
+                       lights.spotlights[lightIdx].color.xyz;
+
+    result.diffuse +=
+        cutoff * shadowMultiplier * intensity *
+        clamp((cosAngle - cosFadeoutAngle) / (cosCutoffAngle - cosFadeoutAngle),
+              0.0f, 1.0f) *
+        lights.spotlights[lightIdx].color.xyz;
   }
 
   return result;
@@ -210,10 +209,9 @@ LightingResult calculateDirectionalLighting(vec3 normal) {
     const float shadowMultiplier =
         calculatePCF(shadowMapIdx, depthSpacePos, bias);
 
-    if (shadowMultiplier > 0.5f) {
-      result.specular += shadowMultiplier * specularIntensity * intensity.xyz *
-                         lights.directionalLights[lightIdx].color.xyz;
-    }
+    result.specular += step(0.5f, shadowMultiplier) * shadowMultiplier *
+                       specularIntensity * intensity.xyz *
+                       lights.directionalLights[lightIdx].color.xyz;
 
     result.diffuse += shadowMultiplier * intensity.xyz * diffuseIntensity *
                       lights.directionalLights[lightIdx].color.xyz;
