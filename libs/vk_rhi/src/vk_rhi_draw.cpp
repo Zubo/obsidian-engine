@@ -123,12 +123,6 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
       _vkDepthPrepassPipeline, _vkDepthPipelineLayout, depthPassDynamicOffsets,
       _depthPrepassDescriptorSet, depthPrepassInputSpec, viewport, scissor);
 
-  drawPassNoMaterials(cmd, _transparentDrawCallQueue.data(),
-                      _transparentDrawCallQueue.size(), sceneCameraData,
-                      _vkDepthPrepassPipeline, _vkDepthPipelineLayout,
-                      depthPassDynamicOffsets, _depthPrepassDescriptorSet,
-                      depthPrepassInputSpec, viewport, scissor);
-
   vkCmdEndRenderPass(cmd);
 
   VkImageMemoryBarrier depthImageMemoryBarrier = vkinit::layoutImageBarrier(

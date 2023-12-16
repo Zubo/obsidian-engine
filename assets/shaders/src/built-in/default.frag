@@ -29,6 +29,7 @@ sceneData;
 
 layout(set = 1, binding = 0) uniform sampler2D shadowMap[MAX_LIGHT_COUNT];
 layout(set = 1, binding = 2) uniform sampler2D ssaoMap;
+layout(set = 1, binding = 3) uniform sampler2D depthPrepassMap;
 
 struct DirectionalLight {
   mat4 viewProj;
@@ -226,7 +227,16 @@ float getSsao() {
   return texture(ssaoMap, uv).r;
 }
 
+float getDepth() {
+  const vec2 uv = gl_FragCoord.xy / textureSize(depthPrepassMap, 0);
+  return texture(depthPrepassMap, uv).r;
+}
+
 void main() {
+  if (gl_FragCoord.z > getDepth() + 0.001f) {
+    discard;
+  }
+
   vec3 normal = inNormals;
 
 #ifdef _HAS_UV

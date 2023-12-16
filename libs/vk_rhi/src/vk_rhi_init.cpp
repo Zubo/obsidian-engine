@@ -298,7 +298,6 @@ void VulkanRHI::initSwapchainFramebuffers() {
 
 void VulkanRHI::initDepthPrepassFramebuffers() {
   for (FrameData& frameData : _frameDataArray) {
-
     frameData.vkDepthPrepassFramebuffer = _depthRenderPass.generateFramebuffer(
         _vmaAllocator, _vkbSwapchain.extent,
         {.depthImageUsage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
@@ -865,6 +864,13 @@ void VulkanRHI::initDescriptors() {
     vkSsaoImageInfo.imageView =
         frameData.vkSsaoPostProcessingFramebuffer.colorBufferImageView;
 
+    VkDescriptorImageInfo vkDepthPrepassimageInfo = {};
+    vkDepthPrepassimageInfo.imageLayout =
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    vkDepthPrepassimageInfo.imageView =
+        frameData.vkDepthPrepassFramebuffer.depthBufferImageView;
+    vkDepthPrepassimageInfo.sampler = _vkDepthSampler;
+
     DescriptorBuilder::begin(_vkDevice, _swapchainBoundDescriptorAllocator,
                              _descriptorLayoutCache)
         .bindImages(0, vkShadowMapDescriptorImageInfos,
@@ -874,6 +880,9 @@ void VulkanRHI::initDescriptors() {
                     VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
                     VK_SHADER_STAGE_FRAGMENT_BIT)
         .bindImage(2, vkSsaoImageInfo,
+                   VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                   VK_SHADER_STAGE_FRAGMENT_BIT)
+        .bindImage(3, vkDepthPrepassimageInfo,
                    VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                    VK_SHADER_STAGE_FRAGMENT_BIT)
         .build(frameData.vkMainRenderPassDescriptorSet,
