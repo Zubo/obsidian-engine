@@ -32,7 +32,6 @@
 namespace obsidian::vk_rhi {
 
 class VulkanRHI : public rhi::RHI {
-  static unsigned int const frameOverlap = 2;
   static unsigned int const maxNumberOfObjects = 10000;
   static unsigned int const shadowPassAttachmentWidth = 2000;
   static unsigned int const shadowPassAttachmentHeight = 2000;
@@ -126,7 +125,7 @@ private:
 
   // Default pass
   RenderPass _mainRenderPass;
-  std::vector<Framebuffer> _vkSwapchainFramebuffers;
+  std::vector<std::array<Framebuffer, frameOverlap>> _vkSwapchainFramebuffers;
   VkPipelineLayout _vkMeshPipelineLayout;
   VkPipelineLayout _vkLitMeshPipelineLayout;
 

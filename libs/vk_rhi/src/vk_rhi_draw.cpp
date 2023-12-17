@@ -84,7 +84,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   depthPassBeginInfo.clearValueCount = 1;
   depthPassBeginInfo.pClearValues = &depthClearValue;
 
-  // Depth prepass:
+  // depth prepass:
   std::size_t const frameInd = _frameNumber % frameOverlap;
 
   depthPassBeginInfo.renderArea.extent = {_vkbSwapchain.extent.width,
@@ -280,6 +280,17 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
                          0, nullptr, 1, &depthImageMemoryBarrier);
   }
 
+  VkImageMemoryBarrier depthAttachmentMemoryBarrier =
+      vkinit::layoutImageBarrier(
+          currentFrameData.vkDepthPrepassFramebuffer.depthBufferImage.vkImage,
+          VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+          VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
+          VK_IMAGE_ASPECT_DEPTH_BIT);
+
+  vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                       VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, 0, nullptr, 0,
+                       nullptr, 1, &depthAttachmentMemoryBarrier);
+
   // Color pass:
   std::array<VkClearValue, 2> clearValues;
   clearValues[0].color = {{0.0f, 0.0f, 1.0f, 1.0f}};
@@ -296,7 +307,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   vkRenderPassBeginInfo.pNext = nullptr;
   vkRenderPassBeginInfo.renderPass = _mainRenderPass.vkRenderPass;
   vkRenderPassBeginInfo.framebuffer =
-      _vkSwapchainFramebuffers[swapchainImageIndex].vkFramebuffer;
+      _vkSwapchainFramebuffers[swapchainImageIndex][frameInd].vkFramebuffer;
   vkRenderPassBeginInfo.renderArea.offset = {0, 0};
   vkRenderPassBeginInfo.renderArea.extent = _vkbSwapchain.extent;
   vkRenderPassBeginInfo.clearValueCount = clearValues.size();

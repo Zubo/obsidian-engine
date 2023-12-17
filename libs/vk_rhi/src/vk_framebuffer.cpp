@@ -7,7 +7,8 @@ using namespace obsidian::vk_rhi;
 Framebuffer
 RenderPass::generateFramebuffer(VmaAllocator vmaAllocator, VkExtent2D extent,
                                 AttachmentImageUsage attachmentUsages,
-                                VkImageView overrideColorImageView) {
+                                VkImageView overrideColorImageView,
+                                VkImageView overrideDepthImageView) {
   Framebuffer outFramebuffer = {};
 
   VkExtent3D const extent3D = {extent.width, extent.height, 1};
@@ -41,7 +42,10 @@ RenderPass::generateFramebuffer(VmaAllocator vmaAllocator, VkExtent2D extent,
     attachmentImageViews.push_back(outFramebuffer.colorBufferImageView);
   }
 
-  if (depthAttachmentFormat) {
+  if (overrideDepthImageView) {
+    outFramebuffer.depthBufferImageView = overrideDepthImageView;
+    attachmentImageViews.push_back(outFramebuffer.depthBufferImageView);
+  } else if (depthAttachmentFormat) {
     VkImageCreateInfo const depthImageCreateInfo = vkinit::imageCreateInfo(
         attachmentUsages.depthImageUsage, extent3D, *depthAttachmentFormat);
 

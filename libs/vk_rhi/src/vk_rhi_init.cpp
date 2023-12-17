@@ -23,6 +23,7 @@
 #include <cstring>
 #include <numeric>
 #include <random>
+#include <vulkan/vulkan_core.h>
 
 using namespace obsidian::vk_rhi;
 
@@ -45,9 +46,9 @@ void VulkanRHI::init(rhi::WindowExtentRHI extent,
   initPostProcessingRenderPass();
   initPostProcessingQuad();
   initPostProcessingSampler();
+  initDepthPrepassFramebuffers();
   initSwapchainFramebuffers();
   initShadowPassFramebuffers();
-  initDepthPrepassFramebuffers();
   initSsaoFramebuffers();
   initSsaoPostProcessingFramebuffers();
   initSyncStructures();
@@ -224,10 +225,10 @@ void VulkanRHI::initMainRenderPass() {
   RenderPassBuilder::begin(_vkDevice)
       .addColorAttachment(_vkbSwapchain.image_format,
                           VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
-      .addDepthAttachment(_depthFormat)
+      .addDepthAttachment(_depthFormat, false)
       .addColorSubpassReference(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
-      .addDepthSubpassReference(
-          0, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+      .addDepthSubpassReference(0,
+                                VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL)
       .setSubpassPipelineBindPoint(0, VK_PIPELINE_BIND_POINT_GRAPHICS)
       .build(_mainRenderPass);
 
@@ -238,7 +239,7 @@ void VulkanRHI::initMainRenderPass() {
 
 void VulkanRHI::initDepthRenderPass() {
   RenderPassBuilder::begin(_vkDevice)
-      .addDepthAttachment(_depthFormat, true)
+      .addDepthAttachment(_depthFormat)
       .setSubpassPipelineBindPoint(0, VK_PIPELINE_BIND_POINT_GRAPHICS)
       .addDepthSubpassReference(
           0, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
@@ -281,18 +282,17 @@ void VulkanRHI::initSwapchainFramebuffers() {
   _vkSwapchainFramebuffers.resize(_vkbSwapchain.image_count);
 
   for (int i = 0; i < _vkbSwapchain.image_count; ++i) {
-    _vkSwapchainFramebuffers[i] = _mainRenderPass.generateFramebuffer(
-        _vmaAllocator, _vkbSwapchain.extent,
-        {.depthImageUsage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT},
-        _swapchainImageViews[i]);
-    _swapchainDeletionQueue.pushFunction(
-        [this, &framebuffer = _vkSwapchainFramebuffers[i]]() {
-          vkDestroyFramebuffer(_vkDevice, framebuffer.vkFramebuffer, nullptr);
-          vkDestroyImageView(_vkDevice, framebuffer.depthBufferImageView,
-                             nullptr);
-          vmaDestroyImage(_vmaAllocator, framebuffer.depthBufferImage.vkImage,
-                          framebuffer.depthBufferImage.allocation);
-        });
+    for (int j = 0; j < frameOverlap; ++j) {
+      _vkSwapchainFramebuffers[i][j] = _mainRenderPass.generateFramebuffer(
+          _vmaAllocator, _vkbSwapchain.extent,
+          {.depthImageUsage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT},
+          _swapchainImageViews[i],
+          _frameDataArray[j].vkDepthPrepassFramebuffer.depthBufferImageView);
+      _swapchainDeletionQueue.pushFunction(
+          [this, &framebuffer = _vkSwapchainFramebuffers[i][j]]() {
+            vkDestroyFramebuffer(_vkDevice, framebuffer.vkFramebuffer, nullptr);
+          });
+    }
   }
 }
 
@@ -417,7 +417,7 @@ void VulkanRHI::initMainPipelineAndLayouts() {
       vkinit::inputAssemblyCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 
   pipelineBuilder._vkDepthStencilStateCreateInfo =
-      vkinit::depthStencilStateCreateInfo(true);
+      vkinit::depthStencilStateCreateInfo(true, false);
 
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
@@ -528,7 +528,7 @@ void VulkanRHI::initShadowPassPipeline() {
       vkinit::inputAssemblyCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 
   pipelineBuilder._vkDepthStencilStateCreateInfo =
-      vkinit::depthStencilStateCreateInfo(true);
+      vkinit::depthStencilStateCreateInfo(true, true);
 
   pipelineBuilder._vkRasterizationCreateInfo =
       vkinit::rasterizationCreateInfo(VK_POLYGON_MODE_FILL);
@@ -576,7 +576,7 @@ void VulkanRHI::initDepthPrepassPipeline() {
       vkinit::inputAssemblyCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 
   pipelineBuilder._vkDepthStencilStateCreateInfo =
-      vkinit::depthStencilStateCreateInfo(true);
+      vkinit::depthStencilStateCreateInfo(true, true);
 
   pipelineBuilder._vkRasterizationCreateInfo =
       vkinit::rasterizationCreateInfo(VK_POLYGON_MODE_FILL);
@@ -624,7 +624,7 @@ void VulkanRHI::initSsaoPipeline() {
   pipelineBuilder._vkInputAssemblyCreateInfo =
       vkinit::inputAssemblyCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
   pipelineBuilder._vkDepthStencilStateCreateInfo =
-      vkinit::depthStencilStateCreateInfo(true);
+      vkinit::depthStencilStateCreateInfo(true, true);
   pipelineBuilder._vkRasterizationCreateInfo =
       vkinit::rasterizationCreateInfo(VK_POLYGON_MODE_FILL);
   pipelineBuilder._vkColorBlendAttachmentState.blendEnable = false;
@@ -692,7 +692,7 @@ void VulkanRHI::initSsaoPostProcessingPipeline() {
       vkinit::inputAssemblyCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 
   pipelineBuilder._vkDepthStencilStateCreateInfo =
-      vkinit::depthStencilStateCreateInfo(false);
+      vkinit::depthStencilStateCreateInfo(false, false);
 
   pipelineBuilder._vkRasterizationCreateInfo =
       vkinit::rasterizationCreateInfo(VK_POLYGON_MODE_FILL);
@@ -880,9 +880,6 @@ void VulkanRHI::initDescriptors() {
                     VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
                     VK_SHADER_STAGE_FRAGMENT_BIT)
         .bindImage(2, vkSsaoImageInfo,
-                   VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                   VK_SHADER_STAGE_FRAGMENT_BIT)
-        .bindImage(3, vkDepthPrepassimageInfo,
                    VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                    VK_SHADER_STAGE_FRAGMENT_BIT)
         .build(frameData.vkMainRenderPassDescriptorSet,

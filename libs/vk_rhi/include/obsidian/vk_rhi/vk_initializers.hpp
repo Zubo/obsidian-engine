@@ -47,7 +47,7 @@ VkImageViewCreateInfo imageViewCreateInfo(VkImage image, VkFormat format,
                                           std::uint32_t mipLevels = 1);
 
 VkPipelineDepthStencilStateCreateInfo
-depthStencilStateCreateInfo(bool depthTestEnable);
+depthStencilStateCreateInfo(bool depthTestEnable, bool const depthTestWrite);
 
 VkCommandBufferBeginInfo commandBufferBeginInfo(
     VkCommandBufferUsageFlags flags,

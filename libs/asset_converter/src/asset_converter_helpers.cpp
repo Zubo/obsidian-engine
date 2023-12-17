@@ -369,7 +369,6 @@ std::size_t generateVerticesFromGltf(
 
     for (std::size_t triangleInd = 0; triangleInd < indAccessor.count / 3;
          ++triangleInd) {
-      ZoneScopedN("GLTF triangle");
       std::array<std::uint32_t, 3> triangleIndices;
 
       for (std::size_t i = 0; i < triangleIndices.size(); ++i) {
@@ -407,12 +406,9 @@ std::size_t generateVerticesFromGltf(
 
         decltype(uniqueIdx.emplace()) insertResult;
 
-        {
-          ZoneScopedN("GLTF unique idx mapping");
-          insertResult = uniqueIdx.emplace(
-              Ind{vertInd, posData, normalData, uvBufferData, tangent},
-              outVertices.size() / sizeof(Vertex));
-        }
+        insertResult = uniqueIdx.emplace(
+            Ind{vertInd, posData, normalData, uvBufferData, tangent},
+            outVertices.size() / sizeof(Vertex));
 
         if (insertResult.second) {
           // new vertex detected

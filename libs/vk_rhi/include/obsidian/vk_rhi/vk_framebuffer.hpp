@@ -32,7 +32,8 @@ struct RenderPass {
   Framebuffer
   generateFramebuffer(VmaAllocator vmaAllocator, VkExtent2D extent,
                       AttachmentImageUsage attachmentUsages,
-                      VkImageView overrideColorImageView = VK_NULL_HANDLE);
+                      VkImageView overrideColorImageView = VK_NULL_HANDLE,
+                      VkImageView overrideDepthImageView = VK_NULL_HANDLE);
 };
 
 } /*namespace obsidian::vk_rhi*/

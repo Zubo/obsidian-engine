@@ -192,13 +192,14 @@ imageViewCreateInfo(VkImage const image, VkFormat const format,
 }
 
 VkPipelineDepthStencilStateCreateInfo
-depthStencilStateCreateInfo(bool const depthTestEnable) {
+depthStencilStateCreateInfo(bool const depthTestEnable,
+                            bool const depthTestWrite) {
   VkPipelineDepthStencilStateCreateInfo createInfo = {};
   createInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
   createInfo.pNext = nullptr;
 
   createInfo.depthTestEnable = depthTestEnable ? VK_TRUE : VK_FALSE;
-  createInfo.depthWriteEnable = depthTestEnable ? VK_TRUE : VK_FALSE;
+  createInfo.depthWriteEnable = depthTestWrite ? VK_TRUE : VK_FALSE;
   createInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
   createInfo.depthBoundsTestEnable = VK_FALSE;
   createInfo.stencilTestEnable = VK_FALSE;
@@ -273,6 +274,27 @@ VkImageMemoryBarrier layoutImageBarrier(VkImage image, VkImageLayout oldLayout,
 
   barrier.oldLayout = oldLayout;
   barrier.newLayout = newLayout;
+  barrier.image = image;
+  barrier.subresourceRange.aspectMask = aspectMask;
+  barrier.subresourceRange.baseMipLevel = 0;
+  barrier.subresourceRange.levelCount = mipLevelCount;
+  barrier.subresourceRange.baseArrayLayer = 0;
+  barrier.subresourceRange.layerCount = 1;
+
+  return barrier;
+}
+
+VkImageMemoryBarrier accessImageBarrier(VkImage image,
+                                        VkAccessFlagBits srcAccessMask,
+                                        VkAccessFlagBits dstAccessMask,
+                                        VkImageAspectFlagBits aspectMask,
+                                        std::uint32_t mipLevelCount) {
+  VkImageMemoryBarrier barrier = {};
+  barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+  barrier.pNext = nullptr;
+
+  barrier.srcAccessMask = srcAccessMask;
+  barrier.dstAccessMask = dstAccessMask;
   barrier.image = image;
   barrier.subresourceRange.aspectMask = aspectMask;
   barrier.subresourceRange.baseMipLevel = 0;

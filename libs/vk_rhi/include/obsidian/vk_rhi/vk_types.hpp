@@ -14,6 +14,8 @@
 
 namespace obsidian::vk_rhi {
 
+static unsigned int const frameOverlap = 2;
+
 enum class ResourceState { pendingUpload, uploaded, unloaded };
 
 struct VertexInputDescription {

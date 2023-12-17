@@ -24,7 +24,7 @@ public:
                                         VkImageLayout finalLayout);
 
   RenderPassBuilder& addDepthAttachment(VkFormat format,
-                                        bool storeResult = false);
+                                        bool storeResult = true);
 
   RenderPassBuilder& setSubpassPipelineBindPoint(std::size_t subpassInd,
                                                  VkPipelineBindPoint bindPoint);
