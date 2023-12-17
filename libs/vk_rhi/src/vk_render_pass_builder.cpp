@@ -36,9 +36,8 @@ RenderPassBuilder& RenderPassBuilder::addDepthAttachment(VkFormat format,
 
   depthAttachmentDescription.loadOp =
       storeResult ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
-  depthAttachmentDescription.storeOp = storeResult
-                                           ? VK_ATTACHMENT_STORE_OP_STORE
-                                           : VK_ATTACHMENT_STORE_OP_DONT_CARE;
+  depthAttachmentDescription.storeOp =
+      storeResult ? VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_NONE;
 
   if (!storeResult) {
     depthAttachmentDescription.initialLayout =

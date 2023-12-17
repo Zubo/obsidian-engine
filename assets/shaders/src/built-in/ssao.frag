@@ -29,7 +29,7 @@ void main() {
 
   const mat3x3 TBN = mat3x3(tangent, bitangent, normal);
 
-  const float offsetRadius = 1.0f;
+  const float offsetRadius = 30.0f;
   const float maxDepthDiff = 0.001f;
 
   float occlusionFactor = 0.0f;

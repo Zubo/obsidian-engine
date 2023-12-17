@@ -23,7 +23,6 @@
 #include <cstring>
 #include <numeric>
 #include <random>
-#include <vulkan/vulkan_core.h>
 
 using namespace obsidian::vk_rhi;
 
@@ -253,7 +252,7 @@ void VulkanRHI::initDepthRenderPass() {
 void VulkanRHI::initSsaoRenderPass() {
   RenderPassBuilder::begin(_vkDevice)
       .addColorAttachment(_ssaoFormat, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
-      .addDepthAttachment(_depthFormat)
+      .addDepthAttachment(_depthFormat, false)
       .setSubpassPipelineBindPoint(0, VK_PIPELINE_BIND_POINT_GRAPHICS)
       .addColorSubpassReference(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
       .addDepthSubpassReference(
@@ -284,9 +283,7 @@ void VulkanRHI::initSwapchainFramebuffers() {
   for (int i = 0; i < _vkbSwapchain.image_count; ++i) {
     for (int j = 0; j < frameOverlap; ++j) {
       _vkSwapchainFramebuffers[i][j] = _mainRenderPass.generateFramebuffer(
-          _vmaAllocator, _vkbSwapchain.extent,
-          {.depthImageUsage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT},
-          _swapchainImageViews[i],
+          _vmaAllocator, _vkbSwapchain.extent, {}, _swapchainImageViews[i],
           _frameDataArray[j].vkDepthPrepassFramebuffer.depthBufferImageView);
       _swapchainDeletionQueue.pushFunction(
           [this, &framebuffer = _vkSwapchainFramebuffers[i][j]]() {
@@ -312,6 +309,36 @@ void VulkanRHI::initDepthPrepassFramebuffers() {
                           framebuffer.depthBufferImage.allocation);
         });
   }
+
+  VkImageCreateInfo depthPrepassResultImgCreateInfo = vkinit::imageCreateInfo(
+      VK_IMAGE_USAGE_SAMPLED_BIT,
+      {_vkbSwapchain.extent.height, _vkbSwapchain.extent.height, 1},
+      _depthFormat);
+  depthPrepassResultImgCreateInfo.initialLayout =
+      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+
+  VmaAllocationCreateInfo depthPrepassResultAllocationCreateInfo = {};
+  depthPrepassResultAllocationCreateInfo.usage =
+      VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+
+  VK_CHECK(vmaCreateImage(_vmaAllocator, &depthPrepassResultImgCreateInfo,
+                          &depthPrepassResultAllocationCreateInfo,
+                          &_depthPassResultShaderReadImage.vkImage,
+                          &_depthPassResultShaderReadImage.allocation,
+                          nullptr));
+
+  VkImageViewCreateInfo const depthPrepassResultImgViewCreateInfo =
+      vkinit::imageViewCreateInfo(_depthPassResultShaderReadImage.vkImage,
+                                  _depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+
+  VK_CHECK(vkCreateImageView(_vkDevice, &depthPrepassResultImgViewCreateInfo,
+                             nullptr, &_depthPassResultShaderReadImageView));
+
+  _swapchainDeletionQueue.pushFunction([this]() {
+    vkDestroyImageView(_vkDevice, _depthPassResultShaderReadImageView, nullptr);
+    vmaDestroyImage(_vmaAllocator, _depthPassResultShaderReadImage.vkImage,
+                    _depthPassResultShaderReadImage.allocation);
+  });
 }
 
 void VulkanRHI::initShadowPassFramebuffers() {
@@ -344,21 +371,21 @@ void VulkanRHI::initSsaoFramebuffers() {
   for (FrameData& frameData : _frameDataArray) {
     frameData.vkSsaoFramebuffer = _ssaoRenderPass.generateFramebuffer(
         _vmaAllocator, _vkbSwapchain.extent,
-        {.colorImageUsage =
-             VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-         .depthImageUsage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT});
+        {
+            .colorImageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+                               VK_IMAGE_USAGE_SAMPLED_BIT,
+        },
+        VK_NULL_HANDLE,
+        frameData.vkDepthPrepassFramebuffer.depthBufferImageView);
 
-    _swapchainDeletionQueue.pushFunction([this,
-                                          &framebuffer =
-                                              frameData.vkSsaoFramebuffer]() {
-      vkDestroyFramebuffer(_vkDevice, framebuffer.vkFramebuffer, nullptr);
-      vkDestroyImageView(_vkDevice, framebuffer.colorBufferImageView, nullptr);
-      vmaDestroyImage(_vmaAllocator, framebuffer.colorBufferImage.vkImage,
-                      framebuffer.colorBufferImage.allocation);
-      vkDestroyImageView(_vkDevice, framebuffer.depthBufferImageView, nullptr);
-      vmaDestroyImage(_vmaAllocator, framebuffer.depthBufferImage.vkImage,
-                      framebuffer.depthBufferImage.allocation);
-    });
+    _swapchainDeletionQueue.pushFunction(
+        [this, &framebuffer = frameData.vkSsaoFramebuffer]() {
+          vkDestroyFramebuffer(_vkDevice, framebuffer.vkFramebuffer, nullptr);
+          vkDestroyImageView(_vkDevice, framebuffer.colorBufferImageView,
+                             nullptr);
+          vmaDestroyImage(_vmaAllocator, framebuffer.colorBufferImage.vkImage,
+                          framebuffer.colorBufferImage.allocation);
+        });
   }
 }
 
@@ -624,7 +651,7 @@ void VulkanRHI::initSsaoPipeline() {
   pipelineBuilder._vkInputAssemblyCreateInfo =
       vkinit::inputAssemblyCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
   pipelineBuilder._vkDepthStencilStateCreateInfo =
-      vkinit::depthStencilStateCreateInfo(true, true);
+      vkinit::depthStencilStateCreateInfo(true, false);
   pipelineBuilder._vkRasterizationCreateInfo =
       vkinit::rasterizationCreateInfo(VK_POLYGON_MODE_FILL);
   pipelineBuilder._vkColorBlendAttachmentState.blendEnable = false;
@@ -661,9 +688,6 @@ void VulkanRHI::initSsaoPipeline() {
   });
 
   pipelineBuilder._vkPipelineLayout = _vkSsaoPipelineLayout;
-
-  // pipelineBuilder._vertexInputDescription =
-  //     Vertex::getVertexInputDescription(true, true, false, true, false);
 
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
@@ -1021,8 +1045,7 @@ void VulkanRHI::initSsaoDescriptors() {
     noiseDescriptorImageInfo.sampler = _ssaoNoiseSampler;
 
     VkDescriptorImageInfo depthDescriptorImageInfo = {};
-    depthDescriptorImageInfo.imageView =
-        frameData.vkDepthPrepassFramebuffer.depthBufferImageView;
+    depthDescriptorImageInfo.imageView = _depthPassResultShaderReadImageView;
     depthDescriptorImageInfo.imageLayout =
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     depthDescriptorImageInfo.sampler = _vkDepthSampler;

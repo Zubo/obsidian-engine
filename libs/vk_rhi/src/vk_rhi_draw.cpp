@@ -125,14 +125,52 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
 
   vkCmdEndRenderPass(cmd);
 
-  VkImageMemoryBarrier depthImageMemoryBarrier = vkinit::layoutImageBarrier(
-      currentFrameData.vkDepthPrepassFramebuffer.depthBufferImage.vkImage,
-      VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
+  // transfer depth prepass
+  VkImageMemoryBarrier depthPrepassAttachmentBarrier =
+      vkinit::layoutImageBarrier(
+          currentFrameData.vkDepthPrepassFramebuffer.depthBufferImage.vkImage,
+          VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+          VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
 
-  vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-                       VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, 0, 0, nullptr, 0,
-                       nullptr, 1, &depthImageMemoryBarrier);
+  vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                       VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
+                       nullptr, 1, &depthPrepassAttachmentBarrier);
+
+  VkImageCopy vkImageCopy = {};
+  vkImageCopy.extent = {_vkbSwapchain.extent.width, _vkbSwapchain.extent.height,
+                        1};
+  vkImageCopy.srcSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+  vkImageCopy.srcSubresource.baseArrayLayer = 0;
+  vkImageCopy.srcSubresource.layerCount = 1;
+  vkImageCopy.srcSubresource.mipLevel = 0;
+  vkImageCopy.dstSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+  vkImageCopy.dstSubresource.baseArrayLayer = 0;
+  vkImageCopy.dstSubresource.layerCount = 1;
+  vkImageCopy.dstSubresource.mipLevel = 0;
+
+  vkCmdCopyImage(
+      cmd, currentFrameData.vkDepthPrepassFramebuffer.depthBufferImage.vkImage,
+      VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+      _depthPassResultShaderReadImage.vkImage, VK_IMAGE_LAYOUT_UNDEFINED, 1,
+      &vkImageCopy);
+
+  depthPrepassAttachmentBarrier.oldLayout =
+      VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+  depthPrepassAttachmentBarrier.newLayout =
+      VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+
+  vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                       VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, 0, 0,
+                       nullptr, 0, nullptr, 1, &depthPrepassAttachmentBarrier);
+
+  VkImageMemoryBarrier depthPrepassShaderReadBarrier =
+      vkinit::layoutImageBarrier(_depthPassResultShaderReadImage.vkImage,
+                                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                 VK_IMAGE_ASPECT_DEPTH_BIT);
+  vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                       VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0,
+                       nullptr, 1, &depthPrepassShaderReadBarrier);
 
   // Ssao pass
   GPUCameraData gpuCameraData = getSceneCameraData(sceneParams);
@@ -267,6 +305,11 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
     vkCmdEndRenderPass(cmd);
   }
 
+  VkImageMemoryBarrier depthImageMemoryBarrier = vkinit::layoutImageBarrier(
+      currentFrameData.vkDepthPrepassFramebuffer.depthBufferImage.vkImage,
+      VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
+
   for (std::size_t i = 0; i < currentFrameData.shadowFrameBuffers.size(); ++i) {
     bool const depthAttachmentUsed = i < submittedParams.size();
     depthImageMemoryBarrier.oldLayout =
@@ -279,17 +322,6 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
                          VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr,
                          0, nullptr, 1, &depthImageMemoryBarrier);
   }
-
-  VkImageMemoryBarrier depthAttachmentMemoryBarrier =
-      vkinit::layoutImageBarrier(
-          currentFrameData.vkDepthPrepassFramebuffer.depthBufferImage.vkImage,
-          VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-          VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
-          VK_IMAGE_ASPECT_DEPTH_BIT);
-
-  vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                       VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, 0, nullptr, 0,
-                       nullptr, 1, &depthAttachmentMemoryBarrier);
 
   // Color pass:
   std::array<VkClearValue, 2> clearValues;

@@ -136,6 +136,8 @@ private:
   VkDescriptorSetLayout _vkDepthPassDescriptorSetLayout;
   VkDescriptorSet _depthPrepassDescriptorSet;
   rhi::ResourceIdRHI _depthPassShaderId;
+  AllocatedImage _depthPassResultShaderReadImage;
+  VkImageView _depthPassResultShaderReadImageView;
 
   // Shadow pass
   VkPipeline _vkShadowPassPipeline;
