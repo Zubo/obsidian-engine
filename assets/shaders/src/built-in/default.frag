@@ -266,9 +266,7 @@ void main() {
 #endif
 
 #ifdef _HAS_COLOR
-  if (!materialData.hasDiffuseTex) {
-    diffuseColor *= vec4(inColor, 1.0f);
-  }
+  diffuseColor *= vec4(inColor, 1.0f);
 #endif
 
   vec3 finalColor = (ambientColor + diffuseColor + specularColor).xyz;
