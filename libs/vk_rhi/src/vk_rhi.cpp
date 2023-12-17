@@ -857,8 +857,8 @@ void VulkanRHI::applyPendingExtentUpdate() {
 
     initSwapchain(*_pendingExtentUpdate);
     initMainRenderPass();
-    initSwapchainFramebuffers();
     initDepthPrepassFramebuffers();
+    initSwapchainFramebuffers();
     initSsaoFramebuffers();
     initSsaoPostProcessingFramebuffers();
     initDescriptors();

@@ -312,7 +312,7 @@ void VulkanRHI::initDepthPrepassFramebuffers() {
 
   VkImageCreateInfo depthPrepassResultImgCreateInfo = vkinit::imageCreateInfo(
       VK_IMAGE_USAGE_SAMPLED_BIT,
-      {_vkbSwapchain.extent.height, _vkbSwapchain.extent.height, 1},
+      {_vkbSwapchain.extent.width, _vkbSwapchain.extent.height, 1},
       _depthFormat);
   depthPrepassResultImgCreateInfo.initialLayout =
       VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
