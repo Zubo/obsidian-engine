@@ -36,11 +36,12 @@ RenderPassBuilder& RenderPassBuilder::addDepthAttachment(VkFormat format,
 
   depthAttachmentDescription.loadOp =
       storeResult ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
-  depthAttachmentDescription.storeOp =
-      storeResult ? VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_NONE;
+  depthAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 
   if (!storeResult) {
     depthAttachmentDescription.initialLayout =
+        VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+    depthAttachmentDescription.finalLayout =
         VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
   }
 

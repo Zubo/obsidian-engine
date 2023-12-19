@@ -136,6 +136,15 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
                        VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
                        nullptr, 1, &depthPrepassAttachmentBarrier);
 
+  VkImageMemoryBarrier depthPrepassShaderReadBarrier =
+      vkinit::layoutImageBarrier(
+          _depthPassResultShaderReadImage.vkImage, VK_IMAGE_LAYOUT_UNDEFINED,
+          VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
+
+  vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                       VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
+                       nullptr, 1, &depthPrepassShaderReadBarrier);
+
   VkImageCopy vkImageCopy = {};
   vkImageCopy.extent = {_vkbSwapchain.extent.width, _vkbSwapchain.extent.height,
                         1};
@@ -151,8 +160,8 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   vkCmdCopyImage(
       cmd, currentFrameData.vkDepthPrepassFramebuffer.depthBufferImage.vkImage,
       VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-      _depthPassResultShaderReadImage.vkImage, VK_IMAGE_LAYOUT_UNDEFINED, 1,
-      &vkImageCopy);
+      _depthPassResultShaderReadImage.vkImage,
+      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &vkImageCopy);
 
   depthPrepassAttachmentBarrier.oldLayout =
       VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
@@ -160,14 +169,14 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
       VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 
   vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                       VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, 0, 0,
-                       nullptr, 0, nullptr, 1, &depthPrepassAttachmentBarrier);
+                       VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, 0, nullptr, 0,
+                       nullptr, 1, &depthPrepassAttachmentBarrier);
 
-  VkImageMemoryBarrier depthPrepassShaderReadBarrier =
-      vkinit::layoutImageBarrier(_depthPassResultShaderReadImage.vkImage,
-                                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                 VK_IMAGE_ASPECT_DEPTH_BIT);
+  depthPrepassShaderReadBarrier.oldLayout =
+      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+  depthPrepassShaderReadBarrier.newLayout =
+      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
   vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
                        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0,
                        nullptr, 1, &depthPrepassShaderReadBarrier);
@@ -306,8 +315,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   }
 
   VkImageMemoryBarrier depthImageMemoryBarrier = vkinit::layoutImageBarrier(
-      currentFrameData.vkDepthPrepassFramebuffer.depthBufferImage.vkImage,
-      VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+      VK_NULL_HANDLE, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
       VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
 
   for (std::size_t i = 0; i < currentFrameData.shadowFrameBuffers.size(); ++i) {

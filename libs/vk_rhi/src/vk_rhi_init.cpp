@@ -297,8 +297,8 @@ void VulkanRHI::initDepthPrepassFramebuffers() {
   for (FrameData& frameData : _frameDataArray) {
     frameData.vkDepthPrepassFramebuffer = _depthRenderPass.generateFramebuffer(
         _vmaAllocator, _vkbSwapchain.extent,
-        {.depthImageUsage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
-                            VK_IMAGE_USAGE_SAMPLED_BIT});
+        {.depthImageUsage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+                            VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT});
 
     _swapchainDeletionQueue.pushFunction(
         [this, &framebuffer = frameData.vkDepthPrepassFramebuffer]() {
@@ -311,11 +311,10 @@ void VulkanRHI::initDepthPrepassFramebuffers() {
   }
 
   VkImageCreateInfo depthPrepassResultImgCreateInfo = vkinit::imageCreateInfo(
-      VK_IMAGE_USAGE_SAMPLED_BIT,
+      VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
       {_vkbSwapchain.extent.width, _vkbSwapchain.extent.height, 1},
       _depthFormat);
-  depthPrepassResultImgCreateInfo.initialLayout =
-      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+  depthPrepassResultImgCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
   VmaAllocationCreateInfo depthPrepassResultAllocationCreateInfo = {};
   depthPrepassResultAllocationCreateInfo.usage =
