@@ -1,3 +1,4 @@
+#include <obsidian/core/shapes.hpp>
 #include <obsidian/core/utils/aabb.hpp>
 #include <obsidian/core/vertex_type.hpp>
 #include <obsidian/rhi/rhi.hpp>
@@ -84,7 +85,24 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   depthPassBeginInfo.clearValueCount = 1;
   depthPassBeginInfo.pClearValues = &depthClearValue;
 
+  GPUCameraData sceneCameraData = getSceneCameraData(sceneParams);
+
   // depth prepass:
+  auto const sortByDistanceFunc = [viewProj = sceneCameraData.viewProj](
+                                      auto const& dc1, auto const& dc2) {
+    glm::vec4 dc1Center =
+        viewProj * dc1.model * glm::vec4{core::getCenter(dc1.mesh->aabb), 1.0f};
+    glm::vec3 dc1CenterNdc = dc1Center / dc1Center.w;
+
+    glm::vec4 dc2Center =
+        viewProj * dc2.model * glm::vec4{core::getCenter(dc2.mesh->aabb), 1.0f};
+    glm::vec3 dc2CenterNdc = dc2Center / dc2Center.w;
+
+    return dc1CenterNdc.z < dc2CenterNdc.z;
+  };
+
+  std::sort(_drawCallQueue.begin(), _drawCallQueue.end(), sortByDistanceFunc);
+
   std::size_t const frameInd = _frameNumber % frameOverlap;
 
   depthPassBeginInfo.renderArea.extent = {_vkbSwapchain.extent.width,
@@ -93,8 +111,6 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
       _frameDataArray[frameInd].vkDepthPrepassFramebuffer.vkFramebuffer;
 
   vkCmdBeginRenderPass(cmd, &depthPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-  GPUCameraData sceneCameraData = getSceneCameraData(sceneParams);
 
   VkViewport viewport;
   viewport.x = 0.0f;
@@ -181,7 +197,10 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
                        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0,
                        nullptr, 1, &depthPrepassShaderReadBarrier);
 
-  // Ssao pass
+  // ssao pass
+  std::sort(_ssaoDrawCallQueue.begin(), _ssaoDrawCallQueue.end(),
+            sortByDistanceFunc);
+
   GPUCameraData gpuCameraData = getSceneCameraData(sceneParams);
   uploadBufferData(frameInd, gpuCameraData, _cameraBuffer);
 
@@ -230,7 +249,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
                        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0,
                        nullptr, 1, &ssaoImageMemoryBarrier);
 
-  // Ssao post processing
+  // ssao post processing
   VkRenderPassBeginInfo ssaoPostProcessingRenderPassBeginInfo = {};
   ssaoPostProcessingRenderPassBeginInfo.sType =
       VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;

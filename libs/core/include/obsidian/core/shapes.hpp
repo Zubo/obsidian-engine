@@ -24,4 +24,8 @@ inline bool overlaps(Box3D b1, Box3D b2) {
          (b1.topCorner.z >= b2.bottomCorner.z);
 }
 
+inline glm::vec3 getCenter(Box3D const& box) {
+  return (box.topCorner + box.bottomCorner) / 2.0f;
+}
+
 } /*namespace obsidian::core */
