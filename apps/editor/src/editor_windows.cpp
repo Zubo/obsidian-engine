@@ -228,7 +228,8 @@ void selectGameObjMesh(int gameObjMeshInd) {
           indexorDefault(materialsInProj, materialRelativePath, -1);
     }
 
-    if (selectedGameObjMats[i] < 0) {
+    if (selectedGameObjMats[i] < 0 &&
+        selectedGameObjMeshAssetInfo.defaultMatRelativePaths.size()) {
       selectedGameObjMats[i] = indexorDefault(
           materialsInProj,
           selectedGameObjMeshAssetInfo.defaultMatRelativePaths[i], -1);

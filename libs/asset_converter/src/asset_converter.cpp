@@ -396,7 +396,8 @@ bool AssetConverter::convertGltfToAsset(fs::path const& srcPath,
         [meshInd = i, &meshAssetInfo, &vertexCount = vertexCountPerMesh[i],
          &model, &outVertices = outVerticesPerMesh[i],
          &outSurfaces = outSurfacesPerMesh[i]]() {
-          outSurfaces.resize(model.materials.size());
+          std::size_t const materialCnt = model.materials.size();
+          outSurfaces.resize(materialCnt ? materialCnt : 1);
           vertexCount = callGenerateVerticesFromGltfMesh(
               meshAssetInfo, model, meshInd, outVertices, outSurfaces,
               meshAssetInfo.aabb);
@@ -478,9 +479,11 @@ bool AssetConverter::convertGltfToAsset(fs::path const& srcPath,
                                                outSurfaces[j].size());
       meshAssetInfo.indexCount += outSurfaces[j].size();
 
-      int const matInd = materialIndices[j];
-      meshAssetInfo.defaultMatRelativePaths.push_back(
-          extractedMaterialPaths[vertInfoInt][matInd]);
+      if (materialIndices.size()) {
+        int const matInd = materialIndices[j];
+        meshAssetInfo.defaultMatRelativePaths.push_back(
+            extractedMaterialPaths[vertInfoInt][matInd]);
+      }
     }
 
     std::size_t const totalIndexBufferSize =
