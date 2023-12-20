@@ -76,7 +76,7 @@ static bool assetListDirty = false;
 static std::array<char const*, 2> materialTypes = {"unlit", "lit"};
 static std::array<char const*, 4> textureTypes = {
     "Unknown", "R8G8B8A8_SRGB", "R8G8B8A8_LINEAR", "R32G32_SFLOAT"};
-static bool engineInitialized = false;
+static bool openEngineTab = false;
 scene::GameObject* pendingObjDelete = nullptr;
 
 void refreshAssetLists() {
@@ -302,8 +302,9 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
                bool& engineStarted) {
 
   ImGuiTabItemFlags engineTabFlags = 0;
-  if (engineInitialized) {
+  if (openEngineTab) {
     engineTabFlags = ImGuiTabItemFlags_SetSelected;
+    openEngineTab = false;
   }
 
   if (ImGui::BeginTabItem("Engine", NULL, engineTabFlags)) {
@@ -555,7 +556,7 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
       if (ImGui::Button("Start Engine")) {
         engineStarted = engine.init(sdl_wrapper::SDLBackend::instance(),
                                     project.getOpenProjectPath());
-        engineInitialized = true;
+        openEngineTab = true;
       }
     }
 
@@ -723,9 +724,10 @@ void textureEditorTab() {
 
     if (texturesInProj.size()) {
       if (ImGui::Combo("Texture", &selectedTextureInd,
-                       texturePathStringPtrs.data(),
-                       texturePathStringPtrs.size())) {
-        loadTextureData(texturesInProj[selectedTextureInd - 1]);
+                       texturePathStringPtrs.data() + 1,
+                       texturePathStringPtrs.size() - 1) &&
+          selectedTextureInd) {
+        loadTextureData(texturesInProj[selectedTextureInd]);
       }
 
       int currentSelectedFormat =
@@ -791,7 +793,7 @@ void projectTab(ObsidianEngine& engine, bool& engineStarted) {
             assetListDirty = true;
             engineStarted = engine.init(sdl_wrapper::SDLBackend::instance(),
                                         project.getOpenProjectPath());
-            engineInitialized = engineStarted;
+            openEngineTab = engineStarted;
           }
         }
       }
@@ -904,7 +906,7 @@ void fileDropped(const char* file, ObsidianEngine& engine) {
 
   if (srcPath.extension() == globals::prefabAssetExt) {
     // prefab instantiation
-    if (!engineInitialized) {
+    if (!openEngineTab) {
       OBS_LOG_ERR("Can't instantiate prefab if the engine is not initialized.");
       return;
     }
@@ -919,7 +921,7 @@ void fileDropped(const char* file, ObsidianEngine& engine) {
     fs::path dstPath = project.getAbsolutePath(srcPath.filename());
     dstPath.replace_extension("");
 
-    if (engineInitialized) {
+    if (openEngineTab) {
       engine.getContext().taskExecutor.enqueue(
           task::TaskType::general, [&engine, srcPath, dstPath]() {
             obsidian::asset_converter::AssetConverter converter{
