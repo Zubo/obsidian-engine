@@ -35,7 +35,7 @@ shader_define_variants = {
 }
 
 def execute_compilation(shader_src_path, shader_temp_dir, shader_out_name, defines = []):
-    subprocess.check_output(["glslc", "-c", f"{shader_src_path}", "--target-env=vulkan1.2", "-Werror"] + defines + ["-o", f"{shader_temp_dir}/{shader_out_name}.spv"] )
+    subprocess.check_output(["glslc", "-c", f"{shader_src_path}", "--target-env=vulkan1.2", "-Werror", "-Os"] + defines + ["-o", f"{shader_temp_dir}/{shader_out_name}.spv"] )
     subprocess.check_output(["glslc", "-c", f"{shader_src_path}", "--target-env=vulkan1.2", "-Werror", "-g", "-O0"] + defines + ["-o", f"{shader_temp_dir}/{shader_out_name}-dbg.spv"])
 
 

@@ -3,7 +3,9 @@
 #include <obsidian/renderdoc/renderdoc.hpp>
 #include <obsidian/rhi/resource_rhi.hpp>
 #include <obsidian/rhi/rhi.hpp>
+#include <obsidian/task/task.hpp>
 #include <obsidian/task/task_executor.hpp>
+#include <obsidian/task/task_type.hpp>
 #include <obsidian/vk_rhi/vk_check.hpp>
 #include <obsidian/vk_rhi/vk_descriptors.hpp>
 #include <obsidian/vk_rhi/vk_framebuffer.hpp>
@@ -23,6 +25,7 @@
 #include <cstring>
 #include <numeric>
 #include <random>
+#include <vulkan/vulkan_core.h>
 
 using namespace obsidian::vk_rhi;
 
@@ -1066,32 +1069,64 @@ void VulkanRHI::initSsaoDescriptors() {
 }
 
 void VulkanRHI::initSsaoSamplesAndNoise() {
-  constexpr const std::size_t sampleCount = 64;
-  constexpr const std::size_t noiseCount = 16;
-
-  _ssaoSamplesBuffer = createBuffer(
-      sampleCount * sizeof(glm::vec4), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-      VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
-      VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
-
-  void* data;
-
-  VK_CHECK(vmaMapMemory(_vmaAllocator, _ssaoSamplesBuffer.allocation, &data));
+  constexpr std::size_t sampleCount = 64;
+  constexpr std::size_t sampleBufferSize = sampleCount * sizeof(glm::vec4);
+  constexpr std::size_t noiseCount = 16;
 
   std::random_device randomDevice;
   std::uniform_real_distribution<float> uniformDistribution{0.0001f, 1.0f};
 
-  glm::vec4* const samples = static_cast<glm::vec4*>(data);
+  _ssaoSamplesBuffer = createBuffer(sampleBufferSize,
+                                    VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |
+                                        VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                    VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0);
 
-  for (std::size_t i = 0; i < sampleCount; ++i) {
-    float scale = static_cast<float>(i) / sampleCount;
-    scale = std::lerp(0.1f, 1.0f, scale * scale);
-    samples[i] = {scale * (uniformDistribution(randomDevice) * 2.0f - 1.0f),
-                  scale * (uniformDistribution(randomDevice) * 2.0 - 1.0f),
-                  scale * uniformDistribution(randomDevice), 0.0f};
-  }
+  // Immediate submit uses thread local context so this needs to be sent to rhi
+  // transfer thread. This should be improved to have cleaner api.
+  task::TaskBase& generateTask = _taskExecutor->enqueue(
+      task::TaskType::rhiTransfer,
+      [this, &randomDevice, &uniformDistribution]() {
+        immediateSubmit(
+            _transferQueueFamilyIndex,
+            [this, &randomDevice, &uniformDistribution](VkCommandBuffer cmd) {
+              AllocatedBuffer stagingBuffer = createBuffer(
+                  sampleBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                  VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+                  VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
 
-  vmaUnmapMemory(_vmaAllocator, _ssaoSamplesBuffer.allocation);
+              void* data;
+
+              VK_CHECK(
+                  vmaMapMemory(_vmaAllocator, stagingBuffer.allocation, &data));
+
+              glm::vec4* const samples = static_cast<glm::vec4*>(data);
+
+              for (std::size_t i = 0; i < sampleCount; ++i) {
+                float scale = static_cast<float>(i) / sampleCount;
+                scale = std::lerp(0.1f, 1.0f, scale * scale);
+                samples[i] = {
+                    scale * (uniformDistribution(randomDevice) * 2.0f - 1.0f),
+                    scale * (uniformDistribution(randomDevice) * 2.0 - 1.0f),
+                    scale * uniformDistribution(randomDevice), 0.0f};
+              }
+
+              vmaUnmapMemory(_vmaAllocator, stagingBuffer.allocation);
+
+              VkBufferCopy vkBufferCopy = {};
+              vkBufferCopy.srcOffset = 0;
+              vkBufferCopy.dstOffset = 0;
+              vkBufferCopy.size = sampleBufferSize;
+
+              vkCmdCopyBuffer(cmd, stagingBuffer.buffer,
+                              _ssaoSamplesBuffer.buffer, 1, &vkBufferCopy);
+
+              vmaDestroyBuffer(_vmaAllocator, stagingBuffer.buffer,
+                               stagingBuffer.allocation);
+            });
+      });
+
+  while (!generateTask.isDone())
+    ;
 
   _deletionQueue.pushFunction([this]() {
     vmaDestroyBuffer(_vmaAllocator, _ssaoSamplesBuffer.buffer,
