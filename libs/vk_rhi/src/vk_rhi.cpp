@@ -498,7 +498,10 @@ void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
     bufferInfo.offset = 0;
     bufferInfo.range = VK_WHOLE_SIZE;
     builder.bindBuffer(3, bufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                       VK_SHADER_STAGE_FRAGMENT_BIT);
+                       VK_SHADER_STAGE_FRAGMENT_BIT, nullptr, true);
+  } else {
+    builder.declareUnusedBuffer(3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                                VK_SHADER_STAGE_FRAGMENT_BIT);
   }
 
   builder.build(newMaterial.vkDescriptorSet);

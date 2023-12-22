@@ -15,9 +15,9 @@ layout(location = 4) in mat3 inTBN;
 
 layout(location = 0) out vec4 outFragColor;
 
-#include "include/lighting.frag"
-#include "include/material.frag"
-#include "include/ssao.frag"
+#include "include/lighting.glsl"
+#include "include/material.glsl"
+#include "include/ssao.glsl"
 
 layout(set = 0, binding = 1) uniform SceneData { vec4 ambientColor; }
 sceneData;

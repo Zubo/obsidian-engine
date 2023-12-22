@@ -197,6 +197,7 @@ void RuntimeResource::performUploadToRHI() {
     uploadMaterial.specularColor = info.specularColor;
     uploadMaterial.shininess = info.shininess;
     uploadMaterial.transparent = info.transparent;
+    uploadMaterial.hasTimer = info.hasTimer;
 
     _resourceRHI = &_rhi.initMaterialResource();
     _rhi.uploadMaterial(_resourceRHI->id, uploadMaterial);

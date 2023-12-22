@@ -6,12 +6,7 @@ layout(location = 2) in vec2 inUV;
 
 layout(location = 0) out float outFragColor;
 
-layout(set = 0, binding = 0) uniform CameraBuffer {
-  mat4 view;
-  mat4 proj;
-  mat4 viewProj;
-}
-cameraData;
+#include "include/camera.glsl"
 
 layout(std140, set = 1, binding = 0) uniform ssaoSamples { vec4 values[64]; }
 SsaoSamples;

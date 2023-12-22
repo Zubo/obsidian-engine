@@ -238,7 +238,7 @@ DescriptorBuilder::setFlags(VkDescriptorSetLayoutCreateFlags flags) {
 DescriptorBuilder& DescriptorBuilder::bindBuffer(
     uint32_t binding, VkDescriptorBufferInfo const& bufferInfo,
     VkDescriptorType descriptorType, VkShaderStageFlags stageFlags,
-    const VkSampler* pImmutableSamplers) {
+    const VkSampler* pImmutableSamplers, bool partiallyBound) {
 
   VkDescriptorSetLayoutBinding& vkDescriptorSetLayoutBinding =
       _bindings.emplace_back();
@@ -247,6 +247,10 @@ DescriptorBuilder& DescriptorBuilder::bindBuffer(
   vkDescriptorSetLayoutBinding.descriptorCount = 1;
   vkDescriptorSetLayoutBinding.stageFlags = stageFlags;
   vkDescriptorSetLayoutBinding.pImmutableSamplers = pImmutableSamplers;
+
+  if (partiallyBound) {
+    partiallyBoundBinding(binding);
+  }
 
   VkWriteDescriptorSet& vkWriteDescriptorSet = _writes.emplace_back();
   vkWriteDescriptorSet = {};
@@ -257,6 +261,23 @@ DescriptorBuilder& DescriptorBuilder::bindBuffer(
   vkWriteDescriptorSet.descriptorCount = 1;
   vkWriteDescriptorSet.descriptorType = descriptorType;
   vkWriteDescriptorSet.pBufferInfo = &bufferInfo;
+
+  return *this;
+}
+
+DescriptorBuilder&
+DescriptorBuilder::declareUnusedBuffer(uint32_t binding,
+                                       VkDescriptorType descriptorType,
+                                       VkShaderStageFlags stageFlags) {
+  VkDescriptorSetLayoutBinding& vkDescriptorSetLayoutBinding =
+      _bindings.emplace_back();
+
+  vkDescriptorSetLayoutBinding.binding = binding;
+  vkDescriptorSetLayoutBinding.descriptorType = descriptorType;
+  vkDescriptorSetLayoutBinding.descriptorCount = 1;
+  vkDescriptorSetLayoutBinding.stageFlags = stageFlags;
+
+  partiallyBoundBinding(binding);
 
   return *this;
 }

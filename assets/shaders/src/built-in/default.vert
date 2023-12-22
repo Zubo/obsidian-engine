@@ -25,12 +25,7 @@ layout(location = 3) out vec2 outUV;
 layout(location = 4) out mat3 outTBN;
 #endif
 
-layout(set = 0, binding = 0) uniform CameraBuffer {
-  mat4 view;
-  mat4 proj;
-  mat4 viewProj;
-}
-cameraData;
+#include "include/camera.glsl"
 
 layout(push_constant) uniform constants { mat4 model; }
 PushConstants;

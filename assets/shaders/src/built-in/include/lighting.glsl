@@ -1,8 +1,8 @@
 #ifndef _lighting_
 #define _lighting_
 
-#include "camera.frag"
-#include "material.frag"
+#include "camera.glsl"
+#include "material.glsl"
 
 #define MAX_LIGHT_COUNT 8
 

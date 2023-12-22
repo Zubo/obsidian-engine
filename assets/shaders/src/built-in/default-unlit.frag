@@ -10,7 +10,7 @@ layout(location = 1) in vec2 inUV;
 
 layout(location = 0) out vec4 outFragColor;
 
-#include "include/material.frag"
+#include "include/material.glsl"
 
 layout(set = 2, binding = 1) uniform sampler2D diffuseTex;
 

@@ -80,7 +80,13 @@ public:
                                 VkDescriptorBufferInfo const& bufferInfo,
                                 VkDescriptorType descriptorType,
                                 VkShaderStageFlags stageFlags,
-                                const VkSampler* pImmutableSamplers = nullptr);
+                                const VkSampler* pImmutableSamplers = nullptr,
+                                bool partiallyBound = false);
+
+  DescriptorBuilder& declareUnusedBuffer(uint32_t binding,
+                                         VkDescriptorType descriptorType,
+                                         VkShaderStageFlags stageFlags);
+
   DescriptorBuilder& bindImage(uint32_t binding,
                                VkDescriptorImageInfo const& imageInfo,
                                VkDescriptorType descriptorType,

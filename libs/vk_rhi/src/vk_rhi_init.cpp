@@ -914,7 +914,7 @@ void VulkanRHI::initDescriptors() {
   }
 
   {
-    std::array<VkDescriptorSetLayoutBinding, 3> litMaterialBinding = {};
+    std::array<VkDescriptorSetLayoutBinding, 4> litMaterialBinding = {};
     litMaterialBinding[0].binding = 0;
     litMaterialBinding[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     litMaterialBinding[0].descriptorCount = 1;
@@ -932,8 +932,14 @@ void VulkanRHI::initDescriptors() {
     litMaterialBinding[2].descriptorCount = 1;
     litMaterialBinding[2].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-    std::array<VkDescriptorBindingFlags, 3> bindingFlags = {
+    litMaterialBinding[3].binding = 3;
+    litMaterialBinding[3].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    litMaterialBinding[3].descriptorCount = 1;
+    litMaterialBinding[3].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    std::array<VkDescriptorBindingFlags, 4> bindingFlags = {
         0, VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT,
+        VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT,
         VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT};
 
     VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsCreateInfo = {};
@@ -958,7 +964,7 @@ void VulkanRHI::initDescriptors() {
   }
 
   {
-    std::array<VkDescriptorSetLayoutBinding, 2> unlitMaterialBinding = {};
+    std::array<VkDescriptorSetLayoutBinding, 3> unlitMaterialBinding = {};
 
     unlitMaterialBinding[0].binding = 0;
     unlitMaterialBinding[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -971,8 +977,14 @@ void VulkanRHI::initDescriptors() {
     unlitMaterialBinding[1].descriptorCount = 1;
     unlitMaterialBinding[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-    std::array<VkDescriptorBindingFlags, 2> bindingFlags = {
-        0, VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT};
+    unlitMaterialBinding[2].binding = 3;
+    unlitMaterialBinding[2].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    unlitMaterialBinding[2].descriptorCount = 1;
+    unlitMaterialBinding[2].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    std::array<VkDescriptorBindingFlags, 3> bindingFlags = {
+        0, VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT,
+        VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT};
 
     VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsCreateInfo = {};
     bindingFlagsCreateInfo.sType =
