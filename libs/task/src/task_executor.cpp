@@ -8,6 +8,8 @@
 using namespace obsidian::task;
 
 void TaskExecutor::initAndRun(std::vector<ThreadInitInfo> threadInit) {
+  std::scoped_lock l{_taskQueueMutex};
+
   _running = true;
 
   for (ThreadInitInfo const& initInfo : threadInit) {
@@ -28,9 +30,11 @@ TaskExecutor::~TaskExecutor() {
 }
 
 void TaskExecutor::workerFunc(TaskType taskType) {
+  std::unique_lock lock{_taskQueueMutex};
+
   TaskQueue& taskQueue = _taskQueues.at(taskType);
 
-  std::unique_lock lock{taskQueueMutex, std::defer_lock};
+  lock.unlock();
 
   while (true) {
     lock.lock();

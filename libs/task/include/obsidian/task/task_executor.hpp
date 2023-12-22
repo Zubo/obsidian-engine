@@ -36,7 +36,7 @@ public:
 
     assert(queue != _taskQueues.cend());
 
-    std::unique_lock l{taskQueueMutex};
+    std::unique_lock l{_taskQueueMutex};
 
     using TaskType = Task<decltype(std::forward<F>(func))>;
 
@@ -60,7 +60,7 @@ private:
   std::map<TaskType, TaskQueue> _taskQueues;
   std::vector<std::unique_ptr<TaskBase>> _dequeuedTasks;
   std::vector<std::thread> _threads;
-  std::mutex taskQueueMutex;
+  std::mutex _taskQueueMutex;
   bool _running = false;
   bool _shutdownComplete = false;
 };
