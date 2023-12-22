@@ -594,6 +594,7 @@ void materialCreatorTab() {
     static int selectedShader = 0;
     static float selectedShininess = 16.0f;
     static bool selectedMatTransparent = false;
+    static bool selectedMatUsesTimer = false;
     static glm::vec4 selectedAmbientColor = {1.0f, 1.0f, 1.0f, 1.0f};
     static glm::vec4 selectedDiffuseColor = {1.0f, 1.0f, 1.0f, 1.0f};
     static glm::vec4 selectedSpecularColor = {1.0f, 1.0f, 1.0f, 1.0f};
@@ -648,6 +649,9 @@ void materialCreatorTab() {
       if (ImGui::Checkbox("Transparent", &selectedMatTransparent)) {
       }
 
+      if (ImGui::Checkbox("Uses Timer", &selectedMatUsesTimer)) {
+      }
+
       std::size_t matNameLen = std::strlen(matName);
       bool disabled = matNameLen == 0;
 
@@ -667,6 +671,7 @@ void materialCreatorTab() {
         mtlAssetInfo.diffuseColor = selectedDiffuseColor;
         mtlAssetInfo.specularColor = selectedSpecularColor;
         mtlAssetInfo.transparent = selectedMatTransparent;
+        mtlAssetInfo.hasTimer = selectedMatUsesTimer;
 
         if (selectedDiffuseTex > 0) {
           mtlAssetInfo.diffuseTexturePath =
@@ -907,7 +912,7 @@ void fileDropped(const char* file, ObsidianEngine& engine) {
 
   if (srcPath.extension() == globals::prefabAssetExt) {
     // prefab instantiation
-    if (!openEngineTab) {
+    if (!engine.isInitialized()) {
       OBS_LOG_ERR("Can't instantiate prefab if the engine is not initialized.");
       return;
     }
@@ -922,7 +927,7 @@ void fileDropped(const char* file, ObsidianEngine& engine) {
     fs::path dstPath = project.getAbsolutePath(srcPath.filename());
     dstPath.replace_extension("");
 
-    if (openEngineTab) {
+    if (engine.isInitialized()) {
       engine.getContext().taskExecutor.enqueue(
           task::TaskType::general, [&engine, srcPath, dstPath]() {
             obsidian::asset_converter::AssetConverter converter{

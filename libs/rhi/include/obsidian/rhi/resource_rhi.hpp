@@ -60,6 +60,7 @@ struct UploadMaterialRHI {
   glm::vec4 specularColor;
   float shininess;
   bool transparent;
+  bool hasTimer;
 };
 
 struct InitResourcesRHI {

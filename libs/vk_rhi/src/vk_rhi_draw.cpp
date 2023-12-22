@@ -74,6 +74,8 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
 
   VK_CHECK(vkBeginCommandBuffer(cmd, &vkCommandBufferBeginInfo));
 
+  updateTimerBuffer(cmd);
+
   VkClearValue depthClearValue;
   depthClearValue.depthStencil.depth = 1.0f;
 

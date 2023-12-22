@@ -18,6 +18,7 @@ void VulkanRHI::cleanup() {
 
     _swapchainDeletionQueue.flush();
     _deletionQueue.flush();
+    destroyImmediateCtxForCurrentThread();
 
     vkb::destroy_swapchain(_vkbSwapchain);
 

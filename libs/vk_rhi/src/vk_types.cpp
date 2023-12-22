@@ -11,6 +11,7 @@ ImmediateSubmitContext::~ImmediateSubmitContext() {
   if (initialized) {
     vkDestroyCommandPool(device, vkCommandPool, nullptr);
     vkDestroyFence(device, vkFence, nullptr);
+    initialized = false;
   }
 }
 

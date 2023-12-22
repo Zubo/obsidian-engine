@@ -78,7 +78,8 @@ bool ObsidianEngine::init(IWindowBackendProvider const& windowBackendProvider,
                                 _context.taskExecutor);
   _context.resourceManager.uploadInitRHIResources();
 
-  return true;
+  _isInitialized = true;
+  return _isInitialized;
 }
 
 void ObsidianEngine::cleanup() {
@@ -183,3 +184,5 @@ ObsidianEngineContext& ObsidianEngine::getContext() { return _context; }
 ObsidianEngineContext const& ObsidianEngine::getContext() const {
   return _context;
 }
+
+bool const ObsidianEngine::isInitialized() const { return _isInitialized; }

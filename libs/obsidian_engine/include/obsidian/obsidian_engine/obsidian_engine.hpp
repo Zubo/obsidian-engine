@@ -45,9 +45,11 @@ public:
   void processFrame();
   ObsidianEngineContext& getContext();
   ObsidianEngineContext const& getContext() const;
+  bool const isInitialized() const;
 
 private:
   ObsidianEngineContext _context;
+  bool _isInitialized = false;
 };
 
 } /*namespace obsidian*/

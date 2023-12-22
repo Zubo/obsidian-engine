@@ -19,6 +19,7 @@ constexpr char const* ambientColorJsonName = "ambientColor";
 constexpr char const* diffuseColorJsonName = "diffuseColor";
 constexpr char const* specularColorJsonName = "specularColor";
 constexpr char const* transparentJsonName = "transparent";
+constexpr char const* hasTimerJsonName = "hasTimer";
 
 bool readMaterialAssetInfo(AssetMetadata const& assetmetadata,
                            MaterialAssetInfo& outMaterialAssetInfo) {
@@ -46,6 +47,7 @@ bool readMaterialAssetInfo(AssetMetadata const& assetmetadata,
     outMaterialAssetInfo.specularColor.b = json[specularColorJsonName]["b"];
     outMaterialAssetInfo.specularColor.a = json[specularColorJsonName]["a"];
     outMaterialAssetInfo.transparent = json[transparentJsonName];
+    outMaterialAssetInfo.hasTimer = json[hasTimerJsonName];
   } catch (std::exception const& e) {
     OBS_LOG_ERR(e.what());
     return false;
@@ -87,6 +89,7 @@ bool packMaterial(MaterialAssetInfo const& materialAssetInfo,
     json[specularColorJsonName]["b"] = materialAssetInfo.specularColor.b;
     json[specularColorJsonName]["a"] = materialAssetInfo.specularColor.a;
     json[transparentJsonName] = materialAssetInfo.transparent;
+    json[hasTimerJsonName] = materialAssetInfo.hasTimer;
 
     outAsset.metadata->json = json.dump();
 

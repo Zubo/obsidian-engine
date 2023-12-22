@@ -492,6 +492,15 @@ void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
     }
   }
 
+  if (uploadMaterial.hasTimer) {
+    VkDescriptorBufferInfo bufferInfo = {};
+    bufferInfo.buffer = _timerBuffer.buffer;
+    bufferInfo.offset = 0;
+    bufferInfo.range = VK_WHOLE_SIZE;
+    builder.bindBuffer(3, bufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                       VK_SHADER_STAGE_FRAGMENT_BIT);
+  }
+
   builder.build(newMaterial.vkDescriptorSet);
 
   expected = rhi::ResourceState::uploading;
@@ -620,46 +629,35 @@ void VulkanRHI::updateExtent(rhi::WindowExtentRHI newExtent) {
 void VulkanRHI::immediateSubmit(
     std::uint32_t queueInd,
     std::function<void(VkCommandBuffer cmd)>&& function) {
-  thread_local std::unordered_map<std::uint32_t, ImmediateSubmitContext>
-      immediateSubmitContext;
-  thread_local bool contextsInitialized = false;
-
-  if (!contextsInitialized) {
-    for (auto const& q : _gpuQueues) {
-      initImmediateSubmitContext(immediateSubmitContext[q.first], q.first);
-    }
-
-    contextsInitialized = true;
-  }
+  ImmediateSubmitContext& immediateSubmitContext =
+      getImmediateCtxForCurrentThread(queueInd);
 
   VkCommandBufferBeginInfo commandBufferBeginInfo =
       vkinit::commandBufferBeginInfo(
           VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
-  VK_CHECK(
-      vkBeginCommandBuffer(immediateSubmitContext[queueInd].vkCommandBuffer,
-                           &commandBufferBeginInfo));
+  VK_CHECK(vkBeginCommandBuffer(immediateSubmitContext.vkCommandBuffer,
+                                &commandBufferBeginInfo));
 
-  function(immediateSubmitContext[queueInd].vkCommandBuffer);
+  function(immediateSubmitContext.vkCommandBuffer);
 
-  VK_CHECK(
-      vkEndCommandBuffer(immediateSubmitContext[queueInd].vkCommandBuffer));
+  VK_CHECK(vkEndCommandBuffer(immediateSubmitContext.vkCommandBuffer));
 
-  VkSubmitInfo submit = vkinit::commandBufferSubmitInfo(
-      &immediateSubmitContext[queueInd].vkCommandBuffer);
+  VkSubmitInfo submit =
+      vkinit::commandBufferSubmitInfo(&immediateSubmitContext.vkCommandBuffer);
 
   {
     std::scoped_lock l{_gpuQueueMutexes[queueInd]};
     VK_CHECK(vkQueueSubmit(_gpuQueues[queueInd], 1, &submit,
-                           immediateSubmitContext[queueInd].vkFence));
+                           immediateSubmitContext.vkFence));
   }
 
-  vkWaitForFences(_vkDevice, 1, &immediateSubmitContext[queueInd].vkFence,
-                  VK_TRUE, 9999999999);
-  vkResetFences(_vkDevice, 1, &immediateSubmitContext[queueInd].vkFence);
+  vkWaitForFences(_vkDevice, 1, &immediateSubmitContext.vkFence, VK_TRUE,
+                  9999999999);
+  vkResetFences(_vkDevice, 1, &immediateSubmitContext.vkFence);
 
-  VK_CHECK(vkResetCommandPool(
-      _vkDevice, immediateSubmitContext[queueInd].vkCommandPool, 0));
+  VK_CHECK(
+      vkResetCommandPool(_vkDevice, immediateSubmitContext.vkCommandPool, 0));
 }
 
 FrameData& VulkanRHI::getCurrentFrameData() {
@@ -868,4 +866,27 @@ void VulkanRHI::applyPendingExtentUpdate() {
 
     _pendingExtentUpdate = std::nullopt;
   }
+}
+
+static thread_local std::unordered_map<std::uint32_t, ImmediateSubmitContext>
+    immediateSubmitContext;
+static thread_local bool contextsInitialized = false;
+
+ImmediateSubmitContext&
+VulkanRHI::getImmediateCtxForCurrentThread(std::uint32_t queueIdx) {
+  if (!contextsInitialized) {
+    for (auto const& q : _gpuQueues) {
+      initImmediateSubmitContext(immediateSubmitContext[q.first], q.first);
+    }
+
+    contextsInitialized = true;
+  }
+
+  return immediateSubmitContext[queueIdx];
+}
+
+// used on main thread to manually destroy the context
+void VulkanRHI::destroyImmediateCtxForCurrentThread() {
+  immediateSubmitContext = {};
+  contextsInitialized = false;
 }

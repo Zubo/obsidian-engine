@@ -19,6 +19,7 @@
 
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <functional>
 #include <mutex>
@@ -195,6 +196,12 @@ private:
   AllocatedBuffer _postProcessingQuadBuffer;
   std::optional<rhi::WindowExtentRHI> _pendingExtentUpdate = std::nullopt;
 
+  // Timer
+  AllocatedBuffer _timerStagingBuffer;
+  AllocatedBuffer _timerBuffer;
+  using Clock = std::chrono::high_resolution_clock;
+  std::chrono::time_point<Clock> _engineInitTimePoint;
+
   void initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider);
   void initSwapchain(rhi::WindowExtentRHI const& extent);
   void initCommands();
@@ -226,10 +233,15 @@ private:
   void initPostProcessingQuad();
   void initImmediateSubmitContext(ImmediateSubmitContext& context,
                                   std::uint32_t queueInd);
+  void initTimer();
   void immediateSubmit(std::uint32_t queueInd,
                        std::function<void(VkCommandBuffer cmd)>&& function);
   void uploadMesh(Mesh& mesh);
   void applyPendingExtentUpdate();
+  void updateTimerBuffer(VkCommandBuffer cmd);
+  ImmediateSubmitContext&
+  getImmediateCtxForCurrentThread(std::uint32_t queueIdx);
+  void destroyImmediateCtxForCurrentThread();
 
   FrameData& getCurrentFrameData();
 
