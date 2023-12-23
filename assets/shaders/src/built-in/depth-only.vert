@@ -2,7 +2,12 @@
 
 layout(location = 0) in vec3 vPosition;
 
-#include "include/camera.glsl"
+layout(set = 1, binding = 0) uniform CameraBuffer {
+  mat4 view;
+  mat4 proj;
+  mat4 viewProj;
+}
+cameraData;
 
 layout(push_constant) uniform constants { mat4 model; }
 PushConstants;

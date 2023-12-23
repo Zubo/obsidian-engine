@@ -766,7 +766,7 @@ VulkanRHI::getSceneCameraData(rhi::SceneGlobalParams const& sceneParams) const {
       glm::perspective(glm::radians(60.f),
                        static_cast<float>(_vkbSwapchain.extent.width) /
                            _vkbSwapchain.extent.height,
-                       0.1f, 200.f);
+                       0.1f, 400.f);
   proj[1][1] *= -1;
 
   // Map NDC from [-1, 1] to [0, 1]

@@ -33,14 +33,6 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
     return;
   }
 
-  auto const drawCallSortComp = [](auto const& d1, auto const& d2) {
-    return d1.material < d2.material;
-  };
-
-  std::sort(_drawCallQueue.begin(), _drawCallQueue.end(), drawCallSortComp);
-  std::sort(_transparentDrawCallQueue.begin(), _transparentDrawCallQueue.end(),
-            drawCallSortComp);
-
   FrameData& currentFrameData = getCurrentFrameData();
 
   constexpr std::uint64_t timeoutNanoseconds = 10000000000;
@@ -89,9 +81,25 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
 
   GPUCameraData sceneCameraData = getSceneCameraData(sceneParams);
 
+  auto const sortByDistanceDescending = [viewProj = sceneCameraData.viewProj](
+                                            auto const& dc1, auto const& dc2) {
+    glm::vec4 dc1Center =
+        viewProj * dc1.model * glm::vec4{core::getCenter(dc1.mesh->aabb), 1.0f};
+    glm::vec3 dc1CenterNdc = dc1Center / dc1Center.w;
+
+    glm::vec4 dc2Center =
+        viewProj * dc2.model * glm::vec4{core::getCenter(dc2.mesh->aabb), 1.0f};
+    glm::vec3 dc2CenterNdc = dc2Center / dc2Center.w;
+
+    return dc1CenterNdc.z > dc2CenterNdc.z;
+  };
+
+  std::sort(_transparentDrawCallQueue.begin(), _transparentDrawCallQueue.end(),
+            sortByDistanceDescending);
+
   // depth prepass:
-  auto const sortByDistanceFunc = [viewProj = sceneCameraData.viewProj](
-                                      auto const& dc1, auto const& dc2) {
+  auto const sortByDistanceAscending = [viewProj = sceneCameraData.viewProj](
+                                           auto const& dc1, auto const& dc2) {
     glm::vec4 dc1Center =
         viewProj * dc1.model * glm::vec4{core::getCenter(dc1.mesh->aabb), 1.0f};
     glm::vec3 dc1CenterNdc = dc1Center / dc1Center.w;
@@ -103,7 +111,8 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
     return dc1CenterNdc.z < dc2CenterNdc.z;
   };
 
-  std::sort(_drawCallQueue.begin(), _drawCallQueue.end(), sortByDistanceFunc);
+  std::sort(_drawCallQueue.begin(), _drawCallQueue.end(),
+            sortByDistanceAscending);
 
   std::size_t const frameInd = _frameNumber % frameOverlap;
 
@@ -201,7 +210,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
 
   // ssao pass
   std::sort(_ssaoDrawCallQueue.begin(), _ssaoDrawCallQueue.end(),
-            sortByDistanceFunc);
+            sortByDistanceAscending);
 
   GPUCameraData gpuCameraData = getSceneCameraData(sceneParams);
   uploadBufferData(frameInd, gpuCameraData, _cameraBuffer);
