@@ -3,6 +3,7 @@
 layout(location = 0) in vec3 inPos;
 
 layout(location = 0) out vec3 outWorldPos;
+layout(location = 1) out mat4 outModel;
 
 #include "include/camera.glsl"
 
@@ -12,4 +13,5 @@ pushConstants;
 void main() {
   gl_Position = cameraData.viewProj * pushConstants.model * vec4(inPos, 1.0f);
   outWorldPos = (pushConstants.model * vec4(inPos, 1.0f)).xyz;
+  outModel = pushConstants.model;
 }
