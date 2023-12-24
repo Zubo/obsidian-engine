@@ -354,6 +354,35 @@ void VulkanRHI::drawColorPass(DrawPassParams const& params,
   vkCmdEndRenderPass(cmd);
 }
 
+void VulkanRHI::present(VkSemaphore renderSemaphore,
+                        std::uint32_t swapchainImageIndex) {
+
+  VkPresentInfoKHR vkPresentInfo = {};
+  vkPresentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+  vkPresentInfo.pNext = nullptr;
+
+  vkPresentInfo.pSwapchains = &_vkbSwapchain.swapchain;
+  vkPresentInfo.swapchainCount = 1;
+
+  vkPresentInfo.waitSemaphoreCount = 1;
+  vkPresentInfo.pWaitSemaphores = &renderSemaphore;
+
+  vkPresentInfo.pImageIndices = &swapchainImageIndex;
+
+  VkResult presentResult;
+  {
+    std::scoped_lock l{_gpuQueueMutexes[_graphicsQueueFamilyIndex]};
+    presentResult = vkQueuePresentKHR(_gpuQueues[_graphicsQueueFamilyIndex],
+                                      &vkPresentInfo);
+  }
+
+  if (presentResult == VK_ERROR_OUT_OF_DATE_KHR ||
+      presentResult == VK_SUBOPTIMAL_KHR) {
+  } else {
+    VK_CHECK(presentResult);
+  }
+}
+
 void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   applyPendingExtentUpdate();
 
@@ -480,30 +509,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
                            params.currentFrameData.vkRenderFence));
   }
 
-  VkPresentInfoKHR vkPresentInfo = {};
-  vkPresentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-  vkPresentInfo.pNext = nullptr;
-
-  vkPresentInfo.pSwapchains = &_vkbSwapchain.swapchain;
-  vkPresentInfo.swapchainCount = 1;
-
-  vkPresentInfo.waitSemaphoreCount = 1;
-  vkPresentInfo.pWaitSemaphores = &params.currentFrameData.vkRenderSemaphore;
-
-  vkPresentInfo.pImageIndices = &swapchainImageIndex;
-
-  VkResult presentResult;
-  {
-    std::scoped_lock l{_gpuQueueMutexes[_graphicsQueueFamilyIndex]};
-    presentResult = vkQueuePresentKHR(_gpuQueues[_graphicsQueueFamilyIndex],
-                                      &vkPresentInfo);
-  }
-
-  if (presentResult == VK_ERROR_OUT_OF_DATE_KHR ||
-      presentResult == VK_SUBOPTIMAL_KHR) {
-  } else {
-    VK_CHECK(presentResult);
-  }
+  present(params.currentFrameData.vkRenderSemaphore, swapchainImageIndex);
 
   _submittedDirectionalLights.clear();
   _submittedSpotlights.clear();

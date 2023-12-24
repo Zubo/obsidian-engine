@@ -311,6 +311,7 @@ private:
   void drawShadowPasses(struct DrawPassParams const& params);
   void drawColorPass(struct DrawPassParams const& params,
                      glm::vec3 ambientColor, VkFramebuffer targetFramebuffer);
+  void present(VkSemaphore renderSemaphore, std::uint32_t swapchainImageIndex);
 };
 
 } /*namespace obsidian::vk_rhi*/
