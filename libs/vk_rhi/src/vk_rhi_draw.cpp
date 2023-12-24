@@ -37,16 +37,19 @@ struct DrawPassParams {
 template <bool ascending> // if false, then descending
 auto getSortByDistanceFunc(glm::mat4 viewProj) {
   return [viewProj](auto const& dc1, auto const& dc2) {
-    glm::vec4 dc1Center =
-        viewProj * dc1.model * glm::vec4{core::getCenter(dc1.mesh->aabb), 1.0f};
-    glm::vec3 dc1CenterNdc = dc1Center / dc1Center.w;
+    glm::vec4 const topCorner1 =
+        viewProj * dc1.model * glm::vec4{dc1.mesh->aabb.topCorner, 1.0f};
+    glm::vec4 const bottomCorner1 =
+        viewProj * dc1.model * glm::vec4{dc1.mesh->aabb.bottomCorner, 1.0f};
+    float const minDist1 = std::min(topCorner1.w, bottomCorner1.w);
 
-    glm::vec4 dc2Center =
-        viewProj * dc2.model * glm::vec4{core::getCenter(dc2.mesh->aabb), 1.0f};
-    glm::vec3 dc2CenterNdc = dc2Center / dc2Center.w;
+    glm::vec4 const topCorner2 =
+        viewProj * dc2.model * glm::vec4{dc2.mesh->aabb.topCorner, 1.0f};
+    glm::vec4 const bottomCorner2 =
+        viewProj * dc2.model * glm::vec4{dc2.mesh->aabb.bottomCorner, 1.0f};
+    float const minDist2 = std::min(topCorner2.w, bottomCorner2.w);
 
-    return ascending ? (dc1CenterNdc.z < dc2CenterNdc.z)
-                     : (dc1CenterNdc.z > dc2CenterNdc.z);
+    return ascending ? (minDist1 < minDist2) : (minDist1 > minDist2);
   };
 }
 
