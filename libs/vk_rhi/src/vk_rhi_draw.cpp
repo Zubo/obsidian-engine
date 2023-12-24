@@ -19,6 +19,7 @@
 #include <mutex>
 #include <numeric>
 
+using namespace obsidian;
 using namespace obsidian::vk_rhi;
 
 namespace obsidian::vk_rhi {
@@ -32,6 +33,22 @@ struct DrawPassParams {
 };
 
 } // namespace obsidian::vk_rhi
+
+template <bool ascending> // if false, then descending
+auto getSortByDistanceFunc(glm::mat4 viewProj) {
+  return [viewProj](auto const& dc1, auto const& dc2) {
+    glm::vec4 dc1Center =
+        viewProj * dc1.model * glm::vec4{core::getCenter(dc1.mesh->aabb), 1.0f};
+    glm::vec3 dc1CenterNdc = dc1Center / dc1Center.w;
+
+    glm::vec4 dc2Center =
+        viewProj * dc2.model * glm::vec4{core::getCenter(dc2.mesh->aabb), 1.0f};
+    glm::vec3 dc2CenterNdc = dc2Center / dc2Center.w;
+
+    return ascending ? (dc1CenterNdc.z < dc2CenterNdc.z)
+                     : (dc1CenterNdc.z > dc2CenterNdc.z);
+  };
+}
 
 void VulkanRHI::drawDepthPrepass(DrawPassParams const& params) {
   VkClearValue depthClearValue;
@@ -443,41 +460,20 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
 
   updateTimerBuffer(cmd);
 
-  auto const sortByDistanceDescending = [viewProj = params.cameraData.viewProj](
-                                            auto const& dc1, auto const& dc2) {
-    glm::vec4 dc1Center =
-        viewProj * dc1.model * glm::vec4{core::getCenter(dc1.mesh->aabb), 1.0f};
-    glm::vec3 dc1CenterNdc = dc1Center / dc1Center.w;
-
-    glm::vec4 dc2Center =
-        viewProj * dc2.model * glm::vec4{core::getCenter(dc2.mesh->aabb), 1.0f};
-    glm::vec3 dc2CenterNdc = dc2Center / dc2Center.w;
-
-    return dc1CenterNdc.z > dc2CenterNdc.z;
-  };
+  auto const sortByDistanceAscending =
+      getSortByDistanceFunc<true>(params.cameraData.viewProj);
+  auto const sortByDistanceDescending =
+      getSortByDistanceFunc<false>(params.cameraData.viewProj);
 
   std::sort(_transparentDrawCallQueue.begin(), _transparentDrawCallQueue.end(),
             sortByDistanceDescending);
-
-  auto const sortByDistanceAscending = [viewProj = params.cameraData.viewProj](
-                                           auto const& dc1, auto const& dc2) {
-    glm::vec4 dc1Center =
-        viewProj * dc1.model * glm::vec4{core::getCenter(dc1.mesh->aabb), 1.0f};
-    glm::vec3 dc1CenterNdc = dc1Center / dc1Center.w;
-
-    glm::vec4 dc2Center =
-        viewProj * dc2.model * glm::vec4{core::getCenter(dc2.mesh->aabb), 1.0f};
-    glm::vec3 dc2CenterNdc = dc2Center / dc2Center.w;
-
-    return dc1CenterNdc.z < dc2CenterNdc.z;
-  };
-
   std::sort(_drawCallQueue.begin(), _drawCallQueue.end(),
             sortByDistanceAscending);
-  drawDepthPrepass(params);
-
   std::sort(_ssaoDrawCallQueue.begin(), _ssaoDrawCallQueue.end(),
             sortByDistanceAscending);
+
+  drawDepthPrepass(params);
+
   drawSsaoPass(params);
 
   drawSsaoPostProcessing(params);
