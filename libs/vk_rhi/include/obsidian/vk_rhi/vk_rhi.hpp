@@ -304,6 +304,13 @@ private:
   GPUCameraData
   getSceneCameraData(rhi::SceneGlobalParams const& sceneParams) const;
   GPULightData getGPULightData() const;
+
+  void drawDepthPrepass(struct DrawPassParams const& params);
+  void drawSsaoPass(struct DrawPassParams const& params);
+  void drawSsaoPostProcessing(struct DrawPassParams const& params);
+  void drawShadowPasses(struct DrawPassParams const& params);
+  void drawColorPass(struct DrawPassParams const& params,
+                     glm::vec3 ambientColor, VkFramebuffer targetFramebuffer);
 };
 
 } /*namespace obsidian::vk_rhi*/

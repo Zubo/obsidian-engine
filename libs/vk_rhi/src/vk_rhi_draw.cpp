@@ -3,6 +3,7 @@
 #include <obsidian/core/vertex_type.hpp>
 #include <obsidian/rhi/rhi.hpp>
 #include <obsidian/vk_rhi/vk_check.hpp>
+#include <obsidian/vk_rhi/vk_frame_data.hpp>
 #include <obsidian/vk_rhi/vk_initializers.hpp>
 #include <obsidian/vk_rhi/vk_mesh.hpp>
 #include <obsidian/vk_rhi/vk_rhi.hpp>
@@ -20,54 +21,19 @@
 
 using namespace obsidian::vk_rhi;
 
-void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
-  applyPendingExtentUpdate();
+namespace obsidian::vk_rhi {
 
-  if (_skipFrame) {
-    _submittedDirectionalLights.clear();
-    _submittedSpotlights.clear();
-    _drawCallQueue.clear();
-    _ssaoDrawCallQueue.clear();
-    _transparentDrawCallQueue.clear();
-    _skipFrame = false;
-    return;
-  }
+struct DrawPassParams {
+  FrameData currentFrameData;
+  GPUCameraData cameraData;
+  std::size_t frameInd;
+  VkViewport viewport;
+  VkRect2D scissor;
+};
 
-  FrameData& currentFrameData = getCurrentFrameData();
+} // namespace obsidian::vk_rhi
 
-  constexpr std::uint64_t timeoutNanoseconds = 10000000000;
-  {
-    ZoneScopedN("Wait For Render Fence");
-    VK_CHECK(vkWaitForFences(_vkDevice, 1, &currentFrameData.vkRenderFence,
-                             true, timeoutNanoseconds));
-  }
-
-  VK_CHECK(vkResetFences(_vkDevice, 1, &currentFrameData.vkRenderFence));
-
-  destroyUnreferencedResources();
-
-  uint32_t swapchainImageIndex;
-  {
-    ZoneScopedN("Acquire Next Image");
-    VK_CHECK(vkAcquireNextImageKHR(_vkDevice, _vkbSwapchain, timeoutNanoseconds,
-                                   currentFrameData.vkPresentSemaphore,
-                                   VK_NULL_HANDLE, &swapchainImageIndex));
-  }
-
-  VkCommandBuffer cmd = currentFrameData.vkCommandBuffer;
-
-  VK_CHECK(vkResetCommandBuffer(cmd, 0));
-
-  VkCommandBufferBeginInfo vkCommandBufferBeginInfo = {};
-  vkCommandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-  vkCommandBufferBeginInfo.pNext = nullptr;
-  vkCommandBufferBeginInfo.pInheritanceInfo = nullptr;
-  vkCommandBufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-  VK_CHECK(vkBeginCommandBuffer(cmd, &vkCommandBufferBeginInfo));
-
-  updateTimerBuffer(cmd);
-
+void VulkanRHI::drawDepthPrepass(DrawPassParams const& params) {
   VkClearValue depthClearValue;
   depthClearValue.depthStencil.depth = 1.0f;
 
@@ -79,83 +45,38 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   depthPassBeginInfo.clearValueCount = 1;
   depthPassBeginInfo.pClearValues = &depthClearValue;
 
-  GPUCameraData sceneCameraData = getSceneCameraData(sceneParams);
-
-  auto const sortByDistanceDescending = [viewProj = sceneCameraData.viewProj](
-                                            auto const& dc1, auto const& dc2) {
-    glm::vec4 dc1Center =
-        viewProj * dc1.model * glm::vec4{core::getCenter(dc1.mesh->aabb), 1.0f};
-    glm::vec3 dc1CenterNdc = dc1Center / dc1Center.w;
-
-    glm::vec4 dc2Center =
-        viewProj * dc2.model * glm::vec4{core::getCenter(dc2.mesh->aabb), 1.0f};
-    glm::vec3 dc2CenterNdc = dc2Center / dc2Center.w;
-
-    return dc1CenterNdc.z > dc2CenterNdc.z;
-  };
-
-  std::sort(_transparentDrawCallQueue.begin(), _transparentDrawCallQueue.end(),
-            sortByDistanceDescending);
-
-  // depth prepass:
-  auto const sortByDistanceAscending = [viewProj = sceneCameraData.viewProj](
-                                           auto const& dc1, auto const& dc2) {
-    glm::vec4 dc1Center =
-        viewProj * dc1.model * glm::vec4{core::getCenter(dc1.mesh->aabb), 1.0f};
-    glm::vec3 dc1CenterNdc = dc1Center / dc1Center.w;
-
-    glm::vec4 dc2Center =
-        viewProj * dc2.model * glm::vec4{core::getCenter(dc2.mesh->aabb), 1.0f};
-    glm::vec3 dc2CenterNdc = dc2Center / dc2Center.w;
-
-    return dc1CenterNdc.z < dc2CenterNdc.z;
-  };
-
-  std::sort(_drawCallQueue.begin(), _drawCallQueue.end(),
-            sortByDistanceAscending);
-
-  std::size_t const frameInd = _frameNumber % frameOverlap;
-
   depthPassBeginInfo.renderArea.extent = {_vkbSwapchain.extent.width,
                                           _vkbSwapchain.extent.height};
   depthPassBeginInfo.framebuffer =
-      _frameDataArray[frameInd].vkDepthPrepassFramebuffer.vkFramebuffer;
+      _frameDataArray[params.frameInd].vkDepthPrepassFramebuffer.vkFramebuffer;
+
+  VkCommandBuffer cmd = params.currentFrameData.vkCommandBuffer;
 
   vkCmdBeginRenderPass(cmd, &depthPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-  VkViewport viewport;
-  viewport.x = 0.0f;
-  viewport.y = 0.0f;
-  viewport.width = _vkbSwapchain.extent.width;
-  viewport.height = _vkbSwapchain.extent.height;
-  viewport.minDepth = 0.0f;
-  viewport.maxDepth = 1.0f;
-
-  VkRect2D scissor;
-  scissor.offset = {0, 0};
-  scissor.extent = _vkbSwapchain.extent;
-
-  uploadBufferData(frameInd, sceneCameraData, _cameraBuffer);
+  uploadBufferData(params.frameInd, params.cameraData, _cameraBuffer);
 
   std::vector<std::uint32_t> const depthPassDynamicOffsets = {
       0, 0,
-      static_cast<std::uint32_t>(frameInd *
+      static_cast<std::uint32_t>(params.frameInd *
                                  getPaddedBufferSize(sizeof(GPUCameraData)))};
 
   VertexInputSpec const depthPrepassInputSpec = {true, false, false, false,
                                                  false};
 
-  drawPassNoMaterials(
-      cmd, _drawCallQueue.data(), _drawCallQueue.size(), sceneCameraData,
-      _vkDepthPrepassPipeline, _vkDepthPipelineLayout, depthPassDynamicOffsets,
-      _depthPrepassDescriptorSet, depthPrepassInputSpec, viewport, scissor);
+  drawPassNoMaterials(cmd, _drawCallQueue.data(), _drawCallQueue.size(),
+                      params.cameraData, _vkDepthPrepassPipeline,
+                      _vkDepthPipelineLayout, depthPassDynamicOffsets,
+                      _depthPrepassDescriptorSet, depthPrepassInputSpec,
+                      params.viewport, params.scissor);
 
   vkCmdEndRenderPass(cmd);
 
   // transfer depth prepass
   VkImageMemoryBarrier depthPrepassAttachmentBarrier =
       vkinit::layoutImageBarrier(
-          currentFrameData.vkDepthPrepassFramebuffer.depthBufferImage.vkImage,
+          params.currentFrameData.vkDepthPrepassFramebuffer.depthBufferImage
+              .vkImage,
           VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
           VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
 
@@ -184,11 +105,12 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   vkImageCopy.dstSubresource.layerCount = 1;
   vkImageCopy.dstSubresource.mipLevel = 0;
 
-  vkCmdCopyImage(
-      cmd, currentFrameData.vkDepthPrepassFramebuffer.depthBufferImage.vkImage,
-      VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-      _depthPassResultShaderReadImage.vkImage,
-      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &vkImageCopy);
+  vkCmdCopyImage(cmd,
+                 params.currentFrameData.vkDepthPrepassFramebuffer
+                     .depthBufferImage.vkImage,
+                 VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                 _depthPassResultShaderReadImage.vkImage,
+                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &vkImageCopy);
 
   depthPrepassAttachmentBarrier.oldLayout =
       VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
@@ -207,20 +129,17 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
                        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0,
                        nullptr, 1, &depthPrepassShaderReadBarrier);
+}
 
-  // ssao pass
-  std::sort(_ssaoDrawCallQueue.begin(), _ssaoDrawCallQueue.end(),
-            sortByDistanceAscending);
-
-  GPUCameraData gpuCameraData = getSceneCameraData(sceneParams);
-  uploadBufferData(frameInd, gpuCameraData, _cameraBuffer);
+void VulkanRHI::drawSsaoPass(DrawPassParams const& params) {
+  uploadBufferData(params.frameInd, params.cameraData, _cameraBuffer);
 
   VkRenderPassBeginInfo ssaoRenderPassBeginInfo = {};
   ssaoRenderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
   ssaoRenderPassBeginInfo.pNext = nullptr;
   ssaoRenderPassBeginInfo.renderPass = _ssaoRenderPass.vkRenderPass;
   ssaoRenderPassBeginInfo.framebuffer =
-      currentFrameData.vkSsaoFramebuffer.vkFramebuffer;
+      params.currentFrameData.vkSsaoFramebuffer.vkFramebuffer;
   ssaoRenderPassBeginInfo.renderArea.offset = {0, 0};
   ssaoRenderPassBeginInfo.renderArea.extent = _vkbSwapchain.extent;
   std::array<VkClearValue, 2> ssaoClearValues = {};
@@ -229,38 +148,41 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   ssaoRenderPassBeginInfo.clearValueCount = ssaoClearValues.size();
   ssaoRenderPassBeginInfo.pClearValues = ssaoClearValues.data();
 
+  VkCommandBuffer cmd = params.currentFrameData.vkCommandBuffer;
+
   vkCmdBeginRenderPass(cmd, &ssaoRenderPassBeginInfo,
                        VK_SUBPASS_CONTENTS_INLINE);
 
-  vkCmdSetViewport(cmd, 0, 1, &viewport);
-  vkCmdSetScissor(cmd, 0, 1, &scissor);
+  vkCmdSetViewport(cmd, 0, 1, &params.viewport);
+  vkCmdSetScissor(cmd, 0, 1, &params.scissor);
 
   std::vector<std::uint32_t> const ssaoDynamicOffsets{
-      static_cast<std::uint32_t>(frameInd *
+      static_cast<std::uint32_t>(params.frameInd *
                                  getPaddedBufferSize(sizeof(GPUCameraData))),
-      static_cast<std::uint32_t>(frameInd *
+      static_cast<std::uint32_t>(params.frameInd *
                                  getPaddedBufferSize(sizeof(GPUSceneData)))};
 
   VertexInputSpec const ssaoVertInputSpec = {true, true, false, true, false};
 
   drawPassNoMaterials(cmd, _ssaoDrawCallQueue.data(), _ssaoDrawCallQueue.size(),
-                      sceneCameraData, _vkSsaoPipeline, _vkSsaoPipelineLayout,
+                      params.cameraData, _vkSsaoPipeline, _vkSsaoPipelineLayout,
                       ssaoDynamicOffsets,
-                      currentFrameData.vkSsaoRenderPassDescriptorSet,
-                      ssaoVertInputSpec, viewport, scissor);
+                      params.currentFrameData.vkSsaoRenderPassDescriptorSet,
+                      ssaoVertInputSpec, params.viewport, params.scissor);
 
   vkCmdEndRenderPass(cmd);
 
   VkImageMemoryBarrier ssaoImageMemoryBarrier = vkinit::layoutImageBarrier(
-      currentFrameData.vkSsaoFramebuffer.colorBufferImage.vkImage,
+      params.currentFrameData.vkSsaoFramebuffer.colorBufferImage.vkImage,
       VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
       VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
   vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
                        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0,
                        nullptr, 1, &ssaoImageMemoryBarrier);
+}
 
-  // ssao post processing
+void VulkanRHI::drawSsaoPostProcessing(DrawPassParams const& params) {
   VkRenderPassBeginInfo ssaoPostProcessingRenderPassBeginInfo = {};
   ssaoPostProcessingRenderPassBeginInfo.sType =
       VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -269,7 +191,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   ssaoPostProcessingRenderPassBeginInfo.renderPass =
       _postProcessingRenderPass.vkRenderPass;
   ssaoPostProcessingRenderPassBeginInfo.framebuffer =
-      currentFrameData.vkSsaoPostProcessingFramebuffer.vkFramebuffer;
+      params.currentFrameData.vkSsaoPostProcessingFramebuffer.vkFramebuffer;
   ssaoPostProcessingRenderPassBeginInfo.renderArea.offset = {0, 0};
   ssaoPostProcessingRenderPassBeginInfo.renderArea.extent =
       _vkbSwapchain.extent;
@@ -279,6 +201,8 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   ssaoPostProcessingRenderPassBeginInfo.clearValueCount = 1;
   ssaoPostProcessingRenderPassBeginInfo.pClearValues =
       &ssaoPostProcessingClearColorValue;
+
+  VkCommandBuffer cmd = params.currentFrameData.vkCommandBuffer;
 
   vkCmdBeginRenderPass(cmd, &ssaoPostProcessingRenderPassBeginInfo,
                        VK_SUBPASS_CONTENTS_INLINE);
@@ -292,41 +216,59 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
 
   drawPostProcessing(
       cmd, kernel,
-      currentFrameData.vkSsaoPostProcessingFramebuffer.vkFramebuffer,
-      currentFrameData.vkSsaoPostProcessingDescriptorSet, viewport, scissor);
+      params.currentFrameData.vkSsaoPostProcessingFramebuffer.vkFramebuffer,
+      params.currentFrameData.vkSsaoPostProcessingDescriptorSet,
+      params.viewport, params.scissor);
 
   vkCmdEndRenderPass(cmd);
 
   VkImageMemoryBarrier ssaoPostProcessingBarrier = vkinit::layoutImageBarrier(
-      currentFrameData.vkSsaoPostProcessingFramebuffer.colorBufferImage.vkImage,
+      params.currentFrameData.vkSsaoPostProcessingFramebuffer.colorBufferImage
+          .vkImage,
       VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
       VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
   vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
                        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0,
                        nullptr, 1, &ssaoPostProcessingBarrier);
+}
 
-  // Shadow passes:
+void VulkanRHI::drawShadowPasses(DrawPassParams const& params) {
   std::vector<ShadowPassParams> submittedParams =
       getSubmittedShadowPassParams();
 
   VertexInputSpec const shadowPassVertInputSpec = {true, false, false, false,
                                                    false};
 
+  VkClearValue depthClearValue;
+  depthClearValue.depthStencil.depth = 1.0f;
+
+  VkRenderPassBeginInfo depthPassBeginInfo = {};
+  depthPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+  depthPassBeginInfo.pNext = nullptr;
+  depthPassBeginInfo.renderPass = _depthRenderPass.vkRenderPass;
+  depthPassBeginInfo.renderArea.offset = {0, 0};
+  depthPassBeginInfo.clearValueCount = 1;
+  depthPassBeginInfo.pClearValues = &depthClearValue;
+
   depthPassBeginInfo.renderArea.extent = {shadowPassAttachmentWidth,
                                           shadowPassAttachmentHeight};
+  depthPassBeginInfo.framebuffer =
+      _frameDataArray[params.frameInd].vkDepthPrepassFramebuffer.vkFramebuffer;
+
+  VkCommandBuffer cmd = params.currentFrameData.vkCommandBuffer;
 
   for (ShadowPassParams const& shadowPass : submittedParams) {
     assert(shadowPass.shadowMapIndex >= 0);
 
     depthPassBeginInfo.framebuffer =
-        currentFrameData.shadowFrameBuffers[shadowPass.shadowMapIndex]
+        params.currentFrameData.shadowFrameBuffers[shadowPass.shadowMapIndex]
             .vkFramebuffer;
 
     vkCmdBeginRenderPass(cmd, &depthPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
     std::size_t const cameraBufferInd =
-        frameInd * rhi::maxLightsPerDrawPass + shadowPass.shadowMapIndex;
+        params.frameInd * rhi::maxLightsPerDrawPass + shadowPass.shadowMapIndex;
 
     uploadBufferData(cameraBufferInd, shadowPass.gpuCameraData,
                      _shadowPassCameraBuffer);
@@ -348,62 +290,175 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
       VK_NULL_HANDLE, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
       VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
 
-  for (std::size_t i = 0; i < currentFrameData.shadowFrameBuffers.size(); ++i) {
+  for (std::size_t i = 0; i < params.currentFrameData.shadowFrameBuffers.size();
+       ++i) {
     bool const depthAttachmentUsed = i < submittedParams.size();
     depthImageMemoryBarrier.oldLayout =
         depthAttachmentUsed ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
                             : VK_IMAGE_LAYOUT_UNDEFINED;
     depthImageMemoryBarrier.image =
-        currentFrameData.shadowFrameBuffers[i].depthBufferImage.vkImage;
+        params.currentFrameData.shadowFrameBuffers[i].depthBufferImage.vkImage;
 
     vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
                          VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr,
                          0, nullptr, 1, &depthImageMemoryBarrier);
   }
+}
 
-  // Color pass:
+void VulkanRHI::drawColorPass(DrawPassParams const& params,
+                              glm::vec3 ambientColor,
+                              VkFramebuffer targetFramebuffer) {
   std::array<VkClearValue, 2> clearValues;
   clearValues[0].color = {{0.0f, 0.0f, 1.0f, 1.0f}};
   clearValues[1].depthStencil.depth = 1.0f;
 
   GPUSceneData gpuSceneData;
-  gpuSceneData.ambientColor = glm::vec4(sceneParams.ambientColor, 1.0f);
-  uploadBufferData(frameInd, gpuSceneData, _sceneDataBuffer);
+  gpuSceneData.ambientColor = glm::vec4(ambientColor, 1.0f);
+  uploadBufferData(params.frameInd, gpuSceneData, _sceneDataBuffer);
 
-  uploadBufferData(frameInd, getGPULightData(), _lightDataBuffer);
+  uploadBufferData(params.frameInd, getGPULightData(), _lightDataBuffer);
 
   VkRenderPassBeginInfo vkRenderPassBeginInfo = {};
   vkRenderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
   vkRenderPassBeginInfo.pNext = nullptr;
   vkRenderPassBeginInfo.renderPass = _mainRenderPass.vkRenderPass;
-  vkRenderPassBeginInfo.framebuffer =
-      _vkSwapchainFramebuffers[swapchainImageIndex][frameInd].vkFramebuffer;
+  vkRenderPassBeginInfo.framebuffer = targetFramebuffer;
   vkRenderPassBeginInfo.renderArea.offset = {0, 0};
   vkRenderPassBeginInfo.renderArea.extent = _vkbSwapchain.extent;
   vkRenderPassBeginInfo.clearValueCount = clearValues.size();
   vkRenderPassBeginInfo.pClearValues = clearValues.data();
 
+  VkCommandBuffer cmd = params.currentFrameData.vkCommandBuffer;
+
   vkCmdBeginRenderPass(cmd, &vkRenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
   std::vector<std::uint32_t> const defaultDynamicOffsets{
-      static_cast<std::uint32_t>(frameInd *
+      static_cast<std::uint32_t>(params.frameInd *
                                  getPaddedBufferSize(sizeof(GPUCameraData))),
-      static_cast<std::uint32_t>(frameInd *
+      static_cast<std::uint32_t>(params.frameInd *
                                  getPaddedBufferSize(sizeof(GPUSceneData))),
-      static_cast<std::uint32_t>(frameInd *
+      static_cast<std::uint32_t>(params.frameInd *
                                  getPaddedBufferSize(sizeof(GPULightData)))};
 
   drawWithMaterials(cmd, _drawCallQueue.data(), _drawCallQueue.size(),
-                    gpuCameraData, defaultDynamicOffsets,
-                    currentFrameData.vkMainRenderPassDescriptorSet, viewport,
-                    scissor);
+                    params.cameraData, defaultDynamicOffsets,
+                    params.currentFrameData.vkMainRenderPassDescriptorSet,
+                    params.viewport, params.scissor);
 
-  drawWithMaterials(
-      cmd, _transparentDrawCallQueue.data(), _transparentDrawCallQueue.size(),
-      gpuCameraData, defaultDynamicOffsets,
-      currentFrameData.vkMainRenderPassDescriptorSet, viewport, scissor);
+  drawWithMaterials(cmd, _transparentDrawCallQueue.data(),
+                    _transparentDrawCallQueue.size(), params.cameraData,
+                    defaultDynamicOffsets,
+                    params.currentFrameData.vkMainRenderPassDescriptorSet,
+                    params.viewport, params.scissor);
 
   vkCmdEndRenderPass(cmd);
+}
+
+void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
+  applyPendingExtentUpdate();
+
+  if (_skipFrame) {
+    _submittedDirectionalLights.clear();
+    _submittedSpotlights.clear();
+    _drawCallQueue.clear();
+    _ssaoDrawCallQueue.clear();
+    _transparentDrawCallQueue.clear();
+    _skipFrame = false;
+    return;
+  }
+
+  DrawPassParams params;
+  params.currentFrameData = getCurrentFrameData();
+  params.cameraData = getSceneCameraData(sceneParams);
+  params.frameInd = _frameNumber % frameOverlap;
+  params.viewport.x = 0.0f;
+  params.viewport.y = 0.0f;
+  params.viewport.width = _vkbSwapchain.extent.width;
+  params.viewport.height = _vkbSwapchain.extent.height;
+  params.viewport.minDepth = 0.0f;
+  params.viewport.maxDepth = 1.0f;
+  params.scissor.offset = {0, 0};
+  params.scissor.extent = _vkbSwapchain.extent;
+
+  constexpr std::uint64_t timeoutNanoseconds = 10000000000;
+  {
+    ZoneScopedN("Wait For Render Fence");
+    VK_CHECK(vkWaitForFences(_vkDevice, 1,
+                             &params.currentFrameData.vkRenderFence, true,
+                             timeoutNanoseconds));
+  }
+
+  VK_CHECK(vkResetFences(_vkDevice, 1, &params.currentFrameData.vkRenderFence));
+
+  destroyUnreferencedResources();
+
+  uint32_t swapchainImageIndex;
+  {
+    ZoneScopedN("Acquire Next Image");
+    VK_CHECK(vkAcquireNextImageKHR(_vkDevice, _vkbSwapchain, timeoutNanoseconds,
+                                   params.currentFrameData.vkPresentSemaphore,
+                                   VK_NULL_HANDLE, &swapchainImageIndex));
+  }
+
+  VkCommandBuffer cmd = params.currentFrameData.vkCommandBuffer;
+
+  VK_CHECK(vkResetCommandBuffer(cmd, 0));
+
+  VkCommandBufferBeginInfo vkCommandBufferBeginInfo = {};
+  vkCommandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  vkCommandBufferBeginInfo.pNext = nullptr;
+  vkCommandBufferBeginInfo.pInheritanceInfo = nullptr;
+  vkCommandBufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+  VK_CHECK(vkBeginCommandBuffer(cmd, &vkCommandBufferBeginInfo));
+
+  updateTimerBuffer(cmd);
+
+  auto const sortByDistanceDescending = [viewProj = params.cameraData.viewProj](
+                                            auto const& dc1, auto const& dc2) {
+    glm::vec4 dc1Center =
+        viewProj * dc1.model * glm::vec4{core::getCenter(dc1.mesh->aabb), 1.0f};
+    glm::vec3 dc1CenterNdc = dc1Center / dc1Center.w;
+
+    glm::vec4 dc2Center =
+        viewProj * dc2.model * glm::vec4{core::getCenter(dc2.mesh->aabb), 1.0f};
+    glm::vec3 dc2CenterNdc = dc2Center / dc2Center.w;
+
+    return dc1CenterNdc.z > dc2CenterNdc.z;
+  };
+
+  std::sort(_transparentDrawCallQueue.begin(), _transparentDrawCallQueue.end(),
+            sortByDistanceDescending);
+
+  auto const sortByDistanceAscending = [viewProj = params.cameraData.viewProj](
+                                           auto const& dc1, auto const& dc2) {
+    glm::vec4 dc1Center =
+        viewProj * dc1.model * glm::vec4{core::getCenter(dc1.mesh->aabb), 1.0f};
+    glm::vec3 dc1CenterNdc = dc1Center / dc1Center.w;
+
+    glm::vec4 dc2Center =
+        viewProj * dc2.model * glm::vec4{core::getCenter(dc2.mesh->aabb), 1.0f};
+    glm::vec3 dc2CenterNdc = dc2Center / dc2Center.w;
+
+    return dc1CenterNdc.z < dc2CenterNdc.z;
+  };
+
+  std::sort(_drawCallQueue.begin(), _drawCallQueue.end(),
+            sortByDistanceAscending);
+  drawDepthPrepass(params);
+
+  std::sort(_ssaoDrawCallQueue.begin(), _ssaoDrawCallQueue.end(),
+            sortByDistanceAscending);
+  drawSsaoPass(params);
+
+  drawSsaoPostProcessing(params);
+
+  drawShadowPasses(params);
+
+  drawColorPass(params, sceneParams.ambientColor,
+                _vkSwapchainFramebuffers[swapchainImageIndex][params.frameInd]
+                    .vkFramebuffer);
+
   VK_CHECK(vkEndCommandBuffer(cmd));
 
   VkSubmitInfo vkSubmitInfo = vkinit::commandBufferSubmitInfo(&cmd);
@@ -413,15 +468,16 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
 
   vkSubmitInfo.pWaitDstStageMask = &vkPipelineStageFlags;
   vkSubmitInfo.waitSemaphoreCount = 1;
-  vkSubmitInfo.pWaitSemaphores = &currentFrameData.vkPresentSemaphore;
+  vkSubmitInfo.pWaitSemaphores = &params.currentFrameData.vkPresentSemaphore;
 
   vkSubmitInfo.signalSemaphoreCount = 1;
-  vkSubmitInfo.pSignalSemaphores = &currentFrameData.vkRenderSemaphore;
+  vkSubmitInfo.pSignalSemaphores = &params.currentFrameData.vkRenderSemaphore;
 
   {
     std::scoped_lock l{_gpuQueueMutexes[_graphicsQueueFamilyIndex]};
     VK_CHECK(vkQueueSubmit(_gpuQueues[_graphicsQueueFamilyIndex], 1,
-                           &vkSubmitInfo, currentFrameData.vkRenderFence));
+                           &vkSubmitInfo,
+                           params.currentFrameData.vkRenderFence));
   }
 
   VkPresentInfoKHR vkPresentInfo = {};
@@ -432,7 +488,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   vkPresentInfo.swapchainCount = 1;
 
   vkPresentInfo.waitSemaphoreCount = 1;
-  vkPresentInfo.pWaitSemaphores = &currentFrameData.vkRenderSemaphore;
+  vkPresentInfo.pWaitSemaphores = &params.currentFrameData.vkRenderSemaphore;
 
   vkPresentInfo.pImageIndices = &swapchainImageIndex;
 
