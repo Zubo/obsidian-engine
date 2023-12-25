@@ -9,6 +9,7 @@
 #include <obsidian/vk_rhi/vk_rhi.hpp>
 #include <obsidian/vk_rhi/vk_types.hpp>
 
+#include <glm/ext/matrix_transform.hpp>
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
 #include <tracy/Tracy.hpp>
@@ -327,7 +328,8 @@ void VulkanRHI::drawShadowPasses(DrawPassParams const& params) {
 
 void VulkanRHI::drawColorPass(DrawPassParams const& params,
                               glm::vec3 ambientColor,
-                              VkFramebuffer targetFramebuffer) {
+                              VkFramebuffer targetFramebuffer,
+                              VkExtent2D extent, bool reusesDepth) {
   std::array<VkClearValue, 2> clearValues;
   clearValues[0].color = {{0.0f, 0.0f, 1.0f, 1.0f}};
   clearValues[1].depthStencil.depth = 1.0f;
@@ -341,10 +343,12 @@ void VulkanRHI::drawColorPass(DrawPassParams const& params,
   VkRenderPassBeginInfo vkRenderPassBeginInfo = {};
   vkRenderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
   vkRenderPassBeginInfo.pNext = nullptr;
-  vkRenderPassBeginInfo.renderPass = _mainRenderPass.vkRenderPass;
+  vkRenderPassBeginInfo.renderPass =
+      reusesDepth ? _mainRenderPassReuseDepth.vkRenderPass
+                  : _mainRenderPassNoDepthReuse.vkRenderPass;
   vkRenderPassBeginInfo.framebuffer = targetFramebuffer;
   vkRenderPassBeginInfo.renderArea.offset = {0, 0};
-  vkRenderPassBeginInfo.renderArea.extent = _vkbSwapchain.extent;
+  vkRenderPassBeginInfo.renderArea.extent = extent;
   vkRenderPassBeginInfo.clearValueCount = clearValues.size();
   vkRenderPassBeginInfo.pClearValues = clearValues.data();
 
@@ -363,15 +367,51 @@ void VulkanRHI::drawColorPass(DrawPassParams const& params,
   drawWithMaterials(cmd, _drawCallQueue.data(), _drawCallQueue.size(),
                     params.cameraData, defaultDynamicOffsets,
                     params.currentFrameData.vkMainRenderPassDescriptorSet,
-                    params.viewport, params.scissor);
+                    params.viewport, params.scissor, reusesDepth);
 
   drawWithMaterials(cmd, _transparentDrawCallQueue.data(),
                     _transparentDrawCallQueue.size(), params.cameraData,
                     defaultDynamicOffsets,
                     params.currentFrameData.vkMainRenderPassDescriptorSet,
-                    params.viewport, params.scissor);
+                    params.viewport, params.scissor, reusesDepth);
 
   vkCmdEndRenderPass(cmd);
+}
+
+void VulkanRHI::drawEnvironmentMaps(struct DrawPassParams const& params) {
+  constexpr std::array<glm::vec3, 6> cubeSides = {
+      glm::vec3{1.0f, 0.0f, 0.0f}, glm::vec3{-1.0f, 0.0f, 0.0f},
+      glm::vec3{0.0f, 1.0f, 0.0f}, glm::vec3{0.0f, -1.0f, 0.0f},
+      glm::vec3{0.0f, 0.0f, 1.0f}, glm::vec3{0.0f, 0.0f, -1.0f}};
+  constexpr std::array<glm::vec3, 6> upVecs = {
+      glm::vec3{0.0f, 1.0f, 0.0f}, glm::vec3{0.0f, 1.0f, 0.0f},
+      glm::vec3{0.0f, 0.0f, 1.0f}, glm::vec3{0.0f, 0.0f, -1.0f},
+      glm::vec3{0.0f, 1.0f, 0.0f}, glm::vec3{0.0f, 1.0f, 0.0f}};
+
+  VkCommandBuffer cmd = params.currentFrameData.vkCommandBuffer;
+
+  for (EnvironmentMap const& map : _environmentMaps) {
+    for (std::size_t i = 0; i < 6; ++i) {
+      DrawPassParams drawColorParams;
+      drawColorParams.cameraData.view =
+          glm::lookAt({0.0f, 0.0f, 0.0f}, cubeSides[i], upVecs[i]);
+      drawColorParams.cameraData.proj =
+          glm::perspective(glm::radians(90.f), 1.0f, 0.1f, 400.f);
+      drawColorParams.cameraData.viewProj =
+          drawColorParams.cameraData.proj * drawColorParams.cameraData.view;
+
+      drawColorParams.viewport = {
+          0, 0, environmentMapResolution, environmentMapResolution, 0.0f, 1.0f};
+      drawColorParams.scissor = {
+          {0, 0}, {environmentMapResolution, environmentMapResolution}};
+      drawColorParams.frameInd = params.frameInd;
+      drawColorParams.currentFrameData = params.currentFrameData;
+
+      drawColorPass(drawColorParams, {0.0f, 0.0f, 0.0f}, map.framebuffers[i],
+                    {environmentMapResolution, environmentMapResolution},
+                    false);
+    }
+  }
 }
 
 void VulkanRHI::present(VkSemaphore renderSemaphore,
@@ -475,6 +515,8 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   std::sort(_ssaoDrawCallQueue.begin(), _ssaoDrawCallQueue.end(),
             sortByDistanceAscending);
 
+  drawEnvironmentMaps(params);
+
   drawDepthPrepass(params);
 
   drawSsaoPass(params);
@@ -485,7 +527,8 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
 
   drawColorPass(params, sceneParams.ambientColor,
                 _vkSwapchainFramebuffers[swapchainImageIndex][params.frameInd]
-                    .vkFramebuffer);
+                    .vkFramebuffer,
+                _vkbSwapchain.extent);
 
   VK_CHECK(vkEndCommandBuffer(cmd));
 
@@ -526,16 +569,16 @@ void VulkanRHI::drawWithMaterials(
     std::vector<std::uint32_t> const& dynamicOffsets,
     VkDescriptorSet drawPassDescriptorSet,
     std::optional<VkViewport> dynamicViewport,
-    std::optional<VkRect2D> dynamicScissor) {
+    std::optional<VkRect2D> dynamicScissor, bool reusesDepth) {
   ZoneScoped;
 
-  Material const* lastMaterial = nullptr;
+  VkMaterial const* lastMaterial = nullptr;
   for (int i = 0; i < count; ++i) {
     ZoneScopedN("Draw Object");
     VKDrawCall const& drawCall = first[i];
 
     assert(drawCall.material && "Error: Missing material.");
-    Material const& material = *drawCall.material;
+    VkMaterial const& material = *drawCall.material;
 
     assert(drawCall.mesh && "Error: Missing mesh");
     Mesh const& mesh = *drawCall.mesh;
@@ -549,7 +592,9 @@ void VulkanRHI::drawWithMaterials(
         VK_PIPELINE_BIND_POINT_GRAPHICS;
 
     if (&material != lastMaterial) {
-      vkCmdBindPipeline(cmd, pipelineBindPoint, material.vkPipeline);
+      vkCmdBindPipeline(cmd, pipelineBindPoint,
+                        reusesDepth ? material.vkPipelineReuseDepth
+                                    : material.vkPipelineNoDepthReuse);
 
       if (dynamicViewport) {
         vkCmdSetViewport(cmd, 0, 1, &dynamicViewport.value());

@@ -154,7 +154,8 @@ VkSemaphoreCreateInfo semaphoreCreateInfo(VkSemaphoreCreateFlags const flags) {
 VkImageCreateInfo imageCreateInfo(VkImageUsageFlags const usageFlags,
                                   VkExtent3D const extent,
                                   VkFormat const format,
-                                  std::uint32_t mipLevels) {
+                                  std::uint32_t mipLevels,
+                                  std::uint32_t arrayLayers) {
   VkImageCreateInfo vkImageCreateInfo = {};
   vkImageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
   vkImageCreateInfo.pNext = nullptr;
@@ -162,7 +163,7 @@ VkImageCreateInfo imageCreateInfo(VkImageUsageFlags const usageFlags,
   vkImageCreateInfo.format = format;
   vkImageCreateInfo.extent = extent;
   vkImageCreateInfo.mipLevels = mipLevels;
-  vkImageCreateInfo.arrayLayers = 1;
+  vkImageCreateInfo.arrayLayers = arrayLayers;
   vkImageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
   vkImageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
   vkImageCreateInfo.usage = usageFlags;
@@ -173,7 +174,7 @@ VkImageCreateInfo imageCreateInfo(VkImageUsageFlags const usageFlags,
 VkImageViewCreateInfo
 imageViewCreateInfo(VkImage const image, VkFormat const format,
                     VkImageAspectFlags const imageAspectFlags,
-                    std::uint32_t mipLevels) {
+                    std::uint32_t mipLevels, std::uint32_t arrayLayers) {
 
   VkImageViewCreateInfo imageViewCreateInfo = {};
   imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -186,7 +187,7 @@ imageViewCreateInfo(VkImage const image, VkFormat const format,
   imageViewCreateInfo.subresourceRange.baseMipLevel = 0;
   imageViewCreateInfo.subresourceRange.levelCount = mipLevels;
   imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
-  imageViewCreateInfo.subresourceRange.layerCount = 1;
+  imageViewCreateInfo.subresourceRange.layerCount = arrayLayers;
 
   return imageViewCreateInfo;
 }
@@ -267,7 +268,8 @@ VkSamplerCreateInfo samplerCreateInfo(VkFilter filter,
 VkImageMemoryBarrier layoutImageBarrier(VkImage image, VkImageLayout oldLayout,
                                         VkImageLayout newLayout,
                                         VkImageAspectFlagBits aspectMask,
-                                        std::uint32_t mipLevelCount) {
+                                        std::uint32_t mipLevelCount,
+                                        std::uint32_t layerCount) {
   VkImageMemoryBarrier barrier = {};
   barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
   barrier.pNext = nullptr;
@@ -279,7 +281,7 @@ VkImageMemoryBarrier layoutImageBarrier(VkImage image, VkImageLayout oldLayout,
   barrier.subresourceRange.baseMipLevel = 0;
   barrier.subresourceRange.levelCount = mipLevelCount;
   barrier.subresourceRange.baseArrayLayer = 0;
-  barrier.subresourceRange.layerCount = 1;
+  barrier.subresourceRange.layerCount = layerCount;
 
   return barrier;
 }

@@ -22,6 +22,7 @@ struct DrawCall {
   glm::mat4 transform;
   std::vector<ResourceIdRHI> materialIds;
   ResourceIdRHI meshId;
+  ResourceIdRHI objectResourcesId;
 };
 
 using LightSubmitParams = core::Light;

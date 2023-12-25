@@ -42,7 +42,7 @@ void VulkanRHI::init(rhi::WindowExtentRHI extent,
 
   initSwapchain(extent);
   initCommands();
-  initMainRenderPass();
+  initMainRenderPasses();
   initDepthRenderPass();
   initSsaoRenderPass();
   initPostProcessingRenderPass();
@@ -224,27 +224,35 @@ void VulkanRHI::initCommands() {
   }
 }
 
-void VulkanRHI::initMainRenderPass() {
+void VulkanRHI::initMainRenderPasses() {
   RenderPassBuilder::begin(_vkDevice)
-      .addColorAttachment(_vkbSwapchain.image_format,
+      .setColorAttachment(_vkbSwapchain.image_format,
                           VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
-      .addDepthAttachment(_depthFormat, false)
-      .addColorSubpassReference(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
-      .addDepthSubpassReference(0,
+      .setDepthAttachment(_depthFormat, false)
+      .setColorSubpassReference(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+      .setDepthSubpassReference(0,
                                 VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL)
       .setSubpassPipelineBindPoint(0, VK_PIPELINE_BIND_POINT_GRAPHICS)
-      .build(_mainRenderPass);
+      .build(_mainRenderPassReuseDepth)
+
+      .setDepthAttachment(_depthFormat, true)
+      .setDepthSubpassReference(
+          0, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+      .build(_mainRenderPassNoDepthReuse);
 
   _swapchainDeletionQueue.pushFunction([this]() {
-    vkDestroyRenderPass(_vkDevice, _mainRenderPass.vkRenderPass, nullptr);
+    vkDestroyRenderPass(_vkDevice, _mainRenderPassReuseDepth.vkRenderPass,
+                        nullptr);
+    vkDestroyRenderPass(_vkDevice, _mainRenderPassNoDepthReuse.vkRenderPass,
+                        nullptr);
   });
 }
 
 void VulkanRHI::initDepthRenderPass() {
   RenderPassBuilder::begin(_vkDevice)
-      .addDepthAttachment(_depthFormat)
+      .setDepthAttachment(_depthFormat)
       .setSubpassPipelineBindPoint(0, VK_PIPELINE_BIND_POINT_GRAPHICS)
-      .addDepthSubpassReference(
+      .setDepthSubpassReference(
           0, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
       .build(_depthRenderPass);
 
@@ -255,11 +263,11 @@ void VulkanRHI::initDepthRenderPass() {
 
 void VulkanRHI::initSsaoRenderPass() {
   RenderPassBuilder::begin(_vkDevice)
-      .addColorAttachment(_ssaoFormat, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
-      .addDepthAttachment(_depthFormat, false)
+      .setColorAttachment(_ssaoFormat, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+      .setDepthAttachment(_depthFormat, false)
       .setSubpassPipelineBindPoint(0, VK_PIPELINE_BIND_POINT_GRAPHICS)
-      .addColorSubpassReference(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
-      .addDepthSubpassReference(
+      .setColorSubpassReference(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+      .setDepthSubpassReference(
           0, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
       .build(_ssaoRenderPass);
 
@@ -270,9 +278,9 @@ void VulkanRHI::initSsaoRenderPass() {
 
 void VulkanRHI::initPostProcessingRenderPass() {
   RenderPassBuilder::begin(_vkDevice)
-      .addColorAttachment(_ssaoFormat, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+      .setColorAttachment(_ssaoFormat, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
       .setSubpassPipelineBindPoint(0, VK_PIPELINE_BIND_POINT_GRAPHICS)
-      .addColorSubpassReference(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+      .setColorSubpassReference(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
       .build(_postProcessingRenderPass);
 
   _deletionQueue.pushFunction([this]() {
@@ -286,9 +294,11 @@ void VulkanRHI::initSwapchainFramebuffers() {
 
   for (int i = 0; i < _vkbSwapchain.image_count; ++i) {
     for (int j = 0; j < frameOverlap; ++j) {
-      _vkSwapchainFramebuffers[i][j] = _mainRenderPass.generateFramebuffer(
-          _vmaAllocator, _vkbSwapchain.extent, {}, _swapchainImageViews[i],
-          _frameDataArray[j].vkDepthPrepassFramebuffer.depthBufferImageView);
+      _vkSwapchainFramebuffers[i][j] =
+          _mainRenderPassReuseDepth.generateFramebuffer(
+              _vmaAllocator, _vkbSwapchain.extent, {}, _swapchainImageViews[i],
+              _frameDataArray[j]
+                  .vkDepthPrepassFramebuffer.depthBufferImageView);
       _swapchainDeletionQueue.pushFunction(
           [this, &framebuffer = _vkSwapchainFramebuffers[i][j]]() {
             vkDestroyFramebuffer(_vkDevice, framebuffer.vkFramebuffer, nullptr);

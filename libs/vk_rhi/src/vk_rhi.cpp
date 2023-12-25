@@ -373,7 +373,7 @@ void VulkanRHI::createAndBindMaterialDataBuffer(
 
 rhi::ResourceRHI& VulkanRHI::initMaterialResource() {
   rhi::ResourceIdRHI const newResourceId = consumeNewResourceId();
-  Material& newMaterial = _materials[newResourceId];
+  VkMaterial& newMaterial = _materials[newResourceId];
 
   assert(newMaterial.resource.state == rhi::ResourceState::initial);
 
@@ -385,7 +385,7 @@ rhi::ResourceRHI& VulkanRHI::initMaterialResource() {
 
 void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
                                rhi::UploadMaterialRHI uploadMaterial) {
-  Material& newMaterial = _materials[id];
+  VkMaterial& newMaterial = _materials[id];
 
   rhi::ResourceState expected = rhi::ResourceState::initial;
 
@@ -412,8 +412,10 @@ void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
                                             shaderModule.vkShaderModule));
 
   newMaterial.vkPipelineLayout = pipelineBuilder._vkPipelineLayout;
-  newMaterial.vkPipeline =
-      pipelineBuilder.buildPipeline(_vkDevice, _mainRenderPass.vkRenderPass);
+  newMaterial.vkPipelineReuseDepth = pipelineBuilder.buildPipeline(
+      _vkDevice, _mainRenderPassReuseDepth.vkRenderPass);
+  newMaterial.vkPipelineNoDepthReuse = pipelineBuilder.buildPipeline(
+      _vkDevice, _mainRenderPassNoDepthReuse.vkRenderPass);
   newMaterial.transparent = uploadMaterial.transparent;
 
   DescriptorBuilder builder = DescriptorBuilder::begin(
@@ -515,7 +517,7 @@ void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
 }
 
 void VulkanRHI::releaseMaterial(rhi::ResourceIdRHI resourceIdRHI) {
-  Material& material = _materials[resourceIdRHI];
+  VkMaterial& material = _materials[resourceIdRHI];
   --material.resource.refCount;
 
   if (material.resource.refCount == 0) {
@@ -531,7 +533,8 @@ void VulkanRHI::destroyUnreferencedResources() {
   // clear materials
   for (auto& mat : _materials) {
     if (!mat.second.resource.refCount) {
-      vkDestroyPipeline(_vkDevice, mat.second.vkPipeline, nullptr);
+      vkDestroyPipeline(_vkDevice, mat.second.vkPipelineReuseDepth, nullptr);
+      vkDestroyPipeline(_vkDevice, mat.second.vkPipelineNoDepthReuse, nullptr);
       eraseIds.push_back(mat.second.resource.id);
     }
   }
@@ -857,7 +860,7 @@ void VulkanRHI::applyPendingExtentUpdate() {
     _swapchainDeletionQueue.flush();
 
     initSwapchain(*_pendingExtentUpdate);
-    initMainRenderPass();
+    initMainRenderPasses();
     initDepthPrepassFramebuffers();
     initSwapchainFramebuffers();
     initSsaoFramebuffers();
@@ -892,4 +895,109 @@ VulkanRHI::getImmediateCtxForCurrentThread(std::uint32_t queueIdx) {
 void VulkanRHI::destroyImmediateCtxForCurrentThread() {
   immediateSubmitContext = {};
   contextsInitialized = false;
+}
+
+void VulkanRHI::createEnvironmentMap(glm::vec3 envMapPos) {
+  std::size_t const envMapInd = _environmentMaps.size();
+  EnvironmentMap& envMap = _environmentMaps.emplace_back();
+  envMap.pos = envMapPos;
+
+  VkExtent3D const extent{environmentMapResolution, environmentMapResolution,
+                          1};
+
+  VkImageCreateInfo colorImageCreateInfo = vkinit::imageCreateInfo(
+      VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, extent,
+      _vkbSwapchain.image_format, 1, 6);
+
+  colorImageCreateInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+
+  VmaAllocationCreateInfo colorImgAllocCreateInfo = {};
+  colorImgAllocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+
+  VK_CHECK(vmaCreateImage(_vmaAllocator, &colorImageCreateInfo,
+                          &colorImgAllocCreateInfo, &envMap.colorImage.vkImage,
+                          &envMap.colorImage.allocation, nullptr));
+
+  VkImageViewCreateInfo colorImageViewCreateInfo = vkinit::imageViewCreateInfo(
+      envMap.colorImage.vkImage, _vkbSwapchain.image_format,
+      VK_IMAGE_ASPECT_COLOR_BIT);
+  colorImageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
+  colorImageViewCreateInfo.subresourceRange.layerCount = 6;
+
+  VK_CHECK(vkCreateImageView(_vkDevice, &colorImageViewCreateInfo, nullptr,
+                             &envMap.colorImageView));
+
+  VkImageCreateInfo depthImageCreateInfo = vkinit::imageCreateInfo(
+      VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, extent, _depthFormat, 1, 6);
+
+  depthImageCreateInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+
+  VmaAllocationCreateInfo depthImgAllocCreateInfo = {};
+  depthImgAllocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+
+  VK_CHECK(vmaCreateImage(_vmaAllocator, &depthImageCreateInfo,
+                          &depthImgAllocCreateInfo, &envMap.depthImage.vkImage,
+                          &envMap.depthImage.allocation, nullptr));
+
+  VkImageViewCreateInfo depthImageViewCreateInfo = vkinit::imageViewCreateInfo(
+      envMap.depthImage.vkImage, _depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+  depthImageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
+  depthImageViewCreateInfo.subresourceRange.layerCount = 6;
+
+  VK_CHECK(vkCreateImageView(_vkDevice, &depthImageViewCreateInfo, nullptr,
+                             &envMap.depthImageView));
+
+  for (std::size_t i = 0; i < envMap.framebuffers.size(); ++i) {
+    VkFramebufferCreateInfo frameBufferCreateInfo = {};
+    frameBufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    frameBufferCreateInfo.pNext = nullptr;
+    frameBufferCreateInfo.renderPass = _mainRenderPassReuseDepth.vkRenderPass;
+
+    colorImageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    colorImageViewCreateInfo.subresourceRange.baseArrayLayer = i;
+    colorImageViewCreateInfo.subresourceRange.layerCount = 1;
+
+    VK_CHECK(vkCreateImageView(_vkDevice, &colorImageViewCreateInfo, nullptr,
+                               &envMap.colorAttachmentImageViews[i]));
+
+    depthImageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    depthImageViewCreateInfo.subresourceRange.baseArrayLayer = i;
+    depthImageViewCreateInfo.subresourceRange.layerCount = 1;
+
+    VK_CHECK(vkCreateImageView(_vkDevice, &depthImageViewCreateInfo, nullptr,
+                               &envMap.depthAttachmentImageViews[i]));
+
+    std::array<VkImageView, 2> attachmentViews = {
+        envMap.colorAttachmentImageViews[i],
+        envMap.depthAttachmentImageViews[i]};
+
+    frameBufferCreateInfo.attachmentCount = attachmentViews.size();
+    frameBufferCreateInfo.pAttachments = attachmentViews.data();
+
+    frameBufferCreateInfo.width = extent.width;
+    frameBufferCreateInfo.height = extent.height;
+    frameBufferCreateInfo.layers = 1;
+
+    VK_CHECK(vkCreateFramebuffer(_vkDevice, &frameBufferCreateInfo, nullptr,
+                                 &envMap.framebuffers[i]));
+  }
+
+  _deletionQueue.pushFunction([this, envMapInd]() {
+    EnvironmentMap& envMap = _environmentMaps[envMapInd];
+
+    for (std::size_t i = 0; i < envMap.framebuffers.size(); ++i) {
+      vkDestroyFramebuffer(_vkDevice, envMap.framebuffers[i], nullptr);
+      vkDestroyImageView(_vkDevice, envMap.colorAttachmentImageViews[i],
+                         nullptr);
+      vkDestroyImageView(_vkDevice, envMap.depthAttachmentImageViews[i],
+                         nullptr);
+    }
+
+    vkDestroyImageView(_vkDevice, envMap.colorImageView, nullptr);
+    vmaDestroyImage(_vmaAllocator, envMap.colorImage.vkImage,
+                    envMap.colorImage.allocation);
+    vkDestroyImageView(_vkDevice, envMap.depthImageView, nullptr);
+    vmaDestroyImage(_vmaAllocator, envMap.depthImage.vkImage,
+                    envMap.depthImage.allocation);
+  });
 }

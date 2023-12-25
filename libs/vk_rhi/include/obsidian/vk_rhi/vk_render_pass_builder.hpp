@@ -20,19 +20,19 @@ class RenderPassBuilder {
 public:
   static RenderPassBuilder begin(VkDevice vkDevice);
 
-  RenderPassBuilder& addColorAttachment(VkFormat format,
+  RenderPassBuilder& setColorAttachment(VkFormat format,
                                         VkImageLayout finalLayout);
 
-  RenderPassBuilder& addDepthAttachment(VkFormat format,
+  RenderPassBuilder& setDepthAttachment(VkFormat format,
                                         bool storeResult = true);
 
   RenderPassBuilder& setSubpassPipelineBindPoint(std::size_t subpassInd,
                                                  VkPipelineBindPoint bindPoint);
 
-  RenderPassBuilder& addColorSubpassReference(std::size_t subpassInd,
+  RenderPassBuilder& setColorSubpassReference(std::size_t subpassInd,
                                               VkImageLayout layout);
 
-  RenderPassBuilder& addDepthSubpassReference(std::size_t subpassInd,
+  RenderPassBuilder& setDepthSubpassReference(std::size_t subpassInd,
                                               VkImageLayout layout);
 
   RenderPassBuilder& build(RenderPass& outRenderPass);

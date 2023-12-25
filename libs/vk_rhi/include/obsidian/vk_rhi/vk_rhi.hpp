@@ -36,6 +36,7 @@ class VulkanRHI : public rhi::RHI {
   static unsigned int const maxNumberOfObjects = 10000;
   static unsigned int const shadowPassAttachmentWidth = 2000;
   static unsigned int const shadowPassAttachmentHeight = 2000;
+  static unsigned int const environmentMapResolution = 400;
 
 public:
   bool IsInitialized{false};
@@ -125,7 +126,8 @@ private:
   float _maxSamplerAnisotropy;
 
   // Default pass
-  RenderPass _mainRenderPass;
+  RenderPass _mainRenderPassReuseDepth;
+  RenderPass _mainRenderPassNoDepthReuse;
   std::vector<std::array<Framebuffer, frameOverlap>> _vkSwapchainFramebuffers;
   VkPipelineLayout _vkMeshPipelineLayout;
   VkPipelineLayout _vkLitMeshPipelineLayout;
@@ -191,7 +193,9 @@ private:
   std::unordered_map<rhi::ResourceIdRHI, Mesh> _meshes;
   std::unordered_map<rhi::ResourceIdRHI, Shader> _shaderModules;
   std::unordered_map<core::MaterialType, PipelineBuilder> _pipelineBuilders;
-  std::unordered_map<rhi::ResourceIdRHI, Material> _materials;
+  std::unordered_map<rhi::ResourceIdRHI, VkMaterial> _materials;
+  std::unordered_map<rhi::ResourceIdRHI, VkDescriptorSet> _objectDescriptorSets;
+  std::vector<EnvironmentMap> _environmentMaps;
   rhi::ResourceIdRHI _emptyFragShaderId;
   AllocatedBuffer _postProcessingQuadBuffer;
   std::optional<rhi::WindowExtentRHI> _pendingExtentUpdate = std::nullopt;
@@ -205,7 +209,7 @@ private:
   void initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider);
   void initSwapchain(rhi::WindowExtentRHI const& extent);
   void initCommands();
-  void initMainRenderPass();
+  void initMainRenderPasses();
   void initDepthRenderPass();
   void initSsaoRenderPass();
   void initPostProcessingRenderPass();
@@ -242,6 +246,7 @@ private:
   ImmediateSubmitContext&
   getImmediateCtxForCurrentThread(std::uint32_t queueIdx);
   void destroyImmediateCtxForCurrentThread();
+  void createEnvironmentMap(glm::vec3 envMapPos);
 
   FrameData& getCurrentFrameData();
 
@@ -266,7 +271,8 @@ private:
                          std::vector<std::uint32_t> const& dynamicOffsets,
                          VkDescriptorSet drawPassDescriptorSet,
                          std::optional<VkViewport> dynamicViewport,
-                         std::optional<VkRect2D> dynamicScissor);
+                         std::optional<VkRect2D> dynamicScissor,
+                         bool reusesDepth = true);
   void
   drawPassNoMaterials(VkCommandBuffer, VKDrawCall* first, int count,
                       GPUCameraData const& cameraData, VkPipeline pipeline,
@@ -310,7 +316,9 @@ private:
   void drawSsaoPostProcessing(struct DrawPassParams const& params);
   void drawShadowPasses(struct DrawPassParams const& params);
   void drawColorPass(struct DrawPassParams const& params,
-                     glm::vec3 ambientColor, VkFramebuffer targetFramebuffer);
+                     glm::vec3 ambientColor, VkFramebuffer targetFramebuffer,
+                     VkExtent2D extent, bool reusesDepth = true);
+  void drawEnvironmentMaps(struct DrawPassParams const& params);
   void present(VkSemaphore renderSemaphore, std::uint32_t swapchainImageIndex);
 };
 

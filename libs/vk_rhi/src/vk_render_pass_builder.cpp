@@ -14,38 +14,44 @@ RenderPassBuilder RenderPassBuilder::begin(VkDevice vkDevice) {
 }
 
 RenderPassBuilder&
-RenderPassBuilder::addColorAttachment(VkFormat format,
+RenderPassBuilder::setColorAttachment(VkFormat format,
                                       VkImageLayout finalLayout) {
-  assert(_colorAttachmentInd == attachmentIndexNone);
+  if (_colorAttachmentInd == attachmentIndexNone) {
+    _colorAttachmentInd = _attachmentDescriptions.size();
+    _attachmentDescriptions.emplace_back();
+  }
 
-  _colorAttachmentInd = _attachmentDescriptions.size();
-  _attachmentDescriptions.push_back(
-      vkinit::colorAttachmentDescription(format, finalLayout));
+  _attachmentDescriptions[_colorAttachmentInd] =
+      vkinit::colorAttachmentDescription(format, finalLayout);
 
   return *this;
 }
 
-RenderPassBuilder& RenderPassBuilder::addDepthAttachment(VkFormat format,
+RenderPassBuilder& RenderPassBuilder::setDepthAttachment(VkFormat format,
                                                          bool storeResult) {
-  assert(_depthAttachmentInd == attachmentIndexNone);
+  if (_depthAttachmentInd == attachmentIndexNone) {
+    _depthAttachmentInd = _attachmentDescriptions.size();
+    _attachmentDescriptions.push_back(
+        vkinit::depthAttachmentDescription(format));
+  }
 
-  _depthAttachmentInd = _attachmentDescriptions.size();
-
-  VkAttachmentDescription depthAttachmentDescription =
-      vkinit::depthAttachmentDescription(format);
+  VkAttachmentDescription& depthAttachmentDescription =
+      _attachmentDescriptions[_depthAttachmentInd];
 
   depthAttachmentDescription.loadOp =
       storeResult ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
   depthAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 
-  if (!storeResult) {
+  if (storeResult) {
+    depthAttachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    depthAttachmentDescription.finalLayout =
+        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+  } else {
     depthAttachmentDescription.initialLayout =
         VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
     depthAttachmentDescription.finalLayout =
         VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
   }
-
-  _attachmentDescriptions.push_back(depthAttachmentDescription);
 
   return *this;
 }
@@ -63,7 +69,7 @@ RenderPassBuilder::setSubpassPipelineBindPoint(std::size_t subpassInd,
 }
 
 RenderPassBuilder&
-RenderPassBuilder::addColorSubpassReference(std::size_t subpassInd,
+RenderPassBuilder::setColorSubpassReference(std::size_t subpassInd,
                                             VkImageLayout layout) {
   assert(_colorAttachmentInd != attachmentIndexNone);
 
@@ -82,7 +88,7 @@ RenderPassBuilder::addColorSubpassReference(std::size_t subpassInd,
 }
 
 RenderPassBuilder&
-RenderPassBuilder::addDepthSubpassReference(std::size_t subpassInd,
+RenderPassBuilder::setDepthSubpassReference(std::size_t subpassInd,
                                             VkImageLayout layout) {
   assert(_depthAttachmentInd != attachmentIndexNone);
   if (subpassInd >= _subpasses.size()) {
@@ -90,8 +96,6 @@ RenderPassBuilder::addDepthSubpassReference(std::size_t subpassInd,
   }
 
   SubpassData& subpass = _subpasses[subpassInd];
-  assert(!subpass.depthAttachmentRef);
-
   subpass.depthAttachmentRef.emplace();
   subpass.depthAttachmentRef->attachment = _depthAttachmentInd;
   subpass.depthAttachmentRef->layout = layout;

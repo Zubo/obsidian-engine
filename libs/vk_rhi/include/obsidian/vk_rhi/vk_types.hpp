@@ -9,6 +9,7 @@
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
 
+#include <array>
 #include <cstdint>
 #include <vector>
 
@@ -30,8 +31,9 @@ struct AllocatedBuffer {
   VmaAllocation allocation;
 };
 
-struct Material {
-  VkPipeline vkPipeline;
+struct VkMaterial {
+  VkPipeline vkPipelineReuseDepth;
+  VkPipeline vkPipelineNoDepthReuse;
   VkPipelineLayout vkPipelineLayout;
   VkDescriptorSet vkDescriptorSet;
   rhi::ResourceRHI resource;
@@ -48,7 +50,7 @@ struct Mesh;
 
 struct RenderObject {
   Mesh* mesh;
-  Material* material;
+  VkMaterial* material;
   glm::mat4 transformMatrix;
 };
 
@@ -132,7 +134,7 @@ struct GPUUnlitMaterialData {
 struct VKDrawCall {
   glm::mat4 model;
   Mesh* mesh;
-  Material* material;
+  VkMaterial* material;
   std::size_t indexBufferInd;
 };
 
@@ -165,6 +167,17 @@ struct Texture {
   AllocatedImage image;
   VkImageView imageView;
   rhi::ResourceRHI resource;
+};
+
+struct EnvironmentMap {
+  AllocatedImage colorImage;
+  VkImageView colorImageView;
+  AllocatedImage depthImage;
+  VkImageView depthImageView;
+  std::array<VkImageView, 6> colorAttachmentImageViews;
+  std::array<VkImageView, 6> depthAttachmentImageViews;
+  std::array<VkFramebuffer, 6> framebuffers;
+  glm::vec3 pos;
 };
 
 VkFormat getVkTextureFormat(core::TextureFormat format);

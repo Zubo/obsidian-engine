@@ -40,11 +40,13 @@ VkSemaphoreCreateInfo semaphoreCreateInfo(VkSemaphoreCreateFlags flags);
 
 VkImageCreateInfo imageCreateInfo(VkImageUsageFlags usageFlags,
                                   VkExtent3D extent, VkFormat format,
-                                  std::uint32_t mipLevels = 1);
+                                  std::uint32_t mipLevels = 1,
+                                  std::uint32_t arrayLayers = 1);
 
 VkImageViewCreateInfo imageViewCreateInfo(VkImage image, VkFormat format,
                                           VkImageAspectFlags imageAspectFlagsm,
-                                          std::uint32_t mipLevels = 1);
+                                          std::uint32_t mipLevels = 1,
+                                          std::uint32_t arrayLayers = 1);
 
 VkPipelineDepthStencilStateCreateInfo
 depthStencilStateCreateInfo(bool depthTestEnable, bool const depthTestWrite);
@@ -63,7 +65,8 @@ samplerCreateInfo(VkFilter filter, VkSamplerMipmapMode mipmapMode,
 VkImageMemoryBarrier layoutImageBarrier(VkImage image, VkImageLayout oldLayout,
                                         VkImageLayout newLayout,
                                         VkImageAspectFlagBits aspectMask,
-                                        std::uint32_t mipLevelCount = 1);
+                                        std::uint32_t mipLevelCount = 1,
+                                        std::uint32_t layerCount = 1);
 
 VkAttachmentDescription colorAttachmentDescription(VkFormat format,
                                                    VkImageLayout finalLayout);
