@@ -11,7 +11,7 @@ layout(location = 0) out vec4 outFragColor;
 layout(set = 2, binding = 2) uniform sampler2D normalMapTex;
 
 void main() {
-  float offset = timer.miliseconds / 10000.0f;
+  float offset = timer.miliseconds / 50000.0f;
   const mat4 normalTransform = transpose(inverse(inModel));
 
   const vec3 sampledNormal = normalize(
@@ -25,8 +25,8 @@ void main() {
   LightingResult spotlightResult = calculateSpotlights(normal);
 
   outFragColor =
-      vec4(0.05f, 0.05f, 1.0f, 1.0f) *
+      vec4(0.2f, 0.2f, 1.0f, 1.0f) *
       vec4(directionalLightResult.diffuse + directionalLightResult.specular +
                spotlightResult.diffuse + spotlightResult.specular,
-           0.8f);
+           0.2f);
 }
