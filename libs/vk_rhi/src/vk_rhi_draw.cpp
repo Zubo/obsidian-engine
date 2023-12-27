@@ -54,7 +54,7 @@ auto getSortByDistanceFunc(glm::mat4 viewProj) {
   };
 }
 
-void VulkanRHI::drawDepthPrepass(DrawPassParams const& params) {
+void VulkanRHI::depthPrepass(DrawPassParams const& params) {
   VkClearValue depthClearValue;
   depthClearValue.depthStencil.depth = 1.0f;
 
@@ -84,11 +84,11 @@ void VulkanRHI::drawDepthPrepass(DrawPassParams const& params) {
   VertexInputSpec const depthPrepassInputSpec = {true, false, false, false,
                                                  false};
 
-  drawPassNoMaterials(cmd, _drawCallQueue.data(), _drawCallQueue.size(),
-                      params.cameraData, _vkDepthPrepassPipeline,
-                      _vkDepthPipelineLayout, depthPassDynamicOffsets,
-                      _depthPrepassDescriptorSet, depthPrepassInputSpec,
-                      params.viewport, params.scissor);
+  drawNoMaterials(cmd, _drawCallQueue.data(), _drawCallQueue.size(),
+                  params.cameraData, _vkDepthPrepassPipeline,
+                  _vkDepthPipelineLayout, depthPassDynamicOffsets,
+                  _depthPrepassDescriptorSet, depthPrepassInputSpec,
+                  params.viewport, params.scissor);
 
   vkCmdEndRenderPass(cmd);
 
@@ -151,7 +151,7 @@ void VulkanRHI::drawDepthPrepass(DrawPassParams const& params) {
                        nullptr, 1, &depthPrepassShaderReadBarrier);
 }
 
-void VulkanRHI::drawSsaoPass(DrawPassParams const& params) {
+void VulkanRHI::ssaoPass(DrawPassParams const& params) {
   uploadBufferData(params.frameInd, params.cameraData, _cameraBuffer);
 
   VkRenderPassBeginInfo ssaoRenderPassBeginInfo = {};
@@ -184,11 +184,11 @@ void VulkanRHI::drawSsaoPass(DrawPassParams const& params) {
 
   VertexInputSpec const ssaoVertInputSpec = {true, true, false, true, false};
 
-  drawPassNoMaterials(cmd, _ssaoDrawCallQueue.data(), _ssaoDrawCallQueue.size(),
-                      params.cameraData, _vkSsaoPipeline, _vkSsaoPipelineLayout,
-                      ssaoDynamicOffsets,
-                      params.currentFrameData.vkSsaoRenderPassDescriptorSet,
-                      ssaoVertInputSpec, params.viewport, params.scissor);
+  drawNoMaterials(cmd, _ssaoDrawCallQueue.data(), _ssaoDrawCallQueue.size(),
+                  params.cameraData, _vkSsaoPipeline, _vkSsaoPipelineLayout,
+                  ssaoDynamicOffsets,
+                  params.currentFrameData.vkSsaoRenderPassDescriptorSet,
+                  ssaoVertInputSpec, params.viewport, params.scissor);
 
   vkCmdEndRenderPass(cmd);
 
@@ -253,7 +253,7 @@ void VulkanRHI::drawSsaoPostProcessing(DrawPassParams const& params) {
                        nullptr, 1, &ssaoPostProcessingBarrier);
 }
 
-void VulkanRHI::drawShadowPasses(DrawPassParams const& params) {
+void VulkanRHI::shadowPasses(DrawPassParams const& params) {
   std::vector<ShadowPassParams> submittedParams =
       getSubmittedShadowPassParams();
 
@@ -297,10 +297,10 @@ void VulkanRHI::drawShadowPasses(DrawPassParams const& params) {
         0, static_cast<std::uint32_t>(
                cameraBufferInd * getPaddedBufferSize(sizeof(GPUCameraData)))};
 
-    drawPassNoMaterials(cmd, _drawCallQueue.data(), _drawCallQueue.size(),
-                        shadowPass.gpuCameraData, _vkShadowPassPipeline,
-                        _vkDepthPipelineLayout, dynamicOffsets,
-                        _vkShadowPassDescriptorSet, shadowPassVertInputSpec);
+    drawNoMaterials(cmd, _drawCallQueue.data(), _drawCallQueue.size(),
+                    shadowPass.gpuCameraData, _vkShadowPassPipeline,
+                    _vkDepthPipelineLayout, dynamicOffsets,
+                    _vkShadowPassDescriptorSet, shadowPassVertInputSpec);
 
     vkCmdEndRenderPass(cmd);
   }
@@ -324,10 +324,9 @@ void VulkanRHI::drawShadowPasses(DrawPassParams const& params) {
   }
 }
 
-void VulkanRHI::drawColorPass(DrawPassParams const& params,
-                              glm::vec3 ambientColor,
-                              VkFramebuffer targetFramebuffer,
-                              VkExtent2D extent, bool reusesDepth) {
+void VulkanRHI::colorPass(DrawPassParams const& params, glm::vec3 ambientColor,
+                          VkFramebuffer targetFramebuffer, VkExtent2D extent,
+                          bool reusesDepth) {
   std::array<VkClearValue, 2> clearValues;
   clearValues[0].color = {{0.0f, 0.0f, 1.0f, 1.0f}};
   clearValues[1].depthStencil.depth = 1.0f;
@@ -405,9 +404,8 @@ void VulkanRHI::drawEnvironmentMaps(struct DrawPassParams const& params) {
       drawColorParams.frameInd = params.frameInd;
       drawColorParams.currentFrameData = params.currentFrameData;
 
-      drawColorPass(drawColorParams, {0.0f, 0.0f, 0.0f}, map.framebuffers[i],
-                    {environmentMapResolution, environmentMapResolution},
-                    false);
+      colorPass(drawColorParams, {0.0f, 0.0f, 0.0f}, map.framebuffers[i],
+                {environmentMapResolution, environmentMapResolution}, false);
     }
   }
 }
@@ -515,18 +513,18 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
 
   drawEnvironmentMaps(params);
 
-  drawDepthPrepass(params);
+  depthPrepass(params);
 
-  drawSsaoPass(params);
+  ssaoPass(params);
 
   drawSsaoPostProcessing(params);
 
-  drawShadowPasses(params);
+  shadowPasses(params);
 
-  drawColorPass(params, sceneParams.ambientColor,
-                _vkSwapchainFramebuffers[swapchainImageIndex][params.frameInd]
-                    .vkFramebuffer,
-                _vkbSwapchain.extent);
+  colorPass(params, sceneParams.ambientColor,
+            _vkSwapchainFramebuffers[swapchainImageIndex][params.frameInd]
+                .vkFramebuffer,
+            _vkbSwapchain.extent);
 
   VK_CHECK(vkEndCommandBuffer(cmd));
 
@@ -637,7 +635,7 @@ void VulkanRHI::drawWithMaterials(
   }
 }
 
-void VulkanRHI::drawPassNoMaterials(
+void VulkanRHI::drawNoMaterials(
     VkCommandBuffer cmd, VKDrawCall* first, int count,
     GPUCameraData const& cameraData, VkPipeline pipeline,
     VkPipelineLayout pipelineLayout,

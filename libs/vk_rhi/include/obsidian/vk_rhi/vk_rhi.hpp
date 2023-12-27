@@ -273,15 +273,14 @@ private:
                          std::optional<VkViewport> dynamicViewport,
                          std::optional<VkRect2D> dynamicScissor,
                          bool reusesDepth = true);
-  void
-  drawPassNoMaterials(VkCommandBuffer, VKDrawCall* first, int count,
-                      GPUCameraData const& cameraData, VkPipeline pipeline,
-                      VkPipelineLayout pipelineLayout,
-                      std::vector<std::uint32_t> const& dynamicOffsets,
-                      VkDescriptorSet passDescriptorSet,
-                      VertexInputSpec vertexInputSpec,
-                      std::optional<VkViewport> dynamicViewport = std::nullopt,
-                      std::optional<VkRect2D> dynamicScissor = std::nullopt);
+  void drawNoMaterials(VkCommandBuffer, VKDrawCall* first, int count,
+                       GPUCameraData const& cameraData, VkPipeline pipeline,
+                       VkPipelineLayout pipelineLayout,
+                       std::vector<std::uint32_t> const& dynamicOffsets,
+                       VkDescriptorSet passDescriptorSet,
+                       VertexInputSpec vertexInputSpec,
+                       std::optional<VkViewport> dynamicViewport = std::nullopt,
+                       std::optional<VkRect2D> dynamicScissor = std::nullopt);
   void
   drawPostProcessing(VkCommandBuffer cmd, glm::mat3x3 const& kernel,
                      VkFramebuffer frameBuffer,
@@ -311,13 +310,13 @@ private:
   getSceneCameraData(rhi::SceneGlobalParams const& sceneParams) const;
   GPULightData getGPULightData() const;
 
-  void drawDepthPrepass(struct DrawPassParams const& params);
-  void drawSsaoPass(struct DrawPassParams const& params);
+  void depthPrepass(struct DrawPassParams const& params);
+  void ssaoPass(struct DrawPassParams const& params);
   void drawSsaoPostProcessing(struct DrawPassParams const& params);
-  void drawShadowPasses(struct DrawPassParams const& params);
-  void drawColorPass(struct DrawPassParams const& params,
-                     glm::vec3 ambientColor, VkFramebuffer targetFramebuffer,
-                     VkExtent2D extent, bool reusesDepth = true);
+  void shadowPasses(struct DrawPassParams const& params);
+  void colorPass(struct DrawPassParams const& params, glm::vec3 ambientColor,
+                 VkFramebuffer targetFramebuffer, VkExtent2D extent,
+                 bool reusesDepth = true);
   void drawEnvironmentMaps(struct DrawPassParams const& params);
   void present(VkSemaphore renderSemaphore, std::uint32_t swapchainImageIndex);
 };
