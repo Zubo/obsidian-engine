@@ -19,7 +19,7 @@ layout(location = 0) out vec4 outFragColor;
 #include "include/material.glsl"
 #include "include/ssao.glsl"
 
-layout(set = 0, binding = 1) uniform SceneData { vec4 ambientColor; }
+layout(set = 0, binding = 0) uniform SceneData { vec4 ambientColor; }
 sceneData;
 
 layout(set = 2, binding = 1) uniform sampler2D diffuseTex;

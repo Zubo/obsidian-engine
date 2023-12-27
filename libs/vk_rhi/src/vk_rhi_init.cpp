@@ -835,11 +835,6 @@ void VulkanRHI::initDescriptors() {
     _cameraBuffer = {};
   });
 
-  VkDescriptorBufferInfo cameraDescriptorBufferInfo;
-  cameraDescriptorBufferInfo.buffer = _cameraBuffer.buffer;
-  cameraDescriptorBufferInfo.offset = 0;
-  cameraDescriptorBufferInfo.range = sizeof(GPUCameraData);
-
   VkDescriptorBufferInfo sceneDescriptorBufferInfo;
   sceneDescriptorBufferInfo.buffer = _sceneDataBuffer.buffer;
   sceneDescriptorBufferInfo.offset = 0;
@@ -847,10 +842,7 @@ void VulkanRHI::initDescriptors() {
 
   DescriptorBuilder::begin(_vkDevice, _swapchainBoundDescriptorAllocator,
                            _descriptorLayoutCache)
-      .bindBuffer(0, cameraDescriptorBufferInfo,
-                  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-                  VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
-      .bindBuffer(1, sceneDescriptorBufferInfo,
+      .bindBuffer(0, sceneDescriptorBufferInfo,
                   VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
                   VK_SHADER_STAGE_FRAGMENT_BIT)
       .build(_vkGlobalDescriptorSet, _vkGlobalDescriptorSetLayout);
@@ -890,6 +882,11 @@ void VulkanRHI::initDescriptors() {
       vkShadowMapDescriptorImageInfos[j].sampler = _vkDepthSampler;
     }
 
+    VkDescriptorBufferInfo cameraDescriptorBufferInfo = {};
+    cameraDescriptorBufferInfo.buffer = _cameraBuffer.buffer;
+    cameraDescriptorBufferInfo.offset = 0;
+    cameraDescriptorBufferInfo.range = sizeof(GPUCameraData);
+
     VkDescriptorBufferInfo vkLightDataBufferInfo = {};
     vkLightDataBufferInfo.buffer = _lightDataBuffer.buffer;
     vkLightDataBufferInfo.offset = 0;
@@ -910,13 +907,16 @@ void VulkanRHI::initDescriptors() {
 
     DescriptorBuilder::begin(_vkDevice, _swapchainBoundDescriptorAllocator,
                              _descriptorLayoutCache)
-        .bindImages(0, vkShadowMapDescriptorImageInfos,
+        .bindBuffer(0, cameraDescriptorBufferInfo,
+                    VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+                    VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
+        .bindImages(1, vkShadowMapDescriptorImageInfos,
                     VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                     VK_SHADER_STAGE_FRAGMENT_BIT)
-        .bindBuffer(1, vkLightDataBufferInfo,
+        .bindBuffer(2, vkLightDataBufferInfo,
                     VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
                     VK_SHADER_STAGE_FRAGMENT_BIT)
-        .bindImage(2, vkSsaoImageInfo,
+        .bindImage(3, vkSsaoImageInfo,
                    VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                    VK_SHADER_STAGE_FRAGMENT_BIT)
         .build(frameData.vkMainRenderPassDescriptorSet,
@@ -1019,14 +1019,15 @@ void VulkanRHI::initDescriptors() {
 }
 
 void VulkanRHI::initDepthPrepassDescriptors() {
-  VkDescriptorBufferInfo bufferInfo;
-  bufferInfo.buffer = _cameraBuffer.buffer;
-  bufferInfo.offset = 0;
-  bufferInfo.range = getPaddedBufferSize(sizeof(GPUCameraData));
+  VkDescriptorBufferInfo cameraBufferInfo;
+  cameraBufferInfo.buffer = _cameraBuffer.buffer;
+  cameraBufferInfo.offset = 0;
+  cameraBufferInfo.range = getPaddedBufferSize(sizeof(GPUCameraData));
 
   DescriptorBuilder::begin(_vkDevice, _swapchainBoundDescriptorAllocator,
                            _descriptorLayoutCache)
-      .bindBuffer(0, bufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+      .bindBuffer(0, cameraBufferInfo,
+                  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
                   VK_SHADER_STAGE_VERTEX_BIT)
       .build(_depthPrepassDescriptorSet, _vkDepthPassDescriptorSetLayout);
 }
@@ -1057,6 +1058,11 @@ void VulkanRHI::initShadowPassDescriptors() {
 
 void VulkanRHI::initSsaoDescriptors() {
   for (FrameData& frameData : _frameDataArray) {
+    VkDescriptorBufferInfo cameraDescriptorBufferInfo = {};
+    cameraDescriptorBufferInfo.buffer = _cameraBuffer.buffer;
+    cameraDescriptorBufferInfo.offset = 0;
+    cameraDescriptorBufferInfo.range = sizeof(GPUCameraData);
+
     VkDescriptorBufferInfo samplesDescriptorBufferInfo = {};
     samplesDescriptorBufferInfo.buffer = _ssaoSamplesBuffer.buffer;
     samplesDescriptorBufferInfo.offset = 0;
@@ -1077,13 +1083,16 @@ void VulkanRHI::initSsaoDescriptors() {
 
     DescriptorBuilder::begin(_vkDevice, _swapchainBoundDescriptorAllocator,
                              _descriptorLayoutCache)
-        .bindBuffer(0, samplesDescriptorBufferInfo,
+        .bindBuffer(0, cameraDescriptorBufferInfo,
+                    VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+                    VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
+        .bindBuffer(1, samplesDescriptorBufferInfo,
                     VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
                     VK_SHADER_STAGE_FRAGMENT_BIT)
-        .bindImage(1, noiseDescriptorImageInfo,
+        .bindImage(2, noiseDescriptorImageInfo,
                    VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                    VK_SHADER_STAGE_FRAGMENT_BIT)
-        .bindImage(2, depthDescriptorImageInfo,
+        .bindImage(3, depthDescriptorImageInfo,
                    VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                    VK_SHADER_STAGE_FRAGMENT_BIT)
         .build(frameData.vkSsaoRenderPassDescriptorSet,

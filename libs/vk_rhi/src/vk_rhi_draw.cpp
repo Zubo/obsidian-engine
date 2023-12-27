@@ -78,9 +78,8 @@ void VulkanRHI::drawDepthPrepass(DrawPassParams const& params) {
   uploadBufferData(params.frameInd, params.cameraData, _cameraBuffer);
 
   std::vector<std::uint32_t> const depthPassDynamicOffsets = {
-      0, 0,
-      static_cast<std::uint32_t>(params.frameInd *
-                                 getPaddedBufferSize(sizeof(GPUCameraData)))};
+      0, static_cast<std::uint32_t>(
+             params.frameInd * getPaddedBufferSize(sizeof(GPUCameraData)))};
 
   VertexInputSpec const depthPrepassInputSpec = {true, false, false, false,
                                                  false};
@@ -295,9 +294,8 @@ void VulkanRHI::drawShadowPasses(DrawPassParams const& params) {
                      _shadowPassCameraBuffer);
 
     std::vector<std::uint32_t> const dynamicOffsets = {
-        0, 0,
-        static_cast<std::uint32_t>(cameraBufferInd *
-                                   getPaddedBufferSize(sizeof(GPUCameraData)))};
+        0, static_cast<std::uint32_t>(
+               cameraBufferInd * getPaddedBufferSize(sizeof(GPUCameraData)))};
 
     drawPassNoMaterials(cmd, _drawCallQueue.data(), _drawCallQueue.size(),
                         shadowPass.gpuCameraData, _vkShadowPassPipeline,
