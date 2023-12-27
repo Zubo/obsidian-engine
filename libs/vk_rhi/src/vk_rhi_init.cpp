@@ -58,6 +58,7 @@ void VulkanRHI::init(rhi::WindowExtentRHI extent,
   initDefaultSamplers();
   initMainRenderPassDataBuffer();
   initLightDataBuffer();
+  initDepthSampler();
   initDescriptors();
   initDepthPrepassDescriptors();
   initShadowPassDescriptors();
@@ -840,6 +841,19 @@ void VulkanRHI::initLightDataBuffer() {
   });
 }
 
+void VulkanRHI::initDepthSampler() {
+  VkSamplerCreateInfo const vkDepthSamplerCreateInfo =
+      vkinit::samplerCreateInfo(VK_FILTER_LINEAR,
+                                VK_SAMPLER_MIPMAP_MODE_NEAREST,
+                                VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
+
+  VK_CHECK(vkCreateSampler(_vkDevice, &vkDepthSamplerCreateInfo, nullptr,
+                           &_vkDepthSampler));
+
+  _deletionQueue.pushFunction(
+      [this]() { vkDestroySampler(_vkDevice, _vkDepthSampler, nullptr); });
+}
+
 void VulkanRHI::initDescriptors() {
   DescriptorBuilder::begin(_vkDevice, _swapchainBoundDescriptorAllocator,
                            _descriptorLayoutCache)
@@ -879,17 +893,6 @@ void VulkanRHI::initDescriptors() {
                   VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
                   VK_SHADER_STAGE_FRAGMENT_BIT)
       .build(_vkGlobalDescriptorSet, _vkGlobalDescriptorSetLayout);
-
-  VkSamplerCreateInfo const vkDepthSamplerCreateInfo =
-      vkinit::samplerCreateInfo(VK_FILTER_LINEAR,
-                                VK_SAMPLER_MIPMAP_MODE_NEAREST,
-                                VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
-
-  VK_CHECK(vkCreateSampler(_vkDevice, &vkDepthSamplerCreateInfo, nullptr,
-                           &_vkDepthSampler));
-
-  _deletionQueue.pushFunction(
-      [this]() { vkDestroySampler(_vkDevice, _vkDepthSampler, nullptr); });
 
   for (int i = 0; i < frameOverlap; ++i) {
     FrameData& frameData = _frameDataArray[i];

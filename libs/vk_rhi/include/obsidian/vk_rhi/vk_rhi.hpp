@@ -233,6 +233,7 @@ private:
   void initDefaultSamplers();
   void initMainRenderPassDataBuffer();
   void initLightDataBuffer();
+  void initDepthSampler();
   void initDescriptors();
   void initDepthPrepassDescriptors();
   void initShadowPassDescriptors();
