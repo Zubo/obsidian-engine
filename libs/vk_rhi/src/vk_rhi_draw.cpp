@@ -325,24 +325,15 @@ void VulkanRHI::shadowPasses(DrawPassParams const& params) {
 }
 
 void VulkanRHI::colorPass(DrawPassParams const& params, glm::vec3 ambientColor,
-                          VkFramebuffer targetFramebuffer, VkExtent2D extent,
-                          bool reusesDepth) {
+                          VkFramebuffer targetFramebuffer, VkExtent2D extent) {
   std::array<VkClearValue, 2> clearValues;
   clearValues[0].color = {{0.0f, 0.0f, 1.0f, 1.0f}};
   clearValues[1].depthStencil.depth = 1.0f;
 
-  GPUSceneData gpuSceneData;
-  gpuSceneData.ambientColor = glm::vec4(ambientColor, 1.0f);
-  uploadBufferData(params.frameInd, gpuSceneData, _sceneDataBuffer);
-
-  uploadBufferData(params.frameInd, getGPULightData(), _lightDataBuffer);
-
   VkRenderPassBeginInfo vkRenderPassBeginInfo = {};
   vkRenderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
   vkRenderPassBeginInfo.pNext = nullptr;
-  vkRenderPassBeginInfo.renderPass =
-      reusesDepth ? _mainRenderPassReuseDepth.vkRenderPass
-                  : _mainRenderPassNoDepthReuse.vkRenderPass;
+  vkRenderPassBeginInfo.renderPass = _mainRenderPassReuseDepth.vkRenderPass;
   vkRenderPassBeginInfo.framebuffer = targetFramebuffer;
   vkRenderPassBeginInfo.renderArea.offset = {0, 0};
   vkRenderPassBeginInfo.renderArea.extent = extent;
@@ -355,57 +346,95 @@ void VulkanRHI::colorPass(DrawPassParams const& params, glm::vec3 ambientColor,
 
   std::vector<std::uint32_t> const defaultDynamicOffsets{
       static_cast<std::uint32_t>(params.frameInd *
-                                 getPaddedBufferSize(sizeof(GPUCameraData))),
-      static_cast<std::uint32_t>(params.frameInd *
                                  getPaddedBufferSize(sizeof(GPUSceneData))),
+      static_cast<std::uint32_t>(params.frameInd *
+                                 getPaddedBufferSize(sizeof(GPUCameraData))),
       static_cast<std::uint32_t>(params.frameInd *
                                  getPaddedBufferSize(sizeof(GPULightData)))};
 
   drawWithMaterials(cmd, _drawCallQueue.data(), _drawCallQueue.size(),
                     params.cameraData, defaultDynamicOffsets,
                     params.currentFrameData.vkMainRenderPassDescriptorSet,
-                    params.viewport, params.scissor, reusesDepth);
+                    params.viewport, params.scissor, true);
 
   drawWithMaterials(cmd, _transparentDrawCallQueue.data(),
                     _transparentDrawCallQueue.size(), params.cameraData,
                     defaultDynamicOffsets,
                     params.currentFrameData.vkMainRenderPassDescriptorSet,
-                    params.viewport, params.scissor, reusesDepth);
+                    params.viewport, params.scissor, true);
 
   vkCmdEndRenderPass(cmd);
 }
 
-void VulkanRHI::drawEnvironmentMaps(struct DrawPassParams const& params) {
+void VulkanRHI::environmentMapPasses(struct DrawPassParams const& params) {
   constexpr std::array<glm::vec3, 6> cubeSides = {
       glm::vec3{1.0f, 0.0f, 0.0f}, glm::vec3{-1.0f, 0.0f, 0.0f},
       glm::vec3{0.0f, 1.0f, 0.0f}, glm::vec3{0.0f, -1.0f, 0.0f},
       glm::vec3{0.0f, 0.0f, 1.0f}, glm::vec3{0.0f, 0.0f, -1.0f}};
   constexpr std::array<glm::vec3, 6> upVecs = {
-      glm::vec3{0.0f, 1.0f, 0.0f}, glm::vec3{0.0f, 1.0f, 0.0f},
-      glm::vec3{0.0f, 0.0f, 1.0f}, glm::vec3{0.0f, 0.0f, -1.0f},
-      glm::vec3{0.0f, 1.0f, 0.0f}, glm::vec3{0.0f, 1.0f, 0.0f}};
+      glm::vec3{0.0f, -1.0f, 0.0f}, glm::vec3{0.0f, -1.0f, 0.0f},
+      glm::vec3{0.0f, 0.0f, 1.0f},  glm::vec3{0.0f, 0.0f, -1.0f},
+      glm::vec3{0.0f, -1.0f, 0.0f}, glm::vec3{0.0f, -1.0f, 0.0f}};
+
+  VkViewport const viewport{
+      0, 0, environmentMapResolution, environmentMapResolution, 0.0f, 1.0f};
+  VkRect2D const scissor{{0, 0},
+                         {environmentMapResolution, environmentMapResolution}};
 
   VkCommandBuffer cmd = params.currentFrameData.vkCommandBuffer;
 
   for (EnvironmentMap const& map : _environmentMaps) {
     for (std::size_t i = 0; i < 6; ++i) {
-      DrawPassParams drawColorParams;
-      drawColorParams.cameraData.view =
+      GPUCameraData cameraData;
+      cameraData.view =
           glm::lookAt({0.0f, 0.0f, 0.0f}, cubeSides[i], upVecs[i]);
-      drawColorParams.cameraData.proj =
-          glm::perspective(glm::radians(90.f), 1.0f, 0.1f, 400.f);
-      drawColorParams.cameraData.viewProj =
-          drawColorParams.cameraData.proj * drawColorParams.cameraData.view;
+      cameraData.proj = glm::perspective(glm::radians(90.f), 1.0f, 0.1f, 400.f);
+      cameraData.viewProj = cameraData.proj * cameraData.view;
 
-      drawColorParams.viewport = {
-          0, 0, environmentMapResolution, environmentMapResolution, 0.0f, 1.0f};
-      drawColorParams.scissor = {
-          {0, 0}, {environmentMapResolution, environmentMapResolution}};
-      drawColorParams.frameInd = params.frameInd;
-      drawColorParams.currentFrameData = params.currentFrameData;
+      uploadBufferData(6 * params.frameInd + i, cameraData, map.cameraBuffer);
 
-      colorPass(drawColorParams, {0.0f, 0.0f, 0.0f}, map.framebuffers[i],
-                {environmentMapResolution, environmentMapResolution}, false);
+      std::array<VkClearValue, 2> clearValues;
+      clearValues[0].color = {{0.0f, 0.0f, 1.0f, 1.0f}};
+      clearValues[1].depthStencil.depth = 1.0f;
+
+      VkRenderPassBeginInfo vkRenderPassBeginInfo = {};
+      vkRenderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+      vkRenderPassBeginInfo.pNext = nullptr;
+      vkRenderPassBeginInfo.renderPass =
+          _mainRenderPassNoDepthReuse.vkRenderPass;
+      vkRenderPassBeginInfo.framebuffer = map.framebuffers[i];
+      vkRenderPassBeginInfo.renderArea.offset = {0, 0};
+      vkRenderPassBeginInfo.renderArea.extent = {environmentMapResolution,
+                                                 environmentMapResolution};
+      vkRenderPassBeginInfo.clearValueCount = clearValues.size();
+      vkRenderPassBeginInfo.pClearValues = clearValues.data();
+
+      VkCommandBuffer cmd = params.currentFrameData.vkCommandBuffer;
+
+      vkCmdBeginRenderPass(cmd, &vkRenderPassBeginInfo,
+                           VK_SUBPASS_CONTENTS_INLINE);
+
+      std::vector<std::uint32_t> const defaultDynamicOffsets{
+          static_cast<std::uint32_t>(params.frameInd *
+                                     getPaddedBufferSize(sizeof(GPUSceneData))),
+          static_cast<std::uint32_t>(
+              (6 * params.frameInd + i) *
+              getPaddedBufferSize(sizeof(GPUCameraData))),
+          static_cast<std::uint32_t>(
+              params.frameInd * getPaddedBufferSize(sizeof(GPULightData)))};
+
+      drawWithMaterials(cmd, _drawCallQueue.data(), _drawCallQueue.size(),
+                        params.cameraData, defaultDynamicOffsets,
+                        map.renderPassDescriptorSets[params.frameInd], viewport,
+                        scissor, false);
+
+      drawWithMaterials(cmd, _transparentDrawCallQueue.data(),
+                        _transparentDrawCallQueue.size(), params.cameraData,
+                        defaultDynamicOffsets,
+                        map.renderPassDescriptorSets[params.frameInd], viewport,
+                        scissor, false);
+
+      vkCmdEndRenderPass(cmd);
     }
   }
 }
@@ -499,6 +528,12 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
 
   updateTimerBuffer(cmd);
 
+  GPUSceneData gpuSceneData;
+  gpuSceneData.ambientColor = glm::vec4(sceneParams.ambientColor, 1.0f);
+  uploadBufferData(params.frameInd, gpuSceneData, _sceneDataBuffer);
+
+  uploadBufferData(params.frameInd, getGPULightData(), _lightDataBuffer);
+
   auto const sortByDistanceAscending =
       getSortByDistanceFunc<true>(params.cameraData.viewProj);
   auto const sortByDistanceDescending =
@@ -511,8 +546,6 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   std::sort(_ssaoDrawCallQueue.begin(), _ssaoDrawCallQueue.end(),
             sortByDistanceAscending);
 
-  drawEnvironmentMaps(params);
-
   depthPrepass(params);
 
   ssaoPass(params);
@@ -520,6 +553,8 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   drawSsaoPostProcessing(params);
 
   shadowPasses(params);
+
+  environmentMapPasses(params);
 
   colorPass(params, sceneParams.ambientColor,
             _vkSwapchainFramebuffers[swapchainImageIndex][params.frameInd]

@@ -117,8 +117,8 @@ private:
   void partiallyBoundBinding(uint32_t binding);
 
   VkDevice _vkDevice;
-  DescriptorAllocator& _allocator;
-  DescriptorLayoutCache& _layoutCache;
+  DescriptorAllocator* _allocator;
+  DescriptorLayoutCache* _layoutCache;
   std::vector<VkDescriptorSetLayoutBinding> _bindings;
   std::vector<VkWriteDescriptorSet> _writes;
   std::vector<VkDescriptorBindingFlags> _bindingCreateFlags;

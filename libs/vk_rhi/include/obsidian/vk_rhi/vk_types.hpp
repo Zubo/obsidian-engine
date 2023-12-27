@@ -92,14 +92,6 @@ private:
   const std::uint32_t padding[3] = {0, 0, 0};
 };
 
-// used as bool scalar with std140 alignment
-struct Boolean32 {
-  bool value = false;
-
-private:
-  const bool padding[3] = {false, false, false};
-};
-
 struct GPULightData {
   GPUDirectionalLightData directionalLights[rhi::maxLightsPerDrawPass];
   PaddedUInt32 directionalLightShadowMapIndices[rhi::maxLightsPerDrawPass];
@@ -121,14 +113,18 @@ struct GPULitMaterialData {
   glm::vec4 ambientColor;
   glm::vec4 diffuseColor;
   glm::vec4 specularColor;
-  Boolean32 hasDiffuseTex;
-  Boolean32 hasNormalMap;
+  VkBool32 hasDiffuseTex;
+  VkBool32 hasNormalMap;
   float shininess;
 };
 
 struct GPUUnlitMaterialData {
   glm::vec4 diffuseColor;
-  Boolean32 hasDiffuseTex;
+  VkBool32 hasDiffuseTex;
+};
+
+struct GpuRenderPassData {
+  VkBool32 applySsao;
 };
 
 struct VKDrawCall {
@@ -177,6 +173,8 @@ struct EnvironmentMap {
   std::array<VkImageView, 6> colorAttachmentImageViews;
   std::array<VkImageView, 6> depthAttachmentImageViews;
   std::array<VkFramebuffer, 6> framebuffers;
+  std::array<VkDescriptorSet, frameOverlap> renderPassDescriptorSets;
+  AllocatedBuffer cameraBuffer;
   glm::vec3 pos;
 };
 

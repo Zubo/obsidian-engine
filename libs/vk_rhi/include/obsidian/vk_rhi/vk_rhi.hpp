@@ -131,6 +131,7 @@ private:
   std::vector<std::array<Framebuffer, frameOverlap>> _vkSwapchainFramebuffers;
   VkPipelineLayout _vkMeshPipelineLayout;
   VkPipelineLayout _vkLitMeshPipelineLayout;
+  AllocatedBuffer _mainRenderPassDataBuffer;
 
   // Depth pass
   RenderPass _depthRenderPass;
@@ -206,6 +207,9 @@ private:
   using Clock = std::chrono::high_resolution_clock;
   std::chrono::time_point<Clock> _engineInitTimePoint;
 
+  // Environment Mapping
+  AllocatedBuffer _envMapRenderPassDataBuffer;
+
   void initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider);
   void initSwapchain(rhi::WindowExtentRHI const& extent);
   void initCommands();
@@ -227,6 +231,8 @@ private:
   void initSsaoPostProcessingPipeline();
   void initDescriptorBuilder();
   void initDefaultSamplers();
+  void initMainRenderPassDataBuffer();
+  void initLightDataBuffer();
   void initDescriptors();
   void initDepthPrepassDescriptors();
   void initShadowPassDescriptors();
@@ -235,6 +241,7 @@ private:
   void initPostProcessingSampler();
   void initSsaoPostProcessingDescriptors();
   void initPostProcessingQuad();
+  void initEnvMapRenderPassDataBuffer();
   void initImmediateSubmitContext(ImmediateSubmitContext& context,
                                   std::uint32_t queueInd);
   void initTimer();
@@ -315,9 +322,8 @@ private:
   void drawSsaoPostProcessing(struct DrawPassParams const& params);
   void shadowPasses(struct DrawPassParams const& params);
   void colorPass(struct DrawPassParams const& params, glm::vec3 ambientColor,
-                 VkFramebuffer targetFramebuffer, VkExtent2D extent,
-                 bool reusesDepth = true);
-  void drawEnvironmentMaps(struct DrawPassParams const& params);
+                 VkFramebuffer targetFramebuffer, VkExtent2D extent);
+  void environmentMapPasses(struct DrawPassParams const& params);
   void present(VkSemaphore renderSemaphore, std::uint32_t swapchainImageIndex);
 };
 

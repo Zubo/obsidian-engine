@@ -6,7 +6,7 @@
 
 #define MAX_LIGHT_COUNT 8
 
-layout(set = 1, binding = 1) uniform sampler2D shadowMap[MAX_LIGHT_COUNT];
+layout(set = 1, binding = 2) uniform sampler2D shadowMap[MAX_LIGHT_COUNT];
 
 struct DirectionalLight {
   mat4 viewProj;
@@ -25,7 +25,7 @@ struct Spotlight {
   vec4 attenuation; // x = linear attenuation, y = quadratic attenuation
 };
 
-layout(std140, set = 1, binding = 2) uniform LightCameraData {
+layout(std140, set = 1, binding = 3) uniform LightCameraData {
   DirectionalLight directionalLights[MAX_LIGHT_COUNT];
   uint directionalLightShadowMapIndices[MAX_LIGHT_COUNT];
   Spotlight spotlights[MAX_LIGHT_COUNT];

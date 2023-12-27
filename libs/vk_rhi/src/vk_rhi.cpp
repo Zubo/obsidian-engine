@@ -427,9 +427,9 @@ void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
 
   if (uploadMaterial.materialType == core::MaterialType::lit) {
     GPULitMaterialData materialData;
-    materialData.hasDiffuseTex.value =
+    materialData.hasDiffuseTex =
         uploadMaterial.diffuseTextureId != rhi::rhiIdUninitialized;
-    materialData.hasNormalMap.value =
+    materialData.hasNormalMap =
         uploadMaterial.normalTextureId != rhi::rhiIdUninitialized;
     materialData.ambientColor = uploadMaterial.ambientColor;
     materialData.diffuseColor = uploadMaterial.diffuseColor;
@@ -441,7 +441,7 @@ void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
 
   } else {
     GPUUnlitMaterialData materialData;
-    materialData.hasDiffuseTex.value =
+    materialData.hasDiffuseTex =
         uploadMaterial.diffuseTextureId != rhi::rhiIdUninitialized;
     materialData.diffuseColor = uploadMaterial.diffuseColor;
 
@@ -947,6 +947,65 @@ void VulkanRHI::createEnvironmentMap(glm::vec3 envMapPos) {
   VK_CHECK(vkCreateImageView(_vkDevice, &depthImageViewCreateInfo, nullptr,
                              &envMap.depthImageView));
 
+  envMap.cameraBuffer = createBuffer(
+      frameOverlap * 6 * getPaddedBufferSize(sizeof(GPUCameraData)),
+      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+      VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+
+  for (int i = 0; i < frameOverlap; ++i) {
+    FrameData& frameData = _frameDataArray[i];
+
+    std::vector<VkDescriptorImageInfo> vkShadowMapDescriptorImageInfos{
+        rhi::maxLightsPerDrawPass};
+
+    for (std::size_t j = 0; j < vkShadowMapDescriptorImageInfos.size(); ++j) {
+      vkShadowMapDescriptorImageInfos[j].imageLayout =
+          VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+      vkShadowMapDescriptorImageInfos[j].imageView =
+          frameData.shadowFrameBuffers[j].depthBufferImageView;
+      vkShadowMapDescriptorImageInfos[j].sampler = _vkDepthSampler;
+    }
+
+    VkDescriptorBufferInfo renderPassDataDescriptorBufferInfo = {};
+    renderPassDataDescriptorBufferInfo.buffer =
+        _envMapRenderPassDataBuffer.buffer;
+    renderPassDataDescriptorBufferInfo.offset = 0;
+    renderPassDataDescriptorBufferInfo.range = sizeof(GpuRenderPassData);
+
+    VkDescriptorBufferInfo cameraBufferInfo;
+    cameraBufferInfo.buffer = envMap.cameraBuffer.buffer;
+    cameraBufferInfo.offset = 0;
+    cameraBufferInfo.range = sizeof(GPUCameraData);
+
+    VkDescriptorBufferInfo cameraDescriptorBufferInfo = {};
+    cameraDescriptorBufferInfo.buffer = _cameraBuffer.buffer;
+    cameraDescriptorBufferInfo.offset = 0;
+    cameraDescriptorBufferInfo.range = sizeof(GPUCameraData);
+
+    VkDescriptorBufferInfo vkLightDataBufferInfo = {};
+    vkLightDataBufferInfo.buffer = _lightDataBuffer.buffer;
+    vkLightDataBufferInfo.offset = 0;
+    vkLightDataBufferInfo.range = sizeof(GPULightData);
+
+    DescriptorBuilder::begin(_vkDevice, _descriptorAllocator,
+                             _descriptorLayoutCache)
+        .bindBuffer(0, renderPassDataDescriptorBufferInfo,
+                    VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                    VK_SHADER_STAGE_FRAGMENT_BIT)
+        .bindBuffer(1, cameraBufferInfo,
+                    VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+                    VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
+        .bindImages(2, vkShadowMapDescriptorImageInfos,
+                    VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                    VK_SHADER_STAGE_FRAGMENT_BIT)
+        .bindBuffer(3, vkLightDataBufferInfo,
+                    VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+                    VK_SHADER_STAGE_FRAGMENT_BIT)
+        .declareUnusedImage(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                            VK_SHADER_STAGE_FRAGMENT_BIT)
+        .build(envMap.renderPassDescriptorSets[i]);
+  }
+
   for (std::size_t i = 0; i < envMap.framebuffers.size(); ++i) {
     VkFramebufferCreateInfo frameBufferCreateInfo = {};
     frameBufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -999,5 +1058,8 @@ void VulkanRHI::createEnvironmentMap(glm::vec3 envMapPos) {
     vkDestroyImageView(_vkDevice, envMap.depthImageView, nullptr);
     vmaDestroyImage(_vmaAllocator, envMap.depthImage.vkImage,
                     envMap.depthImage.allocation);
+
+    vmaDestroyBuffer(_vmaAllocator, envMap.cameraBuffer.buffer,
+                     envMap.cameraBuffer.allocation);
   });
 }

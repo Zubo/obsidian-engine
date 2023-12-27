@@ -17,6 +17,7 @@ layout(location = 0) out vec4 outFragColor;
 
 #include "include/lighting.glsl"
 #include "include/material.glsl"
+#include "include/renderpass-data.glsl"
 #include "include/ssao.glsl"
 
 layout(set = 0, binding = 0) uniform SceneData { vec4 ambientColor; }
@@ -40,8 +41,10 @@ void main() {
   vec4 ambientColor = materialData.ambientColor * sceneData.ambientColor;
 
 #ifdef _HAS_UV
-  const float ssao = getSsao();
-  ambientColor *= (ssao / 128.0f);
+  if (renderpassData.applySsao) {
+    const float ssao = getSsao();
+    ambientColor *= (ssao / 128.0f);
+  }
 #endif
 
   vec4 diffuseColor = materialData.diffuseColor;

@@ -56,6 +56,8 @@ void VulkanRHI::init(rhi::WindowExtentRHI extent,
   initSyncStructures();
   initDescriptorBuilder();
   initDefaultSamplers();
+  initMainRenderPassDataBuffer();
+  initLightDataBuffer();
   initDescriptors();
   initDepthPrepassDescriptors();
   initShadowPassDescriptors();
@@ -65,6 +67,9 @@ void VulkanRHI::init(rhi::WindowExtentRHI extent,
   initMainPipelineAndLayouts();
   initDepthPassPipelineLayout();
   initTimer();
+  initEnvMapRenderPassDataBuffer();
+
+  createEnvironmentMap({});
 
   waitDeviceIdle();
 
@@ -807,6 +812,34 @@ void VulkanRHI::initDefaultSamplers() {
   });
 }
 
+void VulkanRHI::initMainRenderPassDataBuffer() {
+  _mainRenderPassDataBuffer = createBuffer(
+      getPaddedBufferSize(sizeof(GpuRenderPassData)),
+      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+      VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+
+  GpuRenderPassData data{VK_TRUE};
+
+  uploadBufferData(0, data, _mainRenderPassDataBuffer);
+
+  _deletionQueue.pushFunction([this]() {
+    vmaDestroyBuffer(_vmaAllocator, _mainRenderPassDataBuffer.buffer,
+                     _mainRenderPassDataBuffer.allocation);
+  });
+}
+
+void VulkanRHI::initLightDataBuffer() {
+  _lightDataBuffer = createBuffer(
+      frameOverlap * getPaddedBufferSize(sizeof(GPULightData)),
+      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+      VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+
+  _deletionQueue.pushFunction([this]() {
+    vmaDestroyBuffer(_vmaAllocator, _lightDataBuffer.buffer,
+                     _lightDataBuffer.allocation);
+  });
+}
+
 void VulkanRHI::initDescriptors() {
   DescriptorBuilder::begin(_vkDevice, _swapchainBoundDescriptorAllocator,
                            _descriptorLayoutCache)
@@ -855,18 +888,8 @@ void VulkanRHI::initDescriptors() {
   VK_CHECK(vkCreateSampler(_vkDevice, &vkDepthSamplerCreateInfo, nullptr,
                            &_vkDepthSampler));
 
-  _swapchainDeletionQueue.pushFunction(
+  _deletionQueue.pushFunction(
       [this]() { vkDestroySampler(_vkDevice, _vkDepthSampler, nullptr); });
-
-  _lightDataBuffer = createBuffer(
-      frameOverlap * getPaddedBufferSize(sizeof(GPULightData)),
-      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
-      VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
-
-  _swapchainDeletionQueue.pushFunction([this]() {
-    vmaDestroyBuffer(_vmaAllocator, _lightDataBuffer.buffer,
-                     _lightDataBuffer.allocation);
-  });
 
   for (int i = 0; i < frameOverlap; ++i) {
     FrameData& frameData = _frameDataArray[i];
@@ -881,6 +904,12 @@ void VulkanRHI::initDescriptors() {
           frameData.shadowFrameBuffers[j].depthBufferImageView;
       vkShadowMapDescriptorImageInfos[j].sampler = _vkDepthSampler;
     }
+
+    VkDescriptorBufferInfo renderPassDataDescriptorBufferInfo = {};
+    renderPassDataDescriptorBufferInfo.buffer =
+        _mainRenderPassDataBuffer.buffer;
+    renderPassDataDescriptorBufferInfo.offset = 0;
+    renderPassDataDescriptorBufferInfo.range = sizeof(GpuRenderPassData);
 
     VkDescriptorBufferInfo cameraDescriptorBufferInfo = {};
     cameraDescriptorBufferInfo.buffer = _cameraBuffer.buffer;
@@ -898,27 +927,23 @@ void VulkanRHI::initDescriptors() {
     vkSsaoImageInfo.imageView =
         frameData.vkSsaoPostProcessingFramebuffer.colorBufferImageView;
 
-    VkDescriptorImageInfo vkDepthPrepassimageInfo = {};
-    vkDepthPrepassimageInfo.imageLayout =
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    vkDepthPrepassimageInfo.imageView =
-        frameData.vkDepthPrepassFramebuffer.depthBufferImageView;
-    vkDepthPrepassimageInfo.sampler = _vkDepthSampler;
-
     DescriptorBuilder::begin(_vkDevice, _swapchainBoundDescriptorAllocator,
                              _descriptorLayoutCache)
-        .bindBuffer(0, cameraDescriptorBufferInfo,
+        .bindBuffer(0, renderPassDataDescriptorBufferInfo,
+                    VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                    VK_SHADER_STAGE_FRAGMENT_BIT)
+        .bindBuffer(1, cameraDescriptorBufferInfo,
                     VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
                     VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
-        .bindImages(1, vkShadowMapDescriptorImageInfos,
+        .bindImages(2, vkShadowMapDescriptorImageInfos,
                     VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                     VK_SHADER_STAGE_FRAGMENT_BIT)
-        .bindBuffer(2, vkLightDataBufferInfo,
+        .bindBuffer(3, vkLightDataBufferInfo,
                     VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
                     VK_SHADER_STAGE_FRAGMENT_BIT)
-        .bindImage(3, vkSsaoImageInfo,
+        .bindImage(4, vkSsaoImageInfo,
                    VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                   VK_SHADER_STAGE_FRAGMENT_BIT)
+                   VK_SHADER_STAGE_FRAGMENT_BIT, nullptr, true)
         .build(frameData.vkMainRenderPassDescriptorSet,
                _vkMainRenderPassDescriptorSetLayout);
   }
@@ -1026,7 +1051,7 @@ void VulkanRHI::initDepthPrepassDescriptors() {
 
   DescriptorBuilder::begin(_vkDevice, _swapchainBoundDescriptorAllocator,
                            _descriptorLayoutCache)
-      .bindBuffer(0, cameraBufferInfo,
+      .bindBuffer(1, cameraBufferInfo,
                   VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
                   VK_SHADER_STAGE_VERTEX_BIT)
       .build(_depthPrepassDescriptorSet, _vkDepthPassDescriptorSetLayout);
@@ -1050,7 +1075,7 @@ void VulkanRHI::initShadowPassDescriptors() {
   vkCameraDatabufferInfo.range = sizeof(GPUCameraData);
   DescriptorBuilder::begin(_vkDevice, _descriptorAllocator,
                            _descriptorLayoutCache)
-      .bindBuffer(0, vkCameraDatabufferInfo,
+      .bindBuffer(1, vkCameraDatabufferInfo,
                   VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
                   VK_SHADER_STAGE_VERTEX_BIT)
       .build(_vkShadowPassDescriptorSet);
@@ -1083,16 +1108,16 @@ void VulkanRHI::initSsaoDescriptors() {
 
     DescriptorBuilder::begin(_vkDevice, _swapchainBoundDescriptorAllocator,
                              _descriptorLayoutCache)
-        .bindBuffer(0, cameraDescriptorBufferInfo,
+        .bindBuffer(1, cameraDescriptorBufferInfo,
                     VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
                     VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
-        .bindBuffer(1, samplesDescriptorBufferInfo,
+        .bindBuffer(2, samplesDescriptorBufferInfo,
                     VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
                     VK_SHADER_STAGE_FRAGMENT_BIT)
-        .bindImage(2, noiseDescriptorImageInfo,
+        .bindImage(3, noiseDescriptorImageInfo,
                    VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                    VK_SHADER_STAGE_FRAGMENT_BIT)
-        .bindImage(3, depthDescriptorImageInfo,
+        .bindImage(4, depthDescriptorImageInfo,
                    VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                    VK_SHADER_STAGE_FRAGMENT_BIT)
         .build(frameData.vkSsaoRenderPassDescriptorSet,
@@ -1249,6 +1274,23 @@ void VulkanRHI::initPostProcessingQuad() {
               sizeof(quadVertices));
 
   vmaUnmapMemory(_vmaAllocator, _postProcessingQuadBuffer.allocation);
+}
+
+void VulkanRHI::initEnvMapRenderPassDataBuffer() {
+  _envMapRenderPassDataBuffer = createBuffer(
+      getPaddedBufferSize(sizeof(GpuRenderPassData)),
+      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+      VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+
+  GpuRenderPassData renderPassData = {};
+  renderPassData.applySsao = VK_FALSE;
+
+  uploadBufferData(0, renderPassData, _envMapRenderPassDataBuffer);
+
+  _deletionQueue.pushFunction([this]() {
+    vmaDestroyBuffer(_vmaAllocator, _envMapRenderPassDataBuffer.buffer,
+                     _envMapRenderPassDataBuffer.allocation);
+  });
 }
 
 void VulkanRHI::initImmediateSubmitContext(ImmediateSubmitContext& context,

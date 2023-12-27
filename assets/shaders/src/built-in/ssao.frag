@@ -8,12 +8,12 @@ layout(location = 0) out float outFragColor;
 
 #include "include/camera.glsl"
 
-layout(std140, set = 1, binding = 1) uniform ssaoSamples { vec4 values[64]; }
+layout(std140, set = 1, binding = 2) uniform ssaoSamples { vec4 values[64]; }
 SsaoSamples;
 
-layout(set = 1, binding = 2) uniform sampler2D noise;
+layout(set = 1, binding = 3) uniform sampler2D noise;
 
-layout(set = 1, binding = 3) uniform sampler2D depth;
+layout(set = 1, binding = 4) uniform sampler2D depth;
 
 void main() {
   const vec3 sampledNoise = vec3(texture(noise, inUV * 800.0f).xy, 0.0f);

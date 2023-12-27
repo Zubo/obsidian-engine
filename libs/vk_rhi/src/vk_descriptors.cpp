@@ -386,9 +386,9 @@ bool DescriptorBuilder::build(VkDescriptorSet& outVkDescriptorSet,
   vkDescriptorSetLayoutCreateInfo.bindingCount = _bindings.size();
   vkDescriptorSetLayoutCreateInfo.pBindings = _bindings.data();
 
-  outLayout = _layoutCache.getLayout(vkDescriptorSetLayoutCreateInfo);
+  outLayout = _layoutCache->getLayout(vkDescriptorSetLayoutCreateInfo);
 
-  bool result = _allocator.allocate(outLayout, &outVkDescriptorSet);
+  bool result = _allocator->allocate(outLayout, &outVkDescriptorSet);
 
   for (VkWriteDescriptorSet& writeDescr : _writes) {
     writeDescr.dstSet = outVkDescriptorSet;
@@ -402,8 +402,8 @@ bool DescriptorBuilder::build(VkDescriptorSet& outVkDescriptorSet,
 DescriptorBuilder::DescriptorBuilder(VkDevice vkDevice,
                                      DescriptorAllocator& allocator,
                                      DescriptorLayoutCache& layoutCache)
-    : _vkDevice{vkDevice}, _allocator{allocator}, _layoutCache{layoutCache} {}
 
+    : _vkDevice{vkDevice}, _allocator{&allocator}, _layoutCache{&layoutCache} {}
 void DescriptorBuilder::partiallyBoundBinding(uint32_t binding) {
   if (binding >= _bindingCreateFlags.size()) {
     _bindingCreateFlags.resize(binding + 1, 0);
