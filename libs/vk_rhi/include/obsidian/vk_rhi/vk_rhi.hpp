@@ -111,7 +111,7 @@ private:
   std::uint32_t _graphicsQueueFamilyIndex;
   std::uint32_t _transferQueueFamilyIndex;
   std::unordered_map<std::uint32_t, VkQueue> _gpuQueues;
-  std::unordered_map<std::uint32_t, std::mutex> _gpuQueueMutexes;
+  mutable std::unordered_map<std::uint32_t, std::mutex> _gpuQueueMutexes;
   std::vector<VKDrawCall> _drawCallQueue;
   std::vector<VKDrawCall> _ssaoDrawCallQueue;
   std::vector<VKDrawCall> _transparentDrawCallQueue;

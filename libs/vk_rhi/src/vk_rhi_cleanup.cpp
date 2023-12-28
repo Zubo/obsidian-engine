@@ -14,7 +14,7 @@ void VulkanRHI::cleanup() {
     while (!_taskExecutor->shutdownComplete())
       ;
 
-    vkDeviceWaitIdle(_vkDevice);
+    waitDeviceIdle();
 
     _swapchainDeletionQueue.flush();
     _deletionQueue.flush();

@@ -456,7 +456,7 @@ void VulkanRHI::present(VkSemaphore renderSemaphore,
 
   VkResult presentResult;
   {
-    std::scoped_lock l{_gpuQueueMutexes[_graphicsQueueFamilyIndex]};
+    std::scoped_lock l{_gpuQueueMutexes.at(_graphicsQueueFamilyIndex)};
     presentResult = vkQueuePresentKHR(_gpuQueues[_graphicsQueueFamilyIndex],
                                       &vkPresentInfo);
   }
@@ -576,7 +576,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   vkSubmitInfo.pSignalSemaphores = &params.currentFrameData.vkRenderSemaphore;
 
   {
-    std::scoped_lock l{_gpuQueueMutexes[_graphicsQueueFamilyIndex]};
+    std::scoped_lock l{_gpuQueueMutexes.at(_graphicsQueueFamilyIndex)};
     VK_CHECK(vkQueueSubmit(_gpuQueues[_graphicsQueueFamilyIndex], 1,
                            &vkSubmitInfo,
                            params.currentFrameData.vkRenderFence));

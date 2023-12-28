@@ -169,11 +169,15 @@ void VulkanRHI::initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider) {
       vkbDevice.get_queue_index(vkb::QueueType::graphics).value();
   _gpuQueues[_graphicsQueueFamilyIndex] =
       vkbDevice.get_queue(vkb::QueueType::graphics).value();
+  // init mutex
+  _gpuQueueMutexes[_graphicsQueueFamilyIndex];
 
   _transferQueueFamilyIndex =
       vkbDevice.get_queue_index(vkb::QueueType::transfer).value();
   _gpuQueues[_transferQueueFamilyIndex] =
       vkbDevice.get_queue(vkb::QueueType::transfer).value();
+  // init mutex
+  _gpuQueueMutexes[_transferQueueFamilyIndex];
 
   VmaAllocatorCreateInfo allocatorInfo = {};
   allocatorInfo.physicalDevice = _vkPhysicalDevice;
@@ -1350,24 +1354,20 @@ void VulkanRHI::updateTimerBuffer(VkCommandBuffer cmd) {
   std::uint32_t const msElapsedSinceInit =
       duration_cast<milliseconds>(Clock::now() - _engineInitTimePoint).count();
 
-  immediateSubmit(_transferQueueFamilyIndex, [this, msElapsedSinceInit](
-                                                 VkCommandBuffer cmd) {
-    void* data;
-    VK_CHECK(
-        vmaMapMemory(_vmaAllocator, _timerStagingBuffer.allocation, &data));
+  void* data;
+  VK_CHECK(vmaMapMemory(_vmaAllocator, _timerStagingBuffer.allocation, &data));
 
-    std::memcpy(data, static_cast<void const*>(&msElapsedSinceInit),
-                sizeof(msElapsedSinceInit));
+  std::memcpy(data, static_cast<void const*>(&msElapsedSinceInit),
+              sizeof(msElapsedSinceInit));
 
-    vmaUnmapMemory(_vmaAllocator, _timerStagingBuffer.allocation);
-    (void)data;
+  vmaUnmapMemory(_vmaAllocator, _timerStagingBuffer.allocation);
+  (void)data;
 
-    VkBufferCopy bufferCopy = {};
-    bufferCopy.srcOffset = 0;
-    bufferCopy.dstOffset = 0;
-    bufferCopy.size = sizeof(msElapsedSinceInit);
+  VkBufferCopy bufferCopy = {};
+  bufferCopy.srcOffset = 0;
+  bufferCopy.dstOffset = 0;
+  bufferCopy.size = sizeof(msElapsedSinceInit);
 
-    vkCmdCopyBuffer(cmd, _timerStagingBuffer.buffer, _timerBuffer.buffer, 1,
-                    &bufferCopy);
-  });
+  vkCmdCopyBuffer(cmd, _timerStagingBuffer.buffer, _timerBuffer.buffer, 1,
+                  &bufferCopy);
 }

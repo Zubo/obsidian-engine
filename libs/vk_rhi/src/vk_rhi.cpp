@@ -33,7 +33,12 @@
 using namespace obsidian;
 using namespace obsidian::vk_rhi;
 
-void VulkanRHI::waitDeviceIdle() const { vkDeviceWaitIdle(_vkDevice); }
+void VulkanRHI::waitDeviceIdle() const {
+  std::scoped_lock l{_gpuQueueMutexes.at(_graphicsQueueFamilyIndex),
+                     _gpuQueueMutexes.at(_transferQueueFamilyIndex)};
+
+  vkDeviceWaitIdle(_vkDevice);
+}
 
 rhi::ResourceRHI& VulkanRHI::initTextureResource() {
   rhi::ResourceIdRHI const newResourceId = consumeNewResourceId();
@@ -653,7 +658,7 @@ void VulkanRHI::immediateSubmit(
       vkinit::commandBufferSubmitInfo(&immediateSubmitContext.vkCommandBuffer);
 
   {
-    std::scoped_lock l{_gpuQueueMutexes[queueInd]};
+    std::scoped_lock l{_gpuQueueMutexes.at(queueInd)};
     VK_CHECK(vkQueueSubmit(_gpuQueues[queueInd], 1, &submit,
                            immediateSubmitContext.vkFence));
   }
@@ -851,7 +856,7 @@ GPULightData VulkanRHI::getGPULightData() const {
 
 void VulkanRHI::applyPendingExtentUpdate() {
   if (_pendingExtentUpdate) {
-    vkDeviceWaitIdle(_vkDevice);
+    waitDeviceIdle();
     _skipFrame = true;
     _vkbSwapchain.extent.width = _pendingExtentUpdate->width;
     _vkbSwapchain.extent.height = _pendingExtentUpdate->height;
