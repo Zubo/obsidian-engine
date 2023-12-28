@@ -466,9 +466,6 @@ void VulkanRHI::initMainPipelineAndLayouts() {
   pipelineBuilder._vkInputAssemblyCreateInfo =
       vkinit::inputAssemblyCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 
-  pipelineBuilder._vkDepthStencilStateCreateInfo =
-      vkinit::depthStencilStateCreateInfo(true, false);
-
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VERTEX_INPUT_EXT);
@@ -485,7 +482,7 @@ void VulkanRHI::initMainPipelineAndLayouts() {
 
   std::array<VkDescriptorSetLayout, 4> const meshDescriptorSetLayouts = {
       _vkGlobalDescriptorSetLayout, _vkMainRenderPassDescriptorSetLayout,
-      _vkUnlitTexturedMaterialDescriptorSetLayout, _vkEmptyDescriptorSetLayout};
+      _vkUnlitTexturedMaterialDescriptorSetLayout, _objectDescriptorSetLayout};
 
   meshPipelineLayoutInfo.setLayoutCount = meshDescriptorSetLayouts.size();
   meshPipelineLayoutInfo.pSetLayouts = meshDescriptorSetLayouts.data();
@@ -519,7 +516,7 @@ void VulkanRHI::initMainPipelineAndLayouts() {
       _vkGlobalDescriptorSetLayout,
       _vkMainRenderPassDescriptorSetLayout,
       _vkLitTexturedMaterialDescriptorSetLayout,
-      _vkEmptyDescriptorSetLayout,
+      _objectDescriptorSetLayout,
   };
 
   litMeshPipelineLayoutCreateInfo.pSetLayouts = vkLitMeshPipelineLayouts.data();
@@ -1047,6 +1044,14 @@ void VulkanRHI::initDescriptors() {
     _vkUnlitTexturedMaterialDescriptorSetLayout =
         _descriptorLayoutCache.getLayout(
             unlitTexMatDescriptorSetLayoutCreateInfo);
+  }
+
+  {
+    DescriptorBuilder::begin(_vkDevice, _descriptorAllocator,
+                             _descriptorLayoutCache)
+        .declareUnusedBuffer(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                             VK_SHADER_STAGE_FRAGMENT_BIT)
+        .getLayout(_objectDescriptorSetLayout);
   }
 }
 

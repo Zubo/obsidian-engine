@@ -1,6 +1,7 @@
 #pragma once
 
 #include <obsidian/core/light_types.hpp>
+#include <obsidian/rhi/resource_rhi.hpp>
 #include <obsidian/runtime_resource/runtime_resource.hpp>
 #include <obsidian/serialization/game_object_data_serialization.hpp>
 
@@ -54,6 +55,7 @@ public:
   std::optional<core::DirectionalLight> directionalLight;
   std::optional<core::Spotlight> spotlight;
   GameObject* parent = nullptr;
+  rhi::ResourceIdRHI objectResourcesId = rhi::rhiIdUninitialized;
 
 private:
   void updateTransform();

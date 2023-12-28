@@ -386,15 +386,15 @@ void VulkanRHI::environmentMapPasses(struct DrawPassParams const& params) {
   for (EnvironmentMap const& map : _environmentMaps) {
     for (std::size_t i = 0; i < 6; ++i) {
       GPUCameraData cameraData;
-      cameraData.view =
-          glm::lookAt({0.0f, 0.0f, 0.0f}, cubeSides[i], upVecs[i]);
+      cameraData.view = glm::lookAt(map.pos, map.pos + cubeSides[i], upVecs[i]);
       cameraData.proj = glm::perspective(glm::radians(90.f), 1.0f, 0.1f, 400.f);
+      cameraData.proj[1][1] *= -1;
       cameraData.viewProj = cameraData.proj * cameraData.view;
 
       uploadBufferData(6 * params.frameInd + i, cameraData, map.cameraBuffer);
 
       std::array<VkClearValue, 2> clearValues;
-      clearValues[0].color = {{0.0f, 0.0f, 1.0f, 1.0f}};
+      clearValues[0].color = {{0.0f, 0.0f, 0.0f, 1.0f}};
       clearValues[1].depthStencil.depth = 1.0f;
 
       VkRenderPassBeginInfo vkRenderPassBeginInfo = {};
@@ -634,9 +634,18 @@ void VulkanRHI::drawWithMaterials(
       if (dynamicScissor)
         vkCmdSetScissor(cmd, 0, 1, &dynamicScissor.value());
 
+      VkDescriptorSet objectDescriptorSet;
+
+      if (_objectDescriptorSets.contains(drawCall.objectResourcesId)) {
+        objectDescriptorSet =
+            _objectDescriptorSets.at(drawCall.objectResourcesId);
+      } else {
+        objectDescriptorSet = _emptyDescriptorSet;
+      }
+
       std::array<VkDescriptorSet, 4> const descriptorSets{
           _vkGlobalDescriptorSet, drawPassDescriptorSet,
-          material.vkDescriptorSet, _emptyDescriptorSet};
+          material.vkDescriptorSet, objectDescriptorSet};
       vkCmdBindDescriptorSets(cmd, pipelineBindPoint, material.vkPipelineLayout,
                               0, descriptorSets.size(), descriptorSets.data(),
                               dynamicOffsets.size(), dynamicOffsets.data());

@@ -1,3 +1,4 @@
+#include <iterator>
 #include <obsidian/asset/material_asset_info.hpp>
 #include <obsidian/core/light_types.hpp>
 #include <obsidian/core/logging.hpp>
@@ -91,7 +92,7 @@ void ObsidianEngine::cleanup() {
   _context.vulkanRHI.cleanup();
 }
 
-void submitDrawCalls(scene::GameObject const& gameObject, rhi::RHI& rhi,
+void submitDrawCalls(scene::GameObject& gameObject, rhi::RHI& rhi,
                      glm::mat4 parentTransform) {
   glm::mat4 transform = parentTransform * gameObject.getTransform();
 
@@ -123,10 +124,25 @@ void submitDrawCalls(scene::GameObject const& gameObject, rhi::RHI& rhi,
         gameObject.materialResources.cbegin(),
         gameObject.materialResources.cend(),
         [](auto const matResPtr) { return matResPtr->isResourceReady(); });
+
+    if (materialsReady &&
+        gameObject.objectResourcesId == rhi::rhiIdUninitialized) {
+      rhi::ObjectResourceSpecRHI objectResourcesSpec;
+
+      std::transform(
+          gameObject.materialResources.cbegin(),
+          gameObject.materialResources.cend(),
+          std::back_inserter(objectResourcesSpec.materialIds),
+          [](auto const& resource) { return resource->getResourceId(); });
+
+      gameObject.objectResourcesId = rhi.initObjectResources(
+          gameObject.getPosition(), objectResourcesSpec);
+    }
   }
 
   if (meshReady && materialsReady) {
     rhi::DrawCall drawCall;
+    drawCall.objectResourcesId = gameObject.objectResourcesId;
 
     for (auto const& materialResource : gameObject.materialResources) {
       drawCall.materialIds.push_back(materialResource->getResourceId());

@@ -364,6 +364,22 @@ bool DescriptorBuilder::build(VkDescriptorSet& outVkDescriptorSet) {
 
 bool DescriptorBuilder::build(VkDescriptorSet& outVkDescriptorSet,
                               VkDescriptorSetLayout& outLayout) {
+
+  getLayout(outLayout);
+
+  bool result = _allocator->allocate(outLayout, &outVkDescriptorSet);
+
+  for (VkWriteDescriptorSet& writeDescr : _writes) {
+    writeDescr.dstSet = outVkDescriptorSet;
+  }
+
+  vkUpdateDescriptorSets(_vkDevice, _writes.size(), _writes.data(), 0, nullptr);
+
+  return result;
+}
+
+DescriptorBuilder&
+DescriptorBuilder::getLayout(VkDescriptorSetLayout& outLayout) {
   VkDescriptorSetLayoutCreateInfo vkDescriptorSetLayoutCreateInfo = {};
   vkDescriptorSetLayoutCreateInfo.sType =
       VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -388,15 +404,7 @@ bool DescriptorBuilder::build(VkDescriptorSet& outVkDescriptorSet,
 
   outLayout = _layoutCache->getLayout(vkDescriptorSetLayoutCreateInfo);
 
-  bool result = _allocator->allocate(outLayout, &outVkDescriptorSet);
-
-  for (VkWriteDescriptorSet& writeDescr : _writes) {
-    writeDescr.dstSet = outVkDescriptorSet;
-  }
-
-  vkUpdateDescriptorSets(_vkDevice, _writes.size(), _writes.data(), 0, nullptr);
-
-  return result;
+  return *this;
 }
 
 DescriptorBuilder::DescriptorBuilder(VkDevice vkDevice,

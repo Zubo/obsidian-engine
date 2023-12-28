@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <obsidian/core/logging.hpp>
 #include <obsidian/core/material.hpp>
 #include <obsidian/core/texture_format.hpp>
@@ -292,6 +293,42 @@ void VulkanRHI::releaseMesh(rhi::ResourceIdRHI resourceIdRHI) {
   --mesh.resource.refCount;
 }
 
+rhi::ResourceIdRHI
+VulkanRHI::initObjectResources(glm::vec3 objPos,
+                               rhi::ObjectResourceSpecRHI resourceSpec) {
+  rhi::ResourceIdRHI const newReousrceId = consumeNewResourceId();
+  VkDescriptorSet& descriptorSet = _objectDescriptorSets[newReousrceId];
+
+  DescriptorBuilder builder = DescriptorBuilder::begin(
+      _vkDevice, _descriptorAllocator, _descriptorLayoutCache);
+
+  VkDescriptorImageInfo envMapInfo = {};
+
+  bool const usesEnvmap =
+      std::any_of(resourceSpec.materialIds.cbegin(),
+                  resourceSpec.materialIds.cend(), [this](auto const matId) {
+                    VkMaterial const& mat = _materials.at(matId);
+                    return mat.reflection | (mat.refractionIndex != 1.0f);
+                  });
+
+  if (usesEnvmap) {
+    EnvironmentMap& envMap = createEnvironmentMap(objPos);
+
+    envMapInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    envMapInfo.imageView = envMap.colorImageView;
+    envMapInfo.sampler = _vkLinearRepeatSampler;
+    builder.bindImage(0, envMapInfo, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                      VK_SHADER_STAGE_FRAGMENT_BIT, nullptr, true);
+  } else {
+    builder.declareUnusedImage(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                               VK_SHADER_STAGE_FRAGMENT_BIT);
+  }
+
+  builder.build(descriptorSet);
+
+  return newReousrceId;
+}
+
 rhi::ResourceRHI& VulkanRHI::initShaderResource() {
   rhi::ResourceIdRHI newResourceId = consumeNewResourceId();
   Shader& shader = _shaderModules[newResourceId];
@@ -417,11 +454,20 @@ void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
                                             shaderModule.vkShaderModule));
 
   newMaterial.vkPipelineLayout = pipelineBuilder._vkPipelineLayout;
+
+  pipelineBuilder._vkDepthStencilStateCreateInfo =
+      vkinit::depthStencilStateCreateInfo(true, false);
   newMaterial.vkPipelineReuseDepth = pipelineBuilder.buildPipeline(
       _vkDevice, _mainRenderPassReuseDepth.vkRenderPass);
+
+  pipelineBuilder._vkDepthStencilStateCreateInfo =
+      vkinit::depthStencilStateCreateInfo(true, true);
   newMaterial.vkPipelineNoDepthReuse = pipelineBuilder.buildPipeline(
       _vkDevice, _mainRenderPassNoDepthReuse.vkRenderPass);
+
   newMaterial.transparent = uploadMaterial.transparent;
+  newMaterial.reflection = uploadMaterial.reflection;
+  newMaterial.refractionIndex = uploadMaterial.refractionIndex;
 
   DescriptorBuilder builder = DescriptorBuilder::begin(
       _vkDevice, _descriptorAllocator, _descriptorLayoutCache);
@@ -436,6 +482,8 @@ void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
         uploadMaterial.diffuseTextureId != rhi::rhiIdUninitialized;
     materialData.hasNormalMap =
         uploadMaterial.normalTextureId != rhi::rhiIdUninitialized;
+    materialData.reflection = uploadMaterial.reflection;
+    materialData.refractionIndex = uploadMaterial.refractionIndex;
     materialData.ambientColor = uploadMaterial.ambientColor;
     materialData.diffuseColor = uploadMaterial.diffuseColor;
     materialData.specularColor = uploadMaterial.specularColor;
@@ -606,6 +654,8 @@ void VulkanRHI::submitDrawCall(rhi::DrawCall const& drawCall) {
   VKDrawCall vkDrawCall;
   vkDrawCall.model = drawCall.transform;
   vkDrawCall.mesh = &mesh;
+  vkDrawCall.objectResourcesId = drawCall.objectResourcesId;
+
   for (std::size_t i = 0; i < drawCall.materialIds.size(); ++i) {
     vkDrawCall.material = &_materials[drawCall.materialIds[i]];
     vkDrawCall.indexBufferInd = i;
@@ -902,7 +952,7 @@ void VulkanRHI::destroyImmediateCtxForCurrentThread() {
   contextsInitialized = false;
 }
 
-void VulkanRHI::createEnvironmentMap(glm::vec3 envMapPos) {
+EnvironmentMap& VulkanRHI::createEnvironmentMap(glm::vec3 envMapPos) {
   std::size_t const envMapInd = _environmentMaps.size();
   EnvironmentMap& envMap = _environmentMaps.emplace_back();
   envMap.pos = envMapPos;
@@ -1067,4 +1117,6 @@ void VulkanRHI::createEnvironmentMap(glm::vec3 envMapPos) {
     vmaDestroyBuffer(_vmaAllocator, envMap.cameraBuffer.buffer,
                      envMap.cameraBuffer.allocation);
   });
+
+  return envMap;
 }

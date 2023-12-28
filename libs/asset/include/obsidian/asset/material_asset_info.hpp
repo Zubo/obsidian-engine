@@ -23,6 +23,8 @@ struct MaterialAssetInfo : public AssetInfo {
   glm::vec4 specularColor;
   float shininess;
   bool transparent;
+  bool reflection;
+  float refractionIndex;
   bool hasTimer;
 };
 

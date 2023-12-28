@@ -109,6 +109,7 @@ public:
   bool build(VkDescriptorSet& outVkDescriptorSet);
   bool build(VkDescriptorSet& outVkDescriptorSet,
              VkDescriptorSetLayout& outLayout);
+  DescriptorBuilder& getLayout(VkDescriptorSetLayout& outLayout);
 
 private:
   DescriptorBuilder(VkDevice vkDevice, DescriptorAllocator& allocator,

@@ -755,6 +755,8 @@ AssetConverter::extractMaterials(fs::path const& srcDirPath,
 
     newMatAssetInfo.shininess = getShininess(mat);
     newMatAssetInfo.transparent = isMaterialTransparent(mat);
+    newMatAssetInfo.reflection = false;
+    newMatAssetInfo.refractionIndex = 1.0f;
 
     std::string const diffuseTexName = getDiffuseTexName(mat);
     if (!diffuseTexName.empty()) {

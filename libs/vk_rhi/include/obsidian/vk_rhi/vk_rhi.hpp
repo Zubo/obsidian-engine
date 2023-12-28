@@ -71,6 +71,10 @@ public:
 
   void releaseMesh(rhi::ResourceIdRHI resourceIdRHI) override;
 
+  rhi::ResourceIdRHI
+  initObjectResources(glm::vec3 objPos,
+                      rhi::ObjectResourceSpecRHI resourceSpec) override;
+
   rhi::ResourceRHI& initShaderResource() override;
 
   void uploadShader(rhi::ResourceIdRHI id,
@@ -178,6 +182,7 @@ private:
   VkDescriptorSetLayout _vkGlobalDescriptorSetLayout;
   VkDescriptorSetLayout _vkMainRenderPassDescriptorSetLayout;
   VkDescriptorSetLayout _vkEmptyDescriptorSetLayout;
+  VkDescriptorSetLayout _objectDescriptorSetLayout;
   VkDescriptorSetLayout _vkLitTexturedMaterialDescriptorSetLayout;
   VkDescriptorSetLayout _vkUnlitTexturedMaterialDescriptorSetLayout;
   AllocatedBuffer _sceneDataBuffer;
@@ -254,7 +259,7 @@ private:
   ImmediateSubmitContext&
   getImmediateCtxForCurrentThread(std::uint32_t queueIdx);
   void destroyImmediateCtxForCurrentThread();
-  void createEnvironmentMap(glm::vec3 envMapPos);
+  EnvironmentMap& createEnvironmentMap(glm::vec3 envMapPos);
 
   FrameData& getCurrentFrameData();
 

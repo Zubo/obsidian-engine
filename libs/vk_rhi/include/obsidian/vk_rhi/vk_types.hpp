@@ -38,6 +38,8 @@ struct VkMaterial {
   VkDescriptorSet vkDescriptorSet;
   rhi::ResourceRHI resource;
   bool transparent;
+  bool reflection;
+  float refractionIndex;
   std::vector<rhi::ResourceRHI*> resourceDependencies;
 };
 
@@ -115,6 +117,8 @@ struct GPULitMaterialData {
   glm::vec4 specularColor;
   VkBool32 hasDiffuseTex;
   VkBool32 hasNormalMap;
+  VkBool32 reflection;
+  float refractionIndex;
   float shininess;
 };
 
@@ -132,6 +136,7 @@ struct VKDrawCall {
   Mesh* mesh;
   VkMaterial* material;
   std::size_t indexBufferInd;
+  rhi::ResourceIdRHI objectResourcesId;
 };
 
 struct ShadowPassParams {

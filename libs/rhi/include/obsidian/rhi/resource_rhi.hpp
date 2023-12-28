@@ -9,6 +9,7 @@
 #include <atomic>
 #include <cstdint>
 #include <functional>
+#include <optional>
 #include <vector>
 
 namespace obsidian::rhi {
@@ -60,13 +61,23 @@ struct UploadMaterialRHI {
   glm::vec4 specularColor;
   float shininess;
   bool transparent;
+  bool reflection;
+  float refractionIndex;
   bool hasTimer;
 };
 
 struct InitResourcesRHI {
-  rhi::UploadShaderRHI shadowPassShader;
-  rhi::UploadShaderRHI ssaoShader;
-  rhi::UploadShaderRHI postProcessingShader;
+  UploadShaderRHI shadowPassShader;
+  UploadShaderRHI ssaoShader;
+  UploadShaderRHI postProcessingShader;
+};
+
+struct EnvironmentMapSpec {
+  glm::vec3 position;
+};
+
+struct ObjectResourceSpecRHI {
+  std::vector<ResourceIdRHI> materialIds;
 };
 
 } /*namespace obsidian::rhi*/

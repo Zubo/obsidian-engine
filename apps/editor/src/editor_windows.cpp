@@ -594,6 +594,8 @@ void materialCreatorTab() {
     static int selectedShader = 0;
     static float selectedShininess = 16.0f;
     static bool selectedMatTransparent = false;
+    static bool selectedMatReflection = false;
+    static float selectedMatRefractionIndex = 1.0f;
     static bool selectedMatUsesTimer = false;
     static glm::vec4 selectedAmbientColor = {1.0f, 1.0f, 1.0f, 1.0f};
     static glm::vec4 selectedDiffuseColor = {1.0f, 1.0f, 1.0f, 1.0f};
@@ -649,6 +651,13 @@ void materialCreatorTab() {
       if (ImGui::Checkbox("Transparent", &selectedMatTransparent)) {
       }
 
+      if (ImGui::Checkbox("Reflection", &selectedMatReflection)) {
+      }
+
+      if (ImGui::SliderFloat("RefractionIndex", &selectedMatRefractionIndex,
+                             1.0f, 5.0f)) {
+      }
+
       if (ImGui::Checkbox("Uses Timer", &selectedMatUsesTimer)) {
       }
 
@@ -671,6 +680,8 @@ void materialCreatorTab() {
         mtlAssetInfo.diffuseColor = selectedDiffuseColor;
         mtlAssetInfo.specularColor = selectedSpecularColor;
         mtlAssetInfo.transparent = selectedMatTransparent;
+        mtlAssetInfo.reflection = selectedMatReflection;
+        mtlAssetInfo.refractionIndex = selectedMatRefractionIndex;
         mtlAssetInfo.hasTimer = selectedMatUsesTimer;
 
         if (selectedDiffuseTex > 0) {
