@@ -14,6 +14,7 @@ add_library(VulkanRHI
     "src/vk_descriptors.cpp"
     "src/vk_types.cpp"
     "src/vk_framebuffer.cpp"
+    "src/vk_rhi_environment_maps.cpp"
     "include/obsidian/vk_rhi/vk_rhi.hpp"
     "include/obsidian/vk_rhi/vk_check.hpp"
     "include/obsidian/vk_rhi/vk_types.hpp"

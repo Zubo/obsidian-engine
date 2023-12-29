@@ -124,20 +124,6 @@ void submitDrawCalls(scene::GameObject& gameObject, rhi::RHI& rhi,
         gameObject.materialResources.cbegin(),
         gameObject.materialResources.cend(),
         [](auto const matResPtr) { return matResPtr->isResourceReady(); });
-
-    if (materialsReady &&
-        gameObject.objectResourcesId == rhi::rhiIdUninitialized) {
-      rhi::ObjectResourceSpecRHI objectResourcesSpec;
-
-      std::transform(
-          gameObject.materialResources.cbegin(),
-          gameObject.materialResources.cend(),
-          std::back_inserter(objectResourcesSpec.materialIds),
-          [](auto const& resource) { return resource->getResourceId(); });
-
-      gameObject.objectResourcesId = rhi.initObjectResources(
-          gameObject.getPosition(), objectResourcesSpec);
-    }
   }
 
   if (meshReady && materialsReady) {

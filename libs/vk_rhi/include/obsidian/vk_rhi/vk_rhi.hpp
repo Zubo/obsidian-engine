@@ -71,10 +71,6 @@ public:
 
   void releaseMesh(rhi::ResourceIdRHI resourceIdRHI) override;
 
-  rhi::ResourceIdRHI
-  initObjectResources(glm::vec3 objPos,
-                      rhi::ObjectResourceSpecRHI resourceSpec) override;
-
   rhi::ResourceRHI& initShaderResource() override;
 
   void uploadShader(rhi::ResourceIdRHI id,
@@ -98,6 +94,15 @@ public:
   VkInstance getInstance() const;
 
   void setSurface(VkSurfaceKHR surface);
+
+  rhi::ResourceIdRHI createEnvironmentMap(glm::vec3 pos, float radius) override;
+
+  void destroyEnvMap(rhi::ResourceIdRHI envMapId) override;
+
+  void updateEnvironmentMap(rhi::ResourceIdRHI envMapId, glm::vec3 pos,
+                            float radius) override;
+
+  void uploadEnvironmentMaps();
 
 private:
   task::TaskExecutor* _taskExecutor = nullptr;
@@ -201,7 +206,7 @@ private:
   std::unordered_map<core::MaterialType, PipelineBuilder> _pipelineBuilders;
   std::unordered_map<rhi::ResourceIdRHI, VkMaterial> _materials;
   std::unordered_map<rhi::ResourceIdRHI, VkDescriptorSet> _objectDescriptorSets;
-  std::vector<EnvironmentMap> _environmentMaps;
+  std::unordered_map<rhi::ResourceIdRHI, EnvironmentMap> _environmentMaps;
   rhi::ResourceIdRHI _emptyFragShaderId;
   AllocatedBuffer _postProcessingQuadBuffer;
   std::optional<rhi::WindowExtentRHI> _pendingExtentUpdate = std::nullopt;
@@ -214,6 +219,8 @@ private:
 
   // Environment Mapping
   AllocatedBuffer _envMapRenderPassDataBuffer;
+  AllocatedBuffer _envMapDataBuffer;
+  bool _envMapDescriptorSetPendingUpdate = false;
 
   void initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider);
   void initSwapchain(rhi::WindowExtentRHI const& extent);
@@ -248,9 +255,11 @@ private:
   void initSsaoPostProcessingDescriptors();
   void initPostProcessingQuad();
   void initEnvMapRenderPassDataBuffer();
+  void initEnvMapDataBuffer();
   void initImmediateSubmitContext(ImmediateSubmitContext& context,
                                   std::uint32_t queueInd);
   void initTimer();
+  void initEnvMapRenderPassDescriptorSets();
   void immediateSubmit(std::uint32_t queueInd,
                        std::function<void(VkCommandBuffer cmd)>&& function);
   void uploadMesh(Mesh& mesh);
@@ -259,7 +268,6 @@ private:
   ImmediateSubmitContext&
   getImmediateCtxForCurrentThread(std::uint32_t queueIdx);
   void destroyImmediateCtxForCurrentThread();
-  EnvironmentMap& createEnvironmentMap(glm::vec3 envMapPos);
 
   FrameData& getCurrentFrameData();
 

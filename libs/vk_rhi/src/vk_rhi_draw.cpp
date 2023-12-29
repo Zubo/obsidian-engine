@@ -373,7 +373,7 @@ void VulkanRHI::environmentMapPasses(struct DrawPassParams const& params) {
       glm::vec3{0.0f, 0.0f, 1.0f}, glm::vec3{0.0f, 0.0f, -1.0f}};
   constexpr std::array<glm::vec3, 6> upVecs = {
       glm::vec3{0.0f, -1.0f, 0.0f}, glm::vec3{0.0f, -1.0f, 0.0f},
-      glm::vec3{0.0f, 0.0f, 1.0f},  glm::vec3{0.0f, 0.0f, -1.0f},
+      glm::vec3{0.0f, 0.0f, -1.0f}, glm::vec3{0.0f, 0.0f, 1.0f},
       glm::vec3{0.0f, -1.0f, 0.0f}, glm::vec3{0.0f, -1.0f, 0.0f}};
 
   VkViewport const viewport{
@@ -383,7 +383,13 @@ void VulkanRHI::environmentMapPasses(struct DrawPassParams const& params) {
 
   VkCommandBuffer cmd = params.currentFrameData.vkCommandBuffer;
 
-  for (EnvironmentMap const& map : _environmentMaps) {
+  for (auto& keyMap : _environmentMaps) {
+    EnvironmentMap& map = keyMap.second;
+
+    if (!map.pendingUpdate) {
+      continue;
+    }
+
     for (std::size_t i = 0; i < 6; ++i) {
       GPUCameraData cameraData;
       cameraData.view = glm::lookAt(map.pos, map.pos + cubeSides[i], upVecs[i]);
@@ -409,8 +415,6 @@ void VulkanRHI::environmentMapPasses(struct DrawPassParams const& params) {
       vkRenderPassBeginInfo.clearValueCount = clearValues.size();
       vkRenderPassBeginInfo.pClearValues = clearValues.data();
 
-      VkCommandBuffer cmd = params.currentFrameData.vkCommandBuffer;
-
       vkCmdBeginRenderPass(cmd, &vkRenderPassBeginInfo,
                            VK_SUBPASS_CONTENTS_INLINE);
 
@@ -435,6 +439,8 @@ void VulkanRHI::environmentMapPasses(struct DrawPassParams const& params) {
                         scissor, false);
 
       vkCmdEndRenderPass(cmd);
+
+      map.pendingUpdate = false;
     }
   }
 }
@@ -555,6 +561,10 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   shadowPasses(params);
 
   environmentMapPasses(params);
+
+  if (_envMapDescriptorSetPendingUpdate) {
+    uploadEnvironmentMaps();
+  }
 
   colorPass(params, sceneParams.ambientColor,
             _vkSwapchainFramebuffers[swapchainImageIndex][params.frameInd]

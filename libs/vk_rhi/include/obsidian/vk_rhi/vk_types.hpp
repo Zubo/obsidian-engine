@@ -181,6 +181,20 @@ struct EnvironmentMap {
   std::array<VkDescriptorSet, frameOverlap> renderPassDescriptorSets;
   AllocatedBuffer cameraBuffer;
   glm::vec3 pos;
+  float radius;
+  bool pendingUpdate;
+};
+
+struct EnvironmentMapData {
+  glm::vec3 pos;
+  float radius;
+};
+
+constexpr std::size_t maxEnvironmentMaps = 64;
+
+struct GpuEnvironmentMapDataCollection {
+  std::array<EnvironmentMapData, maxEnvironmentMaps> envMaps;
+  std::uint32_t count;
 };
 
 VkFormat getVkTextureFormat(core::TextureFormat format);

@@ -342,13 +342,14 @@ DescriptorBuilder& DescriptorBuilder::bindImages(
 
 DescriptorBuilder& DescriptorBuilder::declareUnusedImage(
     uint32_t binding, VkDescriptorType descriptorType,
-    VkShaderStageFlags stageFlags, const VkSampler* pImmutableSamplers) {
+    VkShaderStageFlags stageFlags, const VkSampler* pImmutableSamplers,
+    std::uint32_t descriptorCount) {
   VkDescriptorSetLayoutBinding& vkDescriptorSetLayoutBinding =
       _bindings.emplace_back();
   vkDescriptorSetLayoutBinding = {};
   vkDescriptorSetLayoutBinding.binding = binding;
   vkDescriptorSetLayoutBinding.descriptorType = descriptorType;
-  vkDescriptorSetLayoutBinding.descriptorCount = 1;
+  vkDescriptorSetLayoutBinding.descriptorCount = descriptorCount;
   vkDescriptorSetLayoutBinding.stageFlags = stageFlags;
   vkDescriptorSetLayoutBinding.pImmutableSamplers = pImmutableSamplers;
 
@@ -412,6 +413,7 @@ DescriptorBuilder::DescriptorBuilder(VkDevice vkDevice,
                                      DescriptorLayoutCache& layoutCache)
 
     : _vkDevice{vkDevice}, _allocator{&allocator}, _layoutCache{&layoutCache} {}
+
 void DescriptorBuilder::partiallyBoundBinding(uint32_t binding) {
   if (binding >= _bindingCreateFlags.size()) {
     _bindingCreateFlags.resize(binding + 1, 0);

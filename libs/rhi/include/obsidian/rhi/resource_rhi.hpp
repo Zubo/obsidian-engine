@@ -72,12 +72,4 @@ struct InitResourcesRHI {
   UploadShaderRHI postProcessingShader;
 };
 
-struct EnvironmentMapSpec {
-  glm::vec3 position;
-};
-
-struct ObjectResourceSpecRHI {
-  std::vector<ResourceIdRHI> materialIds;
-};
-
 } /*namespace obsidian::rhi*/

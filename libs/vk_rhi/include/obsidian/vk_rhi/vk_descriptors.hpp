@@ -98,7 +98,8 @@ public:
   DescriptorBuilder&
   declareUnusedImage(uint32_t binding, VkDescriptorType descriptorType,
                      VkShaderStageFlags stageFlags,
-                     const VkSampler* pImmutableSamplers = nullptr);
+                     const VkSampler* pImmutableSamplers = nullptr,
+                     std::uint32_t descriptorCount = 1);
 
   DescriptorBuilder&
   bindImages(uint32_t binding,

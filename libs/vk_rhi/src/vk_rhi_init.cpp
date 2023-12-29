@@ -59,6 +59,7 @@ void VulkanRHI::init(rhi::WindowExtentRHI extent,
   initMainRenderPassDataBuffer();
   initLightDataBuffer();
   initDepthSampler();
+  initEnvMapDataBuffer();
   initDescriptors();
   initDepthPrepassDescriptors();
   initShadowPassDescriptors();
@@ -69,8 +70,6 @@ void VulkanRHI::init(rhi::WindowExtentRHI extent,
   initDepthPassPipelineLayout();
   initTimer();
   initEnvMapRenderPassDataBuffer();
-
-  createEnvironmentMap({});
 
   waitDeviceIdle();
 
@@ -888,11 +887,23 @@ void VulkanRHI::initDescriptors() {
   sceneDescriptorBufferInfo.offset = 0;
   sceneDescriptorBufferInfo.range = sizeof(GPUSceneData);
 
+  VkDescriptorBufferInfo envMapDataDescriptorBufferInfo;
+  envMapDataDescriptorBufferInfo.buffer = _envMapDataBuffer.buffer;
+  envMapDataDescriptorBufferInfo.offset = 0;
+  envMapDataDescriptorBufferInfo.range =
+      sizeof(GpuEnvironmentMapDataCollection);
+
   DescriptorBuilder::begin(_vkDevice, _swapchainBoundDescriptorAllocator,
                            _descriptorLayoutCache)
       .bindBuffer(0, sceneDescriptorBufferInfo,
                   VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
                   VK_SHADER_STAGE_FRAGMENT_BIT)
+      .bindBuffer(1, envMapDataDescriptorBufferInfo,
+                  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                  VK_SHADER_STAGE_FRAGMENT_BIT, nullptr, true)
+      .declareUnusedImage(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                          VK_SHADER_STAGE_FRAGMENT_BIT, nullptr,
+                          maxEnvironmentMaps)
       .build(_vkGlobalDescriptorSet, _vkGlobalDescriptorSetLayout);
 
   for (int i = 0; i < frameOverlap; ++i) {
@@ -1049,8 +1060,6 @@ void VulkanRHI::initDescriptors() {
   {
     DescriptorBuilder::begin(_vkDevice, _descriptorAllocator,
                              _descriptorLayoutCache)
-        .declareUnusedBuffer(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                             VK_SHADER_STAGE_FRAGMENT_BIT)
         .getLayout(_objectDescriptorSetLayout);
   }
 }
@@ -1302,6 +1311,21 @@ void VulkanRHI::initEnvMapRenderPassDataBuffer() {
   _deletionQueue.pushFunction([this]() {
     vmaDestroyBuffer(_vmaAllocator, _envMapRenderPassDataBuffer.buffer,
                      _envMapRenderPassDataBuffer.allocation);
+  });
+}
+
+void VulkanRHI::initEnvMapDataBuffer() {
+  _envMapDataBuffer = createBuffer(
+      getPaddedBufferSize(sizeof(GpuEnvironmentMapDataCollection)),
+      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+      VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+
+  GpuEnvironmentMapDataCollection data = {};
+  uploadBufferData(0, data, _envMapDataBuffer);
+
+  _deletionQueue.pushFunction([this]() {
+    vmaDestroyBuffer(_vmaAllocator, _envMapDataBuffer.buffer,
+                     _envMapDataBuffer.allocation);
   });
 }
 
