@@ -511,6 +511,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   VK_CHECK(vkResetFences(_vkDevice, 1, &params.currentFrameData.vkRenderFence));
 
   destroyUnreferencedResources();
+  performPendingEnvironmentMapDestruction();
 
   uint32_t swapchainImageIndex;
   {

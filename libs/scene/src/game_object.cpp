@@ -109,3 +109,13 @@ serialization::GameObjectData GameObject::getGameObjectData() const {
 
   return result;
 }
+
+void obsidian::scene::forEachGameObjAndChildren(
+    std::vector<std::unique_ptr<GameObject>>& gameObjects,
+    std::function<void(GameObject&)> f) {
+  for (auto& obj : gameObjects) {
+    f(*obj);
+
+    forEachGameObjAndChildren(obj->getChildren(), f);
+  }
+}

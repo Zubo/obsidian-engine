@@ -17,6 +17,7 @@ struct GameObjectData {
   std::string meshPath;
   std::optional<core::DirectionalLight> directionalLight;
   std::optional<core::Spotlight> spotlight;
+  std::optional<float> envMapRadius;
   glm::vec3 position = {};
   glm::vec3 euler = {};
   glm::vec3 scale = {1.0f, 1.0f, 1.0f};

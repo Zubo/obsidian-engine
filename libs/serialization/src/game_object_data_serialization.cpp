@@ -34,6 +34,8 @@ constexpr char const* spotlightLinearAttenuationJsonName = "linearAttenuation";
 constexpr char const* spotlightQuadraticAttenuationJsonName =
     "quadraticAttenuation";
 
+constexpr char const* envMapRadiusJsonName = "envMapRadius";
+
 nlohmann::json serializeSpotlight(core::Spotlight const& spotlight) {
   nlohmann::json spotlightJson;
 
@@ -125,6 +127,10 @@ bool serialization::serializeGameObject(GameObjectData const& gameObject,
           serializeDirectionalLight(*gameObject.directionalLight);
     }
 
+    if (gameObject.envMapRadius) {
+      outJson[envMapRadiusJsonName] = *gameObject.envMapRadius;
+    }
+
     for (GameObjectData const& child : gameObject.children) {
       nlohmann::json childJson;
       if (serializeGameObject(child, childJson)) {
@@ -174,6 +180,10 @@ bool serialization::deserializeGameObject(nlohmann::json const& gameObjectJson,
     if (gameObjectJson.contains(gameObjectDirectionalLightJsonName)) {
       outGameObjectData.directionalLight.emplace(deserializeDirectionalLight(
           gameObjectJson[gameObjectDirectionalLightJsonName]));
+    }
+
+    if (gameObjectJson.contains(envMapRadiusJsonName)) {
+      outGameObjectData.envMapRadius = gameObjectJson[envMapRadiusJsonName];
     }
 
     if (gameObjectJson.contains(gameObjectChildrenJsonName)) {

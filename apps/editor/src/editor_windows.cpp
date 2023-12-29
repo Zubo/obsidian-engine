@@ -24,6 +24,7 @@
 #include <obsidian/globals/file_extensions.hpp>
 #include <obsidian/obsidian_engine/obsidian_engine.hpp>
 #include <obsidian/project/project.hpp>
+#include <obsidian/rhi/resource_rhi.hpp>
 #include <obsidian/scene/game_object.hpp>
 #include <obsidian/scene/scene.hpp>
 #include <obsidian/scene/serialization.hpp>
@@ -161,6 +162,14 @@ void loadScene(char const scenePath[], scene::SceneState& sceneState,
     OBS_LOG_ERR("Failed to deserialize scene");
     return;
   }
+
+  scene::forEachGameObjAndChildren(
+      engine.getContext().scene.getState().gameObjects, [&engine](auto& obj) {
+        if (obj.envMapRadius) {
+          engine.getContext().vulkanRHI.createEnvironmentMap(obj.getPosition(),
+                                                             *obj.envMapRadius);
+        }
+      });
 
   selectedGameObj = nullptr;
 }
@@ -389,6 +398,11 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
         if (pendingObjDelete) {
           scene::GameObject* const parent = pendingObjDelete->getParent();
 
+          if (pendingObjDelete->envMapResourceId) {
+            engine.getContext().vulkanRHI.destroyEnvMap(
+                pendingObjDelete->envMapResourceId);
+          }
+
           selectedGameObj = parent;
 
           if (parent) {
@@ -551,6 +565,37 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
           }
 
           ImGui::PopID();
+        }
+
+        ImGui::NewLine();
+        ImGui::SeparatorText("Environment Map");
+
+        if (!selectedGameObj->envMapRadius) {
+          if (ImGui::Button("Add")) {
+            selectedGameObj->envMapRadius = 1.0f;
+            selectedGameObj->envMapResourceId =
+                engine.getContext().vulkanRHI.createEnvironmentMap(
+                    selectedGameObj->getPosition(),
+                    *selectedGameObj->envMapRadius);
+          }
+        } else {
+          if (ImGui::SliderFloat("Radius",
+                                 &selectedGameObj->envMapRadius.value(), 0.0f,
+                                 50.0f)) {
+          }
+
+          if (ImGui::Button("Update")) {
+            engine.getContext().vulkanRHI.updateEnvironmentMap(
+                selectedGameObj->envMapResourceId,
+                selectedGameObj->getPosition(), *selectedGameObj->envMapRadius);
+          }
+
+          if (ImGui::Button("Remove")) {
+            engine.getContext().vulkanRHI.destroyEnvMap(
+                selectedGameObj->envMapResourceId);
+            selectedGameObj->envMapResourceId = rhi::rhiIdUninitialized;
+            selectedGameObj->envMapRadius = std::nullopt;
+          }
         }
       }
     } else {
@@ -916,6 +961,14 @@ void instantiatePrefab(fs::path const& prefabPath, ObsidianEngine& engine) {
   scene::GameObject& obj = *ctx.scene.getState().gameObjects.emplace_back(
       std::make_unique<scene::GameObject>());
   scene::populateGameObject(gameObjectData, ctx.resourceManager, obj);
+
+  scene::forEachGameObjAndChildren(
+      engine.getContext().scene.getState().gameObjects, [&engine](auto& obj) {
+        if (obj.envMapRadius) {
+          engine.getContext().vulkanRHI.createEnvironmentMap(obj.getPosition(),
+                                                             *obj.envMapRadius);
+        }
+      });
 }
 
 void fileDropped(const char* file, ObsidianEngine& engine) {

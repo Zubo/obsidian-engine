@@ -55,7 +55,8 @@ public:
   std::optional<core::DirectionalLight> directionalLight;
   std::optional<core::Spotlight> spotlight;
   GameObject* parent = nullptr;
-  rhi::ResourceIdRHI objectResourcesId = rhi::rhiIdUninitialized;
+  rhi::ResourceIdRHI envMapResourceId = rhi::rhiIdUninitialized;
+  std::optional<float> envMapRadius;
 
 private:
   void updateTransform();
@@ -71,5 +72,9 @@ private:
 
   static GameObjectId _idCounter;
 };
+
+void forEachGameObjAndChildren(
+    std::vector<std::unique_ptr<GameObject>>& gameObjects,
+    std::function<void(GameObject&)> f);
 
 } /*namespace obsidian::scene*/

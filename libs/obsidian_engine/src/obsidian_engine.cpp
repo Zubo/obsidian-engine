@@ -128,8 +128,6 @@ void submitDrawCalls(scene::GameObject& gameObject, rhi::RHI& rhi,
 
   if (meshReady && materialsReady) {
     rhi::DrawCall drawCall;
-    drawCall.objectResourcesId = gameObject.objectResourcesId;
-
     for (auto const& materialResource : gameObject.materialResources) {
       drawCall.materialIds.push_back(materialResource->getResourceId());
     }

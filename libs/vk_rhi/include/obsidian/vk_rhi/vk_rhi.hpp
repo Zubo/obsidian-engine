@@ -221,6 +221,7 @@ private:
   AllocatedBuffer _envMapRenderPassDataBuffer;
   AllocatedBuffer _envMapDataBuffer;
   bool _envMapDescriptorSetPendingUpdate = false;
+  std::vector<EnvironmentMap> _environmentMapsPendingDestruction;
 
   void initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider);
   void initSwapchain(rhi::WindowExtentRHI const& extent);
@@ -268,6 +269,7 @@ private:
   ImmediateSubmitContext&
   getImmediateCtxForCurrentThread(std::uint32_t queueIdx);
   void destroyImmediateCtxForCurrentThread();
+  void performPendingEnvironmentMapDestruction();
 
   FrameData& getCurrentFrameData();
 

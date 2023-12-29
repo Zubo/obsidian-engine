@@ -1,3 +1,4 @@
+#include <obsidian/rhi/resource_rhi.hpp>
 #include <obsidian/vk_rhi/vk_initializers.hpp>
 #include <obsidian/vk_rhi/vk_rhi.hpp>
 #include <obsidian/vk_rhi/vk_types.hpp>
@@ -161,23 +162,8 @@ rhi::ResourceIdRHI VulkanRHI::createEnvironmentMap(glm::vec3 envMapPos,
 }
 
 void VulkanRHI::destroyEnvMap(rhi::ResourceIdRHI envMapId) {
-  EnvironmentMap& envMap = _environmentMaps[envMapId];
 
-  for (std::size_t i = 0; i < envMap.framebuffers.size(); ++i) {
-    vkDestroyFramebuffer(_vkDevice, envMap.framebuffers[i], nullptr);
-    vkDestroyImageView(_vkDevice, envMap.colorAttachmentImageViews[i], nullptr);
-    vkDestroyImageView(_vkDevice, envMap.depthAttachmentImageViews[i], nullptr);
-  }
-
-  vkDestroyImageView(_vkDevice, envMap.colorImageView, nullptr);
-  vmaDestroyImage(_vmaAllocator, envMap.colorImage.vkImage,
-                  envMap.colorImage.allocation);
-  vkDestroyImageView(_vkDevice, envMap.depthImageView, nullptr);
-  vmaDestroyImage(_vmaAllocator, envMap.depthImage.vkImage,
-                  envMap.depthImage.allocation);
-
-  vmaDestroyBuffer(_vmaAllocator, envMap.cameraBuffer.buffer,
-                   envMap.cameraBuffer.allocation);
+  _environmentMapsPendingDestruction.push_back(_environmentMaps.at(envMapId));
 
   _environmentMaps.erase(envMapId);
 
@@ -190,6 +176,8 @@ void VulkanRHI::updateEnvironmentMap(rhi::ResourceIdRHI envMapId, glm::vec3 pos,
   envMap.pos = pos;
   envMap.radius = radius;
   envMap.pendingUpdate = true;
+
+  _envMapDescriptorSetPendingUpdate = true;
 }
 
 void VulkanRHI::uploadEnvironmentMaps() {
@@ -211,20 +199,46 @@ void VulkanRHI::uploadEnvironmentMaps() {
 
   uploadBufferData(0, envMapData, _envMapDataBuffer);
 
-  VkWriteDescriptorSet writeEnvGlobalDescriptorSet = {};
-  writeEnvGlobalDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-  writeEnvGlobalDescriptorSet.pNext = nullptr;
+  if (writeImageInfos.size()) {
+    VkWriteDescriptorSet writeEnvGlobalDescriptorSet = {};
+    writeEnvGlobalDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writeEnvGlobalDescriptorSet.pNext = nullptr;
 
-  writeEnvGlobalDescriptorSet.dstSet = _vkGlobalDescriptorSet;
-  writeEnvGlobalDescriptorSet.dstBinding = 2;
-  writeEnvGlobalDescriptorSet.dstArrayElement = 0;
-  writeEnvGlobalDescriptorSet.descriptorType =
-      VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-  writeEnvGlobalDescriptorSet.descriptorCount = writeImageInfos.size();
-  writeEnvGlobalDescriptorSet.pImageInfo = writeImageInfos.data();
+    writeEnvGlobalDescriptorSet.dstSet = _vkGlobalDescriptorSet;
+    writeEnvGlobalDescriptorSet.dstBinding = 2;
+    writeEnvGlobalDescriptorSet.dstArrayElement = 0;
+    writeEnvGlobalDescriptorSet.descriptorType =
+        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writeEnvGlobalDescriptorSet.descriptorCount = writeImageInfos.size();
+    writeEnvGlobalDescriptorSet.pImageInfo = writeImageInfos.data();
 
-  vkUpdateDescriptorSets(_vkDevice, 1, &writeEnvGlobalDescriptorSet, 0,
-                         nullptr);
+    vkUpdateDescriptorSets(_vkDevice, 1, &writeEnvGlobalDescriptorSet, 0,
+                           nullptr);
+  }
 
   _envMapDescriptorSetPendingUpdate = false;
+}
+
+void VulkanRHI::performPendingEnvironmentMapDestruction() {
+  for (EnvironmentMap& envMap : _environmentMapsPendingDestruction) {
+    for (std::size_t i = 0; i < envMap.framebuffers.size(); ++i) {
+      vkDestroyFramebuffer(_vkDevice, envMap.framebuffers[i], nullptr);
+      vkDestroyImageView(_vkDevice, envMap.colorAttachmentImageViews[i],
+                         nullptr);
+      vkDestroyImageView(_vkDevice, envMap.depthAttachmentImageViews[i],
+                         nullptr);
+    }
+
+    vkDestroyImageView(_vkDevice, envMap.colorImageView, nullptr);
+    vmaDestroyImage(_vmaAllocator, envMap.colorImage.vkImage,
+                    envMap.colorImage.allocation);
+    vkDestroyImageView(_vkDevice, envMap.depthImageView, nullptr);
+    vmaDestroyImage(_vmaAllocator, envMap.depthImage.vkImage,
+                    envMap.depthImage.allocation);
+
+    vmaDestroyBuffer(_vmaAllocator, envMap.cameraBuffer.buffer,
+                     envMap.cameraBuffer.allocation);
+  }
+
+  _environmentMapsPendingDestruction.clear();
 }
