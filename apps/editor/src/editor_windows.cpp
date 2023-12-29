@@ -166,8 +166,9 @@ void loadScene(char const scenePath[], scene::SceneState& sceneState,
   scene::forEachGameObjAndChildren(
       engine.getContext().scene.getState().gameObjects, [&engine](auto& obj) {
         if (obj.envMapRadius) {
-          engine.getContext().vulkanRHI.createEnvironmentMap(obj.getPosition(),
-                                                             *obj.envMapRadius);
+          obj.envMapResourceId =
+              engine.getContext().vulkanRHI.createEnvironmentMap(
+                  obj.getPosition(), *obj.envMapRadius);
         }
       });
 
@@ -965,8 +966,9 @@ void instantiatePrefab(fs::path const& prefabPath, ObsidianEngine& engine) {
   scene::forEachGameObjAndChildren(
       engine.getContext().scene.getState().gameObjects, [&engine](auto& obj) {
         if (obj.envMapRadius) {
-          engine.getContext().vulkanRHI.createEnvironmentMap(obj.getPosition(),
-                                                             *obj.envMapRadius);
+          obj.envMapResourceId =
+              engine.getContext().vulkanRHI.createEnvironmentMap(
+                  obj.getPosition(), *obj.envMapRadius);
         }
       });
 }

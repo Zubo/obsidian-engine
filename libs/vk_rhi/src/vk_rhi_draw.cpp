@@ -372,9 +372,9 @@ void VulkanRHI::environmentMapPasses(struct DrawPassParams const& params) {
       glm::vec3{0.0f, 1.0f, 0.0f}, glm::vec3{0.0f, -1.0f, 0.0f},
       glm::vec3{0.0f, 0.0f, 1.0f}, glm::vec3{0.0f, 0.0f, -1.0f}};
   constexpr std::array<glm::vec3, 6> upVecs = {
-      glm::vec3{0.0f, -1.0f, 0.0f}, glm::vec3{0.0f, -1.0f, 0.0f},
+      glm::vec3{0.0f, 1.0f, 0.0f},  glm::vec3{0.0f, 1.0f, 0.0f},
       glm::vec3{0.0f, 0.0f, -1.0f}, glm::vec3{0.0f, 0.0f, 1.0f},
-      glm::vec3{0.0f, -1.0f, 0.0f}, glm::vec3{0.0f, -1.0f, 0.0f}};
+      glm::vec3{0.0f, 1.0f, 0.0f},  glm::vec3{0.0f, 1.0f, 0.0f}};
 
   VkViewport const viewport{
       0, 0, environmentMapResolution, environmentMapResolution, 0.0f, 1.0f};
@@ -395,6 +395,7 @@ void VulkanRHI::environmentMapPasses(struct DrawPassParams const& params) {
       cameraData.view = glm::lookAt(map.pos, map.pos + cubeSides[i], upVecs[i]);
       cameraData.proj = glm::perspective(glm::radians(90.f), 1.0f, 0.1f, 400.f);
       cameraData.proj[1][1] *= -1;
+      cameraData.proj[0][0] *= -1;
       cameraData.viewProj = cameraData.proj * cameraData.view;
 
       uploadBufferData(6 * params.frameInd + i, cameraData, map.cameraBuffer);

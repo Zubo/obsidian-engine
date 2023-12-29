@@ -39,7 +39,6 @@ void main() {
         vec3(inverseView[3][0], inverseView[3][1], inverseView[3][2]);
 
     vec3 reflectedDir = reflect(inWorldPos - cameraPos, normal);
-
     resultColor += texture(envMaps[nearestEnvMapInd], reflectedDir).xyz;
   }
 

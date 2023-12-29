@@ -97,6 +97,7 @@ serialization::GameObjectData GameObject::getGameObjectData() const {
 
   result.directionalLight = directionalLight;
   result.spotlight = spotlight;
+  result.envMapRadius = envMapRadius;
   result.position = getPosition();
   result.euler = getEuler();
   result.scale = getScale();

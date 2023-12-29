@@ -42,6 +42,7 @@ void populateGameObject(
 
   outGameObject.directionalLight = gameObjectData.directionalLight;
   outGameObject.spotlight = gameObjectData.spotlight;
+  outGameObject.envMapRadius = gameObjectData.envMapRadius;
 
   outGameObject.setPosition(gameObjectData.position);
   outGameObject.setEuler(gameObjectData.euler);
