@@ -33,7 +33,7 @@ struct AllocatedBuffer {
 
 struct VkMaterial {
   VkPipeline vkPipelineReuseDepth;
-  VkPipeline vkPipelineNoDepthReuse;
+  VkPipeline vkPipelineEnvironmentRendering;
   VkPipelineLayout vkPipelineLayout;
   VkDescriptorSet vkDescriptorSet;
   rhi::ResourceRHI resource;

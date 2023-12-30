@@ -426,8 +426,12 @@ void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
 
   pipelineBuilder._vkDepthStencilStateCreateInfo =
       vkinit::depthStencilStateCreateInfo(true, true);
-  newMaterial.vkPipelineNoDepthReuse = pipelineBuilder.buildPipeline(
+  pipelineBuilder._vkRasterizationCreateInfo.frontFace =
+      VK_FRONT_FACE_CLOCKWISE;
+  newMaterial.vkPipelineEnvironmentRendering = pipelineBuilder.buildPipeline(
       _vkDevice, _mainRenderPassNoDepthReuse.vkRenderPass);
+  pipelineBuilder._vkRasterizationCreateInfo.frontFace =
+      VK_FRONT_FACE_COUNTER_CLOCKWISE;
 
   newMaterial.transparent = uploadMaterial.transparent;
   newMaterial.reflection = uploadMaterial.reflection;
@@ -551,7 +555,8 @@ void VulkanRHI::destroyUnreferencedResources() {
   for (auto& mat : _materials) {
     if (!mat.second.resource.refCount) {
       vkDestroyPipeline(_vkDevice, mat.second.vkPipelineReuseDepth, nullptr);
-      vkDestroyPipeline(_vkDevice, mat.second.vkPipelineNoDepthReuse, nullptr);
+      vkDestroyPipeline(_vkDevice, mat.second.vkPipelineEnvironmentRendering,
+                        nullptr);
       eraseIds.push_back(mat.second.resource.id);
     }
   }

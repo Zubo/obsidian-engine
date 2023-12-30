@@ -639,7 +639,7 @@ void VulkanRHI::drawWithMaterials(
     if (&material != lastMaterial) {
       vkCmdBindPipeline(cmd, pipelineBindPoint,
                         reusesDepth ? material.vkPipelineReuseDepth
-                                    : material.vkPipelineNoDepthReuse);
+                                    : material.vkPipelineEnvironmentRendering);
 
       if (dynamicViewport) {
         vkCmdSetViewport(cmd, 0, 1, &dynamicViewport.value());
