@@ -37,6 +37,7 @@
 #include <SDL2/SDL.h>
 #include <backends/imgui_impl_sdl2.h>
 #include <backends/imgui_impl_sdlrenderer2.h>
+#include <glm/ext/vector_int3.hpp>
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <nlohmann/json.hpp>
@@ -108,6 +109,32 @@ void refreshAssetLists() {
   meshesPathStringPtrs.clear();
   meshesPathStringPtrs.push_back("none");
   transformToStr(meshesPathStringPtrs, meshesInProj);
+}
+
+void createEnvironmentMapField(glm::vec3 originPos, glm::ivec3 count,
+                               float scatterDistance, ObsidianEngine& engine) {
+  constexpr float sqrt2 = 1.41421356237f;
+
+  scene::GameObject& obj =
+      *engine.getContext().scene.getState().gameObjects.emplace_back(
+          std::make_unique<scene::GameObject>());
+  obj.name = "env map field";
+
+  for (int i = -count.x / 2; i < (count.x + 1) / 2; ++i) {
+    for (int j = -count.y / 2; j < (count.y + 1) / 2; ++j) {
+      for (int k = -count.z / 2; k < (count.z + 1) / 2; ++k) {
+        glm::vec3 pos = {i * scatterDistance, j * scatterDistance,
+                         k * scatterDistance};
+
+        scene::GameObject& envMapObj = obj.createChild();
+        envMapObj.setPosition(pos);
+        envMapObj.envMapRadius = scatterDistance * sqrt2 / 2.0f;
+        envMapObj.envMapResourceId =
+            engine.getContext().vulkanRHI.createEnvironmentMap(
+                pos, *envMapObj.envMapRadius);
+      }
+    }
+  }
 }
 
 template <typename TCollection, typename TValue>
@@ -380,6 +407,59 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
         if (disabled) {
           ImGui::PopStyleVar();
           ImGui::PopItemFlag();
+        }
+
+        ImGui::NewLine();
+        ImGui::SeparatorText("Environment Map Field");
+        static float envMapFieldScatterDist = 1.0f;
+        static glm::ivec3 count = {3, 1, 3};
+        static glm::vec3 originPos = {};
+
+        if (ImGui::SliderFloat("Scatter Distance", &envMapFieldScatterDist,
+                               0.001f, 10.0f)) {
+        }
+
+        ImGui::Text("Count Per Dimension");
+
+        ImGui::PushID("x");
+        if (ImGui::Button("-")) {
+          count.x = std::max(1, count.x - 1);
+        }
+        ImGui::SameLine();
+        ImGui::Text("x = %d", count.x);
+        ImGui::SameLine();
+        if (ImGui::Button("+")) {
+          ++count.x;
+        }
+        ImGui::PopID();
+
+        ImGui::PushID("y");
+        if (ImGui::Button("-")) {
+          count.y = std::max(1, count.y - 1);
+        }
+        ImGui::SameLine();
+        ImGui::Text("y = %d", count.y);
+        ImGui::SameLine();
+        if (ImGui::Button("+")) {
+          ++count.y;
+        }
+        ImGui::PopID();
+
+        ImGui::PushID("z");
+        if (ImGui::Button("-")) {
+          count.z = std::max(1, count.z - 1);
+        }
+        ImGui::SameLine();
+        ImGui::Text("z = %d", count.z);
+        ImGui::SameLine();
+        if (ImGui::Button("+")) {
+          ++count.z;
+        }
+        ImGui::PopID();
+
+        if (ImGui::Button("Create Environment Map Field")) {
+          createEnvironmentMapField(originPos, count, envMapFieldScatterDist,
+                                    engine);
         }
 
         ImGui::NewLine();
