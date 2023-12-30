@@ -34,4 +34,15 @@ int getNearestEnvMapInRadiusInd(vec3 fragWorldPos) {
   return int(ind);
 }
 
+vec3 getReflectedColor(vec3 fragWorldPos, vec3 cameraWorldPos, vec3 normal) {
+  int nearestEnvMapInd = getNearestEnvMapInRadiusInd(fragWorldPos);
+
+  if (nearestEnvMapInd >= 0) {
+    vec3 reflectedDir = reflect(fragWorldPos - cameraWorldPos, normal);
+    return texture(envMaps[nearestEnvMapInd], reflectedDir).xyz;
+  }
+
+  return vec3(0.0f, 0.0f, 0.0f);
+}
+
 #endif

@@ -432,12 +432,12 @@ void VulkanRHI::environmentMapPasses(struct DrawPassParams const& params) {
               params.frameInd * getPaddedBufferSize(sizeof(GPULightData)))};
 
       drawWithMaterials(cmd, _drawCallQueue.data(), _drawCallQueue.size(),
-                        params.cameraData, defaultDynamicOffsets,
+                        cameraData, defaultDynamicOffsets,
                         map.renderPassDescriptorSets[params.frameInd], viewport,
                         scissor, false);
 
       drawWithMaterials(cmd, _transparentDrawCallQueue.data(),
-                        _transparentDrawCallQueue.size(), params.cameraData,
+                        _transparentDrawCallQueue.size(), cameraData,
                         defaultDynamicOffsets,
                         map.renderPassDescriptorSets[params.frameInd], viewport,
                         scissor, false);

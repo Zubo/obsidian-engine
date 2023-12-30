@@ -15,6 +15,7 @@ layout(location = 4) in mat3 inTBN;
 
 layout(location = 0) out vec4 outFragColor;
 
+#include "include/environment-maps.glsl"
 #include "include/lighting.glsl"
 #include "include/material.glsl"
 #include "include/renderpass-data.glsl"
@@ -56,9 +57,16 @@ void main() {
   diffuseColor *=
       vec4((spotlightResult.diffuse + directionalLightResult.diffuse), 1.0f);
 
-  vec4 specularColor =
-      materialData.specularColor *
-      vec4((spotlightResult.specular + directionalLightResult.specular), 1.0f);
+  const mat4 inverseView = inverse(cameraData.view);
+  const vec3 cameraWorldPos =
+      vec3(inverseView[3][0], inverseView[3][1], inverseView[3][2]);
+
+  vec3 reflectedColor = getReflectedColor(inWorldPos, cameraWorldPos, normal);
+
+  vec4 specularColor = materialData.specularColor *
+                       vec4((reflectedColor + spotlightResult.specular +
+                             directionalLightResult.specular),
+                            1.0f);
 
 #ifdef _HAS_UV
   if (materialData.hasDiffuseTex) {
