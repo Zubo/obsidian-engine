@@ -478,6 +478,12 @@ void VulkanRHI::present(VkSemaphore renderSemaphore,
 void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   applyPendingExtentUpdate();
 
+  if (_envMapDescriptorSetPendingUpdate) {
+    waitDeviceIdle();
+    uploadEnvironmentMaps();
+    _skipFrame = true;
+  }
+
   if (_skipFrame) {
     _submittedDirectionalLights.clear();
     _submittedSpotlights.clear();
@@ -588,11 +594,6 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
     VK_CHECK(vkQueueSubmit(_gpuQueues[_graphicsQueueFamilyIndex], 1,
                            &vkSubmitInfo,
                            params.currentFrameData.vkRenderFence));
-  }
-
-  if (_envMapDescriptorSetPendingUpdate) {
-    waitDeviceIdle();
-    uploadEnvironmentMaps();
   }
 
   present(params.currentFrameData.vkRenderSemaphore, swapchainImageIndex);
