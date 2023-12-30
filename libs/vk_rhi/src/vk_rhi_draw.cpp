@@ -562,16 +562,12 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
 
   shadowPasses(params);
 
-  environmentMapPasses(params);
-
-  if (_envMapDescriptorSetPendingUpdate) {
-    uploadEnvironmentMaps();
-  }
-
   colorPass(params, sceneParams.ambientColor,
             _vkSwapchainFramebuffers[swapchainImageIndex][params.frameInd]
                 .vkFramebuffer,
             _vkbSwapchain.extent);
+
+  environmentMapPasses(params);
 
   VK_CHECK(vkEndCommandBuffer(cmd));
 
@@ -592,6 +588,11 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
     VK_CHECK(vkQueueSubmit(_gpuQueues[_graphicsQueueFamilyIndex], 1,
                            &vkSubmitInfo,
                            params.currentFrameData.vkRenderFence));
+  }
+
+  if (_envMapDescriptorSetPendingUpdate) {
+    waitDeviceIdle();
+    uploadEnvironmentMaps();
   }
 
   present(params.currentFrameData.vkRenderSemaphore, swapchainImageIndex);

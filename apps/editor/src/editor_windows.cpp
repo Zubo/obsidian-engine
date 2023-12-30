@@ -399,7 +399,7 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
         if (pendingObjDelete) {
           scene::GameObject* const parent = pendingObjDelete->getParent();
 
-          if (pendingObjDelete->envMapResourceId) {
+          if (pendingObjDelete->envMapResourceId != rhi::rhiIdUninitialized) {
             engine.getContext().vulkanRHI.destroyEnvMap(
                 pendingObjDelete->envMapResourceId);
           }
@@ -806,7 +806,7 @@ void textureEditorTab() {
                                       selectedTextureAsset);
 
         asset::saveToFile(
-            project.getAbsolutePath(texturesInProj[selectedTextureInd - 1]),
+            project.getAbsolutePath(texturesInProj[selectedTextureInd]),
             selectedTextureAsset);
       }
     }
