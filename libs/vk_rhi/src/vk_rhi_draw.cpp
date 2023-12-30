@@ -19,11 +19,14 @@
 #include <cstring>
 #include <mutex>
 #include <numeric>
+#include <vulkan/vulkan_core.h>
 
 using namespace obsidian;
 using namespace obsidian::vk_rhi;
 
 namespace obsidian::vk_rhi {
+
+constexpr VkClearColorValue environmentColor{0.0f, 0.0f, 1.0f, 1.0f};
 
 struct DrawPassParams {
   FrameData currentFrameData;
@@ -327,7 +330,7 @@ void VulkanRHI::shadowPasses(DrawPassParams const& params) {
 void VulkanRHI::colorPass(DrawPassParams const& params, glm::vec3 ambientColor,
                           VkFramebuffer targetFramebuffer, VkExtent2D extent) {
   std::array<VkClearValue, 2> clearValues;
-  clearValues[0].color = {{0.0f, 0.0f, 1.0f, 1.0f}};
+  clearValues[0].color = environmentColor;
   clearValues[1].depthStencil.depth = 1.0f;
 
   VkRenderPassBeginInfo vkRenderPassBeginInfo = {};
@@ -401,7 +404,7 @@ void VulkanRHI::environmentMapPasses(struct DrawPassParams const& params) {
       uploadBufferData(6 * params.frameInd + i, cameraData, map.cameraBuffer);
 
       std::array<VkClearValue, 2> clearValues;
-      clearValues[0].color = {{0.0f, 0.0f, 0.0f, 1.0f}};
+      clearValues[0].color = environmentColor;
       clearValues[1].depthStencil.depth = 1.0f;
 
       VkRenderPassBeginInfo vkRenderPassBeginInfo = {};

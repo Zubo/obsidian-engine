@@ -27,10 +27,6 @@ void main() {
   LightingResult directionalLightResult = calculateDirectionalLighting(normal);
   LightingResult spotlightResult = calculateSpotlights(normal);
 
-  vec3 resultColor = vec3(0.2f, 0.2f, 1.0f) * directionalLightResult.diffuse +
-                     directionalLightResult.specular + spotlightResult.diffuse +
-                     spotlightResult.specular;
-
   int nearestEnvMapInd = getNearestEnvMapInRadiusInd(inWorldPos);
 
   if (nearestEnvMapInd >= 0) {
@@ -39,8 +35,18 @@ void main() {
         vec3(inverseView[3][0], inverseView[3][1], inverseView[3][2]);
 
     vec3 reflectedDir = reflect(inWorldPos - cameraPos, normal);
-    resultColor += texture(envMaps[nearestEnvMapInd], reflectedDir).xyz;
+    directionalLightResult.specular +=
+        texture(envMaps[nearestEnvMapInd], reflectedDir).xyz;
+    directionalLightResult.specular /= 2.0f;
+    spotlightResult.specular +=
+        texture(envMaps[nearestEnvMapInd], reflectedDir).xyz;
+    spotlightResult.specular /= 2.0f;
   }
 
-  outFragColor = vec4(resultColor, 0.2f);
+  vec3 resultColor = (vec3(0.2f, 0.2f, 1.0f) * directionalLightResult.diffuse +
+                      directionalLightResult.specular +
+                      spotlightResult.diffuse + spotlightResult.specular) /
+                     4.0f;
+
+  outFragColor = vec4(resultColor, 0.4f);
 }
