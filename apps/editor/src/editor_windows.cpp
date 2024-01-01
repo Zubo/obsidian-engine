@@ -15,6 +15,7 @@
 #include <obsidian/asset/scene_asset_info.hpp>
 #include <obsidian/asset/texture_asset_info.hpp>
 #include <obsidian/asset_converter/asset_converter.hpp>
+#include <obsidian/core/light_types.hpp>
 #include <obsidian/core/logging.hpp>
 #include <obsidian/core/material.hpp>
 #include <obsidian/core/texture_format.hpp>
@@ -111,31 +112,6 @@ void refreshAssetLists() {
   transformToStr(meshesPathStringPtrs, meshesInProj);
 }
 
-void createEnvironmentMapField(glm::vec3 originPos, glm::ivec3 count,
-                               float scatterDistance, ObsidianEngine& engine) {
-  constexpr float sqrt2 = 1.41421356237f;
-
-  scene::GameObject& obj =
-      engine.getContext().scene.getState().gameObjects.emplace_back();
-  obj.name = "env map field";
-
-  for (int i = -count.x / 2; i < (count.x + 1) / 2; ++i) {
-    for (int j = -count.y / 2; j < (count.y + 1) / 2; ++j) {
-      for (int k = -count.z / 2; k < (count.z + 1) / 2; ++k) {
-        glm::vec3 pos = {i * scatterDistance, j * scatterDistance,
-                         k * scatterDistance};
-
-        scene::GameObject& envMapObj = obj.createChild();
-        envMapObj.setPosition(pos);
-        envMapObj.envMapRadius = scatterDistance * sqrt2 / 2.0f;
-        envMapObj.envMapResourceId =
-            engine.getContext().vulkanRHI.createEnvironmentMap(
-                pos, *envMapObj.envMapRadius);
-      }
-    }
-  }
-}
-
 template <typename TCollection, typename TValue>
 int indexorDefault(TCollection const& collection, TValue const& val,
                    int defaultVal) {
@@ -183,20 +159,12 @@ void loadScene(char const scenePath[], scene::SceneState& sceneState,
 
   sceneState = {};
 
-  if (!scene::deserializeScene(sceneJson, engine.getContext().resourceManager,
+  ObsidianEngineContext& ctx = engine.getContext();
+  if (!scene::deserializeScene(sceneJson, ctx.vulkanRHI, ctx.resourceManager,
                                sceneState)) {
     OBS_LOG_ERR("Failed to deserialize scene");
     return;
   }
-
-  scene::forEachGameObjAndChildren(
-      engine.getContext().scene.getState().gameObjects, [&engine](auto& obj) {
-        if (obj.envMapRadius) {
-          obj.envMapResourceId =
-              engine.getContext().vulkanRHI.createEnvironmentMap(
-                  obj.getPosition(), *obj.envMapRadius);
-        }
-      });
 
   selectedGameObj = nullptr;
 }
@@ -256,9 +224,9 @@ void selectGameObjMesh(int gameObjMeshInd) {
       selectedGameObjMeshAssetInfo.indexBufferSizes.size(), -1);
 
   for (std::size_t i = 0; i < selectedGameObjMats.size(); ++i) {
-    if (selectedGameObj->materialResources.size() > i) {
+    if (selectedGameObj->getMaterialRelativePaths().size() > i) {
       fs::path const materialRelativePath =
-          selectedGameObj->materialResources[i]->getRelativePath();
+          selectedGameObj->getMaterialRelativePaths()[i];
 
       selectedGameObjMats[i] =
           indexorDefault(materialsInProj, materialRelativePath, -1);
@@ -276,10 +244,8 @@ void selectGameObjMesh(int gameObjMeshInd) {
 void selectGameObject(scene::GameObject& gameObject) {
   selectedGameObj = &gameObject;
 
-  if (selectedGameObj->meshResource) {
-    fs::path meshRelativePath =
-        selectedGameObj->meshResource->getRelativePath();
-
+  fs::path const& meshRelativePath = selectedGameObj->getMeshRelativePath();
+  if (!meshRelativePath.empty()) {
     selectGameObjMesh(indexorDefault(meshesInProj, meshRelativePath, -1));
   } else {
     selectGameObjMesh(-1);
@@ -294,7 +260,8 @@ void gameObjectHierarchy(scene::GameObject& gameObject,
     ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0, 255, 0, 255));
   }
 
-  if (ImGui::TreeNode(gameObject.name.c_str())) {
+  std::string_view gameObjName = gameObject.getName();
+  if (ImGui::TreeNode(gameObjName.data())) {
     if (ImGui::IsItemClicked()) {
       selectGameObject(gameObject);
     }
@@ -406,64 +373,13 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
         }
 
         ImGui::NewLine();
-        ImGui::SeparatorText("Environment Map Field");
-        static float envMapFieldScatterDist = 1.0f;
-        static glm::ivec3 count = {3, 1, 3};
-        static glm::vec3 originPos = {};
-
-        if (ImGui::SliderFloat("Scatter Distance", &envMapFieldScatterDist,
-                               0.001f, 10.0f)) {
-        }
-
-        ImGui::Text("Count Per Dimension");
-
-        ImGui::PushID("x");
-        if (ImGui::Button("-")) {
-          count.x = std::max(1, count.x - 1);
-        }
-        ImGui::SameLine();
-        ImGui::Text("x = %d", count.x);
-        ImGui::SameLine();
-        if (ImGui::Button("+")) {
-          ++count.x;
-        }
-        ImGui::PopID();
-
-        ImGui::PushID("y");
-        if (ImGui::Button("-")) {
-          count.y = std::max(1, count.y - 1);
-        }
-        ImGui::SameLine();
-        ImGui::Text("y = %d", count.y);
-        ImGui::SameLine();
-        if (ImGui::Button("+")) {
-          ++count.y;
-        }
-        ImGui::PopID();
-
-        ImGui::PushID("z");
-        if (ImGui::Button("-")) {
-          count.z = std::max(1, count.z - 1);
-        }
-        ImGui::SameLine();
-        ImGui::Text("z = %d", count.z);
-        ImGui::SameLine();
-        if (ImGui::Button("+")) {
-          ++count.z;
-        }
-        ImGui::PopID();
-
-        if (ImGui::Button("Create Environment Map Field")) {
-          createEnvironmentMapField(originPos, count, envMapFieldScatterDist,
-                                    engine);
-        }
-
-        ImGui::NewLine();
         ImGui::SeparatorText("Object Hierarchy");
 
         if (ImGui::TreeNodeEx("", ImGuiTreeNodeFlags_DefaultOpen)) {
           if (ImGui::Button("+")) {
-            sceneState.gameObjects.emplace_back();
+            sceneState.gameObjects.emplace_back(
+                engine.getContext().vulkanRHI,
+                engine.getContext().resourceManager);
           }
           for (auto& gameObject : sceneState.gameObjects) {
             gameObjectHierarchy(gameObject, sceneState);
@@ -473,11 +389,6 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
 
         if (pendingObjDelete) {
           scene::GameObject* const parent = pendingObjDelete->getParent();
-
-          if (pendingObjDelete->envMapResourceId != rhi::rhiIdUninitialized) {
-            engine.getContext().vulkanRHI.destroyEnvMap(
-                pendingObjDelete->envMapResourceId);
-          }
 
           selectedGameObj = parent;
 
@@ -505,12 +416,13 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
         ImGui::SeparatorText("Game Object");
 
         char gameObjectName[maxGameObjectNameSize];
-        std::strncpy(gameObjectName, selectedGameObj->name.c_str(),
-                     selectedGameObj->name.size() + 1);
+        std::string_view const selectedGameObjName = selectedGameObj->getName();
+        std::strncpy(gameObjectName, selectedGameObjName.data(),
+                     selectedGameObjName.size() + 1);
 
         ImGui::InputText("Name", gameObjectName, std::size(gameObjectName));
 
-        selectedGameObj->name = gameObjectName;
+        selectedGameObj->setName(gameObjectName);
 
         glm::vec3 pos = selectedGameObj->getPosition();
         ImGui::InputScalarN("Position", ImGuiDataType_Float, &pos, 3);
@@ -560,18 +472,18 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
         }
 
         if (ImGui::Button("Apply Mesh and Material")) {
-          selectedGameObj->meshResource =
+          fs::path const selctedMeshPath =
               meshDropdownSelectedIndex
-                  ? &engine.getContext().resourceManager.getResource(
-                        meshesInProj[meshDropdownSelectedIndex - 1])
-                  : nullptr;
+                  ? meshesInProj[meshDropdownSelectedIndex - 1]
+                  : fs::path{};
+          selectedGameObj->setMesh(selctedMeshPath);
 
-          selectedGameObj->materialResources.clear();
+          std::vector<fs::path> selectedMaterialPaths;
           for (int selectedMaterial : selectedGameObjMats) {
-            selectedGameObj->materialResources.push_back(
-                &engine.getContext().resourceManager.getResource(
-                    materialsInProj[selectedMaterial]));
+            selectedMaterialPaths.push_back(materialsInProj[selectedMaterial]);
           }
+
+          selectedGameObj->setMaterials(selectedMaterialPaths);
         }
 
         if (disabled) {
@@ -582,62 +494,71 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
         ImGui::NewLine();
         ImGui::SeparatorText("Lights");
 
-        if (!selectedGameObj->directionalLight) {
+        std::optional<core::DirectionalLight> directionalLight =
+            selectedGameObj->getDirectionalLight();
+
+        if (!directionalLight) {
           if (ImGui::Button("Add directional light")) {
-            selectedGameObj->directionalLight.emplace();
+            selectedGameObj->setDirectionalLight({});
           }
         } else {
           ImGui::PushID("DirectionalLight");
 
-          ImGui::SliderFloat3("Color",
-                              reinterpret_cast<float*>(
-                                  &selectedGameObj->directionalLight->color),
-                              0.0f, 1.0f);
+          bool dirLightUpdated = false;
 
-          ImGui::SliderFloat("Intensity",
-                             &selectedGameObj->directionalLight->intensity,
-                             0.0f, 10.0f);
+          dirLightUpdated |= ImGui::SliderFloat3(
+              "Color", reinterpret_cast<float*>(&directionalLight->color), 0.0f,
+              1.0f);
+
+          dirLightUpdated |= ImGui::SliderFloat(
+              "Intensity", &directionalLight->intensity, 0.0f, 10.0f);
+
+          if (dirLightUpdated) {
+            selectedGameObj->setDirectionalLight(*directionalLight);
+          }
 
           if (ImGui::Button("Remove")) {
-            selectedGameObj->directionalLight.reset();
+            selectedGameObj->removeDirectionalLight();
           }
 
           ImGui::PopID();
         }
 
-        if (!selectedGameObj->spotlight) {
+        std::optional<core::Spotlight> spotlight;
+
+        if (!spotlight) {
           if (ImGui::Button("Add spotlight")) {
-            selectedGameObj->spotlight.emplace();
+            selectedGameObj->setSpotlight({});
           }
         } else {
           ImGui::PushID("Spotlight");
 
-          ImGui::SliderFloat3(
-              "Color",
-              reinterpret_cast<float*>(&selectedGameObj->spotlight->color),
-              0.0f, 1.0f);
+          bool spotlightUpdated = false;
 
-          ImGui::SliderFloat(
-              "Intensity", &selectedGameObj->spotlight->intensity, 0.0f, 10.0f);
+          spotlightUpdated |= ImGui::SliderFloat3(
+              "Color", reinterpret_cast<float*>(&spotlight->color), 0.0f, 1.0f);
 
-          ImGui::SliderFloat("Cutoff angle",
-                             &selectedGameObj->spotlight->cutoffAngleRad, 0.01f,
-                             3.14f);
+          spotlightUpdated |= ImGui::SliderFloat(
+              "Intensity", &spotlight->intensity, 0.0f, 10.0f);
 
-          ImGui::SliderFloat("Fadeout angle",
-                             &selectedGameObj->spotlight->fadeoutAngleRad,
-                             selectedGameObj->spotlight->cutoffAngleRad, 3.14f);
+          spotlightUpdated |= ImGui::SliderFloat(
+              "Cutoff angle", &spotlight->cutoffAngleRad, 0.01f, 3.14f);
 
-          ImGui::SliderFloat("Linear attenuation",
-                             &selectedGameObj->spotlight->linearAttenuation,
-                             0.0f, 1.0f);
+          spotlightUpdated |=
+              ImGui::SliderFloat("Fadeout angle", &spotlight->fadeoutAngleRad,
+                                 spotlight->cutoffAngleRad, 3.14f);
 
-          ImGui::SliderFloat("Quadratic attenuation",
-                             &selectedGameObj->spotlight->quadraticAttenuation,
-                             0.0f, 1.0f);
+          spotlightUpdated |= ImGui::SliderFloat(
+              "Linear attenuation", &spotlight->linearAttenuation, 0.0f, 1.0f);
+
+          spotlightUpdated |=
+              ImGui::SliderFloat("Quadratic attenuation",
+                                 &spotlight->quadraticAttenuation, 0.0f, 1.0f);
+
+          selectedGameObj->setSpotlight(*spotlight);
 
           if (ImGui::Button("Remove")) {
-            selectedGameObj->spotlight.reset();
+            selectedGameObj->removeSpotlight();
           }
 
           ImGui::PopID();
@@ -646,31 +567,19 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
         ImGui::NewLine();
         ImGui::SeparatorText("Environment Map");
 
-        if (!selectedGameObj->envMapRadius) {
+        if (!selectedGameObj->hasEnvironmentMap()) {
           if (ImGui::Button("Add")) {
-            selectedGameObj->envMapRadius = 1.0f;
-            selectedGameObj->envMapResourceId =
-                engine.getContext().vulkanRHI.createEnvironmentMap(
-                    selectedGameObj->getPosition(),
-                    *selectedGameObj->envMapRadius);
+            selectedGameObj->setEnvironmentMap();
           }
         } else {
-          if (ImGui::SliderFloat("Radius",
-                                 &selectedGameObj->envMapRadius.value(), 0.0f,
-                                 50.0f)) {
-          }
+          float envMapRadius = selectedGameObj->getEnvironmentMapRadius();
 
-          if (ImGui::Button("Update")) {
-            engine.getContext().vulkanRHI.updateEnvironmentMap(
-                selectedGameObj->envMapResourceId,
-                selectedGameObj->getPosition(), *selectedGameObj->envMapRadius);
+          if (ImGui::SliderFloat("Radius", &envMapRadius, 0.0f, 50.0f)) {
+            selectedGameObj->setEnvironmentMap(envMapRadius);
           }
 
           if (ImGui::Button("Remove")) {
-            engine.getContext().vulkanRHI.destroyEnvMap(
-                selectedGameObj->envMapResourceId);
-            selectedGameObj->envMapResourceId = rhi::rhiIdUninitialized;
-            selectedGameObj->envMapRadius = std::nullopt;
+            selectedGameObj->removeEnvironmentMap();
           }
         }
       }
@@ -1034,17 +943,9 @@ void instantiatePrefab(fs::path const& prefabPath, ObsidianEngine& engine) {
   }
 
   ObsidianEngineContext& ctx = engine.getContext();
-  scene::GameObject& obj = ctx.scene.getState().gameObjects.emplace_back();
-  scene::populateGameObject(gameObjectData, ctx.resourceManager, obj);
-
-  scene::forEachGameObjAndChildren(
-      engine.getContext().scene.getState().gameObjects, [&engine](auto& obj) {
-        if (obj.envMapRadius) {
-          obj.envMapResourceId =
-              engine.getContext().vulkanRHI.createEnvironmentMap(
-                  obj.getPosition(), *obj.envMapRadius);
-        }
-      });
+  scene::GameObject& obj = ctx.scene.getState().gameObjects.emplace_back(
+      ctx.vulkanRHI, ctx.resourceManager);
+  scene::populateGameObject(gameObjectData, obj);
 }
 
 void fileDropped(const char* file, ObsidianEngine& engine) {

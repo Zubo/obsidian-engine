@@ -38,7 +38,7 @@ void VulkanRHI::init(rhi::WindowExtentRHI extent,
 
   initVulkan(surfaceProvider);
 
-  _deletionQueue.pushFunction([this]() { destroyUnreferencedResources(); });
+  _deletionQueue.pushFunction([this]() { destroyUnusedResources(); });
 
   initSwapchain(extent);
   initCommands();

@@ -2,6 +2,7 @@
 #include <obsidian/asset/asset_info.hpp>
 #include <obsidian/asset/asset_io.hpp>
 #include <obsidian/asset/shader_asset_info.hpp>
+#include <obsidian/core/logging.hpp>
 #include <obsidian/project/project.hpp>
 #include <obsidian/rhi/resource_rhi.hpp>
 #include <obsidian/rhi/rhi.hpp>
@@ -102,7 +103,7 @@ void RuntimeResourceManager::cleanup() {
 }
 
 RuntimeResource& RuntimeResourceManager::getResource(fs::path const& path) {
-  assert(_rhi && "Error: RuntimeResourceManager is not initialized.");
+  assert(_rhi && "RuntimeResourceManager is not initialized.");
 
   auto const resourceIter = _runtimeResources.find(path);
   if (resourceIter == _runtimeResources.cend()) {

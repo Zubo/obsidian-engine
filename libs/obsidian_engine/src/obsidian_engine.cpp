@@ -92,70 +92,13 @@ void ObsidianEngine::cleanup() {
   _context.vulkanRHI.cleanup();
 }
 
-void submitDrawCalls(scene::GameObject& gameObject, rhi::RHI& rhi,
-                     glm::mat4 parentTransform) {
-  glm::mat4 transform = parentTransform * gameObject.getTransform();
+ObsidianEngineContext& ObsidianEngine::getContext() { return _context; }
 
-  bool meshReady = false;
-
-  runtime_resource::RuntimeResource* const meshResource =
-      gameObject.meshResource;
-
-  if (meshResource) {
-    if (meshResource->getResourceState() ==
-        runtime_resource::RuntimeResourceState::initial) {
-      meshResource->uploadToRHI();
-    } else if (meshResource->isResourceReady()) {
-      meshReady = true;
-    }
-  }
-
-  bool materialsReady = false;
-
-  if (gameObject.materialResources.size()) {
-    for (auto& matResource : gameObject.materialResources) {
-      if (matResource->getResourceState() ==
-          runtime_resource::RuntimeResourceState::initial) {
-        matResource->uploadToRHI();
-      }
-    }
-
-    materialsReady = std::all_of(
-        gameObject.materialResources.cbegin(),
-        gameObject.materialResources.cend(),
-        [](auto const matResPtr) { return matResPtr->isResourceReady(); });
-  }
-
-  if (meshReady && materialsReady) {
-    rhi::DrawCall drawCall;
-    for (auto const& materialResource : gameObject.materialResources) {
-      drawCall.materialIds.push_back(materialResource->getResourceId());
-    }
-
-    drawCall.meshId = gameObject.meshResource->getResourceId();
-    drawCall.transform = transform;
-    rhi.submitDrawCall(drawCall);
-  }
-
-  if (gameObject.directionalLight) {
-    core::DirectionalLight directionalLight = *gameObject.directionalLight;
-    directionalLight.direction = glm::normalize(
-        transform * glm::vec4{0.0f, 0.0f, 1.0f, /*no translation:*/ 0.0f});
-    rhi.submitLight(directionalLight);
-  }
-
-  if (gameObject.spotlight) {
-    core::Spotlight spotlight = *gameObject.spotlight;
-    spotlight.position = gameObject.getPosition();
-    spotlight.direction = glm::normalize(
-        transform * glm::vec4{0.0f, 0.0f, 1.0f, /*no translation*/ 0.0f});
-    rhi.submitLight(spotlight);
-  }
-
-  for (auto& child : gameObject.getChildren()) {
-    submitDrawCalls(child, rhi, transform);
-  }
+ObsidianEngineContext const& ObsidianEngine::getContext() const {
+  return _context;
 }
+
+bool const ObsidianEngine::isInitialized() const { return _isInitialized; }
 
 void ObsidianEngine::processFrame() {
   scene::SceneState& sceneState = _context.scene.getState();
@@ -163,7 +106,7 @@ void ObsidianEngine::processFrame() {
   {
     ZoneScopedN("Draw call recursion");
     for (auto& gameObject : sceneState.gameObjects) {
-      submitDrawCalls(gameObject, _context.vulkanRHI, glm::mat4{1.0f});
+      gameObject.draw(glm::mat4{1.0f});
     }
   }
 
@@ -177,11 +120,3 @@ void ObsidianEngine::processFrame() {
     _context.vulkanRHI.draw(sceneGlobalParams);
   }
 }
-
-ObsidianEngineContext& ObsidianEngine::getContext() { return _context; }
-
-ObsidianEngineContext const& ObsidianEngine::getContext() const {
-  return _context;
-}
-
-bool const ObsidianEngine::isInitialized() const { return _isInitialized; }

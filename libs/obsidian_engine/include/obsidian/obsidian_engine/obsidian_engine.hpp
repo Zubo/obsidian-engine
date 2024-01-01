@@ -23,13 +23,13 @@ struct ObsidianEngineContext {
   ObsidianEngineContext() = default;
   ObsidianEngineContext(ObsidianEngineContext const& other) = delete;
 
-  vk_rhi::VulkanRHI vulkanRHI;
-  scene::Scene scene;
+  task::TaskExecutor taskExecutor;
   input::InputContext inputContext;
   window::Window window;
-  runtime_resource::RuntimeResourceManager resourceManager;
+  vk_rhi::VulkanRHI vulkanRHI;
   project::Project project;
-  task::TaskExecutor taskExecutor;
+  runtime_resource::RuntimeResourceManager resourceManager;
+  scene::Scene scene;
 };
 
 class ObsidianEngine {

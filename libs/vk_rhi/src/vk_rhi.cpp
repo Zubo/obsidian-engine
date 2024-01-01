@@ -548,7 +548,7 @@ void VulkanRHI::releaseMaterial(rhi::ResourceIdRHI resourceIdRHI) {
   }
 }
 
-void VulkanRHI::destroyUnreferencedResources() {
+void VulkanRHI::destroyUnusedResources() {
   std::vector<rhi::ResourceIdRHI> eraseIds;
 
   // clear materials

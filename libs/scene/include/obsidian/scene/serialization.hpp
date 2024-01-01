@@ -8,6 +8,12 @@
 
 #include <string>
 
+namespace obsidian::rhi {
+
+class RHI;
+
+} /*namespace obsidian::rhi*/
+
 namespace obsidian::runtime_resource {
 
 class RuntimeResourceManager;
@@ -16,14 +22,12 @@ class RuntimeResourceManager;
 
 namespace obsidian::scene {
 
-void populateGameObject(
-    serialization::GameObjectData const& gameObjectData,
-    runtime_resource::RuntimeResourceManager& resourceManager,
-    GameObject& outGameObject);
+void populateGameObject(serialization::GameObjectData const& gameObjectData,
+                        GameObject& outGameObject);
 
 bool serializeScene(SceneState const& sceneState, nlohmann::json& outJson);
 
-bool deserializeScene(nlohmann::json const& sceneJson,
+bool deserializeScene(nlohmann::json const& sceneJson, rhi::RHI& rhi,
                       runtime_resource::RuntimeResourceManager& resourceManager,
                       SceneState& outSceneState);
 

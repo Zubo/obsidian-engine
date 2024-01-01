@@ -1,3 +1,6 @@
+#include <obsidian/core/logging.hpp>
+#include <obsidian/rhi/resource_rhi.hpp>
+#include <obsidian/runtime_resource/runtime_resource.hpp>
 #include <obsidian/scene/game_object.hpp>
 #include <obsidian/serialization/game_object_data_serialization.hpp>
 
@@ -9,10 +12,107 @@
 using namespace obsidian;
 using namespace obsidian::scene;
 
+namespace fs = std::filesystem;
+
 GameObject::GameObjectId GameObject::_idCounter = 0;
 
-GameObject::GameObject() : _objectId{_idCounter++} {
-  name = "GameObject" + std::to_string(_objectId);
+GameObject::GameObject(
+    rhi::RHI& rhi, runtime_resource::RuntimeResourceManager& resourceManager)
+    : _objectId{_idCounter++}, _rhi{rhi}, _resourceManager{resourceManager} {
+  _name = "GameObject" + std::to_string(_objectId);
+}
+
+GameObject::~GameObject() {
+  releaseMeshResource();
+  releaseMaterialResources();
+  destroyEnvironmentMapRHI();
+}
+
+std::string_view GameObject::getName() const { return _name; }
+
+void GameObject::setName(std::string_view name) { _name = name; }
+
+void GameObject::setMaterials(
+    std::vector<std::filesystem::path> const& materialResourceRelativePaths) {
+  releaseMaterialResources();
+
+  _materialRelativePaths = materialResourceRelativePaths;
+}
+
+std::vector<std::filesystem::path> const&
+GameObject::getMaterialRelativePaths() {
+  return _materialRelativePaths;
+}
+
+void GameObject::setMesh(std::filesystem::path meshRelativePath) {
+  releaseMeshResource();
+
+  _meshResourceRelativePath = meshRelativePath;
+}
+
+std::filesystem::path const& GameObject::getMeshRelativePath() {
+  return _meshResourceRelativePath;
+}
+
+void GameObject::setDirectionalLight(
+    core::DirectionalLight const& directionalLight) {
+  _directionalLight = directionalLight;
+}
+
+std::optional<core::DirectionalLight> GameObject::getDirectionalLight() const {
+  return _directionalLight;
+}
+
+void GameObject::removeDirectionalLight() { _directionalLight.reset(); }
+
+void GameObject::setSpotlight(core::Spotlight const& spotlight) {
+  _spotlight = spotlight;
+}
+
+std::optional<core::Spotlight> GameObject::getSpotlight() const {
+  return _spotlight;
+}
+
+void GameObject::removeSpotlight() { _spotlight.reset(); }
+
+void GameObject::setEnvironmentMap(float radius) {
+  _envMapRadius = radius;
+
+  if (_envMapResourceId == rhi::rhiIdUninitialized) {
+    _rhi.createEnvironmentMap(_position, *_envMapRadius);
+  } else {
+    updateEnvironmentMap();
+  }
+}
+
+float GameObject::getEnvironmentMapRadius() const {
+  if (!hasEnvironmentMap()) {
+    OBS_LOG_ERR(
+        "Member function getEnvironmentMapRadius called on a game object "
+        "that doens't have environment map.");
+
+    return -1.0f;
+  }
+
+  return *_envMapRadius;
+}
+
+bool GameObject::hasEnvironmentMap() const {
+  return _envMapResourceId != rhi::rhiIdUninitialized && _envMapRadius;
+}
+
+void GameObject::updateEnvironmentMap() {
+  if (!hasEnvironmentMap()) {
+    OBS_LOG_ERR("Member function updateEnvironmentMap called on a game object "
+                "that doens't have environment map.");
+  }
+
+  _rhi.updateEnvironmentMap(_envMapResourceId, _position, *_envMapRadius);
+}
+
+void GameObject::removeEnvironmentMap() {
+  destroyEnvironmentMapRHI();
+  _envMapRadius.reset();
 }
 
 GameObject::GameObjectId GameObject::getId() const { return _objectId; }
@@ -40,29 +140,14 @@ void GameObject::setScale(glm::vec3 const& scale) {
 
 glm::mat4 const& GameObject::getTransform() const { return _transform; }
 
-void GameObject::updateTransform() {
-  _transform = glm::mat4{1.0f};
-
-  _transform *= glm::translate(_position);
-
-  _transform *=
-      glm::rotate(glm::radians(_euler.x), glm::vec3{1.0f, 0.0f, 0.0f});
-  _transform *=
-      glm::rotate(glm::radians(_euler.y), glm::vec3{0.0f, 1.0f, 0.0f});
-  _transform *=
-      glm::rotate(glm::radians(_euler.z), glm::vec3{0.0f, 0.0f, 1.0f});
-
-  _transform *= glm::scale(_scale);
-}
-
 GameObject& GameObject::createChild() {
-  GameObject& child = _children.emplace_back();
-  child.parent = this;
+  GameObject& child = _children.emplace_back(_rhi, _resourceManager);
+  child._parent = this;
 
   return child;
 }
 
-GameObject* GameObject::getParent() { return parent; }
+GameObject* GameObject::getParent() { return _parent; }
 
 void GameObject::destroyChild(GameObjectId id) {
   auto const childIter =
@@ -82,19 +167,17 @@ std::list<GameObject>& GameObject::getChildren() { return _children; }
 serialization::GameObjectData GameObject::getGameObjectData() const {
   serialization::GameObjectData result = {};
 
-  result.gameObjectName = name;
+  result.gameObjectName = _name;
 
-  std::transform(materialResources.cbegin(), materialResources.cend(),
+  std::transform(_materialRelativePaths.cbegin(), _materialRelativePaths.cend(),
                  std::back_inserter(result.materialPaths),
-                 [](auto const* matRes) { return matRes->getRelativePath(); });
+                 [](fs::path const& matRes) { return matRes; });
 
-  if (meshResource) {
-    result.meshPath = meshResource->getRelativePath();
-  }
+  result.meshPath = _meshResourceRelativePath;
 
-  result.directionalLight = directionalLight;
-  result.spotlight = spotlight;
-  result.envMapRadius = envMapRadius;
+  result.directionalLight = _directionalLight;
+  result.spotlight = _spotlight;
+  result.envMapRadius = _envMapRadius;
   result.position = getPosition();
   result.euler = getEuler();
   result.scale = getScale();
@@ -106,4 +189,104 @@ serialization::GameObjectData GameObject::getGameObjectData() const {
   }
 
   return result;
+}
+
+void GameObject::draw(glm::mat4 const& parentTransform) {
+  glm::mat4 transform = parentTransform * getTransform();
+
+  bool meshReady = false;
+
+  if (!_meshResourceRelativePath.empty()) {
+    runtime_resource::RuntimeResource& meshResource =
+        _resourceManager.getResource(_meshResourceRelativePath);
+
+    if (meshResource.getResourceState() ==
+        runtime_resource::RuntimeResourceState::initial) {
+      meshResource.uploadToRHI();
+    } else if (meshResource.isResourceReady()) {
+      meshReady = true;
+    }
+  }
+
+  bool materialsReady = true;
+
+  if (_materialRelativePaths.size()) {
+    for (auto& matRelativePath : _materialRelativePaths) {
+      runtime_resource::RuntimeResource& matResource =
+          _resourceManager.getResource(matRelativePath);
+      if (matResource.getResourceState() ==
+          runtime_resource::RuntimeResourceState::initial) {
+        matResource.uploadToRHI();
+      }
+
+      materialsReady &= matResource.isResourceReady();
+    }
+  }
+
+  if (meshReady && materialsReady) {
+    rhi::DrawCall drawCall;
+    for (auto const& materialResourcePath : _materialRelativePaths) {
+      drawCall.materialIds.push_back(
+          _resourceManager.getResource(materialResourcePath).getResourceId());
+    }
+
+    drawCall.meshId =
+        _resourceManager.getResource(_meshResourceRelativePath).getResourceId();
+    drawCall.transform = transform;
+    _rhi.submitDrawCall(drawCall);
+  }
+
+  if (_directionalLight) {
+    core::DirectionalLight directionalLight = *_directionalLight;
+    directionalLight.direction = glm::normalize(
+        transform * glm::vec4{0.0f, 0.0f, 1.0f, /*no translation:*/ 0.0f});
+    _rhi.submitLight(directionalLight);
+  }
+
+  if (_spotlight) {
+    core::Spotlight spotlight = *_spotlight;
+    spotlight.position = getPosition();
+    spotlight.direction = glm::normalize(
+        transform * glm::vec4{0.0f, 0.0f, 1.0f, /*no translation*/ 0.0f});
+    _rhi.submitLight(spotlight);
+  }
+
+  for (auto& child : getChildren()) {
+    child.draw(transform);
+  }
+}
+
+void GameObject::updateTransform() {
+  _transform = glm::mat4{1.0f};
+
+  _transform *= glm::translate(_position);
+
+  _transform *=
+      glm::rotate(glm::radians(_euler.x), glm::vec3{1.0f, 0.0f, 0.0f});
+  _transform *=
+      glm::rotate(glm::radians(_euler.y), glm::vec3{0.0f, 1.0f, 0.0f});
+  _transform *=
+      glm::rotate(glm::radians(_euler.z), glm::vec3{0.0f, 0.0f, 1.0f});
+
+  _transform *= glm::scale(_scale);
+}
+
+void GameObject::releaseMaterialResources() {
+  if (_materialRelativePaths.size()) {
+    for (fs::path const& matRelativePath : _materialRelativePaths) {
+      _resourceManager.getResource(matRelativePath).releaseFromRHI();
+    }
+  }
+}
+
+void GameObject::releaseMeshResource() {
+  if (!_meshResourceRelativePath.empty()) {
+    _resourceManager.getResource(_meshResourceRelativePath).releaseFromRHI();
+  }
+}
+
+void GameObject::destroyEnvironmentMapRHI() {
+  if (hasEnvironmentMap()) {
+    _rhi.destroyEnvMap(_envMapResourceId);
+  }
 }

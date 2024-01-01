@@ -19,7 +19,6 @@
 #include <cstring>
 #include <mutex>
 #include <numeric>
-#include <vulkan/vulkan_core.h>
 
 using namespace obsidian;
 using namespace obsidian::vk_rhi;
@@ -520,7 +519,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
 
   VK_CHECK(vkResetFences(_vkDevice, 1, &params.currentFrameData.vkRenderFence));
 
-  destroyUnreferencedResources();
+  destroyUnusedResources();
   performPendingEnvironmentMapDestruction();
 
   uint32_t swapchainImageIndex;

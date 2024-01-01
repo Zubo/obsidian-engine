@@ -1,5 +1,6 @@
 #include <obsidian/core/light_types.hpp>
 #include <obsidian/core/logging.hpp>
+#include <obsidian/rhi/rhi.hpp>
 #include <obsidian/runtime_resource/runtime_resource_manager.hpp>
 #include <obsidian/scene/game_object.hpp>
 #include <obsidian/scene/scene.hpp>
@@ -23,26 +24,32 @@ constexpr char const* cameraJsonName = "camera";
 constexpr char const* cameraPosJsonName = "pos";
 constexpr char const* cameraRotationRadJsonName = "cameraRotationRad";
 
-void populateGameObject(
-    serialization::GameObjectData const& gameObjectData,
-    runtime_resource::RuntimeResourceManager& resourceManager,
-    scene::GameObject& outGameObject) {
-  outGameObject.name = gameObjectData.gameObjectName;
+void populateGameObject(serialization::GameObjectData const& gameObjectData,
+                        scene::GameObject& outGameObject) {
+  outGameObject.setName(gameObjectData.gameObjectName);
+
+  std::vector<std::filesystem::path> materialRelativePaths;
+
   std::transform(gameObjectData.materialPaths.cbegin(),
                  gameObjectData.materialPaths.cend(),
-                 std::back_inserter(outGameObject.materialResources),
-                 [&resourceManager](std::string const& path) {
-                   return &resourceManager.getResource(path);
-                 });
+                 std::back_inserter(materialRelativePaths),
+                 [](std::string const& path) { return path; });
 
-  if (gameObjectData.meshPath.size()) {
-    outGameObject.meshResource =
-        &resourceManager.getResource(gameObjectData.meshPath);
+  outGameObject.setMaterials(materialRelativePaths);
+
+  outGameObject.setMesh(gameObjectData.meshPath);
+
+  if (gameObjectData.directionalLight) {
+    outGameObject.setDirectionalLight(*gameObjectData.directionalLight);
   }
 
-  outGameObject.directionalLight = gameObjectData.directionalLight;
-  outGameObject.spotlight = gameObjectData.spotlight;
-  outGameObject.envMapRadius = gameObjectData.envMapRadius;
+  if (gameObjectData.spotlight) {
+    outGameObject.setSpotlight(*gameObjectData.spotlight);
+  }
+
+  if (gameObjectData.envMapRadius) {
+    outGameObject.setEnvironmentMap(*gameObjectData.envMapRadius);
+  }
 
   outGameObject.setPosition(gameObjectData.position);
   outGameObject.setEuler(gameObjectData.euler);
@@ -51,7 +58,7 @@ void populateGameObject(
   for (serialization::GameObjectData const& childData :
        gameObjectData.children) {
     GameObject& childGameObject = outGameObject.createChild();
-    populateGameObject(childData, resourceManager, childGameObject);
+    populateGameObject(childData, childGameObject);
   }
 }
 
@@ -81,7 +88,7 @@ bool serializeScene(SceneState const& sceneState, nlohmann::json& outJson) {
   return true;
 }
 
-bool deserializeScene(nlohmann::json const& sceneJson,
+bool deserializeScene(nlohmann::json const& sceneJson, rhi::RHI& rhi,
                       runtime_resource::RuntimeResourceManager& resourceManager,
                       SceneState& outSceneState) {
   try {
@@ -101,9 +108,8 @@ bool deserializeScene(nlohmann::json const& sceneJson,
         if (serialization::deserializeGameObject(gameObjectJson,
                                                  gameObjectData)) {
           scene::GameObject& gameObject =
-              outSceneState.gameObjects.emplace_back();
-          scene::populateGameObject(gameObjectData, resourceManager,
-                                    gameObject);
+              outSceneState.gameObjects.emplace_back(rhi, resourceManager);
+          scene::populateGameObject(gameObjectData, gameObject);
         }
       }
     }

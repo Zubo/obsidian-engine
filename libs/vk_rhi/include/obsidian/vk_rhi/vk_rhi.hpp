@@ -85,7 +85,7 @@ public:
 
   void releaseMaterial(rhi::ResourceIdRHI resourceIdRHI) override;
 
-  void destroyUnreferencedResources();
+  void destroyUnusedResources();
 
   void submitDrawCall(rhi::DrawCall const& drawCall) override;
 
