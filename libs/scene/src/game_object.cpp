@@ -56,7 +56,7 @@ void GameObject::updateTransform() {
 }
 
 GameObject& GameObject::createChild() {
-  GameObject& child = *_children.emplace_back(std::make_unique<GameObject>());
+  GameObject& child = _children.emplace_back();
   child.parent = this;
 
   return child;
@@ -67,20 +67,17 @@ GameObject* GameObject::getParent() { return parent; }
 void GameObject::destroyChild(GameObjectId id) {
   auto const childIter =
       std::find_if(_children.cbegin(), _children.cend(),
-                   [id](auto const& child) { return child->getId() == id; });
+                   [id](auto const& child) { return child.getId() == id; });
   if (childIter != _children.cend()) {
     _children.erase(childIter);
   }
 }
 
-std::vector<std::unique_ptr<GameObject>> const&
-GameObject::getChildren() const {
+std::list<GameObject> const& GameObject::getChildren() const {
   return _children;
 }
 
-std::vector<std::unique_ptr<GameObject>>& GameObject::getChildren() {
-  return _children;
-}
+std::list<GameObject>& GameObject::getChildren() { return _children; }
 
 serialization::GameObjectData GameObject::getGameObjectData() const {
   serialization::GameObjectData result = {};
@@ -105,18 +102,8 @@ serialization::GameObjectData GameObject::getGameObjectData() const {
   result.children.reserve(_children.size());
 
   for (auto const& child : _children) {
-    result.children.push_back(child->getGameObjectData());
+    result.children.push_back(child.getGameObjectData());
   }
 
   return result;
-}
-
-void obsidian::scene::forEachGameObjAndChildren(
-    std::vector<std::unique_ptr<GameObject>>& gameObjects,
-    std::function<void(GameObject&)> f) {
-  for (auto& obj : gameObjects) {
-    f(*obj);
-
-    forEachGameObjAndChildren(obj->getChildren(), f);
-  }
 }

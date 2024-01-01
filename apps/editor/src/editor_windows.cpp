@@ -116,8 +116,7 @@ void createEnvironmentMapField(glm::vec3 originPos, glm::ivec3 count,
   constexpr float sqrt2 = 1.41421356237f;
 
   scene::GameObject& obj =
-      *engine.getContext().scene.getState().gameObjects.emplace_back(
-          std::make_unique<scene::GameObject>());
+      engine.getContext().scene.getState().gameObjects.emplace_back();
   obj.name = "env map field";
 
   for (int i = -count.x / 2; i < (count.x + 1) / 2; ++i) {
@@ -317,11 +316,8 @@ void gameObjectHierarchy(scene::GameObject& gameObject,
 
     ImGui::PopID();
 
-    for (std::unique_ptr<scene::GameObject> const& childObject :
-         gameObject.getChildren()) {
-      if (childObject) {
-        gameObjectHierarchy(*childObject, sceneState);
-      }
+    for (scene::GameObject& childObject : gameObject.getChildren()) {
+      gameObjectHierarchy(childObject, sceneState);
     }
 
     ImGui::TreePop();
@@ -467,11 +463,10 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
 
         if (ImGui::TreeNodeEx("", ImGuiTreeNodeFlags_DefaultOpen)) {
           if (ImGui::Button("+")) {
-            sceneState.gameObjects.emplace_back(
-                std::make_unique<scene::GameObject>());
+            sceneState.gameObjects.emplace_back();
           }
-          for (auto& gameObjectUniquePtr : sceneState.gameObjects) {
-            gameObjectHierarchy(*gameObjectUniquePtr, sceneState);
+          for (auto& gameObject : sceneState.gameObjects) {
+            gameObjectHierarchy(gameObject, sceneState);
           }
           ImGui::TreePop();
         }
@@ -493,7 +488,7 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
             auto const gameObjectIter = std::find_if(
                 sceneState.gameObjects.cbegin(), sceneState.gameObjects.cend(),
                 [d = pendingObjDelete](auto const& g) {
-                  return d->getId() == g->getId();
+                  return d->getId() == g.getId();
                 });
 
             if (gameObjectIter != sceneState.gameObjects.cend()) {
@@ -1039,8 +1034,7 @@ void instantiatePrefab(fs::path const& prefabPath, ObsidianEngine& engine) {
   }
 
   ObsidianEngineContext& ctx = engine.getContext();
-  scene::GameObject& obj = *ctx.scene.getState().gameObjects.emplace_back(
-      std::make_unique<scene::GameObject>());
+  scene::GameObject& obj = ctx.scene.getState().gameObjects.emplace_back();
   scene::populateGameObject(gameObjectData, ctx.resourceManager, obj);
 
   scene::forEachGameObjAndChildren(

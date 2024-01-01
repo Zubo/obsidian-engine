@@ -8,8 +8,8 @@
 
 #include <glm/glm.hpp>
 
+#include <list>
 #include <memory>
-#include <vector>
 
 namespace obsidian::input {
 
@@ -23,7 +23,7 @@ struct SceneState {
   glm::vec3 ambientColor;
 
   Camera camera;
-  std::vector<std::unique_ptr<GameObject>> gameObjects;
+  std::list<GameObject> gameObjects;
 };
 
 class Scene {

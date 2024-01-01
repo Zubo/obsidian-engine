@@ -152,19 +152,18 @@ void submitDrawCalls(scene::GameObject& gameObject, rhi::RHI& rhi,
     rhi.submitLight(spotlight);
   }
 
-  for (auto const& childUniquePtr : gameObject.getChildren()) {
-    submitDrawCalls(*childUniquePtr, rhi, transform);
+  for (auto& child : gameObject.getChildren()) {
+    submitDrawCalls(child, rhi, transform);
   }
 }
 
 void ObsidianEngine::processFrame() {
-  scene::SceneState const& sceneState = _context.scene.getState();
+  scene::SceneState& sceneState = _context.scene.getState();
   ZoneScoped;
   {
     ZoneScopedN("Draw call recursion");
-    for (auto const& gameObjectUniquePtr : sceneState.gameObjects) {
-      submitDrawCalls(*gameObjectUniquePtr, _context.vulkanRHI,
-                      glm::mat4{1.0f});
+    for (auto& gameObject : sceneState.gameObjects) {
+      submitDrawCalls(gameObject, _context.vulkanRHI, glm::mat4{1.0f});
     }
   }
 

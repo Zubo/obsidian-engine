@@ -66,10 +66,10 @@ bool serializeScene(SceneState const& sceneState, nlohmann::json& outJson) {
     camera[cameraRotationRadJsonName] =
         serialization::vecToArray(sceneState.camera.rotationRad);
 
-    for (auto const& gameObjectUniquePtr : sceneState.gameObjects) {
+    for (auto const& gameObject : sceneState.gameObjects) {
       nlohmann::json gameObjectJson;
-      if (serialization::serializeGameObject(
-              gameObjectUniquePtr->getGameObjectData(), gameObjectJson)) {
+      if (serialization::serializeGameObject(gameObject.getGameObjectData(),
+                                             gameObjectJson)) {
         outJson[gameObjectsJsonName].push_back(gameObjectJson);
       }
     }
@@ -101,8 +101,7 @@ bool deserializeScene(nlohmann::json const& sceneJson,
         if (serialization::deserializeGameObject(gameObjectJson,
                                                  gameObjectData)) {
           scene::GameObject& gameObject =
-              *outSceneState.gameObjects.emplace_back(
-                  std::make_unique<scene::GameObject>());
+              outSceneState.gameObjects.emplace_back();
           scene::populateGameObject(gameObjectData, resourceManager,
                                     gameObject);
         }

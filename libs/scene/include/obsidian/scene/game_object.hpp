@@ -7,7 +7,7 @@
 
 #include <glm/glm.hpp>
 
-#include <memory>
+#include <list>
 #include <optional>
 #include <string>
 #include <vector>
@@ -44,8 +44,8 @@ public:
 
   void destroyChild(GameObjectId id);
 
-  std::vector<std::unique_ptr<GameObject>> const& getChildren() const;
-  std::vector<std::unique_ptr<GameObject>>& getChildren();
+  std::list<GameObject> const& getChildren() const;
+  std::list<GameObject>& getChildren();
 
   serialization::GameObjectData getGameObjectData() const;
 
@@ -68,13 +68,19 @@ private:
   glm::mat4 _transform{1.0f};
 
   // TODO: use better data structure to store GameObjects
-  std::vector<std::unique_ptr<GameObject>> _children;
+  std::list<GameObject> _children;
 
   static GameObjectId _idCounter;
 };
 
-void forEachGameObjAndChildren(
-    std::vector<std::unique_ptr<GameObject>>& gameObjects,
-    std::function<void(GameObject&)> f);
+template <typename GameObjectCollection>
+void forEachGameObjAndChildren(GameObjectCollection& gameObjects,
+                               std::function<void(GameObject&)> f) {
+  for (auto& obj : gameObjects) {
+    f(obj);
+
+    forEachGameObjAndChildren(obj.getChildren(), f);
+  }
+}
 
 } /*namespace obsidian::scene*/
