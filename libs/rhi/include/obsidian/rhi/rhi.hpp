@@ -60,7 +60,7 @@ public:
   virtual void submitLight(LightSubmitParams const& light) = 0;
 
   virtual ResourceIdRHI createEnvironmentMap(glm::vec3 pos, float radius) = 0;
-  virtual void destroyEnvMap(ResourceIdRHI envMapId) = 0;
+  virtual void releaseEnvironmentMap(ResourceIdRHI envMapId) = 0;
   virtual void updateEnvironmentMap(ResourceIdRHI envMapId, glm::vec3 pos,
                                     float radius) = 0;
 };

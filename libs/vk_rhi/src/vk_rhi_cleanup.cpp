@@ -16,12 +16,6 @@ void VulkanRHI::cleanup() {
 
     waitDeviceIdle();
 
-    while (!_environmentMaps.empty()) {
-      destroyEnvMap(_environmentMaps.cbegin()->first);
-    }
-
-    performPendingEnvironmentMapDestruction();
-
     _swapchainDeletionQueue.flush();
     _deletionQueue.flush();
 

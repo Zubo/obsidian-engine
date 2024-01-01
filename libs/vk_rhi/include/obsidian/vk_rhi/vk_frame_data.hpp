@@ -1,5 +1,6 @@
 #pragma once
 
+#include "obsidian/rhi/resource_rhi.hpp"
 #include <obsidian/vk_rhi/vk_framebuffer.hpp>
 #include <obsidian/vk_rhi/vk_types.hpp>
 
@@ -27,6 +28,8 @@ struct FrameData {
 
   Framebuffer vkSsaoPostProcessingFramebuffer;
   VkDescriptorSet vkSsaoPostProcessingDescriptorSet;
+
+  PendingResourcesToDestroy pendingResourcesToDestroy;
 };
 
 } /*namespace obsidian::vk_rhi*/

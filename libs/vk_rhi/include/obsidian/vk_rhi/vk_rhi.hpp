@@ -85,7 +85,8 @@ public:
 
   void releaseMaterial(rhi::ResourceIdRHI resourceIdRHI) override;
 
-  void destroyUnusedResources();
+  void
+  destroyUnusedResources(PendingResourcesToDestroy& pendingResourcesToDestroy);
 
   void submitDrawCall(rhi::DrawCall const& drawCall) override;
 
@@ -97,7 +98,7 @@ public:
 
   rhi::ResourceIdRHI createEnvironmentMap(glm::vec3 pos, float radius) override;
 
-  void destroyEnvMap(rhi::ResourceIdRHI envMapId) override;
+  void releaseEnvironmentMap(rhi::ResourceIdRHI envMapId) override;
 
   void updateEnvironmentMap(rhi::ResourceIdRHI envMapId, glm::vec3 pos,
                             float radius) override;
@@ -221,7 +222,6 @@ private:
   AllocatedBuffer _envMapRenderPassDataBuffer;
   AllocatedBuffer _envMapDataBuffer;
   bool _envMapDescriptorSetPendingUpdate = false;
-  std::vector<EnvironmentMap> _environmentMapsPendingDestruction;
 
   void initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider);
   void initSwapchain(rhi::WindowExtentRHI const& extent);
@@ -269,9 +269,9 @@ private:
   ImmediateSubmitContext&
   getImmediateCtxForCurrentThread(std::uint32_t queueIdx);
   void destroyImmediateCtxForCurrentThread();
-  void performPendingEnvironmentMapDestruction();
 
   FrameData& getCurrentFrameData();
+  FrameData& getPreviousFrameData();
 
   template <typename T>
   void uploadBufferData(std::size_t const index, T const& value,

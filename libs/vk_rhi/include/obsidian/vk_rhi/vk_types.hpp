@@ -40,7 +40,8 @@ struct VkMaterial {
   bool transparent;
   bool reflection;
   float refractionIndex;
-  std::vector<rhi::ResourceRHI*> resourceDependencies;
+  rhi::ResourceIdRHI shaderResourceDependencyId;
+  std::vector<rhi::ResourceIdRHI> textureResourceDependencyIds;
 };
 
 struct Shader {
@@ -203,5 +204,13 @@ GPUCameraData getDirectionalLightCameraData(glm::vec3 direction);
 GPUCameraData getSpotlightCameraData(glm::vec3 const& position,
                                      glm::vec3 const& direction,
                                      float cutoffAngleRad);
+
+struct PendingResourcesToDestroy {
+  std::vector<rhi::ResourceIdRHI> materialsToDestroy;
+  std::vector<rhi::ResourceIdRHI> texturesToDestroy;
+  std::vector<rhi::ResourceIdRHI> shadersToDestroy;
+  std::vector<rhi::ResourceIdRHI> meshesToDestroy;
+  std::vector<rhi::ResourceIdRHI> environmentMapsToDestroy;
+};
 
 } /*namespace obsidian::vk_rhi*/

@@ -84,6 +84,7 @@ bool ObsidianEngine::init(IWindowBackendProvider const& windowBackendProvider,
 }
 
 void ObsidianEngine::cleanup() {
+  _context.scene.getState().gameObjects.clear();
   _context.inputContext.keyInputEmitter.cleanup();
   _context.inputContext.mouseEventEmitter.cleanup();
   _context.inputContext.windowEventEmitter.cleanup();

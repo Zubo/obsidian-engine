@@ -1,3 +1,4 @@
+#include "obsidian/vk_rhi/vk_frame_data.hpp"
 #include <algorithm>
 #include <obsidian/core/logging.hpp>
 #include <obsidian/core/material.hpp>
@@ -188,7 +189,11 @@ void VulkanRHI::uploadTexture(rhi::ResourceIdRHI id,
 
 void VulkanRHI::releaseTexture(rhi::ResourceIdRHI resourceIdRHI) {
   Texture& tex = _textures[resourceIdRHI];
-  --tex.resource.refCount;
+  if (!--tex.resource.refCount) {
+    FrameData& prevFrameData = getPreviousFrameData();
+    prevFrameData.pendingResourcesToDestroy.texturesToDestroy.push_back(
+        resourceIdRHI);
+  }
 }
 
 rhi::ResourceRHI& VulkanRHI::initMeshResource() {
@@ -290,7 +295,11 @@ void VulkanRHI::uploadMesh(rhi::ResourceIdRHI id, rhi::UploadMeshRHI meshInfo) {
 
 void VulkanRHI::releaseMesh(rhi::ResourceIdRHI resourceIdRHI) {
   Mesh& mesh = _meshes[resourceIdRHI];
-  --mesh.resource.refCount;
+  if (!--mesh.resource.refCount) {
+    FrameData& prevFrameData = getPreviousFrameData();
+    prevFrameData.pendingResourcesToDestroy.meshesToDestroy.push_back(
+        resourceIdRHI);
+  }
 }
 
 rhi::ResourceRHI& VulkanRHI::initShaderResource() {
@@ -350,7 +359,11 @@ void VulkanRHI::uploadShader(rhi::ResourceIdRHI id,
 
 void VulkanRHI::releaseShader(rhi::ResourceIdRHI resourceIdRHI) {
   Shader& shader = _shaderModules[resourceIdRHI];
-  --shader.resource.refCount;
+  if (!--shader.resource.refCount) {
+    FrameData& prevFrameData = getPreviousFrameData();
+    prevFrameData.pendingResourcesToDestroy.shadersToDestroy.push_back(
+        resourceIdRHI);
+  }
 }
 
 template <typename MaterialDataT>
@@ -406,7 +419,7 @@ void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
 
   Shader& shaderModule = _shaderModules[uploadMaterial.shaderId];
   ++shaderModule.resource.refCount;
-  newMaterial.resourceDependencies.push_back(&shaderModule.resource);
+  newMaterial.shaderResourceDependencyId = shaderModule.resource.id;
 
   pipelineBuilder._vkShaderStageCreateInfos.clear();
   pipelineBuilder._vkShaderStageCreateInfos.push_back(
@@ -477,7 +490,8 @@ void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
     Texture& diffuseTexture = _textures[uploadMaterial.diffuseTextureId];
 
     ++diffuseTexture.resource.refCount;
-    newMaterial.resourceDependencies.push_back(&diffuseTexture.resource);
+    newMaterial.textureResourceDependencyIds.push_back(
+        diffuseTexture.resource.id);
 
     diffuseTexImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     diffuseTexImageInfo.imageView = diffuseTexture.imageView;
@@ -502,7 +516,8 @@ void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
       Texture& normalMapTexture = _textures[uploadMaterial.normalTextureId];
 
       ++normalMapTexture.resource.refCount;
-      newMaterial.resourceDependencies.push_back(&normalMapTexture.resource);
+      newMaterial.textureResourceDependencyIds.push_back(
+          normalMapTexture.resource.id);
 
       normalMapTexImageInfo.imageView = normalMapTexture.imageView;
 
@@ -539,82 +554,113 @@ void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
 
 void VulkanRHI::releaseMaterial(rhi::ResourceIdRHI resourceIdRHI) {
   VkMaterial& material = _materials[resourceIdRHI];
-  --material.resource.refCount;
 
-  if (material.resource.refCount == 0) {
-    for (rhi::ResourceRHI* dep : material.resourceDependencies) {
-      --(dep->refCount);
+  if (!--material.resource.refCount) {
+    FrameData& prevFrameData = getPreviousFrameData();
+    prevFrameData.pendingResourcesToDestroy.materialsToDestroy.push_back(
+        resourceIdRHI);
+
+    Shader& shaderDependency =
+        _shaderModules.at(material.shaderResourceDependencyId);
+
+    if (!--shaderDependency.resource.refCount) {
+      prevFrameData.pendingResourcesToDestroy.shadersToDestroy.push_back(
+          material.shaderResourceDependencyId);
+    }
+
+    for (rhi::ResourceIdRHI textureId : material.textureResourceDependencyIds) {
+      Texture& textureDependency = _textures.at(textureId);
+
+      if (!--textureDependency.resource.refCount) {
+        prevFrameData.pendingResourcesToDestroy.texturesToDestroy.push_back(
+            textureId);
+      }
     }
   }
 }
 
-void VulkanRHI::destroyUnusedResources() {
-  std::vector<rhi::ResourceIdRHI> eraseIds;
-
+void VulkanRHI::destroyUnusedResources(
+    PendingResourcesToDestroy& pendingResourcesToDestroy) {
   // clear materials
-  for (auto& mat : _materials) {
-    if (!mat.second.resource.refCount) {
-      vkDestroyPipeline(_vkDevice, mat.second.vkPipelineReuseDepth, nullptr);
-      vkDestroyPipeline(_vkDevice, mat.second.vkPipelineEnvironmentRendering,
-                        nullptr);
-      eraseIds.push_back(mat.second.resource.id);
-    }
+  for (rhi::ResourceIdRHI matId :
+       pendingResourcesToDestroy.materialsToDestroy) {
+    VkMaterial& mat = _materials.at(matId);
+    vkDestroyPipeline(_vkDevice, mat.vkPipelineReuseDepth, nullptr);
+    vkDestroyPipeline(_vkDevice, mat.vkPipelineEnvironmentRendering, nullptr);
+
+    _materials.erase(matId);
   }
 
-  for (rhi::ResourceIdRHI id : eraseIds) {
-    _materials.erase(id);
-  }
-
-  eraseIds.clear();
+  pendingResourcesToDestroy.materialsToDestroy.clear();
 
   // clear textures
-  for (auto& tex : _textures) {
-    if (!tex.second.resource.refCount) {
-      vkDestroyImageView(_vkDevice, tex.second.imageView, nullptr);
-      vmaDestroyImage(_vmaAllocator, tex.second.image.vkImage,
-                      tex.second.image.allocation);
-      eraseIds.push_back(tex.second.resource.id);
-    }
+  for (rhi::ResourceIdRHI texId : pendingResourcesToDestroy.texturesToDestroy) {
+    Texture& tex = _textures.at(texId);
+
+    vkDestroyImageView(_vkDevice, tex.imageView, nullptr);
+    vmaDestroyImage(_vmaAllocator, tex.image.vkImage, tex.image.allocation);
+
+    _textures.erase(texId);
   }
 
-  for (rhi::ResourceIdRHI id : eraseIds) {
-    _textures.erase(id);
-  }
-
-  eraseIds.clear();
+  pendingResourcesToDestroy.texturesToDestroy.clear();
 
   // clear shaders
-  for (auto& shader : _shaderModules) {
-    if (!shader.second.resource.refCount) {
-      vkDestroyShaderModule(_vkDevice, shader.second.vkShaderModule, nullptr);
-      eraseIds.push_back(shader.second.resource.id);
-    }
+  for (rhi::ResourceIdRHI shaderId :
+       pendingResourcesToDestroy.shadersToDestroy) {
+    Shader& shader = _shaderModules.at(shaderId);
+    vkDestroyShaderModule(_vkDevice, shader.vkShaderModule, nullptr);
+
+    _shaderModules.erase(shaderId);
   }
 
-  for (rhi::ResourceIdRHI id : eraseIds) {
-    _shaderModules.erase(id);
-  }
-
-  eraseIds.clear();
+  pendingResourcesToDestroy.shadersToDestroy.clear();
 
   // clear meshes
-  for (auto& mesh : _meshes) {
-    if (!mesh.second.resource.refCount) {
-      vmaDestroyBuffer(_vmaAllocator, mesh.second.vertexBuffer.buffer,
-                       mesh.second.vertexBuffer.allocation);
+  for (rhi::ResourceIdRHI meshId : pendingResourcesToDestroy.meshesToDestroy) {
+    Mesh& mesh = _meshes.at(meshId);
 
-      vmaDestroyBuffer(_vmaAllocator, mesh.second.indexBuffer.buffer,
-                       mesh.second.indexBuffer.allocation);
+    vmaDestroyBuffer(_vmaAllocator, mesh.vertexBuffer.buffer,
+                     mesh.vertexBuffer.allocation);
 
-      eraseIds.push_back(mesh.second.resource.id);
+    vmaDestroyBuffer(_vmaAllocator, mesh.indexBuffer.buffer,
+                     mesh.indexBuffer.allocation);
+
+    _meshes.erase(meshId);
+  }
+
+  pendingResourcesToDestroy.meshesToDestroy.clear();
+
+  // clear environment maps
+  _envMapDescriptorSetPendingUpdate |=
+      pendingResourcesToDestroy.environmentMapsToDestroy.size();
+
+  for (rhi::ResourceIdRHI envMapId :
+       pendingResourcesToDestroy.environmentMapsToDestroy) {
+    EnvironmentMap& envMap = _environmentMaps.at(envMapId);
+
+    for (std::size_t i = 0; i < envMap.framebuffers.size(); ++i) {
+      vkDestroyFramebuffer(_vkDevice, envMap.framebuffers[i], nullptr);
+      vkDestroyImageView(_vkDevice, envMap.colorAttachmentImageViews[i],
+                         nullptr);
+      vkDestroyImageView(_vkDevice, envMap.depthAttachmentImageViews[i],
+                         nullptr);
     }
+
+    vkDestroyImageView(_vkDevice, envMap.colorImageView, nullptr);
+    vmaDestroyImage(_vmaAllocator, envMap.colorImage.vkImage,
+                    envMap.colorImage.allocation);
+    vkDestroyImageView(_vkDevice, envMap.depthImageView, nullptr);
+    vmaDestroyImage(_vmaAllocator, envMap.depthImage.vkImage,
+                    envMap.depthImage.allocation);
+
+    vmaDestroyBuffer(_vmaAllocator, envMap.cameraBuffer.buffer,
+                     envMap.cameraBuffer.allocation);
+
+    _environmentMaps.erase(envMapId);
   }
 
-  for (rhi::ResourceIdRHI id : eraseIds) {
-    _meshes.erase(id);
-  }
-
-  eraseIds.clear();
+  pendingResourcesToDestroy.environmentMapsToDestroy.clear();
 }
 
 void VulkanRHI::submitDrawCall(rhi::DrawCall const& drawCall) {
@@ -693,6 +739,13 @@ void VulkanRHI::immediateSubmit(
 FrameData& VulkanRHI::getCurrentFrameData() {
   std::size_t const currentFrameDataInd = _frameNumber % frameOverlap;
   return _frameDataArray[currentFrameDataInd];
+}
+
+FrameData& VulkanRHI::getPreviousFrameData() {
+  std::size_t const previousFrameDataInd =
+      (_frameNumber + frameOverlap - 1) % frameOverlap;
+
+  return _frameDataArray[previousFrameDataInd];
 }
 
 AllocatedBuffer VulkanRHI::createBuffer(

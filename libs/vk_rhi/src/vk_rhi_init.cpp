@@ -1,3 +1,4 @@
+#include "obsidian/vk_rhi/vk_frame_data.hpp"
 #include <bits/chrono.h>
 #include <obsidian/core/logging.hpp>
 #include <obsidian/core/material.hpp>
@@ -38,7 +39,11 @@ void VulkanRHI::init(rhi::WindowExtentRHI extent,
 
   initVulkan(surfaceProvider);
 
-  _deletionQueue.pushFunction([this]() { destroyUnusedResources(); });
+  _deletionQueue.pushFunction([this]() {
+    for (FrameData& frameData : _frameDataArray) {
+      destroyUnusedResources(frameData.pendingResourcesToDestroy);
+    }
+  });
 
   initSwapchain(extent);
   initCommands();

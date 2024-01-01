@@ -161,13 +161,10 @@ rhi::ResourceIdRHI VulkanRHI::createEnvironmentMap(glm::vec3 envMapPos,
   return newResourceId;
 }
 
-void VulkanRHI::destroyEnvMap(rhi::ResourceIdRHI envMapId) {
-
-  _environmentMapsPendingDestruction.push_back(_environmentMaps.at(envMapId));
-
-  _environmentMaps.erase(envMapId);
-
-  _envMapDescriptorSetPendingUpdate = true;
+void VulkanRHI::releaseEnvironmentMap(rhi::ResourceIdRHI envMapId) {
+  FrameData& prevFrameData = getPreviousFrameData();
+  prevFrameData.pendingResourcesToDestroy.environmentMapsToDestroy.push_back(
+      envMapId);
 }
 
 void VulkanRHI::updateEnvironmentMap(rhi::ResourceIdRHI envMapId, glm::vec3 pos,
@@ -217,28 +214,4 @@ void VulkanRHI::uploadEnvironmentMaps() {
   }
 
   _envMapDescriptorSetPendingUpdate = false;
-}
-
-void VulkanRHI::performPendingEnvironmentMapDestruction() {
-  for (EnvironmentMap& envMap : _environmentMapsPendingDestruction) {
-    for (std::size_t i = 0; i < envMap.framebuffers.size(); ++i) {
-      vkDestroyFramebuffer(_vkDevice, envMap.framebuffers[i], nullptr);
-      vkDestroyImageView(_vkDevice, envMap.colorAttachmentImageViews[i],
-                         nullptr);
-      vkDestroyImageView(_vkDevice, envMap.depthAttachmentImageViews[i],
-                         nullptr);
-    }
-
-    vkDestroyImageView(_vkDevice, envMap.colorImageView, nullptr);
-    vmaDestroyImage(_vmaAllocator, envMap.colorImage.vkImage,
-                    envMap.colorImage.allocation);
-    vkDestroyImageView(_vkDevice, envMap.depthImageView, nullptr);
-    vmaDestroyImage(_vmaAllocator, envMap.depthImage.vkImage,
-                    envMap.depthImage.allocation);
-
-    vmaDestroyBuffer(_vmaAllocator, envMap.cameraBuffer.buffer,
-                     envMap.cameraBuffer.allocation);
-  }
-
-  _environmentMapsPendingDestruction.clear();
 }

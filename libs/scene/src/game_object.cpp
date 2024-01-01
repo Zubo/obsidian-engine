@@ -79,7 +79,7 @@ void GameObject::setEnvironmentMap(float radius) {
   _envMapRadius = radius;
 
   if (_envMapResourceId == rhi::rhiIdUninitialized) {
-    _rhi.createEnvironmentMap(_position, *_envMapRadius);
+    _envMapResourceId = _rhi.createEnvironmentMap(_position, *_envMapRadius);
   } else {
     updateEnvironmentMap();
   }
@@ -287,6 +287,6 @@ void GameObject::releaseMeshResource() {
 
 void GameObject::destroyEnvironmentMapRHI() {
   if (hasEnvironmentMap()) {
-    _rhi.destroyEnvMap(_envMapResourceId);
+    _rhi.releaseEnvironmentMap(_envMapResourceId);
   }
 }
