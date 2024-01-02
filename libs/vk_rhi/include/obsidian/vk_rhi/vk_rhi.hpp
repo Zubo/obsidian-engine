@@ -103,7 +103,7 @@ public:
   void updateEnvironmentMap(rhi::ResourceIdRHI envMapId, glm::vec3 pos,
                             float radius) override;
 
-  void uploadEnvironmentMaps();
+  void applyPendingEnvironmentMapUpdates();
 
 private:
   task::TaskExecutor* _taskExecutor = nullptr;
@@ -131,7 +131,6 @@ private:
   vkb::Swapchain _vkbSwapchain = {};
   std::vector<VkImageView> _swapchainImageViews;
   std::uint32_t _frameNumber = 0;
-  bool _skipFrame = false;
   PFN_vkCmdSetVertexInputEXT _vkCmdSetVertexInput;
   float _maxSamplerAnisotropy;
 

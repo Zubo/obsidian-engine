@@ -478,26 +478,43 @@ void VulkanRHI::present(VkSemaphore renderSemaphore,
 }
 
 void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
-  applyPendingExtentUpdate();
-
-  if (_envMapDescriptorSetPendingUpdate) {
+  if (_envMapDescriptorSetPendingUpdate || _pendingExtentUpdate) {
     waitDeviceIdle();
-    uploadEnvironmentMaps();
-    _skipFrame = true;
-  }
+    applyPendingExtentUpdate();
+    applyPendingEnvironmentMapUpdates();
 
-  if (_skipFrame) {
     _submittedDirectionalLights.clear();
     _submittedSpotlights.clear();
     _drawCallQueue.clear();
     _ssaoDrawCallQueue.clear();
     _transparentDrawCallQueue.clear();
-    _skipFrame = false;
+    // skipping frame
     return;
   }
 
+  FrameData& currentFrameData = getCurrentFrameData();
+
+  constexpr std::uint64_t timeoutNanoseconds = 1000000000;
+  {
+    ZoneScopedN("Wait For Render Fence");
+    VK_CHECK(vkWaitForFences(_vkDevice, 1, &currentFrameData.vkRenderFence,
+                             true, timeoutNanoseconds));
+  }
+
+  VK_CHECK(vkResetFences(_vkDevice, 1, &currentFrameData.vkRenderFence));
+
+  destroyUnusedResources(currentFrameData.pendingResourcesToDestroy);
+
+  uint32_t swapchainImageIndex;
+  {
+    ZoneScopedN("Acquire Next Image");
+    VK_CHECK(vkAcquireNextImageKHR(_vkDevice, _vkbSwapchain, timeoutNanoseconds,
+                                   currentFrameData.vkPresentSemaphore,
+                                   VK_NULL_HANDLE, &swapchainImageIndex));
+  }
+
   DrawPassParams params;
-  params.currentFrameData = getCurrentFrameData();
+  params.currentFrameData = currentFrameData;
   params.cameraData = getSceneCameraData(sceneParams);
   params.frameInd = _frameNumber % frameOverlap;
   params.viewport.x = 0.0f;
@@ -508,26 +525,6 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   params.viewport.maxDepth = 1.0f;
   params.scissor.offset = {0, 0};
   params.scissor.extent = _vkbSwapchain.extent;
-
-  constexpr std::uint64_t timeoutNanoseconds = 10000000000;
-  {
-    ZoneScopedN("Wait For Render Fence");
-    VK_CHECK(vkWaitForFences(_vkDevice, 1,
-                             &params.currentFrameData.vkRenderFence, true,
-                             timeoutNanoseconds));
-  }
-
-  VK_CHECK(vkResetFences(_vkDevice, 1, &params.currentFrameData.vkRenderFence));
-
-  destroyUnusedResources(params.currentFrameData.pendingResourcesToDestroy);
-
-  uint32_t swapchainImageIndex;
-  {
-    ZoneScopedN("Acquire Next Image");
-    VK_CHECK(vkAcquireNextImageKHR(_vkDevice, _vkbSwapchain, timeoutNanoseconds,
-                                   params.currentFrameData.vkPresentSemaphore,
-                                   VK_NULL_HANDLE, &swapchainImageIndex));
-  }
 
   VkCommandBuffer cmd = params.currentFrameData.vkCommandBuffer;
 

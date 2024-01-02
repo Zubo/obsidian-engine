@@ -183,7 +183,8 @@ struct EnvironmentMap {
   AllocatedBuffer cameraBuffer;
   glm::vec3 pos;
   float radius;
-  bool pendingUpdate;
+  bool pendingUpdate = false;
+  bool released = false;
 };
 
 struct EnvironmentMapData {

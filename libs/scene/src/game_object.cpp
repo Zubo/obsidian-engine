@@ -25,7 +25,7 @@ GameObject::GameObject(
 GameObject::~GameObject() {
   releaseMeshResource();
   releaseMaterialResources();
-  destroyEnvironmentMapRHI();
+  removeEnvironmentMap();
 }
 
 std::string_view GameObject::getName() const { return _name; }
@@ -98,7 +98,7 @@ float GameObject::getEnvironmentMapRadius() const {
 }
 
 bool GameObject::hasEnvironmentMap() const {
-  return _envMapResourceId != rhi::rhiIdUninitialized && _envMapRadius;
+  return (_envMapResourceId != rhi::rhiIdUninitialized) && _envMapRadius;
 }
 
 void GameObject::updateEnvironmentMap() {
@@ -111,8 +111,11 @@ void GameObject::updateEnvironmentMap() {
 }
 
 void GameObject::removeEnvironmentMap() {
-  destroyEnvironmentMapRHI();
-  _envMapRadius.reset();
+  if (hasEnvironmentMap()) {
+    _rhi.releaseEnvironmentMap(_envMapResourceId);
+    _envMapResourceId = rhi::rhiIdUninitialized;
+    _envMapRadius.reset();
+  }
 }
 
 GameObject::GameObjectId GameObject::getId() const { return _objectId; }
@@ -282,11 +285,5 @@ void GameObject::releaseMaterialResources() {
 void GameObject::releaseMeshResource() {
   if (!_meshResourceRelativePath.empty()) {
     _resourceManager.getResource(_meshResourceRelativePath).releaseFromRHI();
-  }
-}
-
-void GameObject::destroyEnvironmentMapRHI() {
-  if (hasEnvironmentMap()) {
-    _rhi.releaseEnvironmentMap(_envMapResourceId);
   }
 }

@@ -1,5 +1,3 @@
-#include "obsidian/vk_rhi/vk_frame_data.hpp"
-#include <algorithm>
 #include <obsidian/core/logging.hpp>
 #include <obsidian/core/material.hpp>
 #include <obsidian/core/texture_format.hpp>
@@ -12,6 +10,7 @@
 #include <obsidian/vk_rhi/vk_check.hpp>
 #include <obsidian/vk_rhi/vk_deletion_queue.hpp>
 #include <obsidian/vk_rhi/vk_descriptors.hpp>
+#include <obsidian/vk_rhi/vk_frame_data.hpp>
 #include <obsidian/vk_rhi/vk_initializers.hpp>
 #include <obsidian/vk_rhi/vk_mesh.hpp>
 #include <obsidian/vk_rhi/vk_pipeline_builder.hpp>
@@ -23,6 +22,7 @@
 #include <tracy/Tracy.hpp>
 #include <vk_mem_alloc.h>
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstdint>
@@ -39,7 +39,7 @@ void VulkanRHI::waitDeviceIdle() const {
   std::scoped_lock l{_gpuQueueMutexes.at(_graphicsQueueFamilyIndex),
                      _gpuQueueMutexes.at(_transferQueueFamilyIndex)};
 
-  vkDeviceWaitIdle(_vkDevice);
+  VK_CHECK(vkDeviceWaitIdle(_vkDevice));
 }
 
 rhi::ResourceRHI& VulkanRHI::initTextureResource() {
@@ -632,11 +632,11 @@ void VulkanRHI::destroyUnusedResources(
   pendingResourcesToDestroy.meshesToDestroy.clear();
 
   // clear environment maps
-  _envMapDescriptorSetPendingUpdate |=
-      pendingResourcesToDestroy.environmentMapsToDestroy.size();
 
   for (rhi::ResourceIdRHI envMapId :
        pendingResourcesToDestroy.environmentMapsToDestroy) {
+    assert(_environmentMaps.contains(envMapId));
+
     EnvironmentMap& envMap = _environmentMaps.at(envMapId);
 
     for (std::size_t i = 0; i < envMap.framebuffers.size(); ++i) {
@@ -928,8 +928,6 @@ GPULightData VulkanRHI::getGPULightData() const {
 
 void VulkanRHI::applyPendingExtentUpdate() {
   if (_pendingExtentUpdate) {
-    waitDeviceIdle();
-    _skipFrame = true;
     _vkbSwapchain.extent.width = _pendingExtentUpdate->width;
     _vkbSwapchain.extent.height = _pendingExtentUpdate->height;
 

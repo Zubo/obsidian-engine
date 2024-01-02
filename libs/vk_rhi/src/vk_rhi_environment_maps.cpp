@@ -1,3 +1,4 @@
+#include <obsidian/core/logging.hpp>
 #include <obsidian/rhi/resource_rhi.hpp>
 #include <obsidian/vk_rhi/vk_initializers.hpp>
 #include <obsidian/vk_rhi/vk_rhi.hpp>
@@ -162,13 +163,26 @@ rhi::ResourceIdRHI VulkanRHI::createEnvironmentMap(glm::vec3 envMapPos,
 }
 
 void VulkanRHI::releaseEnvironmentMap(rhi::ResourceIdRHI envMapId) {
+  if (!_environmentMaps.contains(envMapId)) {
+    OBS_LOG_ERR("Trying to release environment map that doesn't exist");
+    return;
+  }
+
+  _environmentMaps.at(envMapId).released = true;
+
   FrameData& prevFrameData = getPreviousFrameData();
   prevFrameData.pendingResourcesToDestroy.environmentMapsToDestroy.push_back(
       envMapId);
+  _envMapDescriptorSetPendingUpdate = true;
 }
 
 void VulkanRHI::updateEnvironmentMap(rhi::ResourceIdRHI envMapId, glm::vec3 pos,
                                      float radius) {
+  if (!_environmentMaps.contains(envMapId)) {
+    OBS_LOG_ERR("Trying to update environment map that doesn't exist");
+    return;
+  }
+
   EnvironmentMap& envMap = _environmentMaps.at(envMapId);
   envMap.pos = pos;
   envMap.radius = radius;
@@ -177,41 +191,47 @@ void VulkanRHI::updateEnvironmentMap(rhi::ResourceIdRHI envMapId, glm::vec3 pos,
   _envMapDescriptorSetPendingUpdate = true;
 }
 
-void VulkanRHI::uploadEnvironmentMaps() {
-  GpuEnvironmentMapDataCollection envMapData;
-  envMapData.count = _environmentMaps.size();
-  auto mapIter = _environmentMaps.begin();
-  std::vector<VkDescriptorImageInfo> writeImageInfos;
-  writeImageInfos.reserve(maxEnvironmentMaps);
+void VulkanRHI::applyPendingEnvironmentMapUpdates() {
+  if (_envMapDescriptorSetPendingUpdate) {
+    GpuEnvironmentMapDataCollection envMapData;
+    envMapData.count = 0;
+    auto mapIter = _environmentMaps.begin();
+    std::vector<VkDescriptorImageInfo> writeImageInfos;
+    writeImageInfos.reserve(maxEnvironmentMaps);
 
-  for (std::size_t i = 0; i < envMapData.count; ++i) {
-    envMapData.envMaps[i] = {mapIter->second.pos, mapIter->second.radius};
-    VkDescriptorImageInfo& imgInfo = writeImageInfos.emplace_back();
-    imgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    imgInfo.imageView = mapIter->second.colorImageView;
-    imgInfo.sampler = _vkLinearRepeatSampler;
+    for (std::size_t i = 0; i < _environmentMaps.size(); ++i) {
+      if (!mapIter->second.released) {
+        ++envMapData.count;
+        envMapData.envMaps[i] = {mapIter->second.pos, mapIter->second.radius};
+        VkDescriptorImageInfo& imgInfo = writeImageInfos.emplace_back();
+        imgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        imgInfo.imageView = mapIter->second.colorImageView;
+        imgInfo.sampler = _vkLinearRepeatSampler;
+      }
 
-    ++mapIter;
+      ++mapIter;
+    }
+
+    uploadBufferData(0, envMapData, _envMapDataBuffer);
+
+    if (writeImageInfos.size()) {
+      VkWriteDescriptorSet writeEnvGlobalDescriptorSet = {};
+      writeEnvGlobalDescriptorSet.sType =
+          VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+      writeEnvGlobalDescriptorSet.pNext = nullptr;
+
+      writeEnvGlobalDescriptorSet.dstSet = _vkGlobalDescriptorSet;
+      writeEnvGlobalDescriptorSet.dstBinding = 2;
+      writeEnvGlobalDescriptorSet.dstArrayElement = 0;
+      writeEnvGlobalDescriptorSet.descriptorType =
+          VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+      writeEnvGlobalDescriptorSet.descriptorCount = writeImageInfos.size();
+      writeEnvGlobalDescriptorSet.pImageInfo = writeImageInfos.data();
+
+      vkUpdateDescriptorSets(_vkDevice, 1, &writeEnvGlobalDescriptorSet, 0,
+                             nullptr);
+    }
+
+    _envMapDescriptorSetPendingUpdate = false;
   }
-
-  uploadBufferData(0, envMapData, _envMapDataBuffer);
-
-  if (writeImageInfos.size()) {
-    VkWriteDescriptorSet writeEnvGlobalDescriptorSet = {};
-    writeEnvGlobalDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writeEnvGlobalDescriptorSet.pNext = nullptr;
-
-    writeEnvGlobalDescriptorSet.dstSet = _vkGlobalDescriptorSet;
-    writeEnvGlobalDescriptorSet.dstBinding = 2;
-    writeEnvGlobalDescriptorSet.dstArrayElement = 0;
-    writeEnvGlobalDescriptorSet.descriptorType =
-        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writeEnvGlobalDescriptorSet.descriptorCount = writeImageInfos.size();
-    writeEnvGlobalDescriptorSet.pImageInfo = writeImageInfos.data();
-
-    vkUpdateDescriptorSets(_vkDevice, 1, &writeEnvGlobalDescriptorSet, 0,
-                           nullptr);
-  }
-
-  _envMapDescriptorSetPendingUpdate = false;
 }
