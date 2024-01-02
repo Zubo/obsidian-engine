@@ -11,23 +11,16 @@
 
 using namespace obsidian::runtime_resource;
 
-RuntimeResourceLoader::~RuntimeResourceLoader() {
-  std::unique_lock l{_queueMutex};
-
-  _running = false;
-
-  l.unlock();
-
-  _queueMutexCondVar.notify_one();
-
-  if (_loaderThread.joinable()) {
-    _loaderThread.join();
-  }
-}
+RuntimeResourceLoader::~RuntimeResourceLoader() { joinLoaderThread(); }
 
 void RuntimeResourceLoader::init(task::TaskExecutor& taskExecutor) {
   _taskExecutor = &taskExecutor;
   _loaderThread = std::thread{[this]() { uploaderFunc(); }};
+}
+
+void RuntimeResourceLoader::cleanup() {
+  joinLoaderThread();
+  _taskExecutor = nullptr;
 }
 
 bool RuntimeResourceLoader::loadResource(RuntimeResource& runtimeResource) {
@@ -121,5 +114,19 @@ void RuntimeResourceLoader::uploaderFunc() {
     }
 
     resources.clear();
+  }
+}
+
+void RuntimeResourceLoader::joinLoaderThread() {
+  std::unique_lock l{_queueMutex};
+
+  _running = false;
+
+  l.unlock();
+
+  _queueMutexCondVar.notify_one();
+
+  if (_loaderThread.joinable()) {
+    _loaderThread.join();
   }
 }

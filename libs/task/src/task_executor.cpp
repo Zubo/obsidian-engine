@@ -10,6 +10,7 @@ using namespace obsidian::task;
 void TaskExecutor::initAndRun(std::vector<ThreadInitInfo> threadInit) {
   std::scoped_lock l{_taskQueueMutex};
 
+  _shutdownComplete = false;
   _running = true;
 
   for (ThreadInitInfo const& initInfo : threadInit) {
@@ -69,6 +70,10 @@ void TaskExecutor::shutdown() {
     t.join();
   }
 
+  _taskQueues.clear();
+  _dequeuedTasks.clear();
+  _threads.clear();
+  _running = false;
   _shutdownComplete = true;
 }
 

@@ -97,6 +97,8 @@ void RuntimeResourceManager::uploadInitRHIResources() {
 }
 
 void RuntimeResourceManager::cleanup() {
+  _resourceLoader.cleanup();
+
   if (_runtimeResources.size()) {
     _runtimeResources.clear();
   }

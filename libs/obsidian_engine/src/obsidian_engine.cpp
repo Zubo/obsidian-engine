@@ -32,13 +32,7 @@ bool ObsidianEngine::init(IWindowBackendProvider const& windowBackendProvider,
     return false;
   }
 
-  // task executor
-  unsigned int const nCores = std::thread::hardware_concurrency();
-  _context.taskExecutor.initAndRun(
-      {{task::TaskType::rhiDraw, 1},
-       {task::TaskType::rhiTransfer, 4},
-       {task::TaskType::rhiUpload, 1},
-       {task::TaskType::general, std::max(nCores - 5u, 2u)}});
+  initTaskExecutor();
 
   // create window
 
@@ -120,4 +114,25 @@ void ObsidianEngine::processFrame() {
     ZoneScopedN("RHI draw");
     _context.vulkanRHI.draw(sceneGlobalParams);
   }
+}
+
+void ObsidianEngine::openProject(std::filesystem::path projectPath) {
+  _context.scene.getState() = {};
+  _context.taskExecutor.shutdown();
+  initTaskExecutor();
+
+  _context.resourceManager.cleanup();
+  _context.project.open(projectPath);
+  _context.resourceManager.init(_context.vulkanRHI, _context.project,
+                                _context.taskExecutor);
+}
+
+void ObsidianEngine::initTaskExecutor() {
+  unsigned int const nCores = std::thread::hardware_concurrency();
+
+  _context.taskExecutor.initAndRun(
+      {{task::TaskType::rhiDraw, 1},
+       {task::TaskType::rhiTransfer, 4},
+       {task::TaskType::rhiUpload, 1},
+       {task::TaskType::general, std::max(nCores - 5u, 2u)}});
 }

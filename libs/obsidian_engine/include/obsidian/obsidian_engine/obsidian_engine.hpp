@@ -46,8 +46,11 @@ public:
   ObsidianEngineContext& getContext();
   ObsidianEngineContext const& getContext() const;
   bool const isInitialized() const;
+  void openProject(std::filesystem::path projectPath);
 
 private:
+  void initTaskExecutor();
+
   ObsidianEngineContext _context;
   bool _isInitialized = false;
 };

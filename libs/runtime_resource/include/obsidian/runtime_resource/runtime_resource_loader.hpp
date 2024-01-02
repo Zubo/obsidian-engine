@@ -20,6 +20,7 @@ class RuntimeResource;
 class RuntimeResourceLoader {
 public:
   void init(task::TaskExecutor& taskExecutor);
+  void cleanup();
   ~RuntimeResourceLoader();
 
   bool loadResource(RuntimeResource& runtimeResource);
@@ -27,6 +28,7 @@ public:
 private:
   bool loadResImpl(RuntimeResource& runtimeResource);
   void uploaderFunc();
+  void joinLoaderThread();
 
   task::TaskExecutor* _taskExecutor;
   std::mutex _queueMutex;
