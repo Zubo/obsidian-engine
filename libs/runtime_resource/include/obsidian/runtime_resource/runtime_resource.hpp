@@ -3,6 +3,7 @@
 #include <obsidian/asset/asset.hpp>
 #include <obsidian/rhi/resource_rhi.hpp>
 
+#include <atomic>
 #include <filesystem>
 #include <memory>
 #include <optional>
@@ -21,10 +22,12 @@ class RuntimeResourceLoader;
 
 enum class RuntimeResourceState {
   initial,
+  pendingLoad,
   assetLoading,
   assetLoaded,
   uploadingToRhi,
-  uploadedToRhi
+  uploadedToRhi,
+  assetLoadingFailed
 };
 
 class RuntimeResource {
@@ -41,11 +44,13 @@ public:
   RuntimeResourceState getResourceState() const;
   bool isResourceReady() const;
   rhi::ResourceIdRHI getResourceId() const;
-  void uploadToRHI();
-  void releaseFromRHI();
+  void load();
   std::filesystem::path getRelativePath() const;
+  void declareRef();
+  void releaseRef();
 
 private:
+  void releaseFromRHI();
   bool performAssetLoad();
   void releaseAsset();
   void performUploadToRHI();
@@ -60,7 +65,9 @@ private:
   rhi::ResourceRHI* _resourceRHI = nullptr;
   ReleaseRHIResource _releaseFunc = nullptr;
   std::optional<std::vector<RuntimeResource*>> _dependencies;
-  RuntimeResourceState _resourceState = RuntimeResourceState::initial;
+  std::atomic<RuntimeResourceState> _resourceState =
+      RuntimeResourceState::initial;
+  std::uint32_t _refCount = 0;
 
   friend class RuntimeResourceLoader;
 };

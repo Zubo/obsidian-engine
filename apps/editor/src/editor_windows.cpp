@@ -813,6 +813,7 @@ void projectTab(ObsidianEngine& engine, bool& engineStarted) {
     }
 
     if (ImGui::Button("Open")) {
+
       project.open(projPathBuf);
       setLastOpenProject(projPathBuf);
       assetListDirty = true;

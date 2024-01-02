@@ -22,10 +22,10 @@ public:
   void init(task::TaskExecutor& taskExecutor);
   ~RuntimeResourceLoader();
 
-  void uploadResource(RuntimeResource& runtimeResource);
+  bool loadResource(RuntimeResource& runtimeResource);
 
 private:
-  bool uploadResImpl(RuntimeResource& runtimeResource);
+  bool loadResImpl(RuntimeResource& runtimeResource);
   void uploaderFunc();
 
   task::TaskExecutor* _taskExecutor;
@@ -35,7 +35,6 @@ private:
   std::vector<RuntimeResource*> _assetLoadQueue;
   std::vector<RuntimeResource*> _rhiUploadQueue;
   bool _running = false;
-  std::unordered_set<std::filesystem::path> _uploadedResources;
 };
 
 } /*namespace obsidian::runtime_resource*/

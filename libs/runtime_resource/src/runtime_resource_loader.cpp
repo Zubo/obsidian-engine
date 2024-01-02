@@ -1,3 +1,4 @@
+#include <obsidian/core/logging.hpp>
 #include <obsidian/rhi/resource_rhi.hpp>
 #include <obsidian/runtime_resource/runtime_resource.hpp>
 #include <obsidian/runtime_resource/runtime_resource_loader.hpp>
@@ -29,37 +30,37 @@ void RuntimeResourceLoader::init(task::TaskExecutor& taskExecutor) {
   _loaderThread = std::thread{[this]() { uploaderFunc(); }};
 }
 
-void RuntimeResourceLoader::uploadResource(RuntimeResource& runtimeResource) {
+bool RuntimeResourceLoader::loadResource(RuntimeResource& runtimeResource) {
   std::unique_lock l{_queueMutex};
 
-  bool const uploadAppended = uploadResImpl(runtimeResource);
+  bool const uploadAppended = loadResImpl(runtimeResource);
 
   l.unlock();
 
   if (uploadAppended) {
     _queueMutexCondVar.notify_one();
   }
+
+  return uploadAppended;
 }
 
-bool RuntimeResourceLoader::uploadResImpl(RuntimeResource& runtimeResource) {
-  if (_uploadedResources.contains(runtimeResource.getRelativePath())) {
+bool RuntimeResourceLoader::loadResImpl(RuntimeResource& runtimeResource) {
+  if (runtimeResource.getResourceState() != RuntimeResourceState::initial) {
     return false;
   }
 
   std::vector<RuntimeResource*> const& deps =
       runtimeResource.fetchDependencies();
 
-  bool pendingDeps = false;
-
   for (RuntimeResource* const d : deps) {
-    pendingDeps |= uploadResImpl(*d);
+    loadResImpl(*d);
   }
 
   RuntimeResourceState const state = runtimeResource.getResourceState();
   switch (state) {
   case RuntimeResourceState::initial:
+    runtimeResource._resourceState = RuntimeResourceState::pendingLoad;
     _assetLoadQueue.push_back(&runtimeResource);
-    _uploadedResources.insert(runtimeResource.getRelativePath());
     return true;
   default:
     return false;
@@ -110,9 +111,13 @@ void RuntimeResourceLoader::uploaderFunc() {
     resources.swap(_assetLoadQueue);
 
     for (RuntimeResource* r : resources) {
-      _taskExecutor->enqueue(task::TaskType::general,
-                             [r]() { r->performAssetLoad(); });
-      _rhiUploadQueue.push_back(r);
+      if (r->getResourceState() == RuntimeResourceState::pendingLoad) {
+        _taskExecutor->enqueue(task::TaskType::general,
+                               [r]() { r->performAssetLoad(); });
+        _rhiUploadQueue.push_back(r);
+      } else {
+        _assetLoadQueue.push_back(r);
+      }
     }
 
     resources.clear();
