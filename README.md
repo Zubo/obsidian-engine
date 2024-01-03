@@ -1,6 +1,6 @@
 # Obsidian Engine
 
-A vulkan engine developed for education purposes. The only currently supported platform is GNU/Linux.
+A Vulkan API game engine developed for education purposes. The only currently supported platform is GNU/Linux.
 
 ![Missing Image](screenshots/sponza-screenshot.png "Sponza scene rendered in Obsidian Engine")
 
