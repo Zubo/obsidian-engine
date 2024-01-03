@@ -39,6 +39,12 @@ Additional features include mipmap generation, optional asset compression, mater
 * hierarchical game object organization in the scene
 * prefab loading
 
+### Additional tools
+
+* support for [Renderdoc](https://renderdoc.org) debugging - manual and programmatic capture
+* integration of [Tracy profiler](https://github.com/wolfpld/tracy)
+* automatized shader compilation into SPIR-V format and importing as a custom asset
+
 ## Linux environment setup
 
 Required packages:
