@@ -524,7 +524,8 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
           ImGui::PopID();
         }
 
-        std::optional<core::Spotlight> spotlight;
+        std::optional<core::Spotlight> spotlight =
+            selectedGameObj->getSpotlight();
 
         if (!spotlight) {
           if (ImGui::Button("Add spotlight")) {
@@ -555,7 +556,9 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
               ImGui::SliderFloat("Quadratic attenuation",
                                  &spotlight->quadraticAttenuation, 0.0f, 1.0f);
 
-          selectedGameObj->setSpotlight(*spotlight);
+          if (spotlightUpdated) {
+            selectedGameObj->setSpotlight(*spotlight);
+          }
 
           if (ImGui::Button("Remove")) {
             selectedGameObj->removeSpotlight();
@@ -615,136 +618,198 @@ void importTab(ObsidianEngine& engine) {
 }
 
 void materialCreatorTab() {
-  static bool isOpen = false;
 
-  if (ImGui::BeginTabItem("Material Creator")) {
+  if (ImGui::BeginTabItem("Materials")) {
+    static int selectedMaterialInd = -1;
+    static bool materialSelectionUpdated = false;
+
+    if (assetListDirty) {
+      selectedMaterialInd = -1;
+      materialSelectionUpdated = true;
+      ImGui::EndTabItem();
+      return;
+    }
+
     static int selectedMaterialType = static_cast<int>(core::MaterialType::lit);
     static int selectedDiffuseTex = 0;
     static int selectedNormalMapTex = 0;
     static int selectedShader = 0;
-    static float selectedShininess = 16.0f;
-    static bool selectedMatTransparent = false;
-    static bool selectedMatReflection = false;
-    static float selectedMatRefractionIndex = 1.0f;
-    static bool selectedMatUsesTimer = false;
-    static glm::vec4 selectedAmbientColor = {1.0f, 1.0f, 1.0f, 1.0f};
-    static glm::vec4 selectedDiffuseColor = {1.0f, 1.0f, 1.0f, 1.0f};
-    static glm::vec4 selectedSpecularColor = {1.0f, 1.0f, 1.0f, 1.0f};
+    static asset::MaterialAssetInfo selectedMaterialAssetInfo;
+    static char newMatName[maxFileNameSize] = "newMat";
 
-    bool canCreateMat = true;
-    if (!texturesInProj.size()) {
-      ImGui::Text("No textures in the project");
-      canCreateMat = false;
-    }
-    if (!shadersInProj.size()) {
-      ImGui::Text("No shaders in the project");
-      canCreateMat = false;
+    ImGui::InputText("New Material Name", newMatName, sizeof(newMatName));
+
+    int const newMatNameLen = std::strlen(newMatName);
+
+    fs::path newMaterialRelPath = newMatName;
+    newMaterialRelPath.replace_extension(globals::materialAssetExt);
+
+    auto const matWithSameNameExists =
+        [&newMaterialRelPath](fs::path const& matPath) {
+          return newMaterialRelPath == matPath;
+        };
+
+    bool disabled = !newMatNameLen ||
+                    std::any_of(materialsInProj.cbegin(),
+                                materialsInProj.cend(), matWithSameNameExists);
+
+    if (disabled) {
+      ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+      ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
     }
 
-    if (canCreateMat) {
-      static char matName[maxFileNameSize];
-      ImGui::InputText("Material name", matName, std::size(matName));
+    if (ImGui::Button("Create")) {
+      asset::MaterialAssetInfo newMatAssetInfo = {};
+      newMatAssetInfo.materialType = core::MaterialType::lit;
+      newMatAssetInfo.ambientColor = {1.0f, 1.0f, 1.0f, 1.0f};
+      newMatAssetInfo.diffuseColor = {1.0f, 1.0f, 1.0f, 1.0f};
+      newMatAssetInfo.specularColor = {1.0f, 1.0f, 1.0f, 1.0f};
+      newMatAssetInfo.shininess = 1.0f;
+      newMatAssetInfo.refractionIndex = 1.0f;
+
+      asset::Asset newMatAsset;
+
+      fs::path newMaterialAbsPath = project.getAbsolutePath(newMatName);
+      newMaterialAbsPath.replace_extension(globals::materialAssetExt);
+
+      if (asset::packMaterial(newMatAssetInfo, {}, newMatAsset)) {
+        if (asset::saveToFile(newMaterialAbsPath, newMatAsset)) {
+          assetListDirty = true;
+        } else {
+          OBS_LOG_ERR("Failed to save asset to path " +
+                      newMaterialAbsPath.string());
+        }
+      } else {
+        OBS_LOG_ERR("Failed to pack material.");
+      }
+    }
+
+    if (disabled) {
+      ImGui::PopStyleVar();
+      ImGui::PopItemFlag();
+    }
+
+    ImGui::NewLine();
+
+    if (ImGui::BeginListBox("Materials")) {
+      for (int i = 0; i < materialsInProj.size(); ++i) {
+        bool selected = selectedMaterialInd == i;
+
+        if (ImGui::Selectable(materialPathStringPtrs[i], &selected)) {
+          selectedMaterialInd = i;
+          materialSelectionUpdated = true;
+        }
+      }
+
+      ImGui::EndListBox();
+    }
+
+    ImGui::NewLine();
+
+    if (materialSelectionUpdated && selectedMaterialInd >= 0) {
+      fs::path const absolutePath =
+          project.getAbsolutePath(materialsInProj[selectedMaterialInd]);
+      asset::Asset matAsset;
+      if (asset::loadAssetFromFile(absolutePath, matAsset) ||
+          !matAsset.metadata) {
+        if (!asset::readMaterialAssetInfo(*matAsset.metadata,
+                                          selectedMaterialAssetInfo)) {
+          OBS_LOG_ERR("Failed to load material asset info from asset on path " +
+                      absolutePath.string());
+        }
+      } else {
+        OBS_LOG_ERR("Failed to load asset from file on path " +
+                    absolutePath.string());
+      }
+
+      materialSelectionUpdated = false;
+    }
+
+    if (selectedMaterialInd >= 0) {
+      ImGui::SeparatorText(materialPathStringPtrs[selectedMaterialInd]);
 
       if (ImGui::Combo("Material Type", &selectedMaterialType,
                        materialTypes.data(), materialTypes.size())) {
+        selectedMaterialAssetInfo.materialType =
+            static_cast<core::MaterialType>(selectedMaterialType);
       }
 
       if (ImGui::Combo("Shader", &selectedShader, shaderPathStringPtrs.data(),
                        shaderPathStringPtrs.size())) {
+        selectedMaterialAssetInfo.shaderPath = shadersInProj[selectedShader];
       }
 
       if (ImGui::Combo("Diffuse Tex", &selectedDiffuseTex,
                        texturePathStringPtrs.data(),
                        texturePathStringPtrs.size())) {
+        selectedMaterialAssetInfo.diffuseTexturePath =
+            texturesInProj[selectedDiffuseTex];
       }
 
       if (ImGui::Combo("Normal Tex", &selectedNormalMapTex,
                        texturePathStringPtrs.data(),
                        texturePathStringPtrs.size())) {
+        selectedMaterialAssetInfo.normalMapTexturePath =
+            texturesInProj[selectedNormalMapTex];
       }
 
-      if (ImGui::SliderFloat4("Ambient Color", &selectedAmbientColor.r, 0.0f,
+      if (ImGui::SliderFloat4("Ambient Color",
+                              &selectedMaterialAssetInfo.ambientColor.r, 0.0f,
                               1.0f)) {
       }
 
-      if (ImGui::SliderFloat4("Diffuse Color", &selectedDiffuseColor.r, 0.0f,
+      if (ImGui::SliderFloat4("Diffuse Color",
+                              &selectedMaterialAssetInfo.diffuseColor.r, 0.0f,
                               1.0f)) {
       }
 
-      if (ImGui::SliderFloat4("Specular Color", &selectedSpecularColor.r, 0.0f,
+      if (ImGui::SliderFloat4("Specular Color",
+                              &selectedMaterialAssetInfo.specularColor.r, 0.0f,
                               1.0f)) {
       }
 
-      if (ImGui::SliderFloat("Shininess", &selectedShininess, 1.0f, 256.0f)) {
+      if (ImGui::SliderFloat("Shininess", &selectedMaterialAssetInfo.shininess,
+                             1.0f, 256.0f)) {
       }
 
-      if (ImGui::Checkbox("Transparent", &selectedMatTransparent)) {
+      if (ImGui::Checkbox("Transparent",
+                          &selectedMaterialAssetInfo.transparent)) {
       }
 
-      if (ImGui::Checkbox("Reflection", &selectedMatReflection)) {
+      if (ImGui::Checkbox("Reflection",
+                          &selectedMaterialAssetInfo.reflection)) {
       }
 
-      if (ImGui::SliderFloat("RefractionIndex", &selectedMatRefractionIndex,
-                             1.0f, 5.0f)) {
+      if (ImGui::SliderFloat("RefractionIndex",
+                             &selectedMaterialAssetInfo.refractionIndex, 1.0f,
+                             5.0f)) {
       }
 
-      if (ImGui::Checkbox("Uses Timer", &selectedMatUsesTimer)) {
+      if (ImGui::Checkbox("Uses Timer", &selectedMaterialAssetInfo.hasTimer)) {
       }
 
-      std::size_t matNameLen = std::strlen(matName);
-      bool disabled = matNameLen == 0;
-
-      if (disabled) {
-        ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
-        ImGui::PushStyleVar(ImGuiStyleVar_Alpha,
-                            ImGui::GetStyle().Alpha * 0.5f);
-      }
-
-      if (ImGui::Button("Create")) {
-        asset::MaterialAssetInfo mtlAssetInfo;
-        mtlAssetInfo.compressionMode = asset::CompressionMode::none;
-        mtlAssetInfo.materialType =
-            static_cast<core::MaterialType>(selectedMaterialType);
-        mtlAssetInfo.shaderPath = shaderPathStringPtrs[selectedShader];
-        mtlAssetInfo.ambientColor = selectedAmbientColor;
-        mtlAssetInfo.diffuseColor = selectedDiffuseColor;
-        mtlAssetInfo.specularColor = selectedSpecularColor;
-        mtlAssetInfo.transparent = selectedMatTransparent;
-        mtlAssetInfo.reflection = selectedMatReflection;
-        mtlAssetInfo.refractionIndex = selectedMatRefractionIndex;
-        mtlAssetInfo.hasTimer = selectedMatUsesTimer;
-
+      if (ImGui::Button("Update")) {
         if (selectedDiffuseTex > 0) {
-          mtlAssetInfo.diffuseTexturePath =
+          selectedMaterialAssetInfo.diffuseTexturePath =
               texturesInProj[selectedDiffuseTex - 1];
         }
 
         if (selectedNormalMapTex > 0) {
-          mtlAssetInfo.normalMapTexturePath =
+          selectedMaterialAssetInfo.normalMapTexturePath =
               texturesInProj[selectedNormalMapTex - 1];
         }
 
-        mtlAssetInfo.shininess = selectedShininess;
-
         asset::Asset materialAsset;
-        asset::packMaterial(mtlAssetInfo, {}, materialAsset);
-        fs::path matPath = project.getAbsolutePath(matName);
-        matPath.replace_extension(".obsmat");
-        asset::saveToFile(matPath, materialAsset);
+        asset::packMaterial(selectedMaterialAssetInfo, {}, materialAsset);
+        fs::path selectedMathAbsPath = project.getAbsolutePath(
+            materialPathStringPtrs[selectedMaterialInd]);
+        selectedMathAbsPath.replace_extension(".obsmat");
+        asset::saveToFile(selectedMathAbsPath, materialAsset);
         assetListDirty = true;
       }
-
-      if (disabled) {
-        ImGui::PopItemFlag();
-        ImGui::PopStyleVar();
-      }
-    } else {
-      isOpen = false;
     }
 
     ImGui::EndTabItem();
-  } else {
-    isOpen = false;
   }
 }
 
