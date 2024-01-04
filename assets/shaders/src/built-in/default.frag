@@ -61,7 +61,8 @@ void main() {
   const vec3 cameraWorldPos =
       vec3(inverseView[3][0], inverseView[3][1], inverseView[3][2]);
 
-  vec3 reflectedColor = getReflectedColor(inWorldPos, cameraWorldPos, normal);
+  vec3 reflectedColor = float(materialData.reflection) *
+                        getReflectedColor(inWorldPos, cameraWorldPos, normal);
 
   vec4 specularColor = materialData.specularColor *
                        vec4((reflectedColor + spotlightResult.specular +

@@ -31,7 +31,8 @@ void main() {
   vec3 cameraWorldPos =
       vec3(inverseView[3][0], inverseView[3][1], inverseView[3][2]);
 
-  vec3 reflectedColor = getReflectedColor(inWorldPos, cameraWorldPos, normal);
+  vec3 reflectedColor = float(materialData.reflection) *
+                        getReflectedColor(inWorldPos, cameraWorldPos, normal);
 
   directionalLightResult.specular += reflectedColor;
   spotlightResult.specular += reflectedColor;
