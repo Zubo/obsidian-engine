@@ -529,6 +529,14 @@ bool AssetConverter::convertGltfToAsset(fs::path const& srcPath,
     return false;
   }
 
+  std::vector<std::string> meshRelativePaths;
+  std::transform(meshExportPaths.cbegin(), meshExportPaths.cend(),
+                 std::back_inserter(meshRelativePaths),
+                 [dstPath](std::string const& pathStr) {
+                   return fs::path(pathStr).lexically_relative(
+                       dstPath.parent_path());
+                 });
+
   for (std::size_t sceneInd = 0; sceneInd < model.scenes.size(); ++sceneInd) {
     ZoneScopedN("GLTF prefab export");
 
@@ -536,7 +544,7 @@ bool AssetConverter::convertGltfToAsset(fs::path const& srcPath,
 
     for (int nodeInd : scene.nodes) {
       serialization::GameObjectData rootNodeObjData = nodeToGameObjectData(
-          nodeInd, model, meshExportPaths, meshAssetInfoPerMesh);
+          nodeInd, model, meshRelativePaths, meshAssetInfoPerMesh);
 
       nlohmann::json gameObjectJson;
 

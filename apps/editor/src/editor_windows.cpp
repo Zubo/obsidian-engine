@@ -712,8 +712,10 @@ void materialCreatorTab() {
       asset::Asset matAsset;
       if (asset::loadAssetFromFile(absolutePath, matAsset) ||
           !matAsset.metadata) {
-        if (!asset::readMaterialAssetInfo(*matAsset.metadata,
-                                          selectedMaterialAssetInfo)) {
+        if (asset::readMaterialAssetInfo(*matAsset.metadata,
+                                         selectedMaterialAssetInfo)) {
+
+        } else {
           OBS_LOG_ERR("Failed to load material asset info from asset on path " +
                       absolutePath.string());
         }
@@ -721,6 +723,14 @@ void materialCreatorTab() {
         OBS_LOG_ERR("Failed to load asset from file on path " +
                     absolutePath.string());
       }
+
+      selectedDiffuseTex = indexorDefault(
+          texturesInProj, selectedMaterialAssetInfo.diffuseTexturePath, -1);
+      selectedNormalMapTex = indexorDefault(
+          texturesInProj, selectedMaterialAssetInfo.normalMapTexturePath, -1);
+
+      selectedShader = indexorDefault(shadersInProj,
+                                      selectedMaterialAssetInfo.shaderPath, -1);
 
       materialSelectionUpdated = false;
     }
@@ -739,18 +749,26 @@ void materialCreatorTab() {
         selectedMaterialAssetInfo.shaderPath = shadersInProj[selectedShader];
       }
 
-      if (ImGui::Combo("Diffuse Tex", &selectedDiffuseTex,
+      int selectedDiffuseComboInd = selectedDiffuseTex + 1;
+      if (ImGui::Combo("Diffuse Tex", &selectedDiffuseComboInd,
                        texturePathStringPtrs.data(),
                        texturePathStringPtrs.size())) {
-        selectedMaterialAssetInfo.diffuseTexturePath =
-            texturesInProj[selectedDiffuseTex];
+        selectedDiffuseTex = selectedDiffuseComboInd - 1;
+        if (selectedDiffuseTex >= 0) {
+          selectedMaterialAssetInfo.diffuseTexturePath =
+              texturesInProj[selectedDiffuseTex];
+        }
       }
 
-      if (ImGui::Combo("Normal Tex", &selectedNormalMapTex,
+      int selectedNormalComboInd = selectedNormalMapTex + 1;
+      if (ImGui::Combo("Normal Tex", &selectedNormalComboInd,
                        texturePathStringPtrs.data(),
                        texturePathStringPtrs.size())) {
-        selectedMaterialAssetInfo.normalMapTexturePath =
-            texturesInProj[selectedNormalMapTex];
+        selectedNormalMapTex = selectedNormalComboInd - 1;
+        if (selectedNormalMapTex >= 0) {
+          selectedMaterialAssetInfo.normalMapTexturePath =
+              texturesInProj[selectedNormalMapTex];
+        }
       }
 
       if (ImGui::SliderFloat4("Ambient Color",
@@ -789,16 +807,6 @@ void materialCreatorTab() {
       }
 
       if (ImGui::Button("Update")) {
-        if (selectedDiffuseTex > 0) {
-          selectedMaterialAssetInfo.diffuseTexturePath =
-              texturesInProj[selectedDiffuseTex - 1];
-        }
-
-        if (selectedNormalMapTex > 0) {
-          selectedMaterialAssetInfo.normalMapTexturePath =
-              texturesInProj[selectedNormalMapTex - 1];
-        }
-
         asset::Asset materialAsset;
         asset::packMaterial(selectedMaterialAssetInfo, {}, materialAsset);
         fs::path selectedMathAbsPath = project.getAbsolutePath(
