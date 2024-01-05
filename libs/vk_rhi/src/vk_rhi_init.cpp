@@ -821,8 +821,8 @@ void VulkanRHI::initDefaultSamplers() {
 void VulkanRHI::initMainRenderPassDataBuffer() {
   _mainRenderPassDataBuffer = createBuffer(
       getPaddedBufferSize(sizeof(GpuRenderPassData)),
-      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
-      VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+      VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0);
 
   GpuRenderPassData data{VK_TRUE};
 
@@ -837,8 +837,8 @@ void VulkanRHI::initMainRenderPassDataBuffer() {
 void VulkanRHI::initLightDataBuffer() {
   _lightDataBuffer = createBuffer(
       frameOverlap * getPaddedBufferSize(sizeof(GPULightData)),
-      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
-      VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+      VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0);
 
   _deletionQueue.pushFunction([this]() {
     vmaDestroyBuffer(_vmaAllocator, _lightDataBuffer.buffer,
@@ -867,20 +867,20 @@ void VulkanRHI::initDescriptors() {
   std::size_t const paddedSceneDataSize =
       getPaddedBufferSize(sizeof(GPUSceneData));
   std::size_t const sceneDataBufferSize = frameOverlap * paddedSceneDataSize;
-  _sceneDataBuffer =
-      createBuffer(sceneDataBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                   VMA_MEMORY_USAGE_AUTO,
-                   VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+  _sceneDataBuffer = createBuffer(sceneDataBufferSize,
+                                  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |
+                                      VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                  VMA_MEMORY_USAGE_AUTO, 0);
 
   _swapchainDeletionQueue.pushFunction([this]() {
     vmaDestroyBuffer(_vmaAllocator, _sceneDataBuffer.buffer,
                      _sceneDataBuffer.allocation);
   });
 
-  _cameraBuffer =
-      createBuffer(frameOverlap * getPaddedBufferSize(sizeof(GPUCameraData)),
-                   VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_AUTO,
-                   VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+  _cameraBuffer = createBuffer(
+      frameOverlap * getPaddedBufferSize(sizeof(GPUCameraData)),
+      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+      VMA_MEMORY_USAGE_AUTO, 0);
   _swapchainDeletionQueue.pushFunction([this]() {
     vmaDestroyBuffer(_vmaAllocator, _cameraBuffer.buffer,
                      _cameraBuffer.allocation);
@@ -1084,11 +1084,11 @@ void VulkanRHI::initDepthPrepassDescriptors() {
 }
 
 void VulkanRHI::initShadowPassDescriptors() {
-  _shadowPassCameraBuffer =
-      createBuffer(frameOverlap * rhi::maxLightsPerDrawPass *
-                       getPaddedBufferSize(sizeof(GPUCameraData)),
-                   VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_AUTO,
-                   VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+  _shadowPassCameraBuffer = createBuffer(
+      frameOverlap * rhi::maxLightsPerDrawPass *
+          getPaddedBufferSize(sizeof(GPUCameraData)),
+      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+      VMA_MEMORY_USAGE_AUTO, 0);
 
   _deletionQueue.pushFunction([this]() {
     vmaDestroyBuffer(_vmaAllocator, _shadowPassCameraBuffer.buffer,
@@ -1305,8 +1305,8 @@ void VulkanRHI::initPostProcessingQuad() {
 void VulkanRHI::initEnvMapRenderPassDataBuffer() {
   _envMapRenderPassDataBuffer = createBuffer(
       getPaddedBufferSize(sizeof(GpuRenderPassData)),
-      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
-      VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+      VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0);
 
   GpuRenderPassData renderPassData = {};
   renderPassData.applySsao = VK_FALSE;
@@ -1322,8 +1322,8 @@ void VulkanRHI::initEnvMapRenderPassDataBuffer() {
 void VulkanRHI::initEnvMapDataBuffer() {
   _envMapDataBuffer = createBuffer(
       getPaddedBufferSize(sizeof(GpuEnvironmentMapDataCollection)),
-      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
-      VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+      VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0);
 
   GpuEnvironmentMapDataCollection data = {};
   uploadBufferData(0, data, _envMapDataBuffer);

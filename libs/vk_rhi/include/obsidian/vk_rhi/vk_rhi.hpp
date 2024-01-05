@@ -21,6 +21,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <cstring>
 #include <functional>
 #include <mutex>
 #include <optional>
@@ -275,18 +276,39 @@ private:
 
   template <typename T>
   void uploadBufferData(std::size_t const index, T const& value,
-                        AllocatedBuffer const& buffer) {
+                        AllocatedBuffer const& dstBuffer) {
     using ValueType = std::decay_t<T>;
-    void* data = nullptr;
 
-    VK_CHECK(vmaMapMemory(_vmaAllocator, buffer.allocation, &data));
+    std::size_t const valueSize = getPaddedBufferSize(sizeof(ValueType));
 
-    char* const dstBufferData = reinterpret_cast<char*>(data) +
-                                index * getPaddedBufferSize(sizeof(ValueType));
+    AllocatedBuffer stagingBuffer = createBuffer(
+        valueSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_AUTO,
+        VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
 
-    std::memcpy(dstBufferData, &value, sizeof(ValueType));
+    immediateSubmit(_transferQueueFamilyIndex, [this, valueSize, &stagingBuffer,
+                                                index, &value, &dstBuffer](
+                                                   VkCommandBuffer cmd) {
+      void* data = nullptr;
 
-    vmaUnmapMemory(_vmaAllocator, buffer.allocation);
+      VK_CHECK(vmaMapMemory(_vmaAllocator, stagingBuffer.allocation, &data));
+
+      std::memcpy(data, reinterpret_cast<char const*>(&value),
+                  sizeof(ValueType));
+
+      vmaUnmapMemory(_vmaAllocator, stagingBuffer.allocation);
+      (void)data;
+
+      VkBufferCopy copyRegion = {};
+      copyRegion.srcOffset = 0;
+      copyRegion.dstOffset = index * valueSize;
+      copyRegion.size = sizeof(ValueType);
+
+      vkCmdCopyBuffer(cmd, stagingBuffer.buffer, dstBuffer.buffer, 1,
+                      &copyRegion);
+    });
+
+    vmaDestroyBuffer(_vmaAllocator, stagingBuffer.buffer,
+                     stagingBuffer.allocation);
   }
 
   void drawWithMaterials(VkCommandBuffer cmd, VKDrawCall* first, int count,
