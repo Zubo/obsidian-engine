@@ -25,7 +25,7 @@ using namespace obsidian::vk_rhi;
 
 namespace obsidian::vk_rhi {
 
-constexpr VkClearColorValue environmentColor{0.0f, 0.0f, 1.0f, 1.0f};
+constexpr VkClearColorValue environmentColor{0.0f, 0.3f, 0.9f, 1.0f};
 
 struct DrawPassParams {
   FrameData currentFrameData;
@@ -369,6 +369,8 @@ void VulkanRHI::colorPass(DrawPassParams const& params, glm::vec3 ambientColor,
 }
 
 void VulkanRHI::environmentMapPasses(struct DrawPassParams const& params) {
+  VkCommandBuffer cmd = params.currentFrameData.vkCommandBuffer;
+
   constexpr std::array<glm::vec3, 6> cubeSides = {
       glm::vec3{1.0f, 0.0f, 0.0f}, glm::vec3{-1.0f, 0.0f, 0.0f},
       glm::vec3{0.0f, 1.0f, 0.0f}, glm::vec3{0.0f, -1.0f, 0.0f},
@@ -383,14 +385,22 @@ void VulkanRHI::environmentMapPasses(struct DrawPassParams const& params) {
   VkRect2D const scissor{{0, 0},
                          {environmentMapResolution, environmentMapResolution}};
 
-  VkCommandBuffer cmd = params.currentFrameData.vkCommandBuffer;
-
   for (auto& keyMap : _environmentMaps) {
     EnvironmentMap& map = keyMap.second;
 
     if (!map.pendingUpdate) {
       continue;
     }
+
+    VkImageMemoryBarrier colorEnvMapBarrier = vkinit::layoutImageBarrier(
+        keyMap.second.colorImage.vkImage, VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+
+    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr,
+                         0, nullptr, 1, &colorEnvMapBarrier);
+
+    _envMapDescriptorSetPendingUpdate = true;
 
     for (std::size_t i = 0; i < 6; ++i) {
       GPUCameraData cameraData;
@@ -409,8 +419,7 @@ void VulkanRHI::environmentMapPasses(struct DrawPassParams const& params) {
       VkRenderPassBeginInfo vkRenderPassBeginInfo = {};
       vkRenderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
       vkRenderPassBeginInfo.pNext = nullptr;
-      vkRenderPassBeginInfo.renderPass =
-          _mainRenderPassNoDepthReuse.vkRenderPass;
+      vkRenderPassBeginInfo.renderPass = _envMapRenderPass.vkRenderPass;
       vkRenderPassBeginInfo.framebuffer = map.framebuffers[i];
       vkRenderPassBeginInfo.renderArea.offset = {0, 0};
       vkRenderPassBeginInfo.renderArea.extent = {environmentMapResolution,
@@ -442,9 +451,20 @@ void VulkanRHI::environmentMapPasses(struct DrawPassParams const& params) {
                         scissor, false);
 
       vkCmdEndRenderPass(cmd);
-
-      map.pendingUpdate = false;
     }
+
+    colorEnvMapBarrier = vkinit::layoutImageBarrier(
+        keyMap.second.colorImage.vkImage,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    colorEnvMapBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    colorEnvMapBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr,
+                         0, nullptr, 1, &colorEnvMapBarrier);
+
+    map.pendingUpdate = false;
   }
 }
 

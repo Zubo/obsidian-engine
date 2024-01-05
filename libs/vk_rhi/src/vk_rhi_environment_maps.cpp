@@ -21,7 +21,7 @@ rhi::ResourceIdRHI VulkanRHI::createEnvironmentMap(glm::vec3 envMapPos,
 
   VkImageCreateInfo colorImageCreateInfo = vkinit::imageCreateInfo(
       VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, extent,
-      _vkbSwapchain.image_format, 1, 6);
+      _envMapFormat, 1, 6);
 
   colorImageCreateInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
 
@@ -33,8 +33,7 @@ rhi::ResourceIdRHI VulkanRHI::createEnvironmentMap(glm::vec3 envMapPos,
                           &envMap.colorImage.allocation, nullptr));
 
   VkImageViewCreateInfo colorImageViewCreateInfo = vkinit::imageViewCreateInfo(
-      envMap.colorImage.vkImage, _vkbSwapchain.image_format,
-      VK_IMAGE_ASPECT_COLOR_BIT);
+      envMap.colorImage.vkImage, _envMapFormat, VK_IMAGE_ASPECT_COLOR_BIT);
   colorImageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
   colorImageViewCreateInfo.subresourceRange.layerCount = 6;
 
@@ -124,7 +123,7 @@ rhi::ResourceIdRHI VulkanRHI::createEnvironmentMap(glm::vec3 envMapPos,
     VkFramebufferCreateInfo frameBufferCreateInfo = {};
     frameBufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
     frameBufferCreateInfo.pNext = nullptr;
-    frameBufferCreateInfo.renderPass = _mainRenderPassReuseDepth.vkRenderPass;
+    frameBufferCreateInfo.renderPass = _envMapRenderPass.vkRenderPass;
 
     colorImageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
     colorImageViewCreateInfo.subresourceRange.baseArrayLayer = i;
@@ -156,8 +155,6 @@ rhi::ResourceIdRHI VulkanRHI::createEnvironmentMap(glm::vec3 envMapPos,
   }
 
   envMap.pendingUpdate = true;
-
-  _envMapDescriptorSetPendingUpdate = true;
 
   return newResourceId;
 }

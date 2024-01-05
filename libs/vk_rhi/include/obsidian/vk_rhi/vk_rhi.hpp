@@ -136,7 +136,6 @@ private:
 
   // Default pass
   RenderPass _mainRenderPassReuseDepth;
-  RenderPass _mainRenderPassNoDepthReuse;
   std::vector<std::array<Framebuffer, frameOverlap>> _vkSwapchainFramebuffers;
   VkPipelineLayout _vkMeshPipelineLayout;
   VkPipelineLayout _vkLitMeshPipelineLayout;
@@ -218,9 +217,11 @@ private:
   std::chrono::time_point<Clock> _engineInitTimePoint;
 
   // Environment Mapping
+  RenderPass _envMapRenderPass;
   AllocatedBuffer _envMapRenderPassDataBuffer;
   AllocatedBuffer _envMapDataBuffer;
   bool _envMapDescriptorSetPendingUpdate = false;
+  VkFormat _envMapFormat = VK_FORMAT_R8G8B8A8_SRGB;
 
   void initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider);
   void initSwapchain(rhi::WindowExtentRHI const& extent);

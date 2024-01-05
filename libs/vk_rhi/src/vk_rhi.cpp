@@ -441,8 +441,8 @@ void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
       vkinit::depthStencilStateCreateInfo(true, true);
   pipelineBuilder._vkRasterizationCreateInfo.frontFace =
       VK_FRONT_FACE_CLOCKWISE;
-  newMaterial.vkPipelineEnvironmentRendering = pipelineBuilder.buildPipeline(
-      _vkDevice, _mainRenderPassNoDepthReuse.vkRenderPass);
+  newMaterial.vkPipelineEnvironmentRendering =
+      pipelineBuilder.buildPipeline(_vkDevice, _envMapRenderPass.vkRenderPass);
   pipelineBuilder._vkRasterizationCreateInfo.frontFace =
       VK_FRONT_FACE_COUNTER_CLOCKWISE;
 

@@ -248,16 +248,17 @@ void VulkanRHI::initMainRenderPasses() {
       .setSubpassPipelineBindPoint(0, VK_PIPELINE_BIND_POINT_GRAPHICS)
       .build(_mainRenderPassReuseDepth)
 
+      .setColorAttachment(_envMapFormat,
+                          VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
       .setDepthAttachment(_depthFormat, true)
       .setDepthSubpassReference(
           0, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
-      .build(_mainRenderPassNoDepthReuse);
+      .build(_envMapRenderPass);
 
   _swapchainDeletionQueue.pushFunction([this]() {
     vkDestroyRenderPass(_vkDevice, _mainRenderPassReuseDepth.vkRenderPass,
                         nullptr);
-    vkDestroyRenderPass(_vkDevice, _mainRenderPassNoDepthReuse.vkRenderPass,
-                        nullptr);
+    vkDestroyRenderPass(_vkDevice, _envMapRenderPass.vkRenderPass, nullptr);
   });
 }
 
