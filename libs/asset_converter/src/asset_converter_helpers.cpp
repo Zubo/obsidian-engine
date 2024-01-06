@@ -275,15 +275,24 @@ std::size_t generateVerticesFromGltf(
   outAabb.bottomCorner = glm::vec3{std::numeric_limits<float>::infinity()};
   outAabb.topCorner = glm::vec3{-std::numeric_limits<float>::infinity()};
   tinygltf::Mesh const& mesh = model.meshes[meshInd];
+  std::unordered_map<int, std::size_t> materialToSurfaceIndMap;
 
   for (std::size_t primitiveInd = 0; primitiveInd < mesh.primitives.size();
        ++primitiveInd) {
     ZoneScopedN("GLTF primitive");
 
     tinygltf::Primitive const& primitive = mesh.primitives[primitiveInd];
+    std::size_t surfaceInd;
 
-    int const matInd = outSurfaces.size() == 1 ? 0 : primitive.material;
-    std::vector<core::MeshIndexType>& surface = outSurfaces[matInd];
+    if (!materialToSurfaceIndMap.contains(primitive.material)) {
+      surfaceInd = outSurfaces.size();
+      materialToSurfaceIndMap[primitive.material] = surfaceInd;
+      outSurfaces.push_back({});
+    } else {
+      surfaceInd = materialToSurfaceIndMap.at(primitive.material);
+    }
+
+    std::vector<core::MeshIndexType>& surface = outSurfaces[surfaceInd];
 
     tinygltf::Accessor const& indAccessor = model.accessors[primitive.indices];
     tinygltf::BufferView const& indBufferView =
