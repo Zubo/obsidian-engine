@@ -886,6 +886,7 @@ void projectTab(ObsidianEngine& engine, bool& engineStarted) {
     }
 
     if (ImGui::Button("Open")) {
+      selectedGameObj = nullptr;
       if (engine.isInitialized()) {
         engine.openProject(projPathBuf);
       }
