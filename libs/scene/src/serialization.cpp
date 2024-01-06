@@ -52,7 +52,7 @@ void populateGameObject(serialization::GameObjectData const& gameObjectData,
   }
 
   outGameObject.setPosition(gameObjectData.position);
-  outGameObject.setEuler(gameObjectData.euler);
+  outGameObject.setRotationQuat(gameObjectData.rotationQuat);
   outGameObject.setScale(gameObjectData.scale);
 
   for (serialization::GameObjectData const& childData :

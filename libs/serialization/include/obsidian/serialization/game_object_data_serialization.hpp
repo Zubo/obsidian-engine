@@ -3,6 +3,7 @@
 #include <obsidian/core/light_types.hpp>
 
 #include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
 #include <nlohmann/json_fwd.hpp>
 
 #include <optional>
@@ -19,7 +20,7 @@ struct GameObjectData {
   std::optional<core::Spotlight> spotlight;
   std::optional<float> envMapRadius;
   glm::vec3 position = {};
-  glm::vec3 euler = {};
+  glm::quat rotationQuat = {};
   glm::vec3 scale = {1.0f, 1.0f, 1.0f};
   std::vector<GameObjectData> children;
 };

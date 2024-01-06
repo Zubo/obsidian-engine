@@ -12,7 +12,7 @@ using namespace obsidian::serialization;
 
 constexpr char const* gameObjectNameJsonName = "name";
 constexpr char const* gameObjectPositionJsonName = "pos";
-constexpr char const* gameObjectEulerJsonName = "euler";
+constexpr char const* gameObjectRotationQuatJsonName = "rotationQuat";
 constexpr char const* gameObjectScaleJsonName = "scale";
 constexpr char const* gameObjectMaterialsJsonName = "materials";
 constexpr char const* gameObjectMeshJsonName = "mesh";
@@ -106,7 +106,8 @@ bool serialization::serializeGameObject(GameObjectData const& gameObject,
   try {
     outJson[gameObjectNameJsonName] = gameObject.gameObjectName;
     outJson[gameObjectPositionJsonName] = vecToArray(gameObject.position);
-    outJson[gameObjectEulerJsonName] = vecToArray(gameObject.euler);
+    outJson[gameObjectRotationQuatJsonName] =
+        vecToArray(gameObject.rotationQuat);
     outJson[gameObjectScaleJsonName] = vecToArray(gameObject.scale);
 
     if (gameObject.materialPaths.size()) {
@@ -155,8 +156,8 @@ bool serialization::deserializeGameObject(nlohmann::json const& gameObjectJson,
     arrayToVector(gameObjectJson[gameObjectPositionJsonName],
                   outGameObjectData.position);
 
-    arrayToVector(gameObjectJson[gameObjectEulerJsonName],
-                  outGameObjectData.euler);
+    arrayToVector(gameObjectJson[gameObjectRotationQuatJsonName],
+                  outGameObjectData.rotationQuat);
 
     arrayToVector(gameObjectJson[gameObjectScaleJsonName],
                   outGameObjectData.scale);

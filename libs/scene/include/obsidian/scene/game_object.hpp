@@ -8,6 +8,7 @@
 #include <obsidian/serialization/game_object_data_serialization.hpp>
 
 #include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 #include <filesystem>
 #include <list>
@@ -59,8 +60,10 @@ public:
   glm::vec3 const& getPosition() const;
   void setPosition(glm::vec3 const& pos);
 
-  glm::vec3 const& getEuler() const;
+  glm::vec3 getEuler() const;
   void setEuler(glm::vec3 const& euler);
+  glm::quat const& getRotationQuat() const;
+  void setRotationQuat(glm::quat const& quat);
 
   glm::vec3 const& getScale() const;
   void setScale(glm::vec3 const& scale);
@@ -99,7 +102,7 @@ private:
   std::list<GameObject> _children;
   GameObjectId _objectId;
   glm::vec3 _position = {};
-  glm::vec3 _euler = {};
+  glm::quat _rotationQuat = {};
   glm::vec3 _scale = {1.0f, 1.0f, 1.0f};
   glm::mat4 _transform{1.0f};
   rhi::RHI& _rhi;

@@ -562,7 +562,7 @@ nodeToGameObjectData(int nodeInd, tinygltf::Model const& model,
   if (node.rotation.size()) {
     glm::quat const q(node.rotation[3], node.rotation[0], node.rotation[1],
                       node.rotation[2]);
-    resultGameObjectData.euler = glm::degrees(glm::eulerAngles(q));
+    resultGameObjectData.rotationQuat = q;
   }
 
   if (node.scale.size()) {

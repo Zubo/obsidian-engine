@@ -5,6 +5,7 @@
 #include <obsidian/serialization/game_object_data_serialization.hpp>
 
 #include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/transform.hpp>
 
 #include <algorithm>
@@ -132,11 +133,21 @@ void GameObject::setPosition(glm::vec3 const& pos) {
   updateTransform();
 }
 
-glm::vec3 const& GameObject::getEuler() const { return _euler; }
+glm::vec3 GameObject::getEuler() const {
+  glm::vec3 euler = glm::degrees(glm::eulerAngles(_rotationQuat));
+  return euler;
+}
 
 void GameObject::setEuler(glm::vec3 const& euler) {
-  _euler = euler;
+  _rotationQuat = glm::quat(glm::radians(euler));
+
   updateTransform();
+}
+
+glm::quat const& GameObject::getRotationQuat() const { return _rotationQuat; }
+
+void GameObject::setRotationQuat(glm::quat const& rotationQuat) {
+  _rotationQuat = rotationQuat;
 }
 
 glm::vec3 const& GameObject::getScale() const { return _scale; }
@@ -187,7 +198,7 @@ serialization::GameObjectData GameObject::getGameObjectData() const {
   result.spotlight = _spotlight;
   result.envMapRadius = _envMapRadius;
   result.position = getPosition();
-  result.euler = getEuler();
+  result.rotationQuat = getRotationQuat();
   result.scale = getScale();
 
   result.children.reserve(_children.size());
@@ -269,12 +280,7 @@ void GameObject::updateTransform() {
 
   _transform *= glm::translate(_position);
 
-  _transform *=
-      glm::rotate(glm::radians(_euler.x), glm::vec3{1.0f, 0.0f, 0.0f});
-  _transform *=
-      glm::rotate(glm::radians(_euler.y), glm::vec3{0.0f, 1.0f, 0.0f});
-  _transform *=
-      glm::rotate(glm::radians(_euler.z), glm::vec3{0.0f, 0.0f, 1.0f});
+  _transform *= glm::mat4_cast(_rotationQuat);
 
   _transform *= glm::scale(_scale);
 }

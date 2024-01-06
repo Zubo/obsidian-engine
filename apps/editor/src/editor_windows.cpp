@@ -428,10 +428,22 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
         ImGui::InputScalarN("Position", ImGuiDataType_Float, &pos, 3);
         selectedGameObj->setPosition(pos);
 
-        glm::vec3 euler = selectedGameObj->getEuler();
-        ImGui::SliderFloat3("Euler Rotation", reinterpret_cast<float*>(&euler),
-                            -180.0f, 180.f);
-        selectedGameObj->setEuler(euler);
+        // we need to track separate buffer for euler angles because glm
+        // conversions do normalization on euler angles to keep the yaw in range
+        // -90 and 90 degrees
+        static scene::GameObject const* lastSelected = nullptr;
+        static glm::vec3 gameObjEuler;
+
+        if (selectedGameObj != lastSelected) {
+          lastSelected = selectedGameObj;
+          gameObjEuler = selectedGameObj->getEuler();
+        }
+
+        if (ImGui::SliderFloat3("Euler Rotation",
+                                reinterpret_cast<float*>(&gameObjEuler),
+                                -180.0f, 180.f)) {
+          selectedGameObj->setEuler(gameObjEuler);
+        }
 
         glm::vec3 scale = selectedGameObj->getScale();
         ImGui::InputScalarN("Scale", ImGuiDataType_Float, &scale, 3);
