@@ -28,11 +28,13 @@ VkFormat getVkTextureFormat(core::TextureFormat format) {
   }
 }
 
-GPUCameraData getDirectionalLightCameraData(glm::vec3 direction) {
+GPUCameraData getDirectionalLightCameraData(glm::vec3 direction,
+                                            glm::vec3 mainCameraPos) {
   GPUCameraData gpuCameraData;
 
-  gpuCameraData.view = glm::lookAt({}, direction, {0.f, 1.f, 0.f});
-  gpuCameraData.proj = glm::ortho(-200.f, 200.f, -200.f, 200.f, -200.f, 200.f);
+  gpuCameraData.view =
+      glm::lookAt(mainCameraPos, mainCameraPos + direction, {0.f, 1.f, 0.f});
+  gpuCameraData.proj = glm::ortho(-50.f, 50.f, -50.f, 50.f, -100.f, 100.f);
   gpuCameraData.proj[1][1] *= -1;
 
   // Map NDC from [-1, 1] to [0, 1]

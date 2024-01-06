@@ -847,10 +847,10 @@ void VulkanRHI::initLightDataBuffer() {
 }
 
 void VulkanRHI::initDepthSampler() {
-  VkSamplerCreateInfo const vkDepthSamplerCreateInfo =
-      vkinit::samplerCreateInfo(VK_FILTER_LINEAR,
-                                VK_SAMPLER_MIPMAP_MODE_NEAREST,
-                                VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
+  VkSamplerCreateInfo vkDepthSamplerCreateInfo = vkinit::samplerCreateInfo(
+      VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_NEAREST,
+      VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER);
+  vkDepthSamplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
 
   VK_CHECK(vkCreateSampler(_vkDevice, &vkDepthSamplerCreateInfo, nullptr,
                            &_vkDepthSampler));

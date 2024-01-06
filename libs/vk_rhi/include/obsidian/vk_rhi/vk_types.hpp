@@ -201,7 +201,8 @@ struct GpuEnvironmentMapDataCollection {
 
 VkFormat getVkTextureFormat(core::TextureFormat format);
 
-GPUCameraData getDirectionalLightCameraData(glm::vec3 direction);
+GPUCameraData getDirectionalLightCameraData(glm::vec3 direction,
+                                            glm::vec3 mainCameraPos);
 GPUCameraData getSpotlightCameraData(glm::vec3 const& position,
                                      glm::vec3 const& direction,
                                      float cutoffAngleRad);

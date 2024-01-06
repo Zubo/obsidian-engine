@@ -256,8 +256,11 @@ void VulkanRHI::drawSsaoPostProcessing(DrawPassParams const& params) {
 }
 
 void VulkanRHI::shadowPasses(DrawPassParams const& params) {
+  glm::mat4 const inverseView = glm::inverse(params.cameraData.view);
+  glm::vec3 const mainCameraPos = {inverseView[3][0], inverseView[3][1],
+                                   inverseView[3][2]};
   std::vector<ShadowPassParams> submittedParams =
-      getSubmittedShadowPassParams();
+      getSubmittedShadowPassParams(mainCameraPos);
 
   VertexInputSpec const shadowPassVertInputSpec = {true, false, false, false,
                                                    false};
@@ -564,7 +567,8 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   gpuSceneData.ambientColor = glm::vec4(sceneParams.ambientColor, 1.0f);
   uploadBufferData(params.frameInd, gpuSceneData, _sceneDataBuffer);
 
-  uploadBufferData(params.frameInd, getGPULightData(), _lightDataBuffer);
+  uploadBufferData(params.frameInd, getGPULightData(sceneParams.cameraPos),
+                   _lightDataBuffer);
 
   auto const sortByDistanceAscending =
       getSortByDistanceFunc<true>(params.cameraData.viewProj);

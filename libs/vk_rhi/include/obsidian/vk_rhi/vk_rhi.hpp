@@ -350,10 +350,11 @@ private:
   int getNextAvailableShadowMapIndex();
   void submitLight(rhi::DirectionalLightParams const& directionalLight);
   void submitLight(rhi::SpotlightParams const& spotlight);
-  std::vector<ShadowPassParams> getSubmittedShadowPassParams() const;
+  std::vector<ShadowPassParams>
+  getSubmittedShadowPassParams(glm::vec3 mainCameraPos) const;
   GPUCameraData
   getSceneCameraData(rhi::SceneGlobalParams const& sceneParams) const;
-  GPULightData getGPULightData() const;
+  GPULightData getGPULightData(glm::vec3 mainCameraPos) const;
 
   void depthPrepass(struct DrawPassParams const& params);
   void ssaoPass(struct DrawPassParams const& params);
