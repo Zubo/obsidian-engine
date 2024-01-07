@@ -6,6 +6,7 @@
 #include <atomic>
 #include <filesystem>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <vector>
 
@@ -44,7 +45,7 @@ public:
   RuntimeResourceState getResourceState() const;
   bool isResourceReady() const;
   rhi::ResourceIdRHI getResourceId() const;
-  void load();
+  void requestLoad();
   std::filesystem::path getRelativePath() const;
   void declareRef();
   void releaseRef();
@@ -55,6 +56,7 @@ private:
   void releaseAsset();
   void performUploadToRHI();
   std::vector<RuntimeResource*> const& fetchDependencies();
+  std::function<void(char*)> getUnpackFunc(auto const& info);
 
   using ReleaseRHIResource = void (*)(rhi::RHI&, rhi::ResourceIdRHI);
   RuntimeResourceManager& _runtimeResourceManager;
@@ -65,6 +67,7 @@ private:
   rhi::ResourceRHI* _resourceRHI = nullptr;
   ReleaseRHIResource _releaseFunc = nullptr;
   std::optional<std::vector<RuntimeResource*>> _dependencies;
+  std::mutex _resourceMutex;
   std::atomic<RuntimeResourceState> _resourceState =
       RuntimeResourceState::initial;
   std::uint32_t _refCount = 0;

@@ -52,11 +52,29 @@ void TaskExecutor::workerFunc(TaskType taskType) {
         *_dequeuedTasks.emplace_back(std::move(taskQueue.tasks.back()));
     taskQueue.tasks.pop_back();
 
+    ++taskQueue.tasksInProgress;
+
     lock.unlock();
     taskQueue.taskQueueCondVar.notify_one();
 
     task.execute();
+
+    lock.lock();
+
+    --taskQueue.tasksInProgress;
+    bool const notifyWait = !getPendingAndUncompletedTasksCount();
+
+    lock.unlock();
+
+    _waitIdleCondVar.notify_all();
   }
+}
+
+void TaskExecutor::waitIdle() const {
+  std::unique_lock l{_taskQueueMutex};
+
+  _waitIdleCondVar.wait(
+      l, [this]() { return !getPendingAndUncompletedTasksCount(); });
 }
 
 void TaskExecutor::shutdown() {
@@ -70,6 +88,8 @@ void TaskExecutor::shutdown() {
     t.join();
   }
 
+  _waitIdleCondVar.notify_all();
+
   _taskQueues.clear();
   _dequeuedTasks.clear();
   _threads.clear();
@@ -78,3 +98,14 @@ void TaskExecutor::shutdown() {
 }
 
 bool TaskExecutor::shutdownComplete() const { return _shutdownComplete; }
+
+std::size_t TaskExecutor::getPendingAndUncompletedTasksCount() const {
+  std::size_t cnt = 0;
+
+  for (auto const& taskQueueEntry : _taskQueues) {
+    cnt += (taskQueueEntry.second.tasksInProgress +
+            taskQueueEntry.second.tasks.size());
+  }
+
+  return cnt;
+}

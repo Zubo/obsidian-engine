@@ -370,11 +370,14 @@ bool DescriptorBuilder::build(VkDescriptorSet& outVkDescriptorSet,
 
   bool result = _allocator->allocate(outLayout, &outVkDescriptorSet);
 
-  for (VkWriteDescriptorSet& writeDescr : _writes) {
-    writeDescr.dstSet = outVkDescriptorSet;
-  }
+  if (result) {
+    for (VkWriteDescriptorSet& writeDescr : _writes) {
+      writeDescr.dstSet = outVkDescriptorSet;
+    }
 
-  vkUpdateDescriptorSets(_vkDevice, _writes.size(), _writes.data(), 0, nullptr);
+    vkUpdateDescriptorSets(_vkDevice, _writes.size(), _writes.data(), 0,
+                           nullptr);
+  }
 
   return result;
 }

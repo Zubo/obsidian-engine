@@ -78,6 +78,7 @@ bool ObsidianEngine::init(IWindowBackendProvider const& windowBackendProvider,
 }
 
 void ObsidianEngine::cleanup() {
+  _context.taskExecutor.waitIdle();
   _context.scene.getState().gameObjects.clear();
   _context.inputContext.keyInputEmitter.cleanup();
   _context.inputContext.mouseEventEmitter.cleanup();
@@ -117,6 +118,7 @@ void ObsidianEngine::processFrame() {
 }
 
 void ObsidianEngine::openProject(std::filesystem::path projectPath) {
+  _context.taskExecutor.waitIdle();
   _context.scene.getState() = {};
   _context.taskExecutor.shutdown();
   initTaskExecutor();
@@ -128,11 +130,11 @@ void ObsidianEngine::openProject(std::filesystem::path projectPath) {
 }
 
 void ObsidianEngine::initTaskExecutor() {
-  unsigned int const nCores = std::thread::hardware_concurrency();
+  int const nCores = std::thread::hardware_concurrency();
 
   _context.taskExecutor.initAndRun(
-      {{task::TaskType::rhiDraw, 1},
-       {task::TaskType::rhiTransfer, 4},
+      {{task::TaskType::rhiTransfer, 4},
        {task::TaskType::rhiUpload, 1},
-       {task::TaskType::general, std::max(nCores - 5u, 2u)}});
+       {task::TaskType::general,
+        static_cast<unsigned>(std::max(nCores - 5, 1))}});
 }

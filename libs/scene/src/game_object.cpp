@@ -219,11 +219,10 @@ void GameObject::draw(glm::mat4 const& parentTransform) {
     runtime_resource::RuntimeResource& meshResource =
         _resourceManager.getResource(_meshResourceRelativePath);
 
-    if (meshResource.getResourceState() ==
-        runtime_resource::RuntimeResourceState::initial) {
-      meshResource.load();
-    } else if (meshResource.isResourceReady()) {
+    if (meshResource.isResourceReady()) {
       meshReady = true;
+    } else {
+      meshResource.requestLoad();
     }
   }
 
@@ -233,12 +232,10 @@ void GameObject::draw(glm::mat4 const& parentTransform) {
     for (auto& matRelativePath : _materialRelativePaths) {
       runtime_resource::RuntimeResource& matResource =
           _resourceManager.getResource(matRelativePath);
-      if (matResource.getResourceState() ==
-          runtime_resource::RuntimeResourceState::initial) {
-        matResource.load();
+      if (!matResource.isResourceReady()) {
+        matResource.requestLoad();
+        materialsReady = false;
       }
-
-      materialsReady &= matResource.isResourceReady();
     }
   }
 

@@ -26,6 +26,8 @@ RuntimeResource::RuntimeResource(std::filesystem::path path,
       _path{std::move(path)} {}
 
 RuntimeResource::~RuntimeResource() {
+  std::scoped_lock l{_resourceMutex};
+
   releaseAsset();
   releaseFromRHI();
 }
@@ -43,9 +45,38 @@ rhi::ResourceIdRHI RuntimeResource::getResourceId() const {
   return _resourceRHI ? _resourceRHI->id : rhi::rhiIdUninitialized;
 }
 
-void RuntimeResource::load() {
-  if (_resourceState == RuntimeResourceState::initial) {
+void RuntimeResource::requestLoad() {
+  RuntimeResourceState expected = RuntimeResourceState::initial;
+
+  if (_resourceState.compare_exchange_strong(
+          expected, RuntimeResourceState::pendingLoad)) {
+    std::vector<RuntimeResource*> const& deps = fetchDependencies();
+
+    for (RuntimeResource* const d : deps) {
+      if (d->getResourceState() == RuntimeResourceState::initial) {
+        d->requestLoad();
+      }
+    }
+
     _runtimeResourceLoader.loadResource(*this);
+    return;
+  }
+
+  std::scoped_lock l{_resourceMutex};
+
+  if (_resourceState == RuntimeResourceState::assetLoadingFailed) {
+    assert(!_resourceRHI && !_releaseFunc &&
+           "RuntimeResourceState::assetLoadingFailed implies "
+           "the rhi resource was not created.");
+    releaseAsset();
+    _resourceState = RuntimeResourceState::initial;
+  } else if (_resourceState == RuntimeResourceState::uploadedToRhi &&
+             _resourceRHI &&
+             _resourceRHI->state == rhi::ResourceState::invalid) {
+    assert(!_asset && "RuntimeResourceState::uploadedToRhi implies the asset "
+                      "is released from main memory.");
+    releaseFromRHI();
+    _resourceState = RuntimeResourceState::initial;
   }
 }
 
@@ -69,8 +100,7 @@ void RuntimeResource::releaseRef() {
 }
 
 void RuntimeResource::releaseFromRHI() {
-  if (_releaseFunc && _resourceRHI &&
-      _resourceRHI->state != rhi::ResourceState::invalid) {
+  if (_releaseFunc && _resourceRHI) {
     _releaseFunc(_rhi, _resourceRHI->id);
     _releaseFunc = nullptr;
     _resourceRHI = nullptr;
@@ -78,9 +108,12 @@ void RuntimeResource::releaseFromRHI() {
 }
 
 bool RuntimeResource::performAssetLoad() {
-  RuntimeResourceState expected = RuntimeResourceState::pendingLoad;
-  if (!_resourceState.compare_exchange_strong(
-          expected, RuntimeResourceState::assetLoading)) {
+  std::scoped_lock l{_resourceMutex};
+
+  if (_resourceState != RuntimeResourceState::pendingLoad) {
+    OBS_LOG_ERR("Expected resource state in the method performAssetLoad is "
+                "RuntimeResourceState::pendingLoad. The actual state is " +
+                std::to_string((int)_resourceState.load()));
     return false;
   }
 
@@ -95,14 +128,8 @@ bool RuntimeResource::performAssetLoad() {
     OBS_LOG_ERR("Failed to load asset on path " + _path.string());
   }
 
-  expected = RuntimeResourceState::assetLoading;
-  RuntimeResourceState const desired =
-      loadResult ? RuntimeResourceState::assetLoaded
-                 : RuntimeResourceState::assetLoadingFailed;
-
-  if (!_resourceState.compare_exchange_strong(expected, desired)) {
-    return false;
-  }
+  _resourceState = loadResult ? RuntimeResourceState::assetLoaded
+                              : RuntimeResourceState::assetLoadingFailed;
 
   return loadResult;
 }
@@ -114,6 +141,8 @@ void RuntimeResource::releaseAsset() {
 }
 
 void RuntimeResource::performUploadToRHI() {
+  std::scoped_lock l{_resourceMutex};
+
   if (_resourceRHI && _resourceRHI->state != rhi::ResourceState::initial) {
     OBS_LOG_WARN("Trying to upload laready uploaded resource. Resource path: " +
                  _path.string());
@@ -127,9 +156,7 @@ void RuntimeResource::performUploadToRHI() {
     return;
   }
 
-  RuntimeResourceState expected = RuntimeResourceState::assetLoaded;
-  if (!_resourceState.compare_exchange_strong(
-          expected, RuntimeResourceState::uploadingToRhi)) {
+  if (_resourceState != RuntimeResourceState::assetLoaded) {
     OBS_LOG_ERR("_resourceState of the RuntimeResource has to be in the "
                 "RuntimeResourceState::assetLoaded state before uploading it "
                 "to the RHI. "
@@ -155,11 +182,7 @@ void RuntimeResource::performUploadToRHI() {
     uploadMesh.vertexBufferSize = info.vertexBufferSize;
     uploadMesh.indexCount = info.indexCount;
     uploadMesh.indexBufferSizes = info.indexBufferSizes;
-    uploadMesh.unpackFunc = [this, info](char* dst) {
-      asset::unpackAsset(info, _asset->binaryBlob.data(),
-                         _asset->binaryBlob.size(), dst);
-      _asset.reset();
-    };
+    uploadMesh.unpackFunc = getUnpackFunc(info);
 
     uploadMesh.aabb = info.aabb;
     uploadMesh.hasNormals = info.hasNormals;
@@ -187,11 +210,7 @@ void RuntimeResource::performUploadToRHI() {
     uploadTexture.width = info.width;
     uploadTexture.height = info.height;
     uploadTexture.mipLevels = info.mipLevels;
-    uploadTexture.unpackFunc = [this, info](char* dst) {
-      asset::unpackAsset(info, _asset->binaryBlob.data(),
-                         _asset->binaryBlob.size(), dst);
-      _asset.reset();
-    };
+    uploadTexture.unpackFunc = getUnpackFunc(info);
 
     _resourceRHI = &_rhi.initTextureResource();
     _rhi.uploadTexture(_resourceRHI->id, std::move(uploadTexture));
@@ -256,11 +275,7 @@ void RuntimeResource::performUploadToRHI() {
 
     rhi::UploadShaderRHI uploadShader;
     uploadShader.shaderDataSize = info.unpackedSize;
-    uploadShader.unpackFunc = [this, info](char* dst) {
-      asset::unpackAsset(info, _asset->binaryBlob.data(),
-                         _asset->binaryBlob.size(), dst);
-      _asset.reset();
-    };
+    uploadShader.unpackFunc = getUnpackFunc(info);
 
     _resourceRHI = &_rhi.initShaderResource();
     _rhi.uploadShader(_resourceRHI->id, uploadShader);
@@ -273,11 +288,7 @@ void RuntimeResource::performUploadToRHI() {
     OBS_LOG_ERR("Trying to upload unknown asset type");
   }
 
-  expected = RuntimeResourceState::uploadingToRhi;
-  if (!_resourceState.compare_exchange_strong(
-          expected, RuntimeResourceState::uploadedToRhi)) {
-    releaseFromRHI();
-  }
+  _resourceState = RuntimeResourceState::uploadedToRhi;
 }
 
 std::vector<RuntimeResource*> const& RuntimeResource::fetchDependencies() {
@@ -314,4 +325,17 @@ std::vector<RuntimeResource*> const& RuntimeResource::fetchDependencies() {
   }
 
   return *_dependencies;
+}
+
+std::function<void(char*)> RuntimeResource::getUnpackFunc(auto const& info) {
+  return [this, info](char* dst) {
+    if (!_asset) {
+      OBS_LOG_ERR("Unpack function called while the asset is not loaded.");
+      return;
+    }
+
+    asset::unpackAsset(info, _asset->binaryBlob.data(),
+                       _asset->binaryBlob.size(), dst);
+    releaseAsset();
+  };
 }

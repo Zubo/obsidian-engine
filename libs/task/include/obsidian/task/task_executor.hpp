@@ -23,6 +23,7 @@ struct ThreadInitInfo {
 struct TaskQueue {
   std::vector<std::unique_ptr<TaskBase>> tasks;
   std::condition_variable taskQueueCondVar;
+  std::size_t tasksInProgress = 0;
 };
 
 class TaskExecutor {
@@ -52,15 +53,20 @@ public:
 
   void workerFunc(TaskType taskType);
 
+  void waitIdle() const;
+
   void shutdown();
 
   bool shutdownComplete() const;
+
+  std::size_t getPendingAndUncompletedTasksCount() const;
 
 private:
   std::map<TaskType, TaskQueue> _taskQueues;
   std::vector<std::unique_ptr<TaskBase>> _dequeuedTasks;
   std::vector<std::thread> _threads;
-  std::mutex _taskQueueMutex;
+  mutable std::mutex _taskQueueMutex;
+  mutable std::condition_variable _waitIdleCondVar;
   bool _running = false;
   bool _shutdownComplete = false;
 };

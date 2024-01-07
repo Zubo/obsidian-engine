@@ -542,13 +542,16 @@ void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
                                 VK_SHADER_STAGE_FRAGMENT_BIT);
   }
 
-  builder.build(newMaterial.vkDescriptorSet);
+  if (!builder.build(newMaterial.vkDescriptorSet)) {
+    OBS_LOG_ERR("Failed to build descriptor set when uploading material");
+    newMaterial.resource.state = rhi::ResourceState::invalid;
+  } else {
+    expected = rhi::ResourceState::uploading;
 
-  expected = rhi::ResourceState::uploading;
-
-  if (!newMaterial.resource.state.compare_exchange_strong(
-          expected, rhi::ResourceState::uploaded)) {
-    assert(false && "Material resource in invalid state");
+    if (!newMaterial.resource.state.compare_exchange_strong(
+            expected, rhi::ResourceState::uploaded)) {
+      assert(false && "Material resource in invalid state");
+    }
   }
 }
 
@@ -585,8 +588,13 @@ void VulkanRHI::destroyUnusedResources(
   for (rhi::ResourceIdRHI matId :
        pendingResourcesToDestroy.materialsToDestroy) {
     VkMaterial& mat = _materials.at(matId);
-    vkDestroyPipeline(_vkDevice, mat.vkPipelineReuseDepth, nullptr);
-    vkDestroyPipeline(_vkDevice, mat.vkPipelineEnvironmentRendering, nullptr);
+
+    if (mat.vkPipelineReuseDepth) {
+      vkDestroyPipeline(_vkDevice, mat.vkPipelineReuseDepth, nullptr);
+    }
+    if (mat.vkPipelineEnvironmentRendering) {
+      vkDestroyPipeline(_vkDevice, mat.vkPipelineEnvironmentRendering, nullptr);
+    }
 
     _materials.erase(matId);
   }

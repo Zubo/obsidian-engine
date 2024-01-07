@@ -364,6 +364,7 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
         }
 
         if (ImGui::Button("Load Scene")) {
+          engine.getContext().taskExecutor.waitIdle();
           loadScene(scenePath, sceneState, engine);
         }
 

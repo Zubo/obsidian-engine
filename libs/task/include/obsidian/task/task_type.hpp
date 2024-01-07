@@ -2,6 +2,6 @@
 
 namespace obsidian::task {
 
-enum class TaskType { general, rhiDraw, rhiTransfer, rhiUpload };
+enum class TaskType { general, rhiTransfer, rhiUpload };
 
 } /*namespace obsidian::task*/

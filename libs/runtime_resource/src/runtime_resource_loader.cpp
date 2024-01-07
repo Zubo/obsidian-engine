@@ -38,26 +38,12 @@ bool RuntimeResourceLoader::loadResource(RuntimeResource& runtimeResource) {
 }
 
 bool RuntimeResourceLoader::loadResImpl(RuntimeResource& runtimeResource) {
-  if (runtimeResource.getResourceState() != RuntimeResourceState::initial) {
+  if (runtimeResource.getResourceState() != RuntimeResourceState::pendingLoad) {
     return false;
   }
 
-  std::vector<RuntimeResource*> const& deps =
-      runtimeResource.fetchDependencies();
-
-  for (RuntimeResource* const d : deps) {
-    loadResImpl(*d);
-  }
-
-  RuntimeResourceState const state = runtimeResource.getResourceState();
-  switch (state) {
-  case RuntimeResourceState::initial:
-    runtimeResource._resourceState = RuntimeResourceState::pendingLoad;
-    _assetLoadQueue.push_back(&runtimeResource);
-    return true;
-  default:
-    return false;
-  }
+  _assetLoadQueue.push_back(&runtimeResource);
+  return true;
 }
 
 void RuntimeResourceLoader::uploaderFunc() {
