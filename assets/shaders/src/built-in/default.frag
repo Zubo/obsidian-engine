@@ -83,6 +83,7 @@ void main() {
 #endif
 
   vec3 finalColor = (ambientColor + diffuseColor + specularColor).xyz;
+  vec3 finalColorMapped = finalColor / (finalColor + vec3(1.0f, 1.0f, 1.0f));
 
-  outFragColor = vec4(finalColor, diffuseColor.w);
+  outFragColor = vec4(finalColorMapped, diffuseColor.w);
 }
