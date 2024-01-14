@@ -62,7 +62,6 @@ struct UploadMaterialRHI {
   float shininess;
   bool transparent;
   bool reflection;
-  float refractionIndex;
   bool hasTimer;
 };
 

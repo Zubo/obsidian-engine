@@ -24,7 +24,6 @@ struct MaterialAssetInfo : public AssetInfo {
   float shininess;
   bool transparent;
   bool reflection;
-  float refractionIndex;
   bool hasTimer;
 };
 

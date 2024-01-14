@@ -678,7 +678,6 @@ void materialCreatorTab() {
       newMatAssetInfo.diffuseColor = {1.0f, 1.0f, 1.0f, 1.0f};
       newMatAssetInfo.specularColor = {1.0f, 1.0f, 1.0f, 1.0f};
       newMatAssetInfo.shininess = 1.0f;
-      newMatAssetInfo.refractionIndex = 1.0f;
 
       asset::Asset newMatAsset;
 
@@ -809,11 +808,6 @@ void materialCreatorTab() {
 
       if (ImGui::Checkbox("Reflection",
                           &selectedMaterialAssetInfo.reflection)) {
-      }
-
-      if (ImGui::SliderFloat("RefractionIndex",
-                             &selectedMaterialAssetInfo.refractionIndex, 1.0f,
-                             5.0f)) {
       }
 
       if (ImGui::Checkbox("Uses Timer", &selectedMaterialAssetInfo.hasTimer)) {

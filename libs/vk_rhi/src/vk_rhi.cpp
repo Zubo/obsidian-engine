@@ -448,7 +448,6 @@ void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
 
   newMaterial.transparent = uploadMaterial.transparent;
   newMaterial.reflection = uploadMaterial.reflection;
-  newMaterial.refractionIndex = uploadMaterial.refractionIndex;
 
   DescriptorBuilder builder = DescriptorBuilder::begin(
       _vkDevice, _descriptorAllocator, _descriptorLayoutCache);
@@ -464,7 +463,6 @@ void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
     materialData.hasNormalMap =
         uploadMaterial.normalTextureId != rhi::rhiIdUninitialized;
     materialData.reflection = uploadMaterial.reflection;
-    materialData.refractionIndex = uploadMaterial.refractionIndex;
     materialData.ambientColor = uploadMaterial.ambientColor;
     materialData.diffuseColor = uploadMaterial.diffuseColor;
     materialData.specularColor = uploadMaterial.specularColor;

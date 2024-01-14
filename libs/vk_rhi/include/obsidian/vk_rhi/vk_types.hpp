@@ -39,7 +39,6 @@ struct VkMaterial {
   rhi::ResourceRHI resource;
   bool transparent;
   bool reflection;
-  float refractionIndex;
   rhi::ResourceIdRHI shaderResourceDependencyId;
   std::vector<rhi::ResourceIdRHI> textureResourceDependencyIds;
 };
@@ -119,7 +118,6 @@ struct GPULitMaterialData {
   VkBool32 hasDiffuseTex;
   VkBool32 hasNormalMap;
   VkBool32 reflection;
-  float refractionIndex;
   float shininess;
 };
 
