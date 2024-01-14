@@ -2,7 +2,7 @@
 #define _lighting_
 
 #include "camera.glsl"
-#include "material.glsl"
+#include "lit-material.glsl"
 
 #define MAX_LIGHT_COUNT 8
 

@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <functional>
 #include <optional>
+#include <variant>
 #include <vector>
 
 namespace obsidian::rhi {
@@ -51,17 +52,32 @@ struct UploadShaderRHI {
   std::function<void(char*)> unpackFunc;
 };
 
-struct UploadMaterialRHI {
-  core::MaterialType materialType;
-  ResourceIdRHI shaderId;
+struct UploadUnlitMaterialRHI {
+  glm::vec4 color;
+  ResourceIdRHI colorTextureId = rhi::rhiIdUninitialized;
+};
+
+struct UploadLitMaterialRHI {
   ResourceIdRHI diffuseTextureId = rhi::rhiIdUninitialized;
   ResourceIdRHI normalTextureId = rhi::rhiIdUninitialized;
   glm::vec4 ambientColor;
   glm::vec4 diffuseColor;
   glm::vec4 specularColor;
   float shininess;
-  bool transparent;
   bool reflection;
+};
+
+struct UploadPBRMaterialRHI {};
+
+using UploadMaterialSubtypeRHI =
+    std::variant<UploadUnlitMaterialRHI, UploadLitMaterialRHI,
+                 UploadPBRMaterialRHI>;
+
+struct UploadMaterialRHI {
+  core::MaterialType materialType;
+  UploadMaterialSubtypeRHI uploadMaterialSubtype;
+  ResourceIdRHI shaderId;
+  bool transparent;
   bool hasTimer;
 };
 

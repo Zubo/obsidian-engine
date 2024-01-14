@@ -116,7 +116,7 @@ private:
   DescriptorBuilder(VkDevice vkDevice, DescriptorAllocator& allocator,
                     DescriptorLayoutCache& layoutCache);
 
-  void partiallyBoundBinding(uint32_t binding);
+  void partiallyBoundBinding(std::size_t bindingInd);
 
   VkDevice _vkDevice;
   DescriptorAllocator* _allocator;

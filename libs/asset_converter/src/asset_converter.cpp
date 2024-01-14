@@ -750,14 +750,21 @@ AssetConverter::extractMaterials(fs::path const& srcDirPath,
     asset::MaterialAssetInfo newMatAssetInfo;
     newMatAssetInfo.compressionMode = asset::CompressionMode::none;
     newMatAssetInfo.materialType = core::MaterialType::lit;
-    newMatAssetInfo.shaderPath = shaderPicker(mat);
-    newMatAssetInfo.ambientColor = getAmbientColor(mat);
-    newMatAssetInfo.diffuseColor = getDiffuseColor(mat);
-    newMatAssetInfo.specularColor = getSpecularColor(mat);
 
-    newMatAssetInfo.shininess = getShininess(mat);
+    asset::LitMaterialAssetData& litMatAssetData =
+        newMatAssetInfo.materialSubtypeData
+            .emplace<asset::LitMaterialAssetData>();
+
+    newMatAssetInfo.shaderPath = shaderPicker(mat);
+    litMatAssetData.ambientColor = getAmbientColor(mat);
+    litMatAssetData.diffuseColor = getDiffuseColor(mat);
+    litMatAssetData.specularColor = getSpecularColor(mat);
+    litMatAssetData.shininess = getShininess(mat);
+    litMatAssetData.reflection = false;
+
+    newMatAssetInfo.materialSubtypeData = litMatAssetData;
+
     newMatAssetInfo.transparent = isMaterialTransparent(mat);
-    newMatAssetInfo.reflection = false;
 
     std::string const diffuseTexName = getDiffuseTexName(mat);
     if (!diffuseTexName.empty()) {
@@ -768,7 +775,7 @@ AssetConverter::extractMaterials(fs::path const& srcDirPath,
       newMatAssetInfo.transparent |= (texInfo && texInfo->transparent);
       fs::path dstPath = diffuseTexName;
       dstPath.replace_extension(globals::textureAssetExt);
-      newMatAssetInfo.diffuseTexturePath = dstPath;
+      litMatAssetData.diffuseTexturePath = dstPath;
     }
 
     std::string const normalTexName = getNormalTexName(mat);
@@ -779,7 +786,7 @@ AssetConverter::extractMaterials(fs::path const& srcDirPath,
 
       fs::path dstPath = normalTexName;
       dstPath.replace_extension(globals::textureAssetExt);
-      newMatAssetInfo.normalMapTexturePath = dstPath;
+      litMatAssetData.normalMapTexturePath = dstPath;
     }
 
     VertexContentInfo const vertInfo = getVertInfo(mat);

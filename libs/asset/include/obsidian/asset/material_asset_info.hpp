@@ -6,6 +6,7 @@
 #include <glm/glm.hpp>
 
 #include <string>
+#include <variant>
 #include <vector>
 
 namespace obsidian::asset {
@@ -13,17 +14,34 @@ namespace obsidian::asset {
 struct Asset;
 struct AssetMetadata;
 
-struct MaterialAssetInfo : public AssetInfo {
-  core::MaterialType materialType;
-  std::string shaderPath;
+struct UnlitMaterialAssetData {
+  std::string colorTexturePath;
+  glm::vec4 color = {1.0f, 1.0f, 1.0f, 1.0f};
+};
+
+struct LitMaterialAssetData {
   std::string diffuseTexturePath;
   std::string normalMapTexturePath;
-  glm::vec4 ambientColor;
-  glm::vec4 diffuseColor;
-  glm::vec4 specularColor;
+  glm::vec4 ambientColor = {1.0f, 1.0f, 1.0f, 1.0f};
+  glm::vec4 diffuseColor = {1.0f, 1.0f, 1.0f, 1.0f};
+  glm::vec4 specularColor = {1.0f, 1.0f, 1.0f, 1.0f};
   float shininess;
-  bool transparent;
   bool reflection;
+};
+
+struct PBRMaterialAssetData {};
+
+using MaterialSubtypeData =
+    std::variant<UnlitMaterialAssetData, LitMaterialAssetData,
+                 PBRMaterialAssetData>;
+
+MaterialSubtypeData createSubtypeData(core::MaterialType matType);
+
+struct MaterialAssetInfo : public AssetInfo {
+  core::MaterialType materialType;
+  MaterialSubtypeData materialSubtypeData;
+  std::string shaderPath;
+  bool transparent;
   bool hasTimer;
 };
 

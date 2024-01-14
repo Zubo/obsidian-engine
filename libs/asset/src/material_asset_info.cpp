@@ -2,16 +2,24 @@
 #include <obsidian/asset/material_asset_info.hpp>
 #include <obsidian/asset/utility.hpp>
 #include <obsidian/core/logging.hpp>
+#include <obsidian/core/material.hpp>
+#include <obsidian/serialization/serialization.hpp>
 
 #include <nlohmann/json.hpp>
 #include <tracy/Tracy.hpp>
 
 #include <cassert>
+#include <variant>
 
 namespace obsidian::asset {
 
 constexpr char const* materialTypeJsonName = "materialType";
+constexpr char const* unlitMaterialSubtypeDataJsonName = "unlitData";
+constexpr char const* litMaterialSubtypeDataJsonName = "litData";
+constexpr char const* pbrMaterialSubtypeDataJsonName = "pbrData";
 constexpr char const* shaderJsonName = "shader";
+constexpr char const* colorJsonName = "color";
+constexpr char const* colorTextureJsonName = "colorTex";
 constexpr char const* diffuseTextureJsonName = "diffuseTex";
 constexpr char const* normalMapTextureJsonName = "normalMapTex";
 constexpr char const* shininessJsonName = "shininess";
@@ -21,6 +29,90 @@ constexpr char const* specularColorJsonName = "specularColor";
 constexpr char const* transparentJsonName = "transparent";
 constexpr char const* reflectionJsonName = "reflection";
 constexpr char const* hasTimerJsonName = "hasTimer";
+
+bool writeUnlitMaterialAssetData(UnlitMaterialAssetData const& litData,
+                                 nlohmann::json& outJson) {
+  try {
+    outJson[colorJsonName] = serialization::vecToArray(litData.color);
+    outJson[colorTextureJsonName] = litData.colorTexturePath;
+  } catch (std::exception const& e) {
+    OBS_LOG_ERR(e.what());
+    return false;
+  }
+
+  return true;
+}
+
+bool readUnlitMaterialAssetData(nlohmann::json const& json,
+                                UnlitMaterialAssetData& outMaterialAssetData) {
+  try {
+    serialization::arrayToVector(json[colorJsonName],
+                                 outMaterialAssetData.color);
+    outMaterialAssetData.colorTexturePath = json[colorTextureJsonName];
+  } catch (std::exception const& e) {
+    OBS_LOG_ERR(e.what());
+    return false;
+  }
+
+  return true;
+}
+
+bool writeLitMaterialAssetData(LitMaterialAssetData const& litData,
+                               nlohmann::json& outJson) {
+  try {
+    outJson[diffuseTextureJsonName] = litData.diffuseTexturePath;
+    outJson[normalMapTextureJsonName] = litData.normalMapTexturePath;
+    outJson[shininessJsonName] = litData.shininess;
+    outJson[ambientColorJsonName] =
+        serialization::vecToArray(litData.ambientColor);
+    outJson[diffuseColorJsonName] =
+        serialization::vecToArray(litData.diffuseColor);
+    outJson[specularColorJsonName] =
+        serialization::vecToArray(litData.specularColor);
+    outJson[reflectionJsonName] = litData.reflection;
+  } catch (std::exception const& e) {
+    OBS_LOG_ERR(e.what());
+    return false;
+  }
+
+  return true;
+}
+
+bool readLitMaterialAssetData(nlohmann::json const& json,
+                              LitMaterialAssetData& outMaterialAssetData) {
+  try {
+    outMaterialAssetData.diffuseTexturePath = json[diffuseTextureJsonName];
+    outMaterialAssetData.normalMapTexturePath = json[normalMapTextureJsonName];
+    outMaterialAssetData.shininess = json[shininessJsonName];
+    serialization::arrayToVector(json[ambientColorJsonName],
+                                 outMaterialAssetData.ambientColor);
+    serialization::arrayToVector(json[diffuseColorJsonName],
+                                 outMaterialAssetData.diffuseColor);
+    serialization::arrayToVector(json[specularColorJsonName],
+                                 outMaterialAssetData.specularColor);
+    outMaterialAssetData.reflection = json[reflectionJsonName];
+  } catch (std::exception const& e) {
+    OBS_LOG_ERR(e.what());
+    return false;
+  }
+
+  return true;
+}
+
+MaterialSubtypeData createSubtypeData(core::MaterialType matType) {
+  switch (matType) {
+  case core::MaterialType::unlit:
+    return UnlitMaterialAssetData{};
+  case core::MaterialType::lit:
+    return LitMaterialAssetData{};
+  case core::MaterialType::pbr:
+    return PBRMaterialAssetData{};
+  default:
+    OBS_LOG_ERR("Invalid material type with value " +
+                std::to_string((int)matType));
+    return {};
+  }
+}
 
 bool readMaterialAssetInfo(AssetMetadata const& assetmetadata,
                            MaterialAssetInfo& outMaterialAssetInfo) {
@@ -32,23 +124,33 @@ bool readMaterialAssetInfo(AssetMetadata const& assetmetadata,
     outMaterialAssetInfo.compressionMode = json[compressionModeJsonName];
     outMaterialAssetInfo.materialType = json[materialTypeJsonName];
     outMaterialAssetInfo.shaderPath = json[shaderJsonName];
-    outMaterialAssetInfo.diffuseTexturePath = json[diffuseTextureJsonName];
-    outMaterialAssetInfo.normalMapTexturePath = json[normalMapTextureJsonName];
-    outMaterialAssetInfo.shininess = json[shininessJsonName];
-    outMaterialAssetInfo.ambientColor.r = json[ambientColorJsonName]["r"];
-    outMaterialAssetInfo.ambientColor.g = json[ambientColorJsonName]["g"];
-    outMaterialAssetInfo.ambientColor.b = json[ambientColorJsonName]["b"];
-    outMaterialAssetInfo.ambientColor.a = json[ambientColorJsonName]["a"];
-    outMaterialAssetInfo.diffuseColor.r = json[diffuseColorJsonName]["r"];
-    outMaterialAssetInfo.diffuseColor.g = json[diffuseColorJsonName]["g"];
-    outMaterialAssetInfo.diffuseColor.b = json[diffuseColorJsonName]["b"];
-    outMaterialAssetInfo.diffuseColor.a = json[diffuseColorJsonName]["a"];
-    outMaterialAssetInfo.specularColor.r = json[specularColorJsonName]["r"];
-    outMaterialAssetInfo.specularColor.g = json[specularColorJsonName]["g"];
-    outMaterialAssetInfo.specularColor.b = json[specularColorJsonName]["b"];
-    outMaterialAssetInfo.specularColor.a = json[specularColorJsonName]["a"];
+
+    bool subtypeDataReadSuccess;
+    switch (outMaterialAssetInfo.materialType) {
+    case core::MaterialType::unlit: {
+      nlohmann::json const& unlitDataJson =
+          json[unlitMaterialSubtypeDataJsonName];
+      subtypeDataReadSuccess = readUnlitMaterialAssetData(
+          unlitDataJson, outMaterialAssetInfo.materialSubtypeData
+                             .emplace<UnlitMaterialAssetData>());
+      break;
+    }
+    case core::MaterialType::lit: {
+      nlohmann::json const& litDataJson = json[litMaterialSubtypeDataJsonName];
+      subtypeDataReadSuccess = readLitMaterialAssetData(
+          litDataJson, outMaterialAssetInfo.materialSubtypeData
+                           .emplace<LitMaterialAssetData>());
+      break;
+    }
+    case core::MaterialType::pbr:
+      break;
+    }
+
+    if (!subtypeDataReadSuccess) {
+      return false;
+    }
+
     outMaterialAssetInfo.transparent = json[transparentJsonName];
-    outMaterialAssetInfo.reflection = json[reflectionJsonName];
     outMaterialAssetInfo.hasTimer = json[hasTimerJsonName];
   } catch (std::exception const& e) {
     OBS_LOG_ERR(e.what());
@@ -75,23 +177,33 @@ bool packMaterial(MaterialAssetInfo const& materialAssetInfo,
     json[compressionModeJsonName] = materialAssetInfo.compressionMode;
     json[materialTypeJsonName] = materialAssetInfo.materialType;
     json[shaderJsonName] = materialAssetInfo.shaderPath;
-    json[diffuseTextureJsonName] = materialAssetInfo.diffuseTexturePath;
-    json[normalMapTextureJsonName] = materialAssetInfo.normalMapTexturePath;
-    json[shininessJsonName] = materialAssetInfo.shininess;
-    json[ambientColorJsonName]["r"] = materialAssetInfo.ambientColor.r;
-    json[ambientColorJsonName]["g"] = materialAssetInfo.ambientColor.g;
-    json[ambientColorJsonName]["b"] = materialAssetInfo.ambientColor.b;
-    json[ambientColorJsonName]["a"] = materialAssetInfo.ambientColor.a;
-    json[diffuseColorJsonName]["r"] = materialAssetInfo.diffuseColor.r;
-    json[diffuseColorJsonName]["g"] = materialAssetInfo.diffuseColor.g;
-    json[diffuseColorJsonName]["b"] = materialAssetInfo.diffuseColor.b;
-    json[diffuseColorJsonName]["a"] = materialAssetInfo.diffuseColor.a;
-    json[specularColorJsonName]["r"] = materialAssetInfo.specularColor.r;
-    json[specularColorJsonName]["g"] = materialAssetInfo.specularColor.g;
-    json[specularColorJsonName]["b"] = materialAssetInfo.specularColor.b;
-    json[specularColorJsonName]["a"] = materialAssetInfo.specularColor.a;
+
+    bool subtypeDataWriteSuccess;
+
+    switch (materialAssetInfo.materialType) {
+    case obsidian::core::MaterialType::unlit: {
+      subtypeDataWriteSuccess = writeUnlitMaterialAssetData(
+          std::get<UnlitMaterialAssetData>(
+              materialAssetInfo.materialSubtypeData),
+          json[unlitMaterialSubtypeDataJsonName]);
+      break;
+    }
+    case obsidian::core::MaterialType::lit: {
+      subtypeDataWriteSuccess = writeLitMaterialAssetData(
+          std::get<LitMaterialAssetData>(materialAssetInfo.materialSubtypeData),
+          json[litMaterialSubtypeDataJsonName]);
+      break;
+    }
+    case obsidian::core::MaterialType::pbr: {
+      break;
+    }
+    }
+
+    if (!subtypeDataWriteSuccess) {
+      return false;
+    }
+
     json[transparentJsonName] = materialAssetInfo.transparent;
-    json[reflectionJsonName] = materialAssetInfo.reflection;
     json[hasTimerJsonName] = materialAssetInfo.hasTimer;
 
     outAsset.metadata->json = json.dump();

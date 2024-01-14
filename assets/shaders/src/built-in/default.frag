@@ -17,7 +17,7 @@ layout(location = 0) out vec4 outFragColor;
 
 #include "include/environment-maps.glsl"
 #include "include/lighting.glsl"
-#include "include/material.glsl"
+#include "include/lit-material.glsl"
 #include "include/renderpass-data.glsl"
 #include "include/ssao.glsl"
 

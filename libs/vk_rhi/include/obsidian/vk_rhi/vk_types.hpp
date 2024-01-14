@@ -122,8 +122,8 @@ struct GPULitMaterialData {
 };
 
 struct GPUUnlitMaterialData {
-  glm::vec4 diffuseColor;
-  VkBool32 hasDiffuseTex;
+  glm::vec4 color;
+  VkBool32 hasColorTex;
 };
 
 struct GpuRenderPassData {

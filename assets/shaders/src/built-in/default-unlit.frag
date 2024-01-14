@@ -10,12 +10,12 @@ layout(location = 1) in vec2 inUV;
 
 layout(location = 0) out vec4 outFragColor;
 
-#include "include/material.glsl"
+#include "include/unlit-material.glsl"
 
 layout(set = 2, binding = 1) uniform sampler2D diffuseTex;
 
 void main() {
-  outFragColor = materialData.diffuseColor;
+  outFragColor = materialData.color;
   outFragColor *= outFragColor;
 
 #ifdef _HAS_COLOR
@@ -23,7 +23,7 @@ void main() {
 #endif
 
 #ifdef _HAS_UV
-  if (materialData.hasDiffuseTex) {
+  if (materialData.hasColorTex) {
     outFragColor *= texture(diffuseTex, inUV);
   }
 #endif

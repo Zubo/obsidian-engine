@@ -6,6 +6,8 @@
 #include <obsidian/asset/shader_asset_info.hpp>
 #include <obsidian/asset/texture_asset_info.hpp>
 #include <obsidian/core/logging.hpp>
+#include <obsidian/core/material.hpp>
+#include <obsidian/core/utils/visitor.hpp>
 #include <obsidian/rhi/resource_rhi.hpp>
 #include <obsidian/rhi/rhi.hpp>
 #include <obsidian/runtime_resource/runtime_resource.hpp>
@@ -13,6 +15,7 @@
 #include <obsidian/runtime_resource/runtime_resource_manager.hpp>
 
 #include <memory>
+#include <variant>
 
 using namespace obsidian;
 using namespace obsidian::runtime_resource;
@@ -231,18 +234,58 @@ void RuntimeResource::performUploadToRHI() {
     rhi::UploadMaterialRHI uploadMaterial;
     uploadMaterial.materialType = info.materialType;
 
-    if (!info.diffuseTexturePath.empty()) {
-      RuntimeResource& diffuseTexResource =
-          _runtimeResourceManager.getResource(info.diffuseTexturePath);
+    switch (uploadMaterial.materialType) {
+    case core::MaterialType::unlit: {
+      rhi::UploadUnlitMaterialRHI& uploadUnlitMat =
+          uploadMaterial.uploadMaterialSubtype
+              .emplace<rhi::UploadUnlitMaterialRHI>();
 
-      uploadMaterial.diffuseTextureId = diffuseTexResource.getResourceId();
+      asset::UnlitMaterialAssetData const& unlitInfo =
+          std::get<asset::UnlitMaterialAssetData>(info.materialSubtypeData);
+
+      uploadUnlitMat.color = unlitInfo.color;
+
+      if (!unlitInfo.colorTexturePath.empty()) {
+        RuntimeResource& colorTexResource =
+            _runtimeResourceManager.getResource(unlitInfo.colorTexturePath);
+
+        uploadUnlitMat.colorTextureId = colorTexResource.getResourceId();
+      }
+      break;
     }
+    case core::MaterialType::lit: {
+      rhi::UploadLitMaterialRHI& uploadLitMat =
+          uploadMaterial.uploadMaterialSubtype
+              .emplace<rhi::UploadLitMaterialRHI>();
 
-    if (!info.normalMapTexturePath.empty()) {
-      RuntimeResource& normalMapResource =
-          _runtimeResourceManager.getResource(info.normalMapTexturePath);
+      asset::LitMaterialAssetData const& litInfo =
+          std::get<asset::LitMaterialAssetData>(info.materialSubtypeData);
 
-      uploadMaterial.normalTextureId = normalMapResource.getResourceId();
+      if (!litInfo.diffuseTexturePath.empty()) {
+        RuntimeResource& diffuseTexResource =
+            _runtimeResourceManager.getResource(litInfo.diffuseTexturePath);
+
+        uploadLitMat.diffuseTextureId = diffuseTexResource.getResourceId();
+      }
+
+      if (!litInfo.normalMapTexturePath.empty()) {
+        RuntimeResource& normalMapResource =
+            _runtimeResourceManager.getResource(litInfo.normalMapTexturePath);
+
+        uploadLitMat.normalTextureId = normalMapResource.getResourceId();
+      }
+
+      uploadLitMat.ambientColor = litInfo.ambientColor;
+      uploadLitMat.diffuseColor = litInfo.diffuseColor;
+      uploadLitMat.specularColor = litInfo.specularColor;
+      uploadLitMat.shininess = litInfo.shininess;
+      uploadLitMat.reflection = litInfo.reflection;
+
+      break;
+    }
+    case core::MaterialType::pbr: {
+      break;
+    }
     }
 
     RuntimeResource& shaderResource =
@@ -250,12 +293,7 @@ void RuntimeResource::performUploadToRHI() {
 
     uploadMaterial.shaderId = shaderResource.getResourceId();
 
-    uploadMaterial.ambientColor = info.ambientColor;
-    uploadMaterial.diffuseColor = info.diffuseColor;
-    uploadMaterial.specularColor = info.specularColor;
-    uploadMaterial.shininess = info.shininess;
     uploadMaterial.transparent = info.transparent;
-    uploadMaterial.reflection = info.reflection;
     uploadMaterial.hasTimer = info.hasTimer;
 
     _resourceRHI = &_rhi.initMaterialResource();
@@ -308,15 +346,27 @@ std::vector<RuntimeResource*> const& RuntimeResource::fetchDependencies() {
       asset::MaterialAssetInfo materialAssetInfo;
       asset::readMaterialAssetInfo(*_asset->metadata, materialAssetInfo);
 
-      if (!materialAssetInfo.diffuseTexturePath.empty()) {
-        _dependencies->push_back(&_runtimeResourceManager.getResource(
-            materialAssetInfo.diffuseTexturePath));
-      }
+      std::visit(
+          core::visitor{
+              [this](asset::UnlitMaterialAssetData const& unlitData) {
+                if (!unlitData.colorTexturePath.empty()) {
+                  _dependencies->push_back(&_runtimeResourceManager.getResource(
+                      unlitData.colorTexturePath));
+                }
+              },
+              [this](asset::LitMaterialAssetData const& litData) {
+                if (!litData.diffuseTexturePath.empty()) {
+                  _dependencies->push_back(&_runtimeResourceManager.getResource(
+                      litData.diffuseTexturePath));
+                }
 
-      if (!materialAssetInfo.normalMapTexturePath.empty()) {
-        _dependencies->push_back(&_runtimeResourceManager.getResource(
-            materialAssetInfo.normalMapTexturePath));
-      }
+                if (!litData.normalMapTexturePath.empty()) {
+                  _dependencies->push_back(&_runtimeResourceManager.getResource(
+                      litData.normalMapTexturePath));
+                }
+              },
+              [](asset::PBRMaterialAssetData const& pbrData) {}},
+          materialAssetInfo.materialSubtypeData);
 
       _dependencies->push_back(
           &_runtimeResourceManager.getResource(materialAssetInfo.shaderPath));

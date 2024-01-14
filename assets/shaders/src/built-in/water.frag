@@ -8,7 +8,7 @@ layout(location = 0) out vec4 outFragColor;
 #include "include/camera.glsl"
 #include "include/environment-maps.glsl"
 #include "include/lighting.glsl"
-#include "include/material.glsl"
+#include "include/lit-material.glsl"
 #include "include/timer.glsl"
 
 layout(set = 2, binding = 2) uniform sampler2D normalMapTex;

@@ -447,71 +447,67 @@ void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
       VK_FRONT_FACE_COUNTER_CLOCKWISE;
 
   newMaterial.transparent = uploadMaterial.transparent;
-  newMaterial.reflection = uploadMaterial.reflection;
 
-  DescriptorBuilder builder = DescriptorBuilder::begin(
+  DescriptorBuilder descriptorBuilder = DescriptorBuilder::begin(
       _vkDevice, _descriptorAllocator, _descriptorLayoutCache);
 
   VkDescriptorBufferInfo materialDataBufferInfo;
-  VkDescriptorImageInfo diffuseTexImageInfo;
-  VkDescriptorImageInfo normalMapTexImageInfo;
 
   if (uploadMaterial.materialType == core::MaterialType::lit) {
+    rhi::UploadLitMaterialRHI const& uploadLitMaterial =
+        std::get<rhi::UploadLitMaterialRHI>(
+            uploadMaterial.uploadMaterialSubtype);
+
+    newMaterial.reflection = uploadLitMaterial.reflection;
+
     GPULitMaterialData materialData;
     materialData.hasDiffuseTex =
-        uploadMaterial.diffuseTextureId != rhi::rhiIdUninitialized;
+        uploadLitMaterial.diffuseTextureId != rhi::rhiIdUninitialized;
     materialData.hasNormalMap =
-        uploadMaterial.normalTextureId != rhi::rhiIdUninitialized;
-    materialData.reflection = uploadMaterial.reflection;
-    materialData.ambientColor = uploadMaterial.ambientColor;
-    materialData.diffuseColor = uploadMaterial.diffuseColor;
-    materialData.specularColor = uploadMaterial.specularColor;
-    materialData.shininess = uploadMaterial.shininess;
+        uploadLitMaterial.normalTextureId != rhi::rhiIdUninitialized;
+    materialData.reflection = uploadLitMaterial.reflection;
+    materialData.ambientColor = uploadLitMaterial.ambientColor;
+    materialData.diffuseColor = uploadLitMaterial.diffuseColor;
+    materialData.specularColor = uploadLitMaterial.specularColor;
+    materialData.shininess = uploadLitMaterial.shininess;
 
-    createAndBindMaterialDataBuffer(materialData, builder,
+    createAndBindMaterialDataBuffer(materialData, descriptorBuilder,
                                     materialDataBufferInfo);
 
-  } else {
-    GPUUnlitMaterialData materialData;
-    materialData.hasDiffuseTex =
-        uploadMaterial.diffuseTextureId != rhi::rhiIdUninitialized;
-    materialData.diffuseColor = uploadMaterial.diffuseColor;
+    bool const hasDiffuseTex =
+        uploadLitMaterial.diffuseTextureId != rhi::rhiIdUninitialized;
 
-    createAndBindMaterialDataBuffer(materialData, builder,
-                                    materialDataBufferInfo);
-  }
+    if (hasDiffuseTex) {
+      Texture& diffuseTexture = _textures[uploadLitMaterial.diffuseTextureId];
 
-  bool const hasDiffuseTex =
-      uploadMaterial.diffuseTextureId != rhi::rhiIdUninitialized;
+      ++diffuseTexture.resource.refCount;
+      newMaterial.textureResourceDependencyIds.push_back(
+          diffuseTexture.resource.id);
 
-  if (hasDiffuseTex) {
-    Texture& diffuseTexture = _textures[uploadMaterial.diffuseTextureId];
+      VkDescriptorImageInfo diffuseTexImageInfo;
+      diffuseTexImageInfo.imageLayout =
+          VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+      diffuseTexImageInfo.imageView = diffuseTexture.imageView;
+      diffuseTexImageInfo.sampler = _vkLinearRepeatSampler;
 
-    ++diffuseTexture.resource.refCount;
-    newMaterial.textureResourceDependencyIds.push_back(
-        diffuseTexture.resource.id);
+      descriptorBuilder.bindImage(1, diffuseTexImageInfo,
+                                  VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                  VK_SHADER_STAGE_FRAGMENT_BIT, nullptr, true);
+    } else {
+      descriptorBuilder.declareUnusedImage(
+          1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+          VK_SHADER_STAGE_FRAGMENT_BIT);
+    }
 
-    diffuseTexImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    diffuseTexImageInfo.imageView = diffuseTexture.imageView;
-    diffuseTexImageInfo.sampler = _vkLinearRepeatSampler;
+    bool const hasNormalMap =
+        uploadLitMaterial.normalTextureId != rhi::rhiIdUninitialized;
 
-    builder.bindImage(1, diffuseTexImageInfo,
-                      VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                      VK_SHADER_STAGE_FRAGMENT_BIT, nullptr, true);
-  } else {
-    builder.declareUnusedImage(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                               VK_SHADER_STAGE_FRAGMENT_BIT);
-  }
-
-  bool const hasNormalMap =
-      uploadMaterial.normalTextureId != rhi::rhiIdUninitialized;
-
-  if (uploadMaterial.materialType == core::MaterialType::lit) {
     if (hasNormalMap) {
+      VkDescriptorImageInfo normalMapTexImageInfo;
       normalMapTexImageInfo.imageLayout =
           VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
       normalMapTexImageInfo.sampler = _vkLinearRepeatSampler;
-      Texture& normalMapTexture = _textures[uploadMaterial.normalTextureId];
+      Texture& normalMapTexture = _textures[uploadLitMaterial.normalTextureId];
 
       ++normalMapTexture.resource.refCount;
       newMaterial.textureResourceDependencyIds.push_back(
@@ -519,12 +515,47 @@ void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
 
       normalMapTexImageInfo.imageView = normalMapTexture.imageView;
 
-      builder.bindImage(2, normalMapTexImageInfo,
-                        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                        VK_SHADER_STAGE_FRAGMENT_BIT, nullptr, true);
+      descriptorBuilder.bindImage(2, normalMapTexImageInfo,
+                                  VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                  VK_SHADER_STAGE_FRAGMENT_BIT, nullptr, true);
     } else {
-      builder.declareUnusedImage(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                                 VK_SHADER_STAGE_FRAGMENT_BIT);
+      descriptorBuilder.declareUnusedImage(
+          2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+          VK_SHADER_STAGE_FRAGMENT_BIT);
+    }
+  } else if (uploadMaterial.materialType == core::MaterialType::unlit) {
+    rhi::UploadUnlitMaterialRHI const& uploadUnlitMaterial =
+        std::get<rhi::UploadUnlitMaterialRHI>(
+            uploadMaterial.uploadMaterialSubtype);
+    GPUUnlitMaterialData materialData;
+    materialData.hasColorTex =
+        uploadUnlitMaterial.colorTextureId != rhi::rhiIdUninitialized;
+    materialData.color = uploadUnlitMaterial.color;
+
+    createAndBindMaterialDataBuffer(materialData, descriptorBuilder,
+                                    materialDataBufferInfo);
+
+    bool const hasColorTex =
+        uploadUnlitMaterial.colorTextureId != rhi::rhiIdUninitialized;
+    if (hasColorTex) {
+      Texture& colorTexture = _textures[uploadUnlitMaterial.colorTextureId];
+
+      ++colorTexture.resource.refCount;
+      newMaterial.textureResourceDependencyIds.push_back(
+          colorTexture.resource.id);
+
+      VkDescriptorImageInfo colorTexImageInfo;
+      colorTexImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+      colorTexImageInfo.imageView = colorTexture.imageView;
+      colorTexImageInfo.sampler = _vkLinearRepeatSampler;
+
+      descriptorBuilder.bindImage(1, colorTexImageInfo,
+                                  VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                  VK_SHADER_STAGE_FRAGMENT_BIT, nullptr, true);
+    } else {
+      descriptorBuilder.declareUnusedImage(
+          1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+          VK_SHADER_STAGE_FRAGMENT_BIT);
     }
   }
 
@@ -533,14 +564,15 @@ void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
     bufferInfo.buffer = _timerBuffer.buffer;
     bufferInfo.offset = 0;
     bufferInfo.range = VK_WHOLE_SIZE;
-    builder.bindBuffer(3, bufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                       VK_SHADER_STAGE_FRAGMENT_BIT, nullptr, true);
+    descriptorBuilder.bindBuffer(3, bufferInfo,
+                                 VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                                 VK_SHADER_STAGE_FRAGMENT_BIT, nullptr, true);
   } else {
-    builder.declareUnusedBuffer(3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                                VK_SHADER_STAGE_FRAGMENT_BIT);
+    descriptorBuilder.declareUnusedBuffer(3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                                          VK_SHADER_STAGE_FRAGMENT_BIT);
   }
 
-  if (!builder.build(newMaterial.vkDescriptorSet)) {
+  if (!descriptorBuilder.build(newMaterial.vkDescriptorSet)) {
     OBS_LOG_ERR("Failed to build descriptor set when uploading material");
     newMaterial.resource.state = rhi::ResourceState::invalid;
   } else {
