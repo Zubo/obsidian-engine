@@ -676,7 +676,7 @@ void litMaterialEditor(asset::LitMaterialAssetData& litMatData) {
   }
 
   int selectedNormalComboInd =
-      indexorDefault(texturesInProj, litMatData.normalMapTexturePath, -1);
+      indexorDefault(texturesInProj, litMatData.normalMapTexturePath, -1) + 1;
 
   if (ImGui::Combo("Normal Tex", &selectedNormalComboInd,
                    texturePathStringPtrs.data(),
