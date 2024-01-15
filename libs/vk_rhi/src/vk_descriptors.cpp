@@ -262,7 +262,8 @@ DescriptorBuilder& DescriptorBuilder::bindBuffer(
   vkWriteDescriptorSet.dstArrayElement = 0;
   vkWriteDescriptorSet.descriptorCount = 1;
   vkWriteDescriptorSet.descriptorType = descriptorType;
-  vkWriteDescriptorSet.pBufferInfo = &bufferInfo;
+  vkWriteDescriptorSet.pBufferInfo =
+      &_descriptorBufferInfos.emplace_back(bufferInfo);
 
   return *this;
 }
@@ -311,7 +312,8 @@ DescriptorBuilder& DescriptorBuilder::bindImage(
   vkWriteDescriptorSet.dstArrayElement = 0;
   vkWriteDescriptorSet.descriptorCount = 1;
   vkWriteDescriptorSet.descriptorType = descriptorType;
-  vkWriteDescriptorSet.pImageInfo = &imageInfo;
+  vkWriteDescriptorSet.pImageInfo =
+      &_descriptorImageInfos.emplace_back(imageInfo);
 
   return *this;
 }

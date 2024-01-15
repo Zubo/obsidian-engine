@@ -3,6 +3,7 @@
 #include <vulkan/vulkan.h>
 
 #include <cstdint>
+#include <list>
 #include <unordered_map>
 #include <vector>
 
@@ -121,6 +122,8 @@ private:
   VkDevice _vkDevice;
   DescriptorAllocator* _allocator;
   DescriptorLayoutCache* _layoutCache;
+  std::list<VkDescriptorImageInfo> _descriptorImageInfos;
+  std::list<VkDescriptorBufferInfo> _descriptorBufferInfos;
   std::vector<VkDescriptorSetLayoutBinding> _bindings;
   std::vector<VkWriteDescriptorSet> _writes;
   std::vector<VkDescriptorBindingFlags> _bindingCreateFlags;
