@@ -10,7 +10,9 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 
+#include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <list>
 #include <optional>
 #include <string>
@@ -21,15 +23,17 @@ namespace obsidian::scene {
 
 class GameObject {
 public:
-  using GameObjectId = std::size_t;
-  static constexpr std::size_t invalidId = (std::size_t)-1;
+  using GameObjectId = std::int64_t;
+  static constexpr GameObjectId invalidId = (GameObjectId)-1;
 
   GameObject(rhi::RHI& rhi,
              runtime_resource::RuntimeResourceManager& resourceManager);
 
-  GameObject(GameObject&& other) noexcept = default;
+  GameObject(GameObject&& other) noexcept;
 
   ~GameObject();
+
+  GameObject& operator=(GameObject&& other) noexcept;
 
   std::string_view getName() const;
   void setName(std::string_view name);
@@ -85,6 +89,7 @@ public:
   void draw(glm::mat4 const& parentTransform);
 
 private:
+  void cleanup();
   void updateTransform();
   void releaseMaterialResources();
   void releaseMeshResource();
@@ -105,8 +110,9 @@ private:
   glm::quat _rotationQuat = {};
   glm::vec3 _scale = {1.0f, 1.0f, 1.0f};
   glm::mat4 _transform{1.0f};
-  rhi::RHI& _rhi;
-  runtime_resource::RuntimeResourceManager& _resourceManager;
+  std::reference_wrapper<rhi::RHI> _rhi;
+  std::reference_wrapper<runtime_resource::RuntimeResourceManager>
+      _resourceManager;
 
   static GameObjectId _idCounter;
 };
