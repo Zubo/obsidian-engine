@@ -29,11 +29,11 @@ public:
   GameObject(rhi::RHI& rhi,
              runtime_resource::RuntimeResourceManager& resourceManager);
 
-  GameObject(GameObject&& other) noexcept;
+  GameObject(GameObject&& other);
 
   ~GameObject();
 
-  GameObject& operator=(GameObject&& other) noexcept;
+  GameObject& operator=(GameObject&& other);
 
   std::string_view getName() const;
   void setName(std::string_view name);

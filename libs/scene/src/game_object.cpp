@@ -23,14 +23,14 @@ GameObject::GameObject(
   _name = "GameObject" + std::to_string(_objectId);
 }
 
-GameObject::GameObject(GameObject&& other) noexcept
+GameObject::GameObject(GameObject&& other)
     : _rhi{other._rhi}, _resourceManager{other._resourceManager} {
   *this = std::move(other);
 }
 
 GameObject::~GameObject() { cleanup(); }
 
-GameObject& GameObject::operator=(GameObject&& other) noexcept {
+GameObject& GameObject::operator=(GameObject&& other) {
   if (this != &other) {
     cleanup();
 

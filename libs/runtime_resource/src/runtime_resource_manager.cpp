@@ -18,12 +18,14 @@ using namespace obsidian::runtime_resource;
 
 namespace fs = std::filesystem;
 
+// RuntimeResourceManager::RuntimeResourceManager() {}
+
 void RuntimeResourceManager::init(rhi::RHI& rhi, project::Project& project,
                                   task::TaskExecutor& taskExecutor) {
   _rhi = &rhi;
   _project = &project;
   _taskExecutor = &taskExecutor;
-  _resourceLoader.init(taskExecutor);
+  _resourceLoader.run(taskExecutor);
 }
 
 void RuntimeResourceManager::uploadInitRHIResources() {

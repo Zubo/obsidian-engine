@@ -13,7 +13,8 @@ using namespace obsidian::runtime_resource;
 
 RuntimeResourceLoader::~RuntimeResourceLoader() { joinLoaderThread(); }
 
-void RuntimeResourceLoader::init(task::TaskExecutor& taskExecutor) {
+void RuntimeResourceLoader::run(task::TaskExecutor& taskExecutor) {
+  _running = true;
   _taskExecutor = &taskExecutor;
   _loaderThread = std::thread{[this]() { uploaderFunc(); }};
 }
@@ -47,8 +48,6 @@ bool RuntimeResourceLoader::loadResImpl(RuntimeResource& runtimeResource) {
 }
 
 void RuntimeResourceLoader::uploaderFunc() {
-  _running = true;
-
   while (_running) {
     std::unique_lock l{_queueMutex};
 

@@ -31,8 +31,10 @@ namespace obsidian::runtime_resource {
 class RuntimeResourceManager {
 public:
   RuntimeResourceManager() = default;
-
   RuntimeResourceManager(RuntimeResourceManager const& other) = delete;
+
+  RuntimeResourceManager&
+  operator=(RuntimeResourceManager const& other) = delete;
 
   void init(rhi::RHI& rhi, project::Project& project,
             task::TaskExecutor& taskExecutor);
@@ -44,9 +46,6 @@ public:
   RuntimeResource& getResource(std::filesystem::path const& path);
 
   project::Project const& getProject() const;
-
-  RuntimeResourceManager&
-  operator=(RuntimeResourceManager const& other) = delete;
 
 private:
   rhi::RHI* _rhi = nullptr;

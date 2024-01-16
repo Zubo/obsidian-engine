@@ -19,9 +19,14 @@ class RuntimeResource;
 
 class RuntimeResourceLoader {
 public:
-  void init(task::TaskExecutor& taskExecutor);
+  RuntimeResourceLoader() = default;
+  RuntimeResourceLoader(RuntimeResourceLoader const& other) = delete;
+
+  void run(task::TaskExecutor& taskExecutor);
   void cleanup();
   ~RuntimeResourceLoader();
+
+  RuntimeResourceLoader& operator=(RuntimeResourceLoader const& other) = delete;
 
   bool loadResource(RuntimeResource& runtimeResource);
 
