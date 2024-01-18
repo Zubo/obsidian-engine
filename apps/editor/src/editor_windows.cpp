@@ -22,6 +22,7 @@
 #include <obsidian/core/utils/visitor.hpp>
 #include <obsidian/editor/data.hpp>
 #include <obsidian/editor/editor_windows.hpp>
+#include <obsidian/editor/item_list_data_source.hpp>
 #include <obsidian/editor/settings.hpp>
 #include <obsidian/globals/file_extensions.hpp>
 #include <obsidian/obsidian_engine/obsidian_engine.hpp>
@@ -66,16 +67,13 @@ namespace fs = std::filesystem;
 
 static scene::GameObject* selectedGameObj = nullptr;
 static std::vector<int> selectedGameObjMats;
-static int meshDropdownSelectedIndex = std::numeric_limits<int>::min();
+constexpr bool meshIncludeNone = true;
+static int meshComboIndex = 0;
 static asset::MeshAssetInfo selectedGameObjMeshAssetInfo;
-static std::vector<fs::path> texturesInProj;
-static std::vector<fs::path> shadersInProj;
-static std::vector<fs::path> materialsInProj;
-static std::vector<fs::path> meshesInProj;
-static std::vector<char const*> texturePathStringPtrs;
-static std::vector<char const*> shaderPathStringPtrs;
-static std::vector<char const*> materialPathStringPtrs;
-static std::vector<char const*> meshesPathStringPtrs;
+static ItemListDataSource<fs::path> texturesInProj;
+static ItemListDataSource<fs::path> shadersInProj;
+static ItemListDataSource<fs::path> materialsInProj;
+static ItemListDataSource<fs::path> meshesInProj;
 static bool assetListDirty = false;
 static std::array<char const*, 2> materialTypes = {"unlit", "lit"};
 static std::array<char const*, 4> textureTypes = {
@@ -84,33 +82,22 @@ static bool openEngineTab = false;
 scene::GameObject* pendingObjDelete = nullptr;
 
 void refreshAssetLists() {
-  texturesInProj = project.getAllFilesWithExtension(globals::textureAssetExt);
-  texturePathStringPtrs.clear();
-
-  texturePathStringPtrs.push_back("none");
+  texturesInProj.setValues(
+      project.getAllFilesWithExtension(globals::textureAssetExt));
 
   auto transformToStr = [](auto& dst, auto& src) {
     std::transform(src.cbegin(), src.cend(), std::back_inserter(dst),
                    [](auto const& arg) { return arg.c_str(); });
   };
 
-  transformToStr(texturePathStringPtrs, texturesInProj);
+  shadersInProj.setValues(
+      project.getAllFilesWithExtension(globals::shaderAssetExt));
 
-  shaderPathStringPtrs.clear();
-  shadersInProj = project.getAllFilesWithExtension(globals::shaderAssetExt);
+  materialsInProj.setValues(
+      project.getAllFilesWithExtension(globals::materialAssetExt));
 
-  transformToStr(shaderPathStringPtrs, shadersInProj);
-
-  materialPathStringPtrs.clear();
-  materialsInProj = project.getAllFilesWithExtension(globals::materialAssetExt);
-
-  transformToStr(materialPathStringPtrs, materialsInProj);
-
-  meshesInProj = project.getAllFilesWithExtension(globals::meshAssetExt);
-
-  meshesPathStringPtrs.clear();
-  meshesPathStringPtrs.push_back("none");
-  transformToStr(meshesPathStringPtrs, meshesInProj);
+  meshesInProj.setValues(
+      project.getAllFilesWithExtension(globals::meshAssetExt));
 }
 
 template <typename TCollection, typename TValue>
@@ -201,19 +188,13 @@ void saveScene(char const scenePath[], scene::SceneState& sceneState) {
   }
 }
 
-void selectGameObjMesh(int gameObjMeshInd) {
-  if (gameObjMeshInd + 1 == meshDropdownSelectedIndex) {
-    return;
-  }
-
-  meshDropdownSelectedIndex = gameObjMeshInd + 1;
+void selectGameObjMesh(fs::path const& meshRelativePath) {
   selectedGameObjMeshAssetInfo = {};
-  if (gameObjMeshInd < 0) {
+
+  if (meshRelativePath.empty()) {
     selectedGameObjMats.clear();
     return;
   }
-
-  fs::path const& meshRelativePath = meshesInProj[gameObjMeshInd];
 
   asset::Asset meshAsset;
   asset::loadAssetFromFile(project.getAbsolutePath(meshRelativePath),
@@ -224,20 +205,22 @@ void selectGameObjMesh(int gameObjMeshInd) {
   selectedGameObjMats.resize(
       selectedGameObjMeshAssetInfo.indexBufferSizes.size(), -1);
 
+  constexpr bool materialsIncludeNone = false;
+
   for (std::size_t i = 0; i < selectedGameObjMats.size(); ++i) {
     if (selectedGameObj->getMaterialRelativePaths().size() > i) {
       fs::path const materialRelativePath =
           selectedGameObj->getMaterialRelativePaths()[i];
 
-      selectedGameObjMats[i] =
-          indexorDefault(materialsInProj, materialRelativePath, -1);
+      selectedGameObjMats[i] = materialsInProj.listItemInd(
+          materialRelativePath, materialsIncludeNone);
     }
 
     if (selectedGameObjMats[i] < 0 &&
         selectedGameObjMeshAssetInfo.defaultMatRelativePaths.size()) {
-      selectedGameObjMats[i] = indexorDefault(
-          materialsInProj,
-          selectedGameObjMeshAssetInfo.defaultMatRelativePaths[i], -1);
+      selectedGameObjMats[i] = materialsInProj.listItemInd(
+          selectedGameObjMeshAssetInfo.defaultMatRelativePaths[i],
+          materialsIncludeNone);
     }
   }
 }
@@ -246,11 +229,9 @@ void selectGameObject(scene::GameObject& gameObject) {
   selectedGameObj = &gameObject;
 
   fs::path const& meshRelativePath = selectedGameObj->getMeshRelativePath();
-  if (!meshRelativePath.empty()) {
-    selectGameObjMesh(indexorDefault(meshesInProj, meshRelativePath, -1));
-  } else {
-    selectGameObjMesh(-1);
-  }
+
+  meshComboIndex = meshesInProj.listItemInd(meshRelativePath, meshIncludeNone);
+  selectGameObjMesh(meshRelativePath);
 }
 
 void gameObjectHierarchy(scene::GameObject& gameObject,
@@ -454,21 +435,30 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
         ImGui::NewLine();
         ImGui::SeparatorText("Mesh and Materials");
 
-        int selectedMeshInd = meshDropdownSelectedIndex;
-        if (ImGui::Combo("Mesh", &selectedMeshInd, meshesPathStringPtrs.data(),
-                         meshesPathStringPtrs.size())) {
-          selectGameObjMesh(selectedMeshInd - 1);
+        auto const meshSizeAndStrings =
+            meshesInProj.getValueStrings(meshIncludeNone);
+
+        if (ImGui::Combo("Mesh", &meshComboIndex,
+                         std::get<1>(meshSizeAndStrings),
+                         std::get<0>(meshSizeAndStrings))) {
+          selectGameObjMesh(meshesInProj.at(meshComboIndex, meshIncludeNone));
         }
 
         selectedGameObjMats.resize(
             selectedGameObjMeshAssetInfo.indexBufferSizes.size(), 0);
 
+        constexpr bool materialsIncludeNone = false;
+        auto const materialSizeAndStrings =
+            materialsInProj.getValueStrings(materialsIncludeNone);
+        std::size_t const materialComboItemCount =
+            std::get<0>(materialSizeAndStrings);
+
         ImGui::NewLine();
         if (ImGui::TreeNodeEx("Materials", ImGuiTreeNodeFlags_DefaultOpen)) {
           for (std::size_t i = 0; i < selectedGameObjMats.size(); ++i) {
             if (ImGui::Combo(std::to_string(i).c_str(), &selectedGameObjMats[i],
-                             materialPathStringPtrs.data(),
-                             materialPathStringPtrs.size())) {
+                             std::get<1>(materialSizeAndStrings),
+                             materialComboItemCount)) {
             }
           }
 
@@ -477,7 +467,7 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
 
         ImGui::NewLine();
         bool disabled =
-            materialPathStringPtrs.empty() || meshesPathStringPtrs.empty();
+            !materialsInProj.valuesSize() || !meshesInProj.valuesSize();
 
         if (disabled) {
           ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
@@ -487,14 +477,13 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
 
         if (ImGui::Button("Apply Mesh and Material")) {
           fs::path const selctedMeshPath =
-              meshDropdownSelectedIndex
-                  ? meshesInProj[meshDropdownSelectedIndex - 1]
-                  : fs::path{};
+              meshesInProj.at(meshComboIndex, meshIncludeNone);
           selectedGameObj->setMesh(selctedMeshPath);
 
           std::vector<fs::path> selectedMaterialPaths;
           for (int selectedMaterial : selectedGameObjMats) {
-            selectedMaterialPaths.push_back(materialsInProj[selectedMaterial]);
+            selectedMaterialPaths.push_back(
+                materialsInProj.at(selectedMaterial, materialsIncludeNone));
           }
 
           selectedGameObj->setMaterials(selectedMaterialPaths);
@@ -631,29 +620,29 @@ void importTab(ObsidianEngine& engine) {
   }
 }
 
+constexpr bool shadersIncludeNone = false;
+
 static struct {
   int selectedMaterialInd = -1;
   bool materialSelectionUpdated = false;
   int selectedMaterialType = static_cast<int>(core::MaterialType::lit);
-  int selectedShader = 0;
+  int shaderComboInd = 0;
   asset::MaterialAssetInfo selectedMaterialAssetInfo;
   char newMatName[maxFileNameSize] = "newMat";
 
 } materialsData;
 
 void unlitMaterialEditor(asset::UnlitMaterialAssetData& unlitMatData) {
-  int selectedColorTexComboInd =
-      indexorDefault(texturesInProj, unlitMatData.colorTexturePath, -1) + 1;
+  constexpr bool texIncludeNone = true;
+  int colorTexComboInd =
+      texturesInProj.listItemInd(unlitMatData.colorTexturePath, texIncludeNone);
 
-  if (ImGui::Combo("Color Tex", &selectedColorTexComboInd,
-                   texturePathStringPtrs.data(),
-                   texturePathStringPtrs.size())) {
-    if (selectedColorTexComboInd > 0) {
-      unlitMatData.colorTexturePath =
-          texturesInProj[selectedColorTexComboInd - 1];
-    } else {
-      unlitMatData.colorTexturePath.clear();
-    }
+  auto const sizeAndStrings = texturesInProj.getValueStrings(texIncludeNone);
+
+  if (ImGui::Combo("Color Tex", &colorTexComboInd, std::get<1>(sizeAndStrings),
+                   std::get<0>(sizeAndStrings))) {
+    unlitMatData.colorTexturePath =
+        texturesInProj.at(colorTexComboInd, texIncludeNone);
   }
 
   if (ImGui::SliderFloat4("Color", &unlitMatData.color.r, 0.0f, 1.0f)) {
@@ -661,32 +650,29 @@ void unlitMaterialEditor(asset::UnlitMaterialAssetData& unlitMatData) {
 }
 
 void litMaterialEditor(asset::LitMaterialAssetData& litMatData) {
-  int selectedDiffuseComboInd =
-      indexorDefault(texturesInProj, litMatData.diffuseTexturePath, -1) + 1;
+  constexpr bool texturesIncludeNone = true;
 
-  if (ImGui::Combo("Diffuse Tex", &selectedDiffuseComboInd,
-                   texturePathStringPtrs.data(),
-                   texturePathStringPtrs.size())) {
-    if (selectedDiffuseComboInd > 0) {
-      litMatData.diffuseTexturePath =
-          texturesInProj[selectedDiffuseComboInd - 1];
-    } else {
-      litMatData.diffuseTexturePath.clear();
-    }
+  int diffuseTexComboInd = texturesInProj.listItemInd(
+      litMatData.diffuseTexturePath, texturesIncludeNone);
+
+  auto const texSizeAndStrings =
+      texturesInProj.getValueStrings(texturesIncludeNone);
+
+  if (ImGui::Combo("Diffuse Tex", &diffuseTexComboInd,
+                   std::get<1>(texSizeAndStrings),
+                   std::get<0>(texSizeAndStrings))) {
+    litMatData.diffuseTexturePath =
+        texturesInProj.at(diffuseTexComboInd, texturesIncludeNone);
   }
 
-  int selectedNormalComboInd =
-      indexorDefault(texturesInProj, litMatData.normalMapTexturePath, -1) + 1;
+  int normalTexComboInd = texturesInProj.listItemInd(
+      litMatData.normalMapTexturePath, texturesIncludeNone);
 
-  if (ImGui::Combo("Normal Tex", &selectedNormalComboInd,
-                   texturePathStringPtrs.data(),
-                   texturePathStringPtrs.size())) {
-    if (selectedNormalComboInd > 0) {
-      litMatData.normalMapTexturePath =
-          texturesInProj[selectedNormalComboInd - 1];
-    } else {
-      litMatData.normalMapTexturePath.clear();
-    }
+  if (ImGui::Combo("Normal Tex", &normalTexComboInd,
+                   std::get<1>(texSizeAndStrings),
+                   std::get<0>(texSizeAndStrings))) {
+    litMatData.normalMapTexturePath =
+        texturesInProj.at(normalTexComboInd, texturesIncludeNone);
   }
 
   if (ImGui::SliderFloat4("Ambient Color", &litMatData.ambientColor.r, 0.0f,
@@ -711,6 +697,12 @@ void litMaterialEditor(asset::LitMaterialAssetData& litMatData) {
 void pbrMaterialEditor(asset::PBRMaterialAssetData& pbrMatData) {}
 
 void materialCreatorTab() {
+  constexpr bool materialsIncludeNone = false;
+  auto const materialsSizeAndStrings =
+      materialsInProj.getValueStrings(materialsIncludeNone);
+  std::size_t const materialListItemSize = std::get<0>(materialsSizeAndStrings);
+  char const* const* materialListItems = std::get<1>(materialsSizeAndStrings);
+
   if (ImGui::BeginTabItem("Materials")) {
     if (assetListDirty) {
       materialsData.selectedMaterialInd = -1;
@@ -732,9 +724,8 @@ void materialCreatorTab() {
           return newMaterialRelPath == matPath;
         };
 
-    bool disabled = !newMatNameLen ||
-                    std::any_of(materialsInProj.cbegin(),
-                                materialsInProj.cend(), matWithSameNameExists);
+    bool disabled =
+        !newMatNameLen || materialsInProj.exists(newMaterialRelPath);
 
     if (disabled) {
       ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
@@ -778,10 +769,10 @@ void materialCreatorTab() {
     ImGui::NewLine();
 
     if (ImGui::BeginListBox("Materials")) {
-      for (int i = 0; i < materialsInProj.size(); ++i) {
+      for (int i = 0; i < materialListItemSize; ++i) {
         bool selected = materialsData.selectedMaterialInd == i;
 
-        if (ImGui::Selectable(materialPathStringPtrs[i], &selected)) {
+        if (ImGui::Selectable(materialListItems[i], &selected)) {
           materialsData.selectedMaterialInd = i;
           materialsData.materialSelectionUpdated = true;
         }
@@ -794,8 +785,8 @@ void materialCreatorTab() {
 
     if (materialsData.materialSelectionUpdated &&
         materialsData.selectedMaterialInd >= 0) {
-      fs::path const absolutePath = project.getAbsolutePath(
-          materialsInProj[materialsData.selectedMaterialInd]);
+      fs::path const absolutePath = project.getAbsolutePath(materialsInProj.at(
+          materialsData.selectedMaterialInd, materialsIncludeNone));
       asset::Asset matAsset;
       if (asset::loadAssetFromFile(absolutePath, matAsset) ||
           !matAsset.metadata) {
@@ -813,16 +804,17 @@ void materialCreatorTab() {
 
       materialsData.selectedMaterialType = static_cast<int>(
           materialsData.selectedMaterialAssetInfo.materialType);
-      materialsData.selectedShader = indexorDefault(
-          shadersInProj, materialsData.selectedMaterialAssetInfo.shaderPath,
-          -1);
+
+      materialsData.shaderComboInd = shadersInProj.listItemInd(
+          materialsData.selectedMaterialAssetInfo.shaderPath,
+          shadersIncludeNone);
 
       materialsData.materialSelectionUpdated = false;
     }
 
     if (materialsData.selectedMaterialInd >= 0) {
       ImGui::SeparatorText(
-          materialPathStringPtrs[materialsData.selectedMaterialInd]);
+          materialListItems[materialsData.selectedMaterialInd]);
 
       if (ImGui::Combo("Material Type", &materialsData.selectedMaterialType,
                        materialTypes.data(), materialTypes.size())) {
@@ -833,11 +825,14 @@ void materialCreatorTab() {
                 materialsData.selectedMaterialAssetInfo.materialType);
       }
 
-      if (ImGui::Combo("Shader", &materialsData.selectedShader,
-                       shaderPathStringPtrs.data(),
-                       shaderPathStringPtrs.size())) {
+      auto const shaderSizeAndStrings =
+          shadersInProj.getValueStrings(shadersIncludeNone);
+
+      if (ImGui::Combo("Shader", &materialsData.shaderComboInd,
+                       std::get<1>(shaderSizeAndStrings),
+                       std::get<0>(shaderSizeAndStrings))) {
         materialsData.selectedMaterialAssetInfo.shaderPath =
-            shadersInProj[materialsData.selectedShader];
+            shadersInProj.at(materialsData.shaderComboInd, shadersIncludeNone);
       }
 
       if (ImGui::Checkbox(
@@ -863,7 +858,7 @@ void materialCreatorTab() {
         asset::packMaterial(materialsData.selectedMaterialAssetInfo, {},
                             materialAsset);
         fs::path selectedMathAbsPath = project.getAbsolutePath(
-            materialPathStringPtrs[materialsData.selectedMaterialInd]);
+            materialListItems[materialsData.selectedMaterialInd]);
         selectedMathAbsPath.replace_extension(".obsmat");
         asset::saveToFile(selectedMathAbsPath, materialAsset);
         assetListDirty = true;
@@ -876,7 +871,7 @@ void materialCreatorTab() {
 
 void textureEditorTab() {
   if (ImGui::BeginTabItem("Textures")) {
-    static int selectedTextureInd = 1;
+    static int textureComboInd = 0;
     static asset::TextureAssetInfo selectedTextureAssetInfo;
     static asset::Asset selectedTextureAsset;
     static bool isInitialized = false;
@@ -890,17 +885,21 @@ void textureEditorTab() {
                                   selectedTextureAssetInfo);
     };
 
-    if (!isInitialized && texturesInProj.size()) {
-      loadTextureData(texturesInProj[selectedTextureInd - 1]);
-      isInitialized = true;
-    }
+    constexpr bool texIncludeNone = false;
+    auto const texSizeAndStrings =
+        texturesInProj.getValueStrings(texIncludeNone);
+    std::size_t const texCount = std::get<0>(texSizeAndStrings);
 
-    if (texturesInProj.size()) {
-      if (ImGui::Combo("Texture", &selectedTextureInd,
-                       texturePathStringPtrs.data() + 1,
-                       texturePathStringPtrs.size() - 1) &&
-          selectedTextureInd) {
-        loadTextureData(texturesInProj[selectedTextureInd]);
+    if (texCount) {
+      if (!isInitialized) {
+        loadTextureData(texturesInProj.at(textureComboInd, texIncludeNone));
+        isInitialized = true;
+      }
+
+      if (ImGui::Combo("Texture", &textureComboInd,
+                       std::get<1>(texSizeAndStrings), texCount) &&
+          textureComboInd) {
+        loadTextureData(texturesInProj.at(textureComboInd, texIncludeNone));
       }
 
       int currentSelectedFormat =
@@ -915,9 +914,9 @@ void textureEditorTab() {
         asset::updateTextureAssetInfo(selectedTextureAssetInfo,
                                       selectedTextureAsset);
 
-        asset::saveToFile(
-            project.getAbsolutePath(texturesInProj[selectedTextureInd]),
-            selectedTextureAsset);
+        asset::saveToFile(project.getAbsolutePath(texturesInProj.at(
+                              textureComboInd, texIncludeNone)),
+                          selectedTextureAsset);
       }
     }
 

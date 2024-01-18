@@ -46,6 +46,10 @@ bool loadAssetMetadataFromFile(std::filesystem::path const& path,
     return false;
   }
 
+  if (!inputFileStream) {
+    return false;
+  }
+
   readAssetMetadata(inputFileStream, outAssetMetadata);
 
   return true;

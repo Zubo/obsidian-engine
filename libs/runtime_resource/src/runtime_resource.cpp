@@ -338,7 +338,11 @@ std::vector<RuntimeResource*> const& RuntimeResource::fetchDependencies() {
 
     if (!_asset->metadata) {
       _asset->metadata.emplace();
-      asset::loadAssetMetadataFromFile(_path, *_asset->metadata);
+      if (!asset::loadAssetMetadataFromFile(_path, *_asset->metadata)) {
+        OBS_LOG_WARN("Failed to load asset metadata file at path " +
+                     _path.string());
+        return *_dependencies;
+      }
     }
 
     if (asset::getAssetType(_asset->metadata->type) ==

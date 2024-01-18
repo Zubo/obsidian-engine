@@ -6,6 +6,7 @@ add_executable(ObsidianEditor
     "src/settings.cpp"
     "include/obsidian/editor/editor_windows.hpp"
     "include/obsidian/editor/settings.hpp"
+    "include/obsidian/editor/item_list_data_source.hpp"
 )
 
 target_include_directories(ObsidianEditor
