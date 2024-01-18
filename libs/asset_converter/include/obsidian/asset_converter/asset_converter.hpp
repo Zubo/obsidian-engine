@@ -29,12 +29,16 @@ extern std::unordered_map<std::string, std::string> extensionMap;
 struct VertexContentInfo;
 
 class AssetConverter {
-
 public:
+  using TextureAssetInfoMap =
+      std::unordered_map<std::string, std::optional<asset::TextureAssetInfo>>;
+
   AssetConverter(task::TaskExecutor& taskExecutor);
 
   bool convertAsset(std::filesystem::path const& srcPath,
                     std::filesystem::path const& dstPath);
+
+  void togglePbr(bool usePbr);
 
 private:
   std::optional<asset::TextureAssetInfo> convertImgToAsset(
@@ -50,9 +54,6 @@ private:
 
   bool convertSpirvToAsset(std::filesystem::path const& srcPath,
                            std::filesystem::path const& dstPath);
-
-  using TextureAssetInfoMap =
-      std::unordered_map<std::string, std::optional<asset::TextureAssetInfo>>;
 
   template <typename MaterialType>
   TextureAssetInfoMap
@@ -78,6 +79,7 @@ private:
       std::optional<core::TextureFormat> overrideTextureFormat = std::nullopt);
 
   task::TaskExecutor& _taskExecutor;
+  bool _usePbr = false;
 };
 
 } /*namespace obsidian::asset_converter*/

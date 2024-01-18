@@ -1,7 +1,9 @@
 #pragma once
 
 #include <obsidian/asset/mesh_asset_info.hpp>
+#include <obsidian/asset_converter/asset_converter.hpp>
 #include <obsidian/asset_converter/vertex_content_info.hpp>
+#include <obsidian/core/material.hpp>
 #include <obsidian/core/vertex_type.hpp>
 #include <obsidian/serialization/game_object_data_serialization.hpp>
 
@@ -127,6 +129,11 @@ inline std::string getNormalTexName(ObjMaterialWrapper const& m) {
   return m.mat.bump_texname;
 }
 
+template <typename MaterialWrapper>
+inline std::string getAlbedoTexName(MaterialWrapper const& m) {
+  return getDiffuseTexName(m);
+}
+
 inline std::string getNormalTexName(GltfMaterialWrapper const& m) {
   tinygltf::Material const& mat = m.model.materials[m.matInd];
   int const index = mat.normalTexture.index;
@@ -212,10 +219,13 @@ inline bool isMaterialTransparent(GltfMaterialWrapper const& m) {
   return mat.alphaMode != "OPAQUE";
 }
 
-std::string shaderPicker(VertexContentInfo const& vertexInfo);
+std::string shaderPicker(VertexContentInfo const& vertexInfo,
+                         core::MaterialType materialType);
 
-std::string shaderPicker(GltfMaterialWrapper const& m);
+std::string shaderPicker(GltfMaterialWrapper const& m,
+                         core::MaterialType materialType);
 
-std::string shaderPicker(ObjMaterialWrapper const& m);
+std::string shaderPicker(ObjMaterialWrapper const& m,
+                         core::MaterialType materialType);
 
 } /*namespace obsidian::asset_converter */

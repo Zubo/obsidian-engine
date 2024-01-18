@@ -638,6 +638,8 @@ bool AssetConverter::convertAsset(fs::path const& srcPath,
   return false;
 }
 
+void AssetConverter::togglePbr(bool usePbr) { _usePbr = usePbr; }
+
 std::optional<asset::TextureAssetInfo> AssetConverter::getOrImportTexture(
     fs::path const& srcPath, fs::path const& dstPath,
     std::optional<core::TextureFormat> overrideTextureFormat) {
@@ -730,6 +732,76 @@ AssetConverter::TextureAssetInfoMap AssetConverter::extractTexturesForMaterials(
 }
 
 template <typename MaterialType>
+void extractLitMaterialData(
+    MaterialType const& mat, asset::MaterialAssetInfo& outMaterialAssetInfo,
+    AssetConverter::TextureAssetInfoMap const& textureAssetInfoMap) {
+  asset::LitMaterialAssetData& litMatAssetData =
+      outMaterialAssetInfo.materialSubtypeData
+          .emplace<asset::LitMaterialAssetData>();
+
+  litMatAssetData.ambientColor = getAmbientColor(mat);
+  litMatAssetData.diffuseColor = getDiffuseColor(mat);
+  litMatAssetData.specularColor = getSpecularColor(mat);
+  litMatAssetData.shininess = getShininess(mat);
+  litMatAssetData.reflection = false;
+
+  std::string const diffuseTexName = getDiffuseTexName(mat);
+  if (!diffuseTexName.empty()) {
+    std::optional<asset::TextureAssetInfo> const& texInfo =
+        textureAssetInfoMap.at(diffuseTexName);
+    assert(texInfo);
+
+    outMaterialAssetInfo.transparent |= (texInfo && texInfo->transparent);
+    fs::path dstPath = diffuseTexName;
+    dstPath.replace_extension(globals::textureAssetExt);
+    litMatAssetData.diffuseTexturePath = dstPath;
+  }
+
+  std::string const normalTexName = getNormalTexName(mat);
+  if (!normalTexName.empty()) {
+    std::optional<asset::TextureAssetInfo> const& texInfo =
+        textureAssetInfoMap.at(normalTexName);
+    assert(texInfo);
+
+    fs::path dstPath = normalTexName;
+    dstPath.replace_extension(globals::textureAssetExt);
+    litMatAssetData.normalMapTexturePath = dstPath;
+  }
+}
+
+template <typename MaterialType>
+void extractPbrMaterialData(
+    MaterialType const& mat, asset::MaterialAssetInfo& outMaterialAssetInfo,
+    AssetConverter::TextureAssetInfoMap const& textureAssetInfoMap) {
+  asset::PBRMaterialAssetData& pbrMatAssetData =
+      outMaterialAssetInfo.materialSubtypeData
+          .emplace<asset::PBRMaterialAssetData>();
+
+  std::string const albedoTexName = getAlbedoTexName(mat);
+  if (!albedoTexName.empty()) {
+    std::optional<asset::TextureAssetInfo> const& texInfo =
+        textureAssetInfoMap.at(albedoTexName);
+    assert(texInfo);
+
+    outMaterialAssetInfo.transparent |= (texInfo && texInfo->transparent);
+    fs::path dstPath = albedoTexName;
+    dstPath.replace_extension(globals::textureAssetExt);
+    pbrMatAssetData.albedoTexturePath = dstPath;
+  }
+
+  std::string const normalTexName = getNormalTexName(mat);
+  if (!normalTexName.empty()) {
+    std::optional<asset::TextureAssetInfo> const& texInfo =
+        textureAssetInfoMap.at(normalTexName);
+    assert(texInfo);
+
+    fs::path dstPath = normalTexName;
+    dstPath.replace_extension(globals::textureAssetExt);
+    pbrMatAssetData.normalMapTexturePath = dstPath;
+  }
+}
+
+template <typename MaterialType>
 AssetConverter::MaterialPathTable
 AssetConverter::extractMaterials(fs::path const& srcDirPath,
                                  fs::path const& projectPath,
@@ -751,45 +823,19 @@ AssetConverter::extractMaterials(fs::path const& srcDirPath,
     newMatAssetInfo.compressionMode = asset::CompressionMode::none;
     newMatAssetInfo.materialType = core::MaterialType::lit;
 
-    asset::LitMaterialAssetData& litMatAssetData =
-        newMatAssetInfo.materialSubtypeData
-            .emplace<asset::LitMaterialAssetData>();
+    VertexContentInfo const vertInfo = getVertInfo(mat);
 
-    newMatAssetInfo.shaderPath = shaderPicker(mat);
-    litMatAssetData.ambientColor = getAmbientColor(mat);
-    litMatAssetData.diffuseColor = getDiffuseColor(mat);
-    litMatAssetData.specularColor = getSpecularColor(mat);
-    litMatAssetData.shininess = getShininess(mat);
-    litMatAssetData.reflection = false;
+    core::MaterialType const materialType =
+        _usePbr ? core::MaterialType::pbr : core::MaterialType::lit;
 
-    newMatAssetInfo.materialSubtypeData = litMatAssetData;
+    if (materialType == core::MaterialType::lit) {
+      extractLitMaterialData(mat, newMatAssetInfo, textureAssetInfoMap);
+    } else if (materialType == core::MaterialType::pbr) {
+      extractPbrMaterialData(mat, newMatAssetInfo, textureAssetInfoMap);
+    }
 
     newMatAssetInfo.transparent = isMaterialTransparent(mat);
-
-    std::string const diffuseTexName = getDiffuseTexName(mat);
-    if (!diffuseTexName.empty()) {
-      std::optional<asset::TextureAssetInfo> const& texInfo =
-          textureAssetInfoMap.at(diffuseTexName);
-      assert(texInfo);
-
-      newMatAssetInfo.transparent |= (texInfo && texInfo->transparent);
-      fs::path dstPath = diffuseTexName;
-      dstPath.replace_extension(globals::textureAssetExt);
-      litMatAssetData.diffuseTexturePath = dstPath;
-    }
-
-    std::string const normalTexName = getNormalTexName(mat);
-    if (!normalTexName.empty()) {
-      std::optional<asset::TextureAssetInfo> const& texInfo =
-          textureAssetInfoMap.at(normalTexName);
-      assert(texInfo);
-
-      fs::path dstPath = normalTexName;
-      dstPath.replace_extension(globals::textureAssetExt);
-      litMatAssetData.normalMapTexturePath = dstPath;
-    }
-
-    VertexContentInfo const vertInfo = getVertInfo(mat);
+    newMatAssetInfo.shaderPath = shaderPicker(mat, materialType);
 
     asset::Asset matAsset;
     if (asset::packMaterial(newMatAssetInfo, {}, matAsset)) {

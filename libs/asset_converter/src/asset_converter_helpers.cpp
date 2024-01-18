@@ -1,5 +1,7 @@
+#include <obsidian/asset_converter/asset_converter.hpp>
 #include <obsidian/asset_converter/asset_converter_helpers.hpp>
 #include <obsidian/core/logging.hpp>
+#include <obsidian/core/material.hpp>
 #include <obsidian/core/shapes.hpp>
 #include <obsidian/core/utils/aabb.hpp>
 
@@ -14,7 +16,8 @@
 
 namespace obsidian::asset_converter {
 
-std::string shaderPicker(VertexContentInfo const& vertexInfo) {
+std::string shaderPicker(VertexContentInfo const& vertexInfo,
+                         core::MaterialType materialType) {
   std::string result = "obsidian/shaders/";
 
   if (vertexInfo.hasColor) {
@@ -28,21 +31,30 @@ std::string shaderPicker(VertexContentInfo const& vertexInfo) {
     result += "-";
   }
 
-  if (vertexInfo.hasNormal) {
+  switch (materialType) {
+  case core::MaterialType::lit:
     result += "default.obsshad";
-  } else {
-    result += "default-unlit.obsshad";
+    break;
+  case core::MaterialType::pbr:
+    result += "pbr.obsshad";
+    break;
+  default:
+    assert(false &&
+           "The materialType argument must either be MaterialType::lit or "
+           "MaterialType::pbr.");
   }
 
   return result;
 }
 
-std::string shaderPicker(GltfMaterialWrapper const& m) {
-  return shaderPicker(m.vertexInfo);
+std::string shaderPicker(GltfMaterialWrapper const& m,
+                         core::MaterialType materialType) {
+  return shaderPicker(m.vertexInfo, materialType);
 }
 
-std::string shaderPicker(ObjMaterialWrapper const& m) {
-  return shaderPicker(m.vertexInfo);
+std::string shaderPicker(ObjMaterialWrapper const& m,
+                         core::MaterialType materialType) {
+  return shaderPicker(m.vertexInfo, materialType);
 }
 
 inline glm::vec3 calculateTangent(std::array<glm::vec3, 3> const& facePositions,

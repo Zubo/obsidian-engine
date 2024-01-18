@@ -29,7 +29,10 @@ struct LitMaterialAssetData {
   bool reflection;
 };
 
-struct PBRMaterialAssetData {};
+struct PBRMaterialAssetData {
+  std::string albedoTexturePath;
+  std::string normalMapTexturePath;
+};
 
 using MaterialSubtypeData =
     std::variant<UnlitMaterialAssetData, LitMaterialAssetData,
