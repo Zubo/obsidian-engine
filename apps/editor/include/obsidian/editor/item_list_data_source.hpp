@@ -2,11 +2,15 @@
 
 #include <algorithm>
 #include <cassert>
-#include <tuple>
 #include <utility>
 #include <vector>
 
 namespace obsidian::editor {
+
+struct ValueStrings {
+  std::size_t size;
+  char const* const* valueStrings;
+};
 
 template <typename ValueType> class ItemListDataSource {
 public:
@@ -22,8 +26,7 @@ public:
   }
 
   // returns size and the pointer to the first string pointer in the array
-  std::tuple<std::size_t, char const* const*>
-  getValueStrings(bool includeNone) const {
+  ValueStrings getValueStrings(bool includeNone) const {
     std::size_t const firstInd = includeNone || _values.empty() ? 0 : 1;
 
     return {_valueStringPtrs.size() - firstInd,

@@ -435,12 +435,12 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
         ImGui::NewLine();
         ImGui::SeparatorText("Mesh and Materials");
 
-        auto const meshSizeAndStrings =
+        ValueStrings const meshSizeAndStrings =
             meshesInProj.getValueStrings(meshIncludeNone);
 
         if (ImGui::Combo("Mesh", &meshComboIndex,
-                         std::get<1>(meshSizeAndStrings),
-                         std::get<0>(meshSizeAndStrings))) {
+                         meshSizeAndStrings.valueStrings,
+                         meshSizeAndStrings.size)) {
           selectGameObjMesh(meshesInProj.at(meshComboIndex, meshIncludeNone));
         }
 
@@ -448,17 +448,15 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
             selectedGameObjMeshAssetInfo.indexBufferSizes.size(), 0);
 
         constexpr bool materialsIncludeNone = false;
-        auto const materialSizeAndStrings =
+        ValueStrings const materialValueStrings =
             materialsInProj.getValueStrings(materialsIncludeNone);
-        std::size_t const materialComboItemCount =
-            std::get<0>(materialSizeAndStrings);
 
         ImGui::NewLine();
         if (ImGui::TreeNodeEx("Materials", ImGuiTreeNodeFlags_DefaultOpen)) {
           for (std::size_t i = 0; i < selectedGameObjMats.size(); ++i) {
             if (ImGui::Combo(std::to_string(i).c_str(), &selectedGameObjMats[i],
-                             std::get<1>(materialSizeAndStrings),
-                             materialComboItemCount)) {
+                             materialValueStrings.valueStrings,
+                             materialValueStrings.size)) {
             }
           }
 
@@ -637,10 +635,10 @@ void unlitMaterialEditor(asset::UnlitMaterialAssetData& unlitMatData) {
   int colorTexComboInd =
       texturesInProj.listItemInd(unlitMatData.colorTexturePath, texIncludeNone);
 
-  auto const sizeAndStrings = texturesInProj.getValueStrings(texIncludeNone);
+  auto const texValueStrings = texturesInProj.getValueStrings(texIncludeNone);
 
-  if (ImGui::Combo("Color Tex", &colorTexComboInd, std::get<1>(sizeAndStrings),
-                   std::get<0>(sizeAndStrings))) {
+  if (ImGui::Combo("Color Tex", &colorTexComboInd, texValueStrings.valueStrings,
+                   texValueStrings.size)) {
     unlitMatData.colorTexturePath =
         texturesInProj.at(colorTexComboInd, texIncludeNone);
   }
@@ -655,12 +653,11 @@ void litMaterialEditor(asset::LitMaterialAssetData& litMatData) {
   int diffuseTexComboInd = texturesInProj.listItemInd(
       litMatData.diffuseTexturePath, texturesIncludeNone);
 
-  auto const texSizeAndStrings =
+  ValueStrings const texValueStrings =
       texturesInProj.getValueStrings(texturesIncludeNone);
 
   if (ImGui::Combo("Diffuse Tex", &diffuseTexComboInd,
-                   std::get<1>(texSizeAndStrings),
-                   std::get<0>(texSizeAndStrings))) {
+                   texValueStrings.valueStrings, texValueStrings.size)) {
     litMatData.diffuseTexturePath =
         texturesInProj.at(diffuseTexComboInd, texturesIncludeNone);
   }
@@ -669,8 +666,7 @@ void litMaterialEditor(asset::LitMaterialAssetData& litMatData) {
       litMatData.normalMapTexturePath, texturesIncludeNone);
 
   if (ImGui::Combo("Normal Tex", &normalTexComboInd,
-                   std::get<1>(texSizeAndStrings),
-                   std::get<0>(texSizeAndStrings))) {
+                   texValueStrings.valueStrings, texValueStrings.size)) {
     litMatData.normalMapTexturePath =
         texturesInProj.at(normalTexComboInd, texturesIncludeNone);
   }
@@ -698,14 +694,12 @@ void pbrMaterialEditor(asset::PBRMaterialAssetData& pbrMatData) {}
 
 void materialCreatorTab() {
   constexpr bool materialsIncludeNone = false;
-  auto const materialsSizeAndStrings =
+  ValueStrings const materialValueStrings =
       materialsInProj.getValueStrings(materialsIncludeNone);
-  std::size_t const materialListItemSize = std::get<0>(materialsSizeAndStrings);
-  char const* const* materialListItems = std::get<1>(materialsSizeAndStrings);
 
   if (ImGui::BeginTabItem("Materials")) {
     if (assetListDirty) {
-      materialsData.selectedMaterialInd = -1;
+      materialsData.selectedMaterialInd = 0;
       materialsData.materialSelectionUpdated = true;
       ImGui::EndTabItem();
       return;
@@ -769,10 +763,11 @@ void materialCreatorTab() {
     ImGui::NewLine();
 
     if (ImGui::BeginListBox("Materials")) {
-      for (int i = 0; i < materialListItemSize; ++i) {
+      for (int i = 0; i < materialValueStrings.size; ++i) {
         bool selected = materialsData.selectedMaterialInd == i;
 
-        if (ImGui::Selectable(materialListItems[i], &selected)) {
+        if (ImGui::Selectable(materialValueStrings.valueStrings[i],
+                              &selected)) {
           materialsData.selectedMaterialInd = i;
           materialsData.materialSelectionUpdated = true;
         }
@@ -814,7 +809,7 @@ void materialCreatorTab() {
 
     if (materialsData.selectedMaterialInd >= 0) {
       ImGui::SeparatorText(
-          materialListItems[materialsData.selectedMaterialInd]);
+          materialValueStrings.valueStrings[materialsData.selectedMaterialInd]);
 
       if (ImGui::Combo("Material Type", &materialsData.selectedMaterialType,
                        materialTypes.data(), materialTypes.size())) {
@@ -825,12 +820,12 @@ void materialCreatorTab() {
                 materialsData.selectedMaterialAssetInfo.materialType);
       }
 
-      auto const shaderSizeAndStrings =
+      ValueStrings const shaderSizeAndStrings =
           shadersInProj.getValueStrings(shadersIncludeNone);
 
       if (ImGui::Combo("Shader", &materialsData.shaderComboInd,
-                       std::get<1>(shaderSizeAndStrings),
-                       std::get<0>(shaderSizeAndStrings))) {
+                       shaderSizeAndStrings.valueStrings,
+                       shaderSizeAndStrings.size)) {
         materialsData.selectedMaterialAssetInfo.shaderPath =
             shadersInProj.at(materialsData.shaderComboInd, shadersIncludeNone);
       }
@@ -858,7 +853,8 @@ void materialCreatorTab() {
         asset::packMaterial(materialsData.selectedMaterialAssetInfo, {},
                             materialAsset);
         fs::path selectedMathAbsPath = project.getAbsolutePath(
-            materialListItems[materialsData.selectedMaterialInd]);
+            materialValueStrings
+                .valueStrings[materialsData.selectedMaterialInd]);
         selectedMathAbsPath.replace_extension(".obsmat");
         asset::saveToFile(selectedMathAbsPath, materialAsset);
         assetListDirty = true;
@@ -886,18 +882,17 @@ void textureEditorTab() {
     };
 
     constexpr bool texIncludeNone = false;
-    auto const texSizeAndStrings =
+    ValueStrings const texValueStrings =
         texturesInProj.getValueStrings(texIncludeNone);
-    std::size_t const texCount = std::get<0>(texSizeAndStrings);
 
-    if (texCount) {
+    if (texValueStrings.size) {
       if (!isInitialized) {
         loadTextureData(texturesInProj.at(textureComboInd, texIncludeNone));
         isInitialized = true;
       }
 
       if (ImGui::Combo("Texture", &textureComboInd,
-                       std::get<1>(texSizeAndStrings), texCount) &&
+                       texValueStrings.valueStrings, texValueStrings.size) &&
           textureComboInd) {
         loadTextureData(texturesInProj.at(textureComboInd, texIncludeNone));
       }
