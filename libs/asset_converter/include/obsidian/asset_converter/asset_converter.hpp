@@ -2,6 +2,7 @@
 
 #include <obsidian/asset/texture_asset_info.hpp>
 #include <obsidian/asset_converter/vertex_content_info.hpp>
+#include <obsidian/core/material.hpp>
 #include <obsidian/core/texture_format.hpp>
 
 #include <filesystem>
@@ -38,7 +39,7 @@ public:
   bool convertAsset(std::filesystem::path const& srcPath,
                     std::filesystem::path const& dstPath);
 
-  void togglePbr(bool usePbr);
+  void setMaterialType(core::MaterialType matType);
 
 private:
   std::optional<asset::TextureAssetInfo> convertImgToAsset(
@@ -79,7 +80,7 @@ private:
       std::optional<core::TextureFormat> overrideTextureFormat = std::nullopt);
 
   task::TaskExecutor& _taskExecutor;
-  bool _usePbr = false;
+  core::MaterialType _materialType = core::MaterialType::unlit;
 };
 
 } /*namespace obsidian::asset_converter*/

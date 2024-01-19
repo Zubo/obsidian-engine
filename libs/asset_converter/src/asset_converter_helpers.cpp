@@ -32,6 +32,9 @@ std::string shaderPicker(VertexContentInfo const& vertexInfo,
   }
 
   switch (materialType) {
+  case core::MaterialType::unlit:
+    result += "default-unlit.obsshad";
+    break;
   case core::MaterialType::lit:
     result += "default.obsshad";
     break;

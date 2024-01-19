@@ -44,6 +44,7 @@
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <nlohmann/json.hpp>
+#include <tracy/Tracy.hpp>
 
 #include <algorithm>
 #include <array>
@@ -984,6 +985,8 @@ void projectTab(ObsidianEngine& engine, bool& engineStarted) {
 
 void editor(SDL_Renderer& renderer, ImGuiIO& imguiIO, DataContext& context,
             ObsidianEngine& engine, bool& engineStarted) {
+  ZoneScoped;
+
   if (assetListDirty) {
     refreshAssetLists();
     assetListDirty = false;

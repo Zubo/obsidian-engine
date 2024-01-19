@@ -638,7 +638,9 @@ bool AssetConverter::convertAsset(fs::path const& srcPath,
   return false;
 }
 
-void AssetConverter::togglePbr(bool usePbr) { _usePbr = usePbr; }
+void AssetConverter::setMaterialType(core::MaterialType matType) {
+  _materialType = matType;
+}
 
 std::optional<asset::TextureAssetInfo> AssetConverter::getOrImportTexture(
     fs::path const& srcPath, fs::path const& dstPath,
@@ -732,6 +734,30 @@ AssetConverter::TextureAssetInfoMap AssetConverter::extractTexturesForMaterials(
 }
 
 template <typename MaterialType>
+void extractUnlitMaterialData(
+    MaterialType const& mat, asset::MaterialAssetInfo& outMaterialAssetInfo,
+    AssetConverter::TextureAssetInfoMap const& textureAssetInfoMap) {
+  asset::UnlitMaterialAssetData& unlitMatAssetData =
+      outMaterialAssetInfo.materialSubtypeData
+          .emplace<asset::UnlitMaterialAssetData>();
+
+  unlitMatAssetData.color = getDiffuseColor(mat);
+
+  std::string const colorTexName = getDiffuseTexName(mat);
+  if (!colorTexName.empty()) {
+    std::optional<asset::TextureAssetInfo> const& colorTexInfo =
+        textureAssetInfoMap.at(colorTexName);
+    assert(colorTexInfo);
+
+    outMaterialAssetInfo.transparent |=
+        (colorTexInfo && colorTexInfo->transparent);
+    fs::path dstPath = colorTexName;
+    dstPath.replace_extension(globals::textureAssetExt);
+    unlitMatAssetData.colorTexturePath = dstPath;
+  }
+}
+
+template <typename MaterialType>
 void extractLitMaterialData(
     MaterialType const& mat, asset::MaterialAssetInfo& outMaterialAssetInfo,
     AssetConverter::TextureAssetInfoMap const& textureAssetInfoMap) {
@@ -821,21 +847,26 @@ AssetConverter::extractMaterials(fs::path const& srcDirPath,
     MaterialType const& mat = materials[i];
     asset::MaterialAssetInfo newMatAssetInfo;
     newMatAssetInfo.compressionMode = asset::CompressionMode::none;
-    newMatAssetInfo.materialType = core::MaterialType::lit;
+    newMatAssetInfo.materialType = _materialType;
 
     VertexContentInfo const vertInfo = getVertInfo(mat);
 
-    core::MaterialType const materialType =
-        _usePbr ? core::MaterialType::pbr : core::MaterialType::lit;
-
-    if (materialType == core::MaterialType::lit) {
+    switch (_materialType) {
+    case core::MaterialType::unlit:
+      extractUnlitMaterialData(mat, newMatAssetInfo, textureAssetInfoMap);
+      break;
+    case core::MaterialType::lit: {
       extractLitMaterialData(mat, newMatAssetInfo, textureAssetInfoMap);
-    } else if (materialType == core::MaterialType::pbr) {
+      break;
+    }
+    case core::MaterialType::pbr: {
       extractPbrMaterialData(mat, newMatAssetInfo, textureAssetInfoMap);
+      break;
+    }
     }
 
     newMatAssetInfo.transparent = isMaterialTransparent(mat);
-    newMatAssetInfo.shaderPath = shaderPicker(mat, materialType);
+    newMatAssetInfo.shaderPath = shaderPicker(mat, _materialType);
 
     asset::Asset matAsset;
     if (asset::packMaterial(newMatAssetInfo, {}, matAsset)) {
