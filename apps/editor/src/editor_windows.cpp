@@ -81,6 +81,7 @@ static std::array<char const*, 4> textureTypes = {
     "Unknown", "R8G8B8A8_SRGB", "R8G8B8A8_LINEAR", "R32G32_SFLOAT"};
 static bool openEngineTab = false;
 scene::GameObject* pendingObjDelete = nullptr;
+std::vector<fs::path> _pendingDraggedFiles;
 
 void refreshAssetLists() {
   texturesInProj.setValues(
@@ -233,6 +234,64 @@ void selectGameObject(scene::GameObject& gameObject) {
 
   meshComboIndex = meshesInProj.listItemInd(meshRelativePath, meshIncludeNone);
   selectGameObjMesh(meshRelativePath);
+}
+
+void performImport(ObsidianEngine& engine, fs::path const& srcPath,
+                   fs::path const& dstPath) {
+  if (engine.isInitialized()) {
+    engine.getContext().taskExecutor.enqueue(
+        task::TaskType::general, [&engine, srcPath, dstPath]() {
+          obsidian::asset_converter::AssetConverter converter{
+              engine.getContext().taskExecutor};
+          converter.convertAsset(srcPath, dstPath);
+          assetListDirty = true;
+        });
+  } else {
+    static obsidian::task::TaskExecutor executor;
+    static bool executorInitialized = false;
+
+    if (!executorInitialized) {
+      executor.initAndRun({{obsidian::task::TaskType::general,
+                            std::thread::hardware_concurrency()}});
+      executorInitialized = true;
+    }
+
+    executor.enqueue(task::TaskType::general, [srcPath = srcPath, dstPath]() {
+      obsidian::asset_converter::AssetConverter converter{executor};
+      converter.convertAsset(srcPath, dstPath);
+      assetListDirty = true;
+    });
+  }
+}
+
+void importPopup(ObsidianEngine& engine) {
+  static fs::path importPath;
+  constexpr char const* popupName = "Import file";
+
+  if (!ImGui::IsPopupOpen(popupName) && _pendingDraggedFiles.size()) {
+    importPath = _pendingDraggedFiles.back();
+    _pendingDraggedFiles.pop_back();
+    ImGui::OpenPopup(popupName);
+  }
+
+  if (ImGui::BeginPopup(popupName)) {
+    ImGui::Text("Import %s", importPath.c_str());
+
+    if (ImGui::Button("Import")) {
+      fs::path dstPath = project.getAbsolutePath(importPath.filename());
+      dstPath.replace_extension("");
+
+      performImport(engine, importPath, dstPath);
+
+      ImGui::CloseCurrentPopup();
+    }
+
+    if (ImGui::Button("Cancel")) {
+      ImGui::CloseCurrentPopup();
+    }
+
+    ImGui::EndPopup();
+  }
 }
 
 void gameObjectHierarchy(scene::GameObject& gameObject,
@@ -1010,6 +1069,8 @@ void editor(SDL_Renderer& renderer, ImGuiIO& imguiIO, DataContext& context,
     ImGui::EndTabBar();
   }
 
+  importPopup(engine);
+
   ImGui::End();
   // Rendering
   ImGui::Render();
@@ -1088,39 +1149,14 @@ void fileDropped(const char* file, ObsidianEngine& engine) {
 
     instantiatePrefab(srcPath, engine);
   } else {
+    // asset import
+
     if (project.getOpenProjectPath().empty()) {
       OBS_LOG_ERR("File dropped in but no project was open.");
       return;
     }
 
-    fs::path dstPath = project.getAbsolutePath(srcPath.filename());
-    dstPath.replace_extension("");
-
-    if (engine.isInitialized()) {
-      engine.getContext().taskExecutor.enqueue(
-          task::TaskType::general, [&engine, srcPath, dstPath]() {
-            obsidian::asset_converter::AssetConverter converter{
-                engine.getContext().taskExecutor};
-            converter.convertAsset(srcPath, dstPath);
-            assetListDirty = true;
-          });
-    } else {
-      // asset import
-      static obsidian::task::TaskExecutor executor;
-      static bool executorInitialized = false;
-
-      if (!executorInitialized) {
-        executor.initAndRun({{obsidian::task::TaskType::general,
-                              std::thread::hardware_concurrency()}});
-        executorInitialized = true;
-      }
-
-      executor.enqueue(task::TaskType::general, [srcPath, dstPath]() {
-        obsidian::asset_converter::AssetConverter converter{executor};
-        converter.convertAsset(srcPath, dstPath);
-        assetListDirty = true;
-      });
-    }
+    _pendingDraggedFiles.push_back(srcPath);
   }
 }
 
