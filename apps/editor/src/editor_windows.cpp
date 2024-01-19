@@ -729,6 +729,7 @@ void materialCreatorTab() {
     if (ImGui::Button("Create")) {
       asset::MaterialAssetInfo newMatAssetInfo = {};
       newMatAssetInfo.materialType = core::MaterialType::lit;
+      newMatAssetInfo.shaderPath = "obsidian/shaders/default.obsshad";
       asset::LitMaterialAssetData& litMaterialData =
           newMatAssetInfo.materialSubtypeData
               .emplace<asset::LitMaterialAssetData>();
@@ -779,7 +780,7 @@ void materialCreatorTab() {
     ImGui::NewLine();
 
     if (materialsData.materialSelectionUpdated &&
-        materialsData.selectedMaterialInd >= 0) {
+        materialsData.selectedMaterialInd < materialsInProj.valuesSize()) {
       fs::path const absolutePath = project.getAbsolutePath(materialsInProj.at(
           materialsData.selectedMaterialInd, materialsIncludeNone));
       asset::Asset matAsset;

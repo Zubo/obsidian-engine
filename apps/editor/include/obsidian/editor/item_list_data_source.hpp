@@ -27,7 +27,7 @@ public:
 
   // returns size and the pointer to the first string pointer in the array
   ValueStrings getValueStrings(bool includeNone) const {
-    std::size_t const firstInd = includeNone || _values.empty() ? 0 : 1;
+    std::size_t const firstInd = includeNone ? 0 : 1;
 
     return {_valueStringPtrs.size() - firstInd,
             _valueStringPtrs.data() + firstInd};
