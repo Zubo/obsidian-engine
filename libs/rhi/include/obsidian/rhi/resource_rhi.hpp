@@ -67,7 +67,12 @@ struct UploadLitMaterialRHI {
   bool reflection;
 };
 
-struct UploadPBRMaterialRHI {};
+struct UploadPBRMaterialRHI {
+  ResourceIdRHI albedoTextureId = rhi::rhiIdUninitialized;
+  ResourceIdRHI normalTextureId = rhi::rhiIdUninitialized;
+  ResourceIdRHI metalnessTextureId = rhi::rhiIdUninitialized;
+  ResourceIdRHI roughnessTextureId = rhi::rhiIdUninitialized;
+};
 
 using UploadMaterialSubtypeRHI =
     std::variant<UploadUnlitMaterialRHI, UploadLitMaterialRHI,

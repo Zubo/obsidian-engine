@@ -557,6 +557,82 @@ void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
           1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
           VK_SHADER_STAGE_FRAGMENT_BIT);
     }
+  } else if (uploadMaterial.materialType == core::MaterialType::pbr) {
+    rhi::UploadPBRMaterialRHI const& uploadPbrMaterial =
+        std::get<rhi::UploadPBRMaterialRHI>(
+            uploadMaterial.uploadMaterialSubtype);
+
+    bool const metalnessAndRoughnessSeparateTex =
+        uploadPbrMaterial.roughnessTextureId != rhi::rhiIdUninitialized;
+
+    Texture& albedoTexture = _textures[uploadPbrMaterial.albedoTextureId];
+
+    ++albedoTexture.resource.refCount;
+    newMaterial.textureResourceDependencyIds.push_back(
+        albedoTexture.resource.id);
+
+    VkDescriptorImageInfo albedoTexImageInfo;
+    albedoTexImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    albedoTexImageInfo.imageView = albedoTexture.imageView;
+    albedoTexImageInfo.sampler = _vkLinearRepeatSampler;
+
+    descriptorBuilder.bindImage(0, albedoTexImageInfo,
+                                VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
+
+    Texture& normalTexture = _textures[uploadPbrMaterial.normalTextureId];
+
+    ++normalTexture.resource.refCount;
+    newMaterial.textureResourceDependencyIds.push_back(
+        normalTexture.resource.id);
+
+    VkDescriptorImageInfo normalTexImageInfo;
+    normalTexImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    normalTexImageInfo.imageView = normalTexture.imageView;
+    normalTexImageInfo.sampler = _vkLinearRepeatSampler;
+
+    descriptorBuilder.bindImage(1, normalTexImageInfo,
+                                VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
+
+    Texture& metalnessTexture = _textures[uploadPbrMaterial.metalnessTextureId];
+
+    ++metalnessTexture.resource.refCount;
+    newMaterial.textureResourceDependencyIds.push_back(
+        metalnessTexture.resource.id);
+
+    VkDescriptorImageInfo metalnessTexImageInfo;
+    metalnessTexImageInfo.imageLayout =
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    metalnessTexImageInfo.imageView = metalnessTexture.imageView;
+    metalnessTexImageInfo.sampler = _vkLinearRepeatSampler;
+
+    descriptorBuilder.bindImage(2, metalnessTexImageInfo,
+                                VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
+
+    if (metalnessAndRoughnessSeparateTex) {
+      Texture& roughnessTexture =
+          _textures[uploadPbrMaterial.roughnessTextureId];
+
+      ++roughnessTexture.resource.refCount;
+      newMaterial.textureResourceDependencyIds.push_back(
+          roughnessTexture.resource.id);
+
+      VkDescriptorImageInfo roughnessTexImageInfo;
+      roughnessTexImageInfo.imageLayout =
+          VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+      roughnessTexImageInfo.imageView = metalnessTexture.imageView;
+      roughnessTexImageInfo.sampler = _vkLinearRepeatSampler;
+
+      descriptorBuilder.bindImage(3, roughnessTexImageInfo,
+                                  VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                  VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
+    } else {
+      descriptorBuilder.declareUnusedImage(
+          3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+          VK_SHADER_STAGE_FRAGMENT_BIT);
+    }
   }
 
   if (uploadMaterial.hasTimer) {

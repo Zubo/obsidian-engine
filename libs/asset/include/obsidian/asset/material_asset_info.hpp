@@ -32,6 +32,8 @@ struct LitMaterialAssetData {
 struct PBRMaterialAssetData {
   std::string albedoTexturePath;
   std::string normalMapTexturePath;
+  std::string metalnessTexturePath;
+  std::string roughnessTexturePath;
 };
 
 using MaterialSubtypeData =

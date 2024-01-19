@@ -680,38 +680,31 @@ AssetConverter::TextureAssetInfoMap AssetConverter::extractTexturesForMaterials(
 
   std::unordered_map<std::string, task::TaskBase const*> textureLoadTasks;
 
+  auto const addTex = [this, &textureLoadTasks, &texDir, &projectPath](
+                          std::string texName, core::TextureFormat texFormat) {
+    if (texName.empty() || textureLoadTasks.contains(texName)) {
+      return;
+    }
+
+    fs::path const srcPath = texDir.path() / texName;
+    fs::path dstPath = projectPath / texName;
+    dstPath.replace_extension(globals::textureAssetExt);
+
+    task::TaskBase const* task = &_taskExecutor.enqueue(
+        task::TaskType::general, [this, srcPath, dstPath, texFormat]() {
+          return getOrImportTexture(srcPath, dstPath, texFormat);
+        });
+
+    textureLoadTasks[texName] = task;
+  };
+
   for (std::size_t i = 0; i < materials.size(); ++i) {
     MaterialType const& mat = materials[i];
 
-    std::string const diffuseTexName = getDiffuseTexName(mat);
-
-    if (!diffuseTexName.empty() && !textureLoadTasks.contains(diffuseTexName)) {
-      fs::path const srcPath = texDir.path() / diffuseTexName;
-      fs::path dstPath = projectPath / diffuseTexName;
-      dstPath.replace_extension(globals::textureAssetExt);
-
-      task::TaskBase const* task = &_taskExecutor.enqueue(
-          task::TaskType::general, [this, srcPath, dstPath]() {
-            return getOrImportTexture(srcPath, dstPath);
-          });
-
-      textureLoadTasks[diffuseTexName] = task;
-    }
-
-    std::string const normalTexName = getNormalTexName(mat);
-    if (!normalTexName.empty() && !textureLoadTasks.contains(normalTexName)) {
-      fs::path const srcPath = texDir.path() / normalTexName;
-      fs::path dstPath = projectPath / normalTexName;
-      dstPath.replace_extension(globals::textureAssetExt);
-
-      task::TaskBase const* task = &_taskExecutor.enqueue(
-          task::TaskType::general, [this, srcPath, dstPath]() {
-            return getOrImportTexture(srcPath, dstPath,
-                                      core::TextureFormat::R8G8B8A8_LINEAR);
-          });
-
-      textureLoadTasks[normalTexName] = task;
-    }
+    addTex(getDiffuseTexName(mat), core::TextureFormat::R8G8B8A8_SRGB);
+    addTex(getNormalTexName(mat), core::TextureFormat::R8G8B8A8_LINEAR);
+    addTex(getMetalnessTexName(mat), core::TextureFormat::R8G8B8A8_LINEAR);
+    addTex(getRoughnessTexName(mat), core::TextureFormat::R8G8B8A8_LINEAR);
   }
 
   // Wait for all texture tasks to finish
@@ -804,26 +797,59 @@ void extractPbrMaterialData(
           .emplace<asset::PBRMaterialAssetData>();
 
   std::string const albedoTexName = getAlbedoTexName(mat);
-  if (!albedoTexName.empty()) {
-    std::optional<asset::TextureAssetInfo> const& texInfo =
-        textureAssetInfoMap.at(albedoTexName);
-    assert(texInfo);
+  std::string const normalTexName = getNormalTexName(mat);
+  std::string const metalnessTexName = getMetalnessTexName(mat);
 
-    outMaterialAssetInfo.transparent |= (texInfo && texInfo->transparent);
-    fs::path dstPath = albedoTexName;
-    dstPath.replace_extension(globals::textureAssetExt);
-    pbrMatAssetData.albedoTexturePath = dstPath;
+  if (albedoTexName.empty() || normalTexName.empty() ||
+      metalnessTexName.empty()) {
+    // fallback
+    extractLitMaterialData(mat, outMaterialAssetInfo, textureAssetInfoMap);
+    return;
   }
 
-  std::string const normalTexName = getNormalTexName(mat);
-  if (!normalTexName.empty()) {
-    std::optional<asset::TextureAssetInfo> const& texInfo =
-        textureAssetInfoMap.at(normalTexName);
-    assert(texInfo);
+  // albedo
+  std::optional<asset::TextureAssetInfo> const& albedoTexInfo =
+      textureAssetInfoMap.at(albedoTexName);
+  assert(albedoTexInfo);
 
-    fs::path dstPath = normalTexName;
-    dstPath.replace_extension(globals::textureAssetExt);
-    pbrMatAssetData.normalMapTexturePath = dstPath;
+  outMaterialAssetInfo.transparent |=
+      (albedoTexInfo && albedoTexInfo->transparent);
+
+  fs::path albedoDstPath = albedoTexName;
+  albedoDstPath.replace_extension(globals::textureAssetExt);
+  pbrMatAssetData.albedoTexturePath = albedoDstPath;
+
+  // normal map
+  assert(!normalTexName.empty() && "Normal map texture missing.");
+  std::optional<asset::TextureAssetInfo> const& normalMapTexInfo =
+      textureAssetInfoMap.at(normalTexName);
+  assert(normalMapTexInfo);
+
+  fs::path normalMapDstPath = normalTexName;
+  normalMapDstPath.replace_extension(globals::textureAssetExt);
+  pbrMatAssetData.normalMapTexturePath = normalMapDstPath;
+
+  // metalness
+  assert(!metalnessTexName.empty() && "Normal map texture missing.");
+  std::optional<asset::TextureAssetInfo> const& metalnessTexInfo =
+      textureAssetInfoMap.at(metalnessTexName);
+  assert(metalnessTexInfo);
+
+  fs::path metalnessDstPath = normalTexName;
+  metalnessDstPath.replace_extension(globals::textureAssetExt);
+  pbrMatAssetData.metalnessTexturePath = metalnessDstPath;
+
+  // roughness
+  if (isMetallicRoughnessTexSeparate(mat)) {
+    std::string const roughnessTexName = getRoughnessTexName(mat);
+    assert(!roughnessTexName.empty() && "Normal map texture missing.");
+    std::optional<asset::TextureAssetInfo> const& roughnessTexInfo =
+        textureAssetInfoMap.at(roughnessTexName);
+    assert(roughnessTexInfo);
+
+    fs::path roughnessDstPath = roughnessTexName;
+    roughnessDstPath.replace_extension(globals::textureAssetExt);
+    pbrMatAssetData.roughnessTexturePath = roughnessDstPath;
   }
 }
 

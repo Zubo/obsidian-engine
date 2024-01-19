@@ -20,14 +20,16 @@ std::string shaderPicker(VertexContentInfo const& vertexInfo,
                          core::MaterialType materialType) {
   std::string result = "obsidian/shaders/";
 
-  if (vertexInfo.hasColor) {
+  bool hasVariants = materialType != core::MaterialType::pbr;
+
+  if (hasVariants && vertexInfo.hasColor) {
     result += "c";
   }
-  if (vertexInfo.hasUV) {
+  if (hasVariants && vertexInfo.hasUV) {
     result += "u";
   }
 
-  if (vertexInfo.hasColor || vertexInfo.hasUV) {
+  if (hasVariants && (vertexInfo.hasColor || vertexInfo.hasUV)) {
     result += "-";
   }
 
@@ -39,7 +41,7 @@ std::string shaderPicker(VertexContentInfo const& vertexInfo,
     result += "default.obsshad";
     break;
   case core::MaterialType::pbr:
-    result += "pbr.obsshad";
+    result += "default-pbr.obsshad";
     break;
   default:
     assert(false &&

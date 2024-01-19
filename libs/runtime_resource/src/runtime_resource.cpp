@@ -284,6 +284,28 @@ void RuntimeResource::performUploadToRHI() {
       break;
     }
     case core::MaterialType::pbr: {
+      rhi::UploadPBRMaterialRHI& uploadPbrMat =
+          uploadMaterial.uploadMaterialSubtype
+              .emplace<rhi::UploadPBRMaterialRHI>();
+
+      asset::PBRMaterialAssetData const& pbrInfo =
+          std::get<asset::PBRMaterialAssetData>(info.materialSubtypeData);
+
+      uploadPbrMat.albedoTextureId =
+          _runtimeResourceManager.getResource(pbrInfo.albedoTexturePath)
+              .getResourceId();
+      uploadPbrMat.normalTextureId =
+          _runtimeResourceManager.getResource(pbrInfo.normalMapTexturePath)
+              .getResourceId();
+      uploadPbrMat.metalnessTextureId =
+          _runtimeResourceManager.getResource(pbrInfo.metalnessTexturePath)
+              .getResourceId();
+      if (!pbrInfo.roughnessTexturePath.empty()) {
+        uploadPbrMat.roughnessTextureId =
+            _runtimeResourceManager.getResource(pbrInfo.roughnessTexturePath)
+                .getResourceId();
+      }
+
       break;
     }
     }

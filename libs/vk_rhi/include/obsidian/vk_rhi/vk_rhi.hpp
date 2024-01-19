@@ -190,6 +190,7 @@ private:
   VkDescriptorSetLayout _objectDescriptorSetLayout;
   VkDescriptorSetLayout _vkLitTexturedMaterialDescriptorSetLayout;
   VkDescriptorSetLayout _vkUnlitTexturedMaterialDescriptorSetLayout;
+  VkDescriptorSetLayout _vkPbrMaterialDescriptorSetLayout;
   AllocatedBuffer _sceneDataBuffer;
   AllocatedBuffer _cameraBuffer;
   AllocatedBuffer _lightDataBuffer;

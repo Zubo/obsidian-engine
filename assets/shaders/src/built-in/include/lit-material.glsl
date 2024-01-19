@@ -1,5 +1,5 @@
-#ifndef _material_
-#define _material_
+#ifndef _lit_material_
+#define _lit_material_
 
 layout(std140, set = 2, binding = 0) uniform MaterialData {
   vec4 ambientColor;

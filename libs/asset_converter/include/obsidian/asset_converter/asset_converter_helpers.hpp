@@ -125,15 +125,15 @@ inline std::string getDiffuseTexName(GltfMaterialWrapper const& m) {
   return m.model.images[source].uri;
 }
 
-inline std::string getNormalTexName(ObjMaterialWrapper const& m) {
-  return m.mat.bump_texname;
-}
-
 template <typename MaterialWrapper>
 inline std::string getAlbedoTexName(MaterialWrapper const& m) {
   return getDiffuseTexName(m);
 }
 
+inline std::string getNormalTexName(ObjMaterialWrapper const& m) {
+  return !m.mat.normal_texname.empty() ? m.mat.normal_texname
+                                       : m.mat.bump_texname;
+}
 inline std::string getNormalTexName(GltfMaterialWrapper const& m) {
   tinygltf::Material const& mat = m.model.materials[m.matInd];
   int const index = mat.normalTexture.index;
@@ -150,6 +150,56 @@ inline std::string getNormalTexName(GltfMaterialWrapper const& m) {
 
   return m.model.images[source].uri;
   return index >= 0 ? m.model.textures[index].name : "";
+}
+
+inline std::string getMetalnessTexName(ObjMaterialWrapper const& m) {
+  return m.mat.metallic_texname;
+}
+
+inline std::string getMetalnessTexName(GltfMaterialWrapper const& m) {
+  tinygltf::Material const& mat = m.model.materials[m.matInd];
+  int const index = mat.pbrMetallicRoughness.metallicRoughnessTexture.index;
+
+  if (index < 0) {
+    return "";
+  }
+
+  int const source = m.model.textures[index].source;
+
+  if (source < 0) {
+    return "";
+  }
+
+  return m.model.images[source].uri;
+}
+
+inline bool isMetallicRoughnessTexSeparate(ObjMaterialWrapper const& m) {
+  return true;
+}
+
+inline bool isMetallicRoughnessTexSeparate(GltfMaterialWrapper const& m) {
+  return false;
+}
+
+inline std::string getRoughnessTexName(ObjMaterialWrapper const& m) {
+  return m.mat.roughness_texname;
+}
+
+inline std::string getRoughnessTexName(GltfMaterialWrapper const& m) {
+  tinygltf::Material const& mat = m.model.materials[m.matInd];
+  int const index = mat.pbrMetallicRoughness.metallicRoughnessTexture.index;
+
+  if (index < 0) {
+    return "";
+  }
+
+  int const source = m.model.textures[index].source;
+
+  if (source < 0) {
+    return "";
+  }
+
+  return m.model.images[source].uri;
 }
 
 inline VertexContentInfo getVertInfo(ObjMaterialWrapper const& m) {

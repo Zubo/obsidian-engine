@@ -1063,6 +1063,54 @@ void VulkanRHI::initDescriptors() {
   }
 
   {
+    std::array<VkDescriptorSetLayoutBinding, 4> pbrMaterialBinding = {};
+
+    pbrMaterialBinding[0].binding = 1;
+    pbrMaterialBinding[0].descriptorType =
+        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    pbrMaterialBinding[0].descriptorCount = 1;
+    pbrMaterialBinding[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    pbrMaterialBinding[1].binding = 2;
+    pbrMaterialBinding[1].descriptorType =
+        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    pbrMaterialBinding[1].descriptorCount = 1;
+    pbrMaterialBinding[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    pbrMaterialBinding[2].binding = 3;
+    pbrMaterialBinding[2].descriptorType =
+        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    pbrMaterialBinding[2].descriptorCount = 1;
+    pbrMaterialBinding[2].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    pbrMaterialBinding[3].binding = 4;
+    pbrMaterialBinding[3].descriptorType =
+        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    pbrMaterialBinding[3].descriptorCount = 1;
+    pbrMaterialBinding[3].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    std::array<VkDescriptorBindingFlags, pbrMaterialBinding.size()>
+        bindingFlags = {0, 0, 0, VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT};
+
+    VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsCreateInfo = {};
+    bindingFlagsCreateInfo.sType =
+        VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+    bindingFlagsCreateInfo.pNext = nullptr;
+    bindingFlagsCreateInfo.bindingCount = bindingFlags.size();
+    bindingFlagsCreateInfo.pBindingFlags = bindingFlags.data();
+
+    VkDescriptorSetLayoutCreateInfo pbrDescriptorSetLayoutCreaInfo = {};
+    pbrDescriptorSetLayoutCreaInfo.sType =
+        VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    pbrDescriptorSetLayoutCreaInfo.pNext = &bindingFlagsCreateInfo;
+    pbrDescriptorSetLayoutCreaInfo.bindingCount = pbrMaterialBinding.size();
+    pbrDescriptorSetLayoutCreaInfo.pBindings = pbrMaterialBinding.data();
+
+    _vkPbrMaterialDescriptorSetLayout =
+        _descriptorLayoutCache.getLayout(pbrDescriptorSetLayoutCreaInfo);
+  }
+
+  {
     DescriptorBuilder::begin(_vkDevice, _descriptorAllocator,
                              _descriptorLayoutCache)
         .getLayout(_objectDescriptorSetLayout);
