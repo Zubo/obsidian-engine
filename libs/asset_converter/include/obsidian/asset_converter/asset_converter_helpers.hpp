@@ -62,6 +62,15 @@ struct ObjMaterialWrapper {
   VertexContentInfo vertexInfo;
 };
 
+inline std::string getMaterialShortName(ObjMaterialWrapper const& m) {
+  return m.mat.name;
+}
+
+inline std::string getMaterialShortName(GltfMaterialWrapper const& m) {
+  tinygltf::Material const& mat = m.model.materials[m.matInd];
+  return mat.name;
+}
+
 inline std::string getMaterialName(ObjMaterialWrapper const& m,
                                    VertexContentInfo const& vertexInfo) {
   std::string result = m.mat.name;
@@ -186,20 +195,7 @@ inline std::string getRoughnessTexName(ObjMaterialWrapper const& m) {
 }
 
 inline std::string getRoughnessTexName(GltfMaterialWrapper const& m) {
-  tinygltf::Material const& mat = m.model.materials[m.matInd];
-  int const index = mat.pbrMetallicRoughness.metallicRoughnessTexture.index;
-
-  if (index < 0) {
-    return "";
-  }
-
-  int const source = m.model.textures[index].source;
-
-  if (source < 0) {
-    return "";
-  }
-
-  return m.model.images[source].uri;
+  return {};
 }
 
 inline VertexContentInfo getVertInfo(ObjMaterialWrapper const& m) {

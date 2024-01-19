@@ -369,7 +369,7 @@ void VulkanRHI::releaseShader(rhi::ResourceIdRHI resourceIdRHI) {
 template <typename MaterialDataT>
 void VulkanRHI::createAndBindMaterialDataBuffer(
     MaterialDataT const& materialData, DescriptorBuilder& builder,
-    VkDescriptorBufferInfo& bufferInfo) {
+    VkDescriptorBufferInfo& outBufferInfo) {
   AllocatedBuffer materialDataBuffer = createBuffer(
       getPaddedBufferSize(sizeof(MaterialDataT)),
       VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
@@ -382,11 +382,11 @@ void VulkanRHI::createAndBindMaterialDataBuffer(
                      materialDataBuffer.allocation);
   });
 
-  bufferInfo.buffer = materialDataBuffer.buffer;
-  bufferInfo.offset = 0;
-  bufferInfo.range = sizeof(MaterialDataT);
+  outBufferInfo.buffer = materialDataBuffer.buffer;
+  outBufferInfo.offset = 0;
+  outBufferInfo.range = sizeof(MaterialDataT);
 
-  builder.bindBuffer(0, bufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+  builder.bindBuffer(0, outBufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
                      VK_SHADER_STAGE_FRAGMENT_BIT);
 }
 
@@ -562,8 +562,12 @@ void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
         std::get<rhi::UploadPBRMaterialRHI>(
             uploadMaterial.uploadMaterialSubtype);
 
-    bool const metalnessAndRoughnessSeparateTex =
+    GPUPbrMaterialData pbrMaterialData;
+    pbrMaterialData.metalnessAndRoughnessSeparate =
         uploadPbrMaterial.roughnessTextureId != rhi::rhiIdUninitialized;
+
+    createAndBindMaterialDataBuffer(pbrMaterialData, descriptorBuilder,
+                                    materialDataBufferInfo);
 
     Texture& albedoTexture = _textures[uploadPbrMaterial.albedoTextureId];
 
@@ -576,7 +580,7 @@ void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
     albedoTexImageInfo.imageView = albedoTexture.imageView;
     albedoTexImageInfo.sampler = _vkLinearRepeatSampler;
 
-    descriptorBuilder.bindImage(0, albedoTexImageInfo,
+    descriptorBuilder.bindImage(1, albedoTexImageInfo,
                                 VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                                 VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
 
@@ -591,7 +595,7 @@ void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
     normalTexImageInfo.imageView = normalTexture.imageView;
     normalTexImageInfo.sampler = _vkLinearRepeatSampler;
 
-    descriptorBuilder.bindImage(1, normalTexImageInfo,
+    descriptorBuilder.bindImage(2, normalTexImageInfo,
                                 VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                                 VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
 
@@ -607,11 +611,11 @@ void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
     metalnessTexImageInfo.imageView = metalnessTexture.imageView;
     metalnessTexImageInfo.sampler = _vkLinearRepeatSampler;
 
-    descriptorBuilder.bindImage(2, metalnessTexImageInfo,
+    descriptorBuilder.bindImage(3, metalnessTexImageInfo,
                                 VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                                 VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
 
-    if (metalnessAndRoughnessSeparateTex) {
+    if (pbrMaterialData.metalnessAndRoughnessSeparate) {
       Texture& roughnessTexture =
           _textures[uploadPbrMaterial.roughnessTextureId];
 
@@ -625,12 +629,12 @@ void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
       roughnessTexImageInfo.imageView = metalnessTexture.imageView;
       roughnessTexImageInfo.sampler = _vkLinearRepeatSampler;
 
-      descriptorBuilder.bindImage(3, roughnessTexImageInfo,
+      descriptorBuilder.bindImage(4, roughnessTexImageInfo,
                                   VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                                   VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
     } else {
       descriptorBuilder.declareUnusedImage(
-          3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+          4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
           VK_SHADER_STAGE_FRAGMENT_BIT);
     }
   }
@@ -640,11 +644,11 @@ void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
     bufferInfo.buffer = _timerBuffer.buffer;
     bufferInfo.offset = 0;
     bufferInfo.range = VK_WHOLE_SIZE;
-    descriptorBuilder.bindBuffer(3, bufferInfo,
+    descriptorBuilder.bindBuffer(10, bufferInfo,
                                  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
                                  VK_SHADER_STAGE_FRAGMENT_BIT, nullptr, true);
   } else {
-    descriptorBuilder.declareUnusedBuffer(3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+    descriptorBuilder.declareUnusedBuffer(10, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
                                           VK_SHADER_STAGE_FRAGMENT_BIT);
   }
 

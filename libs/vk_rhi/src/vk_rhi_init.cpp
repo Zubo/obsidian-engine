@@ -539,6 +539,33 @@ void VulkanRHI::initMainPipelineAndLayouts() {
 
   _pipelineBuilders[core::MaterialType::lit] = pipelineBuilder;
 
+  // pbr mesh pipeline
+
+  VkPipelineLayoutCreateInfo pbrMeshPipelineLayoutCreateInfo =
+      vkinit::pipelineLayoutCreateInfo();
+
+  std::array<VkDescriptorSetLayout, 4> vkPbrPipelineLayouts = {
+      _vkGlobalDescriptorSetLayout,
+      _vkMainRenderPassDescriptorSetLayout,
+      _vkPbrMaterialDescriptorSetLayout,
+      _objectDescriptorSetLayout,
+  };
+
+  pbrMeshPipelineLayoutCreateInfo.pSetLayouts = vkPbrPipelineLayouts.data();
+  pbrMeshPipelineLayoutCreateInfo.setLayoutCount = vkPbrPipelineLayouts.size();
+  pbrMeshPipelineLayoutCreateInfo.pushConstantRangeCount = 1;
+  pbrMeshPipelineLayoutCreateInfo.pPushConstantRanges = &vkPushConstantRange;
+  VK_CHECK(vkCreatePipelineLayout(_vkDevice, &pbrMeshPipelineLayoutCreateInfo,
+                                  nullptr, &_vkPbrMeshPipelineLayout));
+
+  _deletionQueue.pushFunction([this]() {
+    vkDestroyPipelineLayout(_vkDevice, _vkPbrMeshPipelineLayout, nullptr);
+  });
+
+  pipelineBuilder._vkPipelineLayout = _vkPbrMeshPipelineLayout;
+
+  _pipelineBuilders[core::MaterialType::pbr] = pipelineBuilder;
+
   pipelineBuilder._vkShaderStageCreateInfos.clear();
 }
 
@@ -987,7 +1014,7 @@ void VulkanRHI::initDescriptors() {
     litMaterialBinding[2].descriptorCount = 1;
     litMaterialBinding[2].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-    litMaterialBinding[3].binding = 3;
+    litMaterialBinding[3].binding = 10;
     litMaterialBinding[3].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     litMaterialBinding[3].descriptorCount = 1;
     litMaterialBinding[3].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -1032,7 +1059,7 @@ void VulkanRHI::initDescriptors() {
     unlitMaterialBinding[1].descriptorCount = 1;
     unlitMaterialBinding[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-    unlitMaterialBinding[2].binding = 3;
+    unlitMaterialBinding[2].binding = 10;
     unlitMaterialBinding[2].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     unlitMaterialBinding[2].descriptorCount = 1;
     unlitMaterialBinding[2].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -1063,34 +1090,49 @@ void VulkanRHI::initDescriptors() {
   }
 
   {
-    std::array<VkDescriptorSetLayoutBinding, 4> pbrMaterialBinding = {};
+    std::array<VkDescriptorSetLayoutBinding, 6> pbrMaterialBinding = {};
 
-    pbrMaterialBinding[0].binding = 1;
-    pbrMaterialBinding[0].descriptorType =
-        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    pbrMaterialBinding[0].binding = 0;
+    pbrMaterialBinding[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     pbrMaterialBinding[0].descriptorCount = 1;
     pbrMaterialBinding[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-    pbrMaterialBinding[1].binding = 2;
+    pbrMaterialBinding[1].binding = 1;
     pbrMaterialBinding[1].descriptorType =
         VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     pbrMaterialBinding[1].descriptorCount = 1;
     pbrMaterialBinding[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-    pbrMaterialBinding[2].binding = 3;
+    pbrMaterialBinding[2].binding = 2;
     pbrMaterialBinding[2].descriptorType =
         VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     pbrMaterialBinding[2].descriptorCount = 1;
     pbrMaterialBinding[2].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-    pbrMaterialBinding[3].binding = 4;
+    pbrMaterialBinding[3].binding = 3;
     pbrMaterialBinding[3].descriptorType =
         VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     pbrMaterialBinding[3].descriptorCount = 1;
     pbrMaterialBinding[3].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
+    pbrMaterialBinding[4].binding = 4;
+    pbrMaterialBinding[4].descriptorType =
+        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    pbrMaterialBinding[4].descriptorCount = 1;
+    pbrMaterialBinding[4].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    pbrMaterialBinding[5].binding = 10;
+    pbrMaterialBinding[5].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    pbrMaterialBinding[5].descriptorCount = 1;
+    pbrMaterialBinding[5].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
     std::array<VkDescriptorBindingFlags, pbrMaterialBinding.size()>
-        bindingFlags = {0, 0, 0, VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT};
+        bindingFlags = {0,
+                        0,
+                        0,
+                        0,
+                        VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT,
+                        VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT};
 
     VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsCreateInfo = {};
     bindingFlagsCreateInfo.sType =

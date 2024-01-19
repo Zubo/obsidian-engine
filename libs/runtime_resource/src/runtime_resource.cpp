@@ -300,6 +300,7 @@ void RuntimeResource::performUploadToRHI() {
       uploadPbrMat.metalnessTextureId =
           _runtimeResourceManager.getResource(pbrInfo.metalnessTexturePath)
               .getResourceId();
+
       if (!pbrInfo.roughnessTexturePath.empty()) {
         uploadPbrMat.roughnessTextureId =
             _runtimeResourceManager.getResource(pbrInfo.roughnessTexturePath)
@@ -391,7 +392,19 @@ std::vector<RuntimeResource*> const& RuntimeResource::fetchDependencies() {
                       litData.normalMapTexturePath));
                 }
               },
-              [](asset::PBRMaterialAssetData const& pbrData) {}},
+              [this](asset::PBRMaterialAssetData const& pbrData) {
+                _dependencies->push_back(&_runtimeResourceManager.getResource(
+                    pbrData.albedoTexturePath));
+                _dependencies->push_back(&_runtimeResourceManager.getResource(
+                    pbrData.normalMapTexturePath));
+                _dependencies->push_back(&_runtimeResourceManager.getResource(
+                    pbrData.metalnessTexturePath));
+
+                if (!pbrData.roughnessTexturePath.empty()) {
+                  _dependencies->push_back(&_runtimeResourceManager.getResource(
+                      pbrData.roughnessTexturePath));
+                }
+              }},
           materialAssetInfo.materialSubtypeData);
 
       _dependencies->push_back(

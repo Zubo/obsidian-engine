@@ -22,6 +22,9 @@ constexpr char const* colorJsonName = "color";
 constexpr char const* colorTextureJsonName = "colorTex";
 constexpr char const* diffuseTextureJsonName = "diffuseTex";
 constexpr char const* normalMapTextureJsonName = "normalMapTex";
+constexpr char const* albedoTextureJsonName = "albedoTex";
+constexpr char const* metalnessTextureJsonName = "metalnessTex";
+constexpr char const* roughnessTextureJsonName = "roughnessTex";
 constexpr char const* shininessJsonName = "shininess";
 constexpr char const* ambientColorJsonName = "ambientColor";
 constexpr char const* diffuseColorJsonName = "diffuseColor";
@@ -99,6 +102,36 @@ bool readLitMaterialAssetData(nlohmann::json const& json,
   return true;
 }
 
+bool writePbrMaterialAssetData(PBRMaterialAssetData const& pbrData,
+                               nlohmann::json& outJson) {
+  try {
+    outJson[albedoTextureJsonName] = pbrData.albedoTexturePath;
+    outJson[normalMapTextureJsonName] = pbrData.normalMapTexturePath;
+    outJson[metalnessTextureJsonName] = pbrData.metalnessTexturePath;
+    outJson[roughnessTextureJsonName] = pbrData.roughnessTexturePath;
+  } catch (std::exception const& e) {
+    OBS_LOG_ERR(e.what());
+    return false;
+  }
+
+  return true;
+}
+
+bool readPbrMaterialAssetData(nlohmann::json const& json,
+                              PBRMaterialAssetData& outMaterialAssetData) {
+  try {
+    outMaterialAssetData.albedoTexturePath = json[albedoTextureJsonName];
+    outMaterialAssetData.normalMapTexturePath = json[normalMapTextureJsonName];
+    outMaterialAssetData.metalnessTexturePath = json[metalnessTextureJsonName];
+    outMaterialAssetData.roughnessTexturePath = json[roughnessTextureJsonName];
+  } catch (std::exception const& e) {
+    OBS_LOG_ERR(e.what());
+    return false;
+  }
+
+  return true;
+}
+
 MaterialSubtypeData createSubtypeData(core::MaterialType matType) {
   switch (matType) {
   case core::MaterialType::unlit:
@@ -143,6 +176,11 @@ bool readMaterialAssetInfo(AssetMetadata const& assetmetadata,
       break;
     }
     case core::MaterialType::pbr:
+      nlohmann::json const& pbrDataJson = json[pbrMaterialSubtypeDataJsonName];
+      subtypeDataReadSuccess = readPbrMaterialAssetData(
+          pbrDataJson, outMaterialAssetInfo.materialSubtypeData
+                           .emplace<PBRMaterialAssetData>());
+
       break;
     }
 
@@ -195,6 +233,9 @@ bool packMaterial(MaterialAssetInfo const& materialAssetInfo,
       break;
     }
     case obsidian::core::MaterialType::pbr: {
+      subtypeDataWriteSuccess = writePbrMaterialAssetData(
+          std::get<PBRMaterialAssetData>(materialAssetInfo.materialSubtypeData),
+          json[pbrMaterialSubtypeDataJsonName]);
       break;
     }
     }

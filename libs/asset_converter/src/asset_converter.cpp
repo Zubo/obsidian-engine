@@ -730,6 +730,8 @@ template <typename MaterialType>
 void extractUnlitMaterialData(
     MaterialType const& mat, asset::MaterialAssetInfo& outMaterialAssetInfo,
     AssetConverter::TextureAssetInfoMap const& textureAssetInfoMap) {
+  outMaterialAssetInfo.materialType = core::MaterialType::unlit;
+
   asset::UnlitMaterialAssetData& unlitMatAssetData =
       outMaterialAssetInfo.materialSubtypeData
           .emplace<asset::UnlitMaterialAssetData>();
@@ -754,6 +756,8 @@ template <typename MaterialType>
 void extractLitMaterialData(
     MaterialType const& mat, asset::MaterialAssetInfo& outMaterialAssetInfo,
     AssetConverter::TextureAssetInfoMap const& textureAssetInfoMap) {
+  outMaterialAssetInfo.materialType = core::MaterialType::lit;
+
   asset::LitMaterialAssetData& litMatAssetData =
       outMaterialAssetInfo.materialSubtypeData
           .emplace<asset::LitMaterialAssetData>();
@@ -789,7 +793,7 @@ void extractLitMaterialData(
 }
 
 template <typename MaterialType>
-void extractPbrMaterialData(
+void extractPbrOrFallbackMaterialData(
     MaterialType const& mat, asset::MaterialAssetInfo& outMaterialAssetInfo,
     AssetConverter::TextureAssetInfoMap const& textureAssetInfoMap) {
   asset::PBRMaterialAssetData& pbrMatAssetData =
@@ -803,9 +807,19 @@ void extractPbrMaterialData(
   if (albedoTexName.empty() || normalTexName.empty() ||
       metalnessTexName.empty()) {
     // fallback
+    OBS_LOG_WARN(
+        "Missing textures - pbr pipeline requires following textures: albedo, "
+        "normal and metal/roughness (in one texture as RG channels or as "
+        "separate textures). Falling back to lit material pipeline. Material "
+        "name: " +
+        getMaterialShortName(mat) + ". ");
+
+    outMaterialAssetInfo.materialType = core::MaterialType::lit;
     extractLitMaterialData(mat, outMaterialAssetInfo, textureAssetInfoMap);
     return;
   }
+
+  outMaterialAssetInfo.materialType = core::MaterialType::pbr;
 
   // albedo
   std::optional<asset::TextureAssetInfo> const& albedoTexInfo =
@@ -873,7 +887,6 @@ AssetConverter::extractMaterials(fs::path const& srcDirPath,
     MaterialType const& mat = materials[i];
     asset::MaterialAssetInfo newMatAssetInfo;
     newMatAssetInfo.compressionMode = asset::CompressionMode::none;
-    newMatAssetInfo.materialType = _materialType;
 
     VertexContentInfo const vertInfo = getVertInfo(mat);
 
@@ -886,13 +899,15 @@ AssetConverter::extractMaterials(fs::path const& srcDirPath,
       break;
     }
     case core::MaterialType::pbr: {
-      extractPbrMaterialData(mat, newMatAssetInfo, textureAssetInfoMap);
+      extractPbrOrFallbackMaterialData(mat, newMatAssetInfo,
+                                       textureAssetInfoMap);
       break;
     }
     }
 
     newMatAssetInfo.transparent = isMaterialTransparent(mat);
-    newMatAssetInfo.shaderPath = shaderPicker(mat, _materialType);
+    newMatAssetInfo.shaderPath =
+        shaderPicker(mat, newMatAssetInfo.materialType);
 
     asset::Asset matAsset;
     if (asset::packMaterial(newMatAssetInfo, {}, matAsset)) {

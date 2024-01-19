@@ -140,6 +140,7 @@ private:
   std::vector<std::array<Framebuffer, frameOverlap>> _vkSwapchainFramebuffers;
   VkPipelineLayout _vkMeshPipelineLayout;
   VkPipelineLayout _vkLitMeshPipelineLayout;
+  VkPipelineLayout _vkPbrMeshPipelineLayout;
   AllocatedBuffer _mainRenderPassDataBuffer;
 
   // Depth pass

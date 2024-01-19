@@ -126,6 +126,10 @@ struct GPUUnlitMaterialData {
   VkBool32 hasColorTex;
 };
 
+struct GPUPbrMaterialData {
+  VkBool32 metalnessAndRoughnessSeparate;
+};
+
 struct GpuRenderPassData {
   VkBool32 applySsao;
 };
