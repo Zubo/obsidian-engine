@@ -76,7 +76,7 @@ static ItemListDataSource<fs::path> shadersInProj;
 static ItemListDataSource<fs::path> materialsInProj;
 static ItemListDataSource<fs::path> meshesInProj;
 static bool assetListDirty = false;
-static std::array<char const*, 2> materialTypes = {"unlit", "lit"};
+static std::array<char const*, 3> materialTypes = {"unlit", "lit", "pbr"};
 static std::array<char const*, 4> textureTypes = {
     "Unknown", "R8G8B8A8_SRGB", "R8G8B8A8_LINEAR", "R32G32_SFLOAT"};
 static bool openEngineTab = false;
@@ -237,12 +237,13 @@ void selectGameObject(scene::GameObject& gameObject) {
 }
 
 void performImport(ObsidianEngine& engine, fs::path const& srcPath,
-                   fs::path const& dstPath) {
+                   fs::path const& dstPath, core::MaterialType matType) {
   if (engine.isInitialized()) {
     engine.getContext().taskExecutor.enqueue(
-        task::TaskType::general, [&engine, srcPath, dstPath]() {
+        task::TaskType::general, [&engine, srcPath, dstPath, matType]() {
           obsidian::asset_converter::AssetConverter converter{
               engine.getContext().taskExecutor};
+          converter.setMaterialType(matType);
           converter.convertAsset(srcPath, dstPath);
           assetListDirty = true;
         });
@@ -256,11 +257,13 @@ void performImport(ObsidianEngine& engine, fs::path const& srcPath,
       executorInitialized = true;
     }
 
-    executor.enqueue(task::TaskType::general, [srcPath = srcPath, dstPath]() {
-      obsidian::asset_converter::AssetConverter converter{executor};
-      converter.convertAsset(srcPath, dstPath);
-      assetListDirty = true;
-    });
+    executor.enqueue(
+        task::TaskType::general, [srcPath = srcPath, dstPath, matType]() {
+          obsidian::asset_converter::AssetConverter converter{executor};
+          converter.setMaterialType(matType);
+          converter.convertAsset(srcPath, dstPath);
+          assetListDirty = true;
+        });
   }
 }
 
@@ -277,11 +280,21 @@ void importPopup(ObsidianEngine& engine) {
   if (ImGui::BeginPopup(popupName)) {
     ImGui::Text("Import %s", importPath.c_str());
 
+    fs::path dstPath = project.getAbsolutePath(importPath.filename());
+    static core::MaterialType matType = core::MaterialType::lit;
+
+    if (dstPath.extension() == ".gltf" || dstPath.extension() == ".obj") {
+      int matInd = static_cast<int>(matType);
+      if (ImGui::Combo("Render Pipeline", &matInd, materialTypes.data(),
+                       materialTypes.size())) {
+        matType = static_cast<core::MaterialType>(matInd);
+      }
+    }
+
     if (ImGui::Button("Import")) {
-      fs::path dstPath = project.getAbsolutePath(importPath.filename());
       dstPath.replace_extension("");
 
-      performImport(engine, importPath, dstPath);
+      performImport(engine, importPath, dstPath, matType);
 
       ImGui::CloseCurrentPopup();
     }
