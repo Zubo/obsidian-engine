@@ -7,6 +7,8 @@ set(SHADER_SRC_FILES
     "default-unlit.vert"
     "default.frag"
     "default.vert"
+    "default-pbr.frag"
+    "default-pbr.vert"
     "depth-only.vert"
     "depth-only.frag"
     "ssao.vert"

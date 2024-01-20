@@ -899,8 +899,18 @@ AssetConverter::extractMaterials(fs::path const& srcDirPath,
       break;
     }
     case core::MaterialType::pbr: {
-      extractPbrOrFallbackMaterialData(mat, newMatAssetInfo,
-                                       textureAssetInfoMap);
+      if (vertInfo.hasNormal && vertInfo.hasTangent && vertInfo.hasUV) {
+        extractPbrOrFallbackMaterialData(mat, newMatAssetInfo,
+                                         textureAssetInfoMap);
+      } else {
+        // fallback
+        OBS_LOG_WARN("Missing vertex attributes - Pbr pipeline requires "
+                     "normals, tangents and UV vertex attributes. Falling back "
+                     "to lit material pipeline. Material "
+                     "name: " +
+                     getMaterialShortName(mat) + ". ");
+        extractLitMaterialData(mat, newMatAssetInfo, textureAssetInfoMap);
+      }
       break;
     }
     }
