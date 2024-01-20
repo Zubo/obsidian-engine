@@ -7,13 +7,13 @@ layout(location = 4) in mat3 inTBN;
 
 layout(location = 0) out vec4 outFragColor;
 
-#include "include/pbr-lighting.glsl"
-#include "include/pbr-material.glsl"
-
 layout(set = 2, binding = 1) uniform sampler2D albedoTex;
 layout(set = 2, binding = 2) uniform sampler2D normalMapTex;
 layout(set = 2, binding = 3) uniform sampler2D metalnessTex;
 layout(set = 2, binding = 4) uniform sampler2D roughnessTex;
+
+#include "include/pbr-lighting.glsl"
+#include "include/pbr-material.glsl"
 
 void main() {
   const mat4 inverseView = inverse(cameraData.view);
@@ -26,15 +26,24 @@ void main() {
   vec3 normal =
       normalize(inTBN * (texture(normalMapTex, inUV).rgb * 2.0f - 1.0f));
 
-  vec3 totalRadiance = {0.0f, 0.0f, 0.0f};
+  vec3 finalColor = {0.0f, 0.0f, 0.0f};
 
   for (int lightIdx = 0; lightIdx < lights.directionalLightCount; ++lightIdx) {
-    totalRadiance += directionalLightRadiance(lightIdx, normal);
+    const vec3 lightDir =
+        normalize(lights.directionalLights[lightIdx].direction.xyz);
+
+    finalColor +=
+        reflectanceEquation(normal, -lightDir, fragToCameraDirection) *
+        directionalLightRadiance(lightIdx, normal);
   }
 
   for (int lightIdx = 0; lightIdx < lights.spotlightCount; ++lightIdx) {
-    totalRadiance += spotlightRadiance(lightIdx, normal, cameraPos);
+    const vec3 fragToLightDirection =
+        normalize(lights.spotlights[lightIdx].position.xyz - inWorldPos);
+    finalColor += reflectanceEquation(normal, fragToLightDirection,
+                                      fragToCameraDirection) *
+                  spotlightRadiance(lightIdx, normal, cameraPos);
   }
 
-  outFragColor = vec4(totalRadiance, 1.0f);
+  outFragColor = vec4(finalColor / (1.0f + finalColor), 1.0f);
 }

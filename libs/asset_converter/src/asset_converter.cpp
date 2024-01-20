@@ -849,7 +849,7 @@ void extractPbrOrFallbackMaterialData(
       textureAssetInfoMap.at(metalnessTexName);
   assert(metalnessTexInfo);
 
-  fs::path metalnessDstPath = normalTexName;
+  fs::path metalnessDstPath = metalnessTexName;
   metalnessDstPath.replace_extension(globals::textureAssetExt);
   pbrMatAssetData.metalnessTexturePath = metalnessDstPath;
 
