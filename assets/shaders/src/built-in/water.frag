@@ -5,9 +5,9 @@ layout(location = 1) in mat4 inModel;
 
 layout(location = 0) out vec4 outFragColor;
 
+#include "include/blinn-phong-lighting.glsl"
 #include "include/camera.glsl"
 #include "include/environment-maps.glsl"
-#include "include/lighting.glsl"
 #include "include/lit-material.glsl"
 #include "include/timer.glsl"
 
@@ -24,8 +24,9 @@ void main() {
   const vec3 normal =
       normalize((normalTransform * vec4(sampledNormal, 1.0f)).xyz);
 
-  LightingResult directionalLightResult = calculateDirectionalLighting(normal);
-  LightingResult spotlightResult = calculateSpotlights(normal);
+  LightingResult directionalLightResult =
+      calculateBlinnPhongDirectionalLighting(normal);
+  LightingResult spotlightResult = calculateBlinnPhongSpotlights(normal);
 
   const mat4 inverseView = inverse(cameraData.view);
   vec3 cameraWorldPos =

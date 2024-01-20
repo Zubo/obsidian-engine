@@ -15,8 +15,8 @@ layout(location = 4) in mat3 inTBN;
 
 layout(location = 0) out vec4 outFragColor;
 
+#include "include/blinn-phong-lighting.glsl"
 #include "include/environment-maps.glsl"
-#include "include/lighting.glsl"
 #include "include/lit-material.glsl"
 #include "include/renderpass-data.glsl"
 #include "include/ssao.glsl"
@@ -36,8 +36,9 @@ void main() {
   }
 #endif
 
-  LightingResult directionalLightResult = calculateDirectionalLighting(normal);
-  LightingResult spotlightResult = calculateSpotlights(normal);
+  LightingResult directionalLightResult =
+      calculateBlinnPhongDirectionalLighting(normal);
+  LightingResult spotlightResult = calculateBlinnPhongSpotlights(normal);
 
   vec4 ambientColor = materialData.ambientColor * sceneData.ambientColor;
 
