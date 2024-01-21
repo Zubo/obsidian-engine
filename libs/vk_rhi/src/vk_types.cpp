@@ -28,12 +28,28 @@ VkFormat getVkTextureFormat(core::TextureFormat format) {
   }
 }
 
+glm::vec3 getUpVectorForLookAt(glm::vec3 direction) {
+  assert(glm::length(direction) > 0.0f);
+  constexpr glm::vec3 upVector = {0.0f, 1.0f, 0.0f};
+  constexpr glm::vec3 leftVector = {1.0f, 0.0f, 0.0f};
+  constexpr float epsilon = 0.0001f;
+
+  // If up vector is aligned with direction, we have to fallback to left vector
+  // for projection matrix to be valid
+  if (std::abs(glm::dot(glm::normalize(direction), upVector)) <
+      1.0f - epsilon) {
+    return upVector;
+  } else {
+    return leftVector;
+  }
+}
+
 GPUCameraData getDirectionalLightCameraData(glm::vec3 direction,
                                             glm::vec3 mainCameraPos) {
   GPUCameraData gpuCameraData;
 
-  gpuCameraData.view =
-      glm::lookAt(mainCameraPos, mainCameraPos + direction, {0.f, 1.f, 0.f});
+  gpuCameraData.view = glm::lookAt(mainCameraPos, mainCameraPos + direction,
+                                   getUpVectorForLookAt(direction));
   gpuCameraData.proj = glm::ortho(-50.f, 50.f, -50.f, 50.f, -100.f, 100.f);
   gpuCameraData.proj[1][1] *= -1;
 
@@ -52,8 +68,8 @@ GPUCameraData getSpotlightCameraData(glm::vec3 const& position,
                                      float fadeoutAngleRad) {
   GPUCameraData gpuCameraData;
 
-  gpuCameraData.view =
-      glm::lookAt(position, position + direction, {0.f, 1.f, 0.f});
+  gpuCameraData.view = glm::lookAt(position, position + direction,
+                                   getUpVectorForLookAt(direction));
   gpuCameraData.proj =
       glm::perspective(2 * fadeoutAngleRad, 1.0f, 0.1f, 200.0f);
   gpuCameraData.proj[1][1] *= -1;
