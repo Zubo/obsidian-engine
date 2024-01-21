@@ -44,7 +44,9 @@ foreach(SHADER_SRC ${SHADER_SRC_FILES})
     endif()
 endforeach()
 
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+option(DEBUG_SHADERS "Prevent shader optimization and add shader source metadata to the compiled spirv." OFF)
+
+if(DEBUG_SHADERS)
     set(SHADERS_DEBUG "--dbg")
 endif()
 
