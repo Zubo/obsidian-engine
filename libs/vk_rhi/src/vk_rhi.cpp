@@ -417,18 +417,24 @@ void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
   PipelineBuilder& pipelineBuilder =
       _pipelineBuilders[uploadMaterial.materialType];
 
-  Shader& shaderModule = _shaderModules[uploadMaterial.shaderId];
-  ++shaderModule.resource.refCount;
-  newMaterial.shaderResourceDependencyId = shaderModule.resource.id;
+  Shader& vertexShaderModule = _shaderModules[uploadMaterial.vertexShaderId];
+  ++vertexShaderModule.resource.refCount;
+  newMaterial.vertexShaderResourceDependencyId = vertexShaderModule.resource.id;
 
   pipelineBuilder._vkShaderStageCreateInfos.clear();
   pipelineBuilder._vkShaderStageCreateInfos.push_back(
       vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT,
-                                            shaderModule.vkShaderModule));
+                                            vertexShaderModule.vkShaderModule));
+
+  Shader& fragmentShaderModule =
+      _shaderModules[uploadMaterial.fragmentShaderId];
+  ++fragmentShaderModule.resource.refCount;
+  newMaterial.fragmentShaderResourceDependencyId =
+      fragmentShaderModule.resource.id;
 
   pipelineBuilder._vkShaderStageCreateInfos.push_back(
-      vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT,
-                                            shaderModule.vkShaderModule));
+      vkinit::pipelineShaderStageCreateInfo(
+          VK_SHADER_STAGE_FRAGMENT_BIT, fragmentShaderModule.vkShaderModule));
 
   newMaterial.vkPipelineLayout = pipelineBuilder._vkPipelineLayout;
 
@@ -673,12 +679,20 @@ void VulkanRHI::releaseMaterial(rhi::ResourceIdRHI resourceIdRHI) {
     prevFrameData.pendingResourcesToDestroy.materialsToDestroy.push_back(
         resourceIdRHI);
 
-    Shader& shaderDependency =
-        _shaderModules.at(material.shaderResourceDependencyId);
+    Shader& vertexShaderDependency =
+        _shaderModules.at(material.vertexShaderResourceDependencyId);
 
-    if (!--shaderDependency.resource.refCount) {
+    if (!--vertexShaderDependency.resource.refCount) {
       prevFrameData.pendingResourcesToDestroy.shadersToDestroy.push_back(
-          material.shaderResourceDependencyId);
+          material.vertexShaderResourceDependencyId);
+    }
+
+    Shader& fragmentShaderDependency =
+        _shaderModules.at(material.fragmentShaderResourceDependencyId);
+
+    if (!--fragmentShaderDependency.resource.refCount) {
+      prevFrameData.pendingResourcesToDestroy.shadersToDestroy.push_back(
+          material.fragmentShaderResourceDependencyId);
     }
 
     for (rhi::ResourceIdRHI textureId : material.textureResourceDependencyIds) {

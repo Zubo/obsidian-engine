@@ -149,7 +149,8 @@ private:
   VkPipeline _vkDepthPrepassPipeline;
   VkDescriptorSetLayout _vkDepthPassDescriptorSetLayout;
   VkDescriptorSet _depthPrepassDescriptorSet;
-  rhi::ResourceIdRHI _depthPassShaderId;
+  rhi::ResourceIdRHI _depthPassVertexShaderId;
+  rhi::ResourceIdRHI _depthPassFragmentShaderId;
   AllocatedImage _depthPassResultShaderReadImage;
   VkImageView _depthPassResultShaderReadImageView;
 
@@ -167,12 +168,14 @@ private:
   AllocatedBuffer _ssaoSamplesBuffer;
   rhi::ResourceIdRHI _ssaoNoiseTextureID;
   VkSampler _ssaoNoiseSampler;
-  rhi::ResourceIdRHI _ssaoShaderId;
+  rhi::ResourceIdRHI _ssaoVertexShaderId;
+  rhi::ResourceIdRHI _ssaoFragmentShaderId;
 
   // Post processing
   RenderPass _postProcessingRenderPass;
   VkSampler _postProcessingImageSampler;
-  rhi::ResourceIdRHI _postProcessingShaderId;
+  rhi::ResourceIdRHI _postProcessingVertexShaderId;
+  rhi::ResourceIdRHI _postProcessingFragmentShaderId;
 
   // Ssao post processing
   VkPipelineLayout _vkSsaoPostProcessingPipelineLayout;

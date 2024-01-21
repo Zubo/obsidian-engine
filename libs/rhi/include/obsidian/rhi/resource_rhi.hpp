@@ -81,15 +81,19 @@ using UploadMaterialSubtypeRHI =
 struct UploadMaterialRHI {
   core::MaterialType materialType;
   UploadMaterialSubtypeRHI uploadMaterialSubtype;
-  ResourceIdRHI shaderId;
+  ResourceIdRHI vertexShaderId;
+  ResourceIdRHI fragmentShaderId;
   bool transparent;
   bool hasTimer;
 };
 
 struct InitResourcesRHI {
-  UploadShaderRHI shadowPassShader;
-  UploadShaderRHI ssaoShader;
-  UploadShaderRHI postProcessingShader;
+  UploadShaderRHI shadowPassVertexShader;
+  UploadShaderRHI shadowPassFragmentShader;
+  UploadShaderRHI ssaoVertexShader;
+  UploadShaderRHI ssaoFragmentShader;
+  UploadShaderRHI postProcessingVertexShader;
+  UploadShaderRHI postProcessingFragmentShader;
 };
 
 } /*namespace obsidian::rhi*/

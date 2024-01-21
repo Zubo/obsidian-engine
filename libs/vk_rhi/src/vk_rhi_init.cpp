@@ -86,19 +86,34 @@ void VulkanRHI::init(rhi::WindowExtentRHI extent,
 void VulkanRHI::initResources(rhi::InitResourcesRHI const& initResources) {
   assert(IsInitialized);
 
-  _depthPassShaderId = initShaderResource().id;
-  uploadShader(_depthPassShaderId, initResources.shadowPassShader);
+  _depthPassVertexShaderId = initShaderResource().id;
+  uploadShader(_depthPassVertexShaderId, initResources.shadowPassVertexShader);
 
-  _ssaoShaderId = initShaderResource().id;
-  uploadShader(_ssaoShaderId, initResources.ssaoShader);
+  _depthPassFragmentShaderId = initShaderResource().id;
+  uploadShader(_depthPassFragmentShaderId,
+               initResources.shadowPassFragmentShader);
 
-  _postProcessingShaderId = initShaderResource().id;
-  uploadShader(_postProcessingShaderId, initResources.postProcessingShader);
+  _ssaoVertexShaderId = initShaderResource().id;
+  uploadShader(_ssaoVertexShaderId, initResources.ssaoVertexShader);
+
+  _ssaoFragmentShaderId = initShaderResource().id;
+  uploadShader(_ssaoFragmentShaderId, initResources.ssaoFragmentShader);
+
+  _postProcessingVertexShaderId = initShaderResource().id;
+  uploadShader(_postProcessingVertexShaderId,
+               initResources.postProcessingVertexShader);
+
+  _postProcessingFragmentShaderId = initShaderResource().id;
+  uploadShader(_postProcessingFragmentShaderId,
+               initResources.postProcessingFragmentShader);
 
   _deletionQueue.pushFunction([this]() {
-    releaseShader(_depthPassShaderId);
-    releaseShader(_ssaoShaderId);
-    releaseShader(_postProcessingShaderId);
+    releaseShader(_depthPassVertexShaderId);
+    releaseShader(_depthPassFragmentShaderId);
+    releaseShader(_ssaoVertexShaderId);
+    releaseShader(_ssaoFragmentShaderId);
+    releaseShader(_postProcessingVertexShaderId);
+    releaseShader(_postProcessingFragmentShaderId);
   });
 
   initDepthPrepassPipeline();
@@ -139,6 +154,7 @@ void VulkanRHI::initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider) {
           .set_surface(_vkSurface)
           .add_required_extension(
               VK_EXT_VERTEX_INPUT_DYNAMIC_STATE_EXTENSION_NAME)
+          .add_required_extension("VK_KHR_shader_non_semantic_info")
           .set_required_features(vkPhysicalDeviceFeatures)
           .select()
           .value();
@@ -627,15 +643,17 @@ void VulkanRHI::initShadowPassPipeline() {
   pipelineBuilder._vkScissor.extent = {shadowPassAttachmentWidth,
                                        shadowPassAttachmentHeight};
 
-  VkShaderModule const shaderModule =
-      _shaderModules[_depthPassShaderId].vkShaderModule;
+  VkShaderModule const vertexShaderModule =
+      _shaderModules[_depthPassVertexShaderId].vkShaderModule;
   pipelineBuilder._vkShaderStageCreateInfos.push_back(
       vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT,
-                                            shaderModule));
+                                            vertexShaderModule));
 
+  VkShaderModule const fragmentShaderModule =
+      _shaderModules[_depthPassFragmentShaderId].vkShaderModule;
   pipelineBuilder._vkShaderStageCreateInfos.push_back(
       vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT,
-                                            shaderModule));
+                                            fragmentShaderModule));
 
   pipelineBuilder._vkPipelineLayout = _vkDepthPipelineLayout;
 
@@ -666,15 +684,17 @@ void VulkanRHI::initDepthPrepassPipeline() {
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VERTEX_INPUT_EXT);
 
-  VkShaderModule const shaderModule =
-      _shaderModules[_depthPassShaderId].vkShaderModule;
+  VkShaderModule const vertexShaderModule =
+      _shaderModules[_depthPassVertexShaderId].vkShaderModule;
   pipelineBuilder._vkShaderStageCreateInfos.push_back(
       vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT,
-                                            shaderModule));
+                                            vertexShaderModule));
 
+  VkShaderModule const fragmentShaderModule =
+      _shaderModules[_depthPassFragmentShaderId].vkShaderModule;
   pipelineBuilder._vkShaderStageCreateInfos.push_back(
       vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT,
-                                            shaderModule));
+                                            fragmentShaderModule));
 
   pipelineBuilder._vkPipelineLayout = _vkDepthPipelineLayout;
 
@@ -689,16 +709,19 @@ void VulkanRHI::initDepthPrepassPipeline() {
 void VulkanRHI::initSsaoPipeline() {
   PipelineBuilder pipelineBuilder = {};
 
-  VkShaderModule const ssaoShaderModule =
-      _shaderModules[_ssaoShaderId].vkShaderModule;
-
   pipelineBuilder._vkShaderStageCreateInfos.reserve(2);
+
+  VkShaderModule const ssaoVertexShaderModule =
+      _shaderModules[_ssaoVertexShaderId].vkShaderModule;
   pipelineBuilder._vkShaderStageCreateInfos.push_back(
       vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT,
-                                            ssaoShaderModule));
+                                            ssaoVertexShaderModule));
+
+  VkShaderModule const ssaoFragmentShaderModule =
+      _shaderModules[_ssaoFragmentShaderId].vkShaderModule;
   pipelineBuilder._vkShaderStageCreateInfos.push_back(
       vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT,
-                                            ssaoShaderModule));
+                                            ssaoFragmentShaderModule));
   pipelineBuilder._vkInputAssemblyCreateInfo =
       vkinit::inputAssemblyCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
   pipelineBuilder._vkDepthStencilStateCreateInfo =
@@ -757,11 +780,11 @@ void VulkanRHI::initSsaoPostProcessingPipeline() {
   pipelineBuilder._vkShaderStageCreateInfos.push_back(
       vkinit::pipelineShaderStageCreateInfo(
           VK_SHADER_STAGE_VERTEX_BIT,
-          _shaderModules[_postProcessingShaderId].vkShaderModule));
+          _shaderModules[_postProcessingVertexShaderId].vkShaderModule));
   pipelineBuilder._vkShaderStageCreateInfos.push_back(
       vkinit::pipelineShaderStageCreateInfo(
           VK_SHADER_STAGE_FRAGMENT_BIT,
-          _shaderModules[_postProcessingShaderId].vkShaderModule));
+          _shaderModules[_postProcessingFragmentShaderId].vkShaderModule));
 
   pipelineBuilder._vkInputAssemblyCreateInfo =
       vkinit::inputAssemblyCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);

@@ -12,6 +12,7 @@ add_library(Core
     "include/obsidian/core/utils/texture_utils.hpp"
     "include/obsidian/core/utils/aabb.hpp"
     "include/obsidian/core/shapes.hpp"
+    "include/obsidian/core/shader.hpp"
     "src/texture_format.cpp"
     "src/utils/texture_utils.cpp"
     "src/utils/aabb.cpp"

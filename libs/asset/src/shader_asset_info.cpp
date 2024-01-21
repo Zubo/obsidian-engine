@@ -11,6 +11,8 @@
 
 namespace obsidian::asset {
 
+constexpr char const* shaderTypeJsonName = "shaderType";
+
 bool readShaderAssetInfo(AssetMetadata const& assetMetadata,
                          ShaderAssetInfo& outShaderAssetInfo) {
   ZoneScoped;
@@ -19,6 +21,7 @@ bool readShaderAssetInfo(AssetMetadata const& assetMetadata,
     nlohmann::json json = nlohmann::json::parse(assetMetadata.json);
     outShaderAssetInfo.unpackedSize = json[unpackedSizeJsonName];
     outShaderAssetInfo.compressionMode = json[compressionModeJsonName];
+    outShaderAssetInfo.shaderType = json[shaderTypeJsonName];
   } catch (std::exception const& e) {
     OBS_LOG_ERR(e.what());
     return false;
@@ -42,6 +45,7 @@ bool packShader(ShaderAssetInfo const& shaderAssetInfo,
     nlohmann::json json;
     json[unpackedSizeJsonName] = shaderAssetInfo.unpackedSize;
     json[compressionModeJsonName] = shaderAssetInfo.compressionMode;
+    json[shaderTypeJsonName] = shaderAssetInfo.shaderType;
 
     outAsset.metadata->json = json.dump();
 

@@ -32,22 +32,25 @@ foreach(SHADER_SRC ${SHADER_SRC_FILES})
     list(APPEND
         SHADER_OUTPUT_LIST
             "${SHADER_OUTPUT_DIR}/${SHADER_SRC_DIR}/${SHADER_OUTPUT_FILE_NAME}.spv"
-            "${SHADER_OUTPUT_DIR}/${SHADER_SRC_DIR}/${SHADER_OUTPUT_FILE_NAME}-dbg.spv"
     )
 
     if (${SHADER_OUTPUT_FILE_NAME} MATCHES "^default")
         list(APPEND
             SHADER_OUTPUT_LIST
                 "${SHADER_OUTPUT_DIR}/${SHADER_SRC_DIR}/c-${SHADER_OUTPUT_FILE_NAME}.spv"
-                "${SHADER_OUTPUT_DIR}/${SHADER_SRC_DIR}/u-${SHADER_OUTPUT_FILE_NAME}-dbg.spv"
-                "${SHADER_OUTPUT_DIR}/${SHADER_SRC_DIR}/cu-${SHADER_OUTPUT_FILE_NAME}-dbg.spv"
+                "${SHADER_OUTPUT_DIR}/${SHADER_SRC_DIR}/u-${SHADER_OUTPUT_FILE_NAME}.spv"
+                "${SHADER_OUTPUT_DIR}/${SHADER_SRC_DIR}/cu-${SHADER_OUTPUT_FILE_NAME}.spv"
         )
     endif()
 endforeach()
 
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(SHADERS_DEBUG "--dbg")
+endif()
+
 add_custom_command(
     OUTPUT ${SHADER_OUTPUT_LIST}
-    COMMAND python3 ${PROJECT_SOURCE_DIR}/scripts/compile_shaders.py -o ${CMAKE_BINARY_DIR}/shaders
+    COMMAND python3 ${PROJECT_SOURCE_DIR}/scripts/compile_shaders.py -o ${CMAKE_BINARY_DIR}/shaders ${SHADERS_DEBUG}
     DEPENDS ${SHADER_INPUT_LIST}
 )
 

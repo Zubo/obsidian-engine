@@ -39,7 +39,8 @@ struct VkMaterial {
   rhi::ResourceRHI resource;
   bool transparent;
   bool reflection;
-  rhi::ResourceIdRHI shaderResourceDependencyId;
+  rhi::ResourceIdRHI vertexShaderResourceDependencyId;
+  rhi::ResourceIdRHI fragmentShaderResourceDependencyId;
   std::vector<rhi::ResourceIdRHI> textureResourceDependencyIds;
 };
 

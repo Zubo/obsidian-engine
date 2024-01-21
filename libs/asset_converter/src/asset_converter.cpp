@@ -11,6 +11,7 @@
 #include <obsidian/asset_converter/vertex_content_info.hpp>
 #include <obsidian/core/logging.hpp>
 #include <obsidian/core/material.hpp>
+#include <obsidian/core/shader.hpp>
 #include <obsidian/core/texture_format.hpp>
 #include <obsidian/core/utils/texture_utils.hpp>
 #include <obsidian/core/utils/utils.hpp>
@@ -916,8 +917,10 @@ AssetConverter::extractMaterials(fs::path const& srcDirPath,
     }
 
     newMatAssetInfo.transparent = isMaterialTransparent(mat);
-    newMatAssetInfo.shaderPath =
-        shaderPicker(mat, newMatAssetInfo.materialType);
+    newMatAssetInfo.vertexShaderPath = shaderPicker(
+        mat, newMatAssetInfo.materialType, core::ShaderType::vertex);
+    newMatAssetInfo.fragmentShaderPath = shaderPicker(
+        mat, newMatAssetInfo.materialType, core::ShaderType::fragment);
 
     asset::Asset matAsset;
     if (asset::packMaterial(newMatAssetInfo, {}, matAsset)) {

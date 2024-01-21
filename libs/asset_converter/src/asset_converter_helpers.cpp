@@ -2,8 +2,10 @@
 #include <obsidian/asset_converter/asset_converter_helpers.hpp>
 #include <obsidian/core/logging.hpp>
 #include <obsidian/core/material.hpp>
+#include <obsidian/core/shader.hpp>
 #include <obsidian/core/shapes.hpp>
 #include <obsidian/core/utils/aabb.hpp>
+#include <obsidian/globals/file_extensions.hpp>
 
 #include <glm/gtc/quaternion.hpp>
 #include <tracy/Tracy.hpp>
@@ -17,7 +19,8 @@
 namespace obsidian::asset_converter {
 
 std::string shaderPicker(VertexContentInfo const& vertexInfo,
-                         core::MaterialType materialType) {
+                         core::MaterialType materialType,
+                         core::ShaderType shaderType) {
   std::string result = "obsidian/shaders/";
 
   bool hasVariants = materialType != core::MaterialType::pbr;
@@ -35,13 +38,13 @@ std::string shaderPicker(VertexContentInfo const& vertexInfo,
 
   switch (materialType) {
   case core::MaterialType::unlit:
-    result += "default-unlit.obsshad";
+    result += "default-unlit";
     break;
   case core::MaterialType::lit:
-    result += "default.obsshad";
+    result += "default";
     break;
   case core::MaterialType::pbr:
-    result += "default-pbr.obsshad";
+    result += "default-pbr";
     break;
   default:
     assert(false &&
@@ -49,17 +52,32 @@ std::string shaderPicker(VertexContentInfo const& vertexInfo,
            "MaterialType::pbr.");
   }
 
+  switch (shaderType) {
+  case core::ShaderType::vertex:
+    result += "-vert";
+    break;
+  case core::ShaderType::fragment:
+    result += "-frag";
+    break;
+  default:
+    assert(false && "The shaderType argument has invalid value.");
+  }
+
+  result += globals::shaderAssetExt;
+
   return result;
 }
 
 std::string shaderPicker(GltfMaterialWrapper const& m,
-                         core::MaterialType materialType) {
-  return shaderPicker(m.vertexInfo, materialType);
+                         core::MaterialType materialType,
+                         core::ShaderType shaderType) {
+  return shaderPicker(m.vertexInfo, materialType, shaderType);
 }
 
 std::string shaderPicker(ObjMaterialWrapper const& m,
-                         core::MaterialType materialType) {
-  return shaderPicker(m.vertexInfo, materialType);
+                         core::MaterialType materialType,
+                         core::ShaderType shaderType) {
+  return shaderPicker(m.vertexInfo, materialType, shaderType);
 }
 
 inline glm::vec3 calculateTangent(std::array<glm::vec3, 3> const& facePositions,

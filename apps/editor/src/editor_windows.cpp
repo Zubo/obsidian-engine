@@ -697,7 +697,8 @@ static struct {
   int selectedMaterialInd = -1;
   bool materialSelectionUpdated = false;
   int selectedMaterialType = static_cast<int>(core::MaterialType::lit);
-  int shaderComboInd = 0;
+  int vertexShaderComboInd = 0;
+  int fragmentShaderComboInd = 0;
   asset::MaterialAssetInfo selectedMaterialAssetInfo;
   char newMatName[maxFileNameSize] = "newMat";
 
@@ -802,7 +803,10 @@ void materialCreatorTab() {
     if (ImGui::Button("Create")) {
       asset::MaterialAssetInfo newMatAssetInfo = {};
       newMatAssetInfo.materialType = core::MaterialType::lit;
-      newMatAssetInfo.shaderPath = "obsidian/shaders/default.obsshad";
+      newMatAssetInfo.vertexShaderPath =
+          "obsidian/shaders/default-vert.obsshad";
+      newMatAssetInfo.fragmentShaderPath =
+          "obsidian/shaders/default-frag.obsshad";
       asset::LitMaterialAssetData& litMaterialData =
           newMatAssetInfo.materialSubtypeData
               .emplace<asset::LitMaterialAssetData>();
@@ -874,8 +878,12 @@ void materialCreatorTab() {
       materialsData.selectedMaterialType = static_cast<int>(
           materialsData.selectedMaterialAssetInfo.materialType);
 
-      materialsData.shaderComboInd = shadersInProj.listItemInd(
-          materialsData.selectedMaterialAssetInfo.shaderPath,
+      materialsData.vertexShaderComboInd = shadersInProj.listItemInd(
+          materialsData.selectedMaterialAssetInfo.vertexShaderPath,
+          shadersIncludeNone);
+
+      materialsData.fragmentShaderComboInd = shadersInProj.listItemInd(
+          materialsData.selectedMaterialAssetInfo.fragmentShaderPath,
           shadersIncludeNone);
 
       materialsData.materialSelectionUpdated = false;
@@ -897,11 +905,20 @@ void materialCreatorTab() {
       ValueStrings const shaderSizeAndStrings =
           shadersInProj.getValueStrings(shadersIncludeNone);
 
-      if (ImGui::Combo("Shader", &materialsData.shaderComboInd,
+      if (ImGui::Combo("Vertex Shader", &materialsData.vertexShaderComboInd,
                        shaderSizeAndStrings.valueStrings,
                        shaderSizeAndStrings.size)) {
-        materialsData.selectedMaterialAssetInfo.shaderPath =
-            shadersInProj.at(materialsData.shaderComboInd, shadersIncludeNone);
+        materialsData.selectedMaterialAssetInfo.vertexShaderPath =
+            shadersInProj.at(materialsData.vertexShaderComboInd,
+                             shadersIncludeNone);
+      }
+
+      if (ImGui::Combo("Fragment Shader", &materialsData.vertexShaderComboInd,
+                       shaderSizeAndStrings.valueStrings,
+                       shaderSizeAndStrings.size)) {
+        materialsData.selectedMaterialAssetInfo.fragmentShaderPath =
+            shadersInProj.at(materialsData.fragmentShaderComboInd,
+                             shadersIncludeNone);
       }
 
       if (ImGui::Checkbox(

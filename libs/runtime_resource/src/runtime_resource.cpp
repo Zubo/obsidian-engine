@@ -311,10 +311,15 @@ void RuntimeResource::performUploadToRHI() {
     }
     }
 
-    RuntimeResource& shaderResource =
-        _runtimeResourceManager.getResource(info.shaderPath);
+    RuntimeResource& vertexShaderResource =
+        _runtimeResourceManager.getResource(info.vertexShaderPath);
 
-    uploadMaterial.shaderId = shaderResource.getResourceId();
+    uploadMaterial.vertexShaderId = vertexShaderResource.getResourceId();
+
+    RuntimeResource& fragmentShaderResource =
+        _runtimeResourceManager.getResource(info.fragmentShaderPath);
+
+    uploadMaterial.fragmentShaderId = fragmentShaderResource.getResourceId();
 
     uploadMaterial.transparent = info.transparent;
     uploadMaterial.hasTimer = info.hasTimer;
@@ -407,8 +412,10 @@ std::vector<RuntimeResource*> const& RuntimeResource::fetchDependencies() {
               }},
           materialAssetInfo.materialSubtypeData);
 
-      _dependencies->push_back(
-          &_runtimeResourceManager.getResource(materialAssetInfo.shaderPath));
+      _dependencies->push_back(&_runtimeResourceManager.getResource(
+          materialAssetInfo.vertexShaderPath));
+      _dependencies->push_back(&_runtimeResourceManager.getResource(
+          materialAssetInfo.fragmentShaderPath));
     }
   }
 

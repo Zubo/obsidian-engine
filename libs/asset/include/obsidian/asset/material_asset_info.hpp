@@ -45,7 +45,8 @@ MaterialSubtypeData createSubtypeData(core::MaterialType matType);
 struct MaterialAssetInfo : public AssetInfo {
   core::MaterialType materialType;
   MaterialSubtypeData materialSubtypeData;
-  std::string shaderPath;
+  std::string vertexShaderPath;
+  std::string fragmentShaderPath;
   bool transparent;
   bool hasTimer;
 };

@@ -4,6 +4,7 @@
 #include <obsidian/asset_converter/asset_converter.hpp>
 #include <obsidian/asset_converter/vertex_content_info.hpp>
 #include <obsidian/core/material.hpp>
+#include <obsidian/core/shader.hpp>
 #include <obsidian/core/vertex_type.hpp>
 #include <obsidian/serialization/game_object_data_serialization.hpp>
 
@@ -266,12 +267,15 @@ inline bool isMaterialTransparent(GltfMaterialWrapper const& m) {
 }
 
 std::string shaderPicker(VertexContentInfo const& vertexInfo,
-                         core::MaterialType materialType);
+                         core::MaterialType materialType,
+                         core::ShaderType shaderType);
 
 std::string shaderPicker(GltfMaterialWrapper const& m,
-                         core::MaterialType materialType);
+                         core::MaterialType materialType,
+                         core::ShaderType shaderType);
 
 std::string shaderPicker(ObjMaterialWrapper const& m,
-                         core::MaterialType materialType);
+                         core::MaterialType materialType,
+                         core::ShaderType shaderType);
 
 } /*namespace obsidian::asset_converter */

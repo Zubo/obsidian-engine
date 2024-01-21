@@ -30,70 +30,41 @@ void RuntimeResourceManager::init(rhi::RHI& rhi, project::Project& project,
 
 void RuntimeResourceManager::uploadInitRHIResources() {
   rhi::InitResourcesRHI initResources;
+  auto const loadShaderFunc = [this](rhi::UploadShaderRHI& uploadRHI,
+                                     char const* path) {
+    asset::Asset asset;
+    bool result =
+        asset::loadAssetFromFile(_project->getAbsolutePath(path), asset);
 
-  asset::Asset depthShaderAsset;
-  bool result = asset::loadAssetFromFile(
-      _project->getAbsolutePath("obsidian/shaders/depth-only-dbg.obsshad"),
-      depthShaderAsset);
+    assert(result && "Shader asset failed to load");
 
-  assert(result && "Depth only shader asset failed to load");
+    asset::ShaderAssetInfo assetInfo;
+    result = asset::readShaderAssetInfo(*asset.metadata, assetInfo);
 
-  asset::ShaderAssetInfo depthShaderAssetInfo;
-  result = asset::readShaderAssetInfo(*depthShaderAsset.metadata,
-                                      depthShaderAssetInfo);
+    assert(result && "Depth only shader asset info failed to load");
 
-  assert(result && "Depth only shader asset info failed to load");
-
-  initResources.shadowPassShader.shaderDataSize =
-      depthShaderAssetInfo.unpackedSize;
-  initResources.shadowPassShader.unpackFunc =
-      [&depthShaderAsset, &depthShaderAssetInfo](char* dst) {
-        asset::unpackAsset(depthShaderAssetInfo,
-                           depthShaderAsset.binaryBlob.data(),
-                           depthShaderAsset.binaryBlob.size(), dst);
-      };
-
-  asset::Asset ssaoShaderAsset;
-  result = asset::loadAssetFromFile(
-      _project->getAbsolutePath("obsidian/shaders/ssao-dbg.obsshad"),
-      ssaoShaderAsset);
-
-  assert(result && "Ssao shader asset failed to load");
-
-  asset::ShaderAssetInfo ssaoShaderAssetInfo;
-  result = asset::readShaderAssetInfo(*ssaoShaderAsset.metadata,
-                                      ssaoShaderAssetInfo);
-
-  assert(result && "Ssao shader asset info failed to load");
-
-  initResources.ssaoShader.shaderDataSize = ssaoShaderAssetInfo.unpackedSize;
-  initResources.ssaoShader.unpackFunc = [&ssaoShaderAsset,
-                                         &ssaoShaderAssetInfo](char* dst) {
-    asset::unpackAsset(ssaoShaderAssetInfo, ssaoShaderAsset.binaryBlob.data(),
-                       ssaoShaderAsset.binaryBlob.size(), dst);
+    uploadRHI.shaderDataSize = assetInfo.unpackedSize;
+    uploadRHI.unpackFunc = [asset = std::move(asset),
+                            assetInfo = std::move(assetInfo)](char* dst) {
+      asset::unpackAsset(assetInfo, asset.binaryBlob.data(),
+                         asset.binaryBlob.size(), dst);
+    };
   };
 
-  asset::Asset postProcessingShaderAsset;
-  result = asset::loadAssetFromFile(
-      _project->getAbsolutePath("obsidian/shaders/post-processing-dbg.obsshad"),
-      postProcessingShaderAsset);
+  loadShaderFunc(initResources.shadowPassVertexShader,
+                 "obsidian/shaders/depth-only-vert.obsshad");
+  loadShaderFunc(initResources.shadowPassFragmentShader,
+                 "obsidian/shaders/depth-only-frag.obsshad");
 
-  assert(result && "Post processing shader asset failed to load");
+  loadShaderFunc(initResources.ssaoVertexShader,
+                 "obsidian/shaders/ssao-vert.obsshad");
+  loadShaderFunc(initResources.ssaoFragmentShader,
+                 "obsidian/shaders/ssao-frag.obsshad");
 
-  asset::ShaderAssetInfo postProcessingShaderAssetInfo;
-  result = asset::readShaderAssetInfo(*postProcessingShaderAsset.metadata,
-                                      postProcessingShaderAssetInfo);
-
-  assert(result && "Post processing shader asset info failed to load");
-
-  initResources.postProcessingShader.shaderDataSize =
-      postProcessingShaderAssetInfo.unpackedSize;
-  initResources.postProcessingShader.unpackFunc =
-      [&postProcessingShaderAsset, &postProcessingShaderAssetInfo](char* dst) {
-        asset::unpackAsset(postProcessingShaderAssetInfo,
-                           postProcessingShaderAsset.binaryBlob.data(),
-                           postProcessingShaderAsset.binaryBlob.size(), dst);
-      };
+  loadShaderFunc(initResources.postProcessingVertexShader,
+                 "obsidian/shaders/post-processing-vert.obsshad");
+  loadShaderFunc(initResources.postProcessingFragmentShader,
+                 "obsidian/shaders/post-processing-frag.obsshad");
 
   _rhi->initResources(initResources);
 }

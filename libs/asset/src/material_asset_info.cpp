@@ -17,7 +17,8 @@ constexpr char const* materialTypeJsonName = "materialType";
 constexpr char const* unlitMaterialSubtypeDataJsonName = "unlitData";
 constexpr char const* litMaterialSubtypeDataJsonName = "litData";
 constexpr char const* pbrMaterialSubtypeDataJsonName = "pbrData";
-constexpr char const* shaderJsonName = "shader";
+constexpr char const* vertexShaderJsonName = "vertexShader";
+constexpr char const* fragmentShaderJsonName = "fragmentShader";
 constexpr char const* colorJsonName = "color";
 constexpr char const* colorTextureJsonName = "colorTex";
 constexpr char const* diffuseTextureJsonName = "diffuseTex";
@@ -156,7 +157,8 @@ bool readMaterialAssetInfo(AssetMetadata const& assetmetadata,
     outMaterialAssetInfo.unpackedSize = json[unpackedSizeJsonName];
     outMaterialAssetInfo.compressionMode = json[compressionModeJsonName];
     outMaterialAssetInfo.materialType = json[materialTypeJsonName];
-    outMaterialAssetInfo.shaderPath = json[shaderJsonName];
+    outMaterialAssetInfo.vertexShaderPath = json[vertexShaderJsonName];
+    outMaterialAssetInfo.fragmentShaderPath = json[fragmentShaderJsonName];
 
     bool subtypeDataReadSuccess;
     switch (outMaterialAssetInfo.materialType) {
@@ -214,7 +216,8 @@ bool packMaterial(MaterialAssetInfo const& materialAssetInfo,
     json[unpackedSizeJsonName] = materialAssetInfo.unpackedSize;
     json[compressionModeJsonName] = materialAssetInfo.compressionMode;
     json[materialTypeJsonName] = materialAssetInfo.materialType;
-    json[shaderJsonName] = materialAssetInfo.shaderPath;
+    json[vertexShaderJsonName] = materialAssetInfo.vertexShaderPath;
+    json[fragmentShaderJsonName] = materialAssetInfo.fragmentShaderPath;
 
     bool subtypeDataWriteSuccess;
 
