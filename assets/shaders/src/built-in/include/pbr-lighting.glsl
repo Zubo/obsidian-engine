@@ -105,8 +105,8 @@ float geometryShlickGGX(float k, float nvCosTheta) {
 
 float geometryFunction(float k, vec3 normal, vec3 fragToLightDir,
                        vec3 fragToCameraDir) {
-  return geometryShlickGGX(k, dot(normal, fragToLightDir)) *
-         geometryShlickGGX(k, dot(normal, fragToCameraDir));
+  return geometryShlickGGX(k, max(dot(normal, fragToLightDir), 0.0f)) *
+         geometryShlickGGX(k, max(dot(normal, fragToCameraDir), 0.0f));
 }
 
 vec3 fresnelShlick(vec3 F0, float nhCosTheta) {
@@ -134,8 +134,9 @@ vec3 reflectanceEquation(vec3 normal, vec3 fragToLightDir,
 
   const vec3 F = fresnelShlick(F0, nhCosTheta);
 
-  const vec3 L = (1.0f - F) * albedo +
-                 (F * D * G) / (4.0f * nLightCosTheta * nCameraCosTheta);
+  const vec3 L =
+      (1.0f - F) * albedo +
+      (F * D * G) / (4.0f * nLightCosTheta * nCameraCosTheta + 0.0001);
 
   return L;
 }
