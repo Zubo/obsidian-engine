@@ -125,7 +125,7 @@ vec3 reflectanceEquation(vec3 normal, vec3 fragToLightDir,
   const float nCameraCosTheta = max(dot(normal, fragToCameraDir), 0.0f);
   const float k = (roughness + 1.0f) * (roughness + 1.0f) / 8.0f;
 
-  const float D = normalDistributionFunction(roughness, nhCosTheta);
+  const float D = normalDistributionFunction(roughness * roughness, nhCosTheta);
   const float G = geometryFunction(k, normal, fragToLightDir, fragToCameraDir);
 
   const vec3 albedo = texture(albedoTex, inUV).xyz;
