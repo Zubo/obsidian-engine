@@ -1,8 +1,8 @@
-#include <exception>
 #include <obsidian/core/logging.hpp>
 #include <obsidian/platform/environment.hpp>
 #include <obsidian/project/project.hpp>
 
+#include <exception>
 #include <filesystem>
 
 using namespace obsidian;
@@ -11,7 +11,15 @@ using namespace obsidian::project;
 namespace fs = std::filesystem;
 
 fs::path getInitialAssetsPath() {
-  return platform::getExecutableDirectoryPath() / "assets";
+  fs::path const exePath = platform::getExecutableDirectoryPath();
+  fs::path initialAssetsPath = exePath.parent_path() / "assets";
+
+  if (!fs::exists(initialAssetsPath)) {
+    // multi-config builds
+    initialAssetsPath = exePath.parent_path().parent_path() / "assets";
+  }
+
+  return initialAssetsPath;
 }
 
 bool exportInitialProjectFiles(fs::path const& projectPath) {
@@ -40,9 +48,10 @@ bool Project::open(fs::path projectRootPath) {
     fs::create_directory(projectRootPath);
   }
 
-  if (!fs::exists(getInitialAssetsPath())) {
+  fs::path const initialAssetsPath = getInitialAssetsPath();
+  if (!fs::exists(initialAssetsPath)) {
     OBS_LOG_ERR("The initial assets are missing on path " +
-                getInitialAssetsPath().string());
+                initialAssetsPath.string());
     return false;
   }
 
