@@ -585,7 +585,7 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
               1.0f);
 
           dirLightUpdated |= ImGui::SliderFloat(
-              "Intensity", &directionalLight->intensity, 0.0f, 10.0f);
+              "Intensity", &directionalLight->intensity, 0.0f, 200.0f);
 
           if (dirLightUpdated) {
             selectedGameObj->setDirectionalLight(*directionalLight);
@@ -614,7 +614,7 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
               "Color", reinterpret_cast<float*>(&spotlight->color), 0.0f, 1.0f);
 
           spotlightUpdated |= ImGui::SliderFloat(
-              "Intensity", &spotlight->intensity, 0.0f, 10.0f);
+              "Intensity", &spotlight->intensity, 0.0f, 200.0f);
 
           spotlightUpdated |= ImGui::SliderFloat(
               "Cutoff angle", &spotlight->cutoffAngleRad, 0.01f, 3.14f);

@@ -4,6 +4,9 @@
 #include "lighting.glsl"
 #include "lit-material.glsl"
 
+// Light intensity is tuned for PBR, so we need to scale it for blinn phong
+#define LIGHT_INTENSITY_FACTOR 0.3f
+
 LightingResult calculateBlinnPhongSpotlights(vec3 normal) {
   const mat4 inverseView = inverse(cameraData.view);
   vec3 cameraPos =
@@ -17,7 +20,8 @@ LightingResult calculateBlinnPhongSpotlights(vec3 normal) {
         1 / (1.0f + lights.spotlights[lightIdx].attenuation.x * d +
              lights.spotlights[lightIdx].attenuation.y * d * d);
 
-    const float intensity = attenuation * lights.spotlights[lightIdx].params.x;
+    const float intensity = attenuation * lights.spotlights[lightIdx].params.x *
+                            LIGHT_INTENSITY_FACTOR;
 
     const float cosCutoffAngle = lights.spotlights[lightIdx].params.y;
     const float cosFadeoutAngle = lights.spotlights[lightIdx].params.z;
@@ -79,7 +83,8 @@ LightingResult calculateBlinnPhongDirectionalLighting(vec3 normal) {
   LightingResult result = {{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
 
   for (int lightIdx = 0; lightIdx < lights.directionalLightCount; ++lightIdx) {
-    vec3 intensity = lights.directionalLights[lightIdx].intensity.xyz;
+    vec3 intensity = lights.directionalLights[lightIdx].intensity.xyz *
+                     LIGHT_INTENSITY_FACTOR;
     float diffuseIntensity =
         clamp(dot(normalize(-lights.directionalLights[lightIdx].direction.xyz),
                   normalize(normal)),
