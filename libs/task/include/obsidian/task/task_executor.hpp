@@ -3,6 +3,7 @@
 #include <obsidian/task/task.hpp>
 #include <obsidian/task/task_type.hpp>
 
+#include <atomic>
 #include <cassert>
 #include <condition_variable>
 #include <cstdint>
@@ -67,7 +68,7 @@ private:
   std::vector<std::thread> _threads;
   mutable std::mutex _taskQueueMutex;
   mutable std::condition_variable _waitIdleCondVar;
-  bool _running = false;
+  std::atomic<bool> _running = false;
   bool _shutdownComplete = false;
 };
 
