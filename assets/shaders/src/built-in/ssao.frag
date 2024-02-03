@@ -44,7 +44,7 @@ void main() {
         0.0f, 1.0f, offsetRadius / abs(depthMapValue - samplePosNDC.z));
     const float bias = 0.0005f;
 
-    occlusionFactor += depthMapValue >= samplePosNDC.z - bias ? 1.0f : 0.0f;
+    occlusionFactor += step(samplePosNDC.z - bias, depthMapValue);
   }
 
   outFragColor = occlusionFactor;
