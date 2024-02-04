@@ -60,7 +60,11 @@ int main(int argc, char** argv) {
     }
   }
 
-  for (auto const& entry : fs::directory_iterator(*srcPath)) {
+  fs::directory_iterator dirIter(*srcPath);
+
+  for (auto const& entry : dirIter) {
+    ZoneScopedN("Convert entry");
+
     if (!std::filesystem::is_regular_file(entry)) {
       continue;
     }
@@ -83,7 +87,9 @@ int main(int argc, char** argv) {
     taskExecutor.initAndRun({{obsidian::task::TaskType::general, nCores}});
 
     obsidian::asset_converter::AssetConverter converter{taskExecutor};
-    converter.convertAsset(srcFilePath, dstFilePath);
+    if (!converter.convertAsset(srcFilePath, dstFilePath)) {
+      return -1;
+    }
   }
 
   return 0;
