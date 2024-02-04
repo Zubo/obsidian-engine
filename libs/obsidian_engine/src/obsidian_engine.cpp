@@ -130,7 +130,8 @@ void ObsidianEngine::openProject(std::filesystem::path projectPath) {
 }
 
 void ObsidianEngine::initTaskExecutor() {
-  int const nCores = std::thread::hardware_concurrency();
+  int nCores =
+      std::max(static_cast<int>(std::thread::hardware_concurrency()), 2);
 
   _context.taskExecutor.initAndRun(
       {{task::TaskType::rhiTransfer, 4},

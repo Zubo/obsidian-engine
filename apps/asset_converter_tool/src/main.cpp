@@ -62,8 +62,7 @@ int main(int argc, char** argv) {
 
   fs::directory_iterator dirIter(*srcPath);
 
-  unsigned int nCores = std::thread::hardware_concurrency();
-  nCores = nCores ? nCores : 2;
+  unsigned int nCores = std::max(std::thread::hardware_concurrency(), 2u);
 
   obsidian::task::TaskExecutor taskExecutor;
   taskExecutor.initAndRun({{obsidian::task::TaskType::general, nCores}});
