@@ -1,6 +1,6 @@
 #pragma once
 
-#include <functional>
+#include <future>
 #include <type_traits>
 
 namespace obsidian::core {
@@ -17,13 +17,13 @@ template <typename F>
 using ResultOf = decltype(std::function(std::declval<F>()))::result_type;
 
 template <typename R, typename Arg>
-R invokeFunc(std::function<R(Arg)> const& func, void const* argP) {
-  return func(*reinterpret_cast<Arg const*>(argP));
+void invokeTask(std::packaged_task<R(Arg)>& task, void const* argP) {
+  task(*reinterpret_cast<Arg const*>(argP));
 }
 
 template <typename R>
-R invokeFunc(std::function<R(void)> const& func, void const* argP) {
-  return func();
+void invokeTask(std::packaged_task<R(void)>& task, void const* argP) {
+  task();
 }
 
 } /*namespace obsidian::core */

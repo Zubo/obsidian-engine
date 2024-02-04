@@ -7,6 +7,7 @@
 #include <cassert>
 #include <condition_variable>
 #include <cstdint>
+#include <future>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -33,7 +34,7 @@ public:
 
   void initAndRun(std::vector<ThreadInitInfo> threadInit);
 
-  template <typename F> TaskBase& enqueue(TaskType type, F&& func) {
+  template <typename F> auto enqueue(TaskType type, F&& func) {
     auto const queue = _taskQueues.find(type);
 
     assert(queue != _taskQueues.cend());
@@ -45,11 +46,13 @@ public:
     TaskBase& newTask = *queue->second.tasks.emplace_back(
         std::make_unique<TaskType>(type, std::forward<F>(func)));
 
+    auto future = dynamic_cast<TaskType&>(newTask).getFuture();
+
     l.unlock();
 
     queue->second.taskQueueCondVar.notify_one();
 
-    return newTask;
+    return future;
   }
 
   void workerFunc(TaskType taskType);

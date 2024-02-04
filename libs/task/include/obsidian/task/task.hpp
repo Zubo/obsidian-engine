@@ -7,7 +7,9 @@
 #include <atomic>
 #include <cassert>
 #include <functional>
+#include <future>
 #include <memory>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -22,7 +24,6 @@ public:
   TaskBase(TaskType type);
   virtual ~TaskBase() = default;
 
-  virtual void const* getReturn() const = 0;
   virtual void execute() = 0;
   virtual void setArg(std::shared_ptr<void const> const& argPtr);
 
@@ -44,28 +45,27 @@ private:
 };
 
 template <typename F> class Task : public TaskBase {
-  using FuncType = decltype(std::function(std::declval<F>()));
+  using PackagedTaskType = decltype(std::packaged_task(std::declval<F>()));
 
 public:
   Task(TaskType type, F&& func)
-      : TaskBase(type), _func{std::forward<F>(func)} {}
+      : TaskBase(type), _packagedTask{std::forward<F>(func)} {}
 
-  void const* getReturn() const override { return _returnVal.get(); }
+  auto getFuture() { return _packagedTask.get_future(); }
 
   void execute() override {
-    if constexpr (std::is_void_v<core::ResultOf<F>>) {
-      core::invokeFunc(_func, _argPtr.get());
-    } else {
-      _returnVal = std::make_shared<typename FuncType::result_type const>(
-          core::invokeFunc(_func, _argPtr.get()));
+    if (_done) {
+      OBS_LOG_ERR("Trying to execute a task that is already done.");
+      return;
     }
+
+    core::invokeTask(_packagedTask, _argPtr.get());
 
     _done = true;
   }
 
 private:
-  FuncType _func;
-  std::shared_ptr<core::ResultOf<F> const> _returnVal;
+  PackagedTaskType _packagedTask;
 };
 
 } /*namespace obsidian::task*/

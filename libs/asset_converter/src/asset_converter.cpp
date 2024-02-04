@@ -254,7 +254,7 @@ bool AssetConverter::convertObjToAsset(fs::path const& srcPath,
       materials.size() ? materials.size() : 1};
   std::size_t vertexCount;
 
-  task::TaskBase const& genVertTask =
+  std::future<void> genVertFuture =
       _taskExecutor.enqueue(task::TaskType::general, [&]() {
         vertexCount = callGenerateVerticesFromObj(meshAssetInfo, attrib, shapes,
                                                   outVertices, outSurfaces,
@@ -288,8 +288,7 @@ bool AssetConverter::convertObjToAsset(fs::path const& srcPath,
     meshAssetInfo.defaultMatRelativePaths.push_back(path);
   }
 
-  while (!genVertTask.isDone())
-    ;
+  genVertFuture.wait();
 
   meshAssetInfo.vertexCount = vertexCount;
   meshAssetInfo.vertexBufferSize = outVertices.size();
@@ -371,8 +370,8 @@ bool AssetConverter::convertGltfToAsset(fs::path const& srcPath,
   std::vector<asset::MeshAssetInfo> meshAssetInfoPerMesh;
   meshAssetInfoPerMesh.resize(meshCount);
 
-  std::vector<task::TaskBase const*> generateVerticesTasks;
-  generateVerticesTasks.reserve(meshCount);
+  std::vector<std::future<void>> generateVericesFutures;
+  generateVericesFutures.reserve(meshCount);
 
   for (std::size_t i = 0; i < model.meshes.size(); ++i) {
     asset::MeshAssetInfo& meshAssetInfo = meshAssetInfoPerMesh[i];
@@ -390,7 +389,7 @@ bool AssetConverter::convertGltfToAsset(fs::path const& srcPath,
 
     meshAssetInfo.hasTangents = meshAssetInfo.hasNormals && meshAssetInfo.hasUV;
 
-    task::TaskBase const& generateVerticesTask = _taskExecutor.enqueue(
+    generateVericesFutures.push_back(_taskExecutor.enqueue(
         task::TaskType::general,
         // capturing vector members by reference won't cause problems because
         // the vector memory was reserved in advance
@@ -401,9 +400,7 @@ bool AssetConverter::convertGltfToAsset(fs::path const& srcPath,
           vertexCount = callGenerateVerticesFromGltfMesh(
               meshAssetInfo, model, meshInd, outVertices, outSurfaces,
               meshAssetInfo.aabb);
-        });
-
-    generateVerticesTasks.push_back(&generateVerticesTask);
+        }));
   }
 
   std::vector<GltfMaterialWrapper> requestedMaterials;
@@ -438,10 +435,9 @@ bool AssetConverter::convertGltfToAsset(fs::path const& srcPath,
       extractMaterials(srcPath, projectPath, texAssetInfoMap,
                        requestedMaterials, model.materials.size());
 
-  while (std::any_of(generateVerticesTasks.cbegin(),
-                     generateVerticesTasks.cend(),
-                     [](task::TaskBase const* t) { return !t->isDone(); }))
-    ;
+  for (auto& f : generateVericesFutures) {
+    f.wait();
+  }
 
   bool exportSuccess = true;
 
@@ -679,11 +675,12 @@ AssetConverter::TextureAssetInfoMap AssetConverter::extractTexturesForMaterials(
     texDir = fs::directory_entry{srcDirPath};
   }
 
-  std::unordered_map<std::string, task::TaskBase const*> textureLoadTasks;
+  using TextureFuture = std::future<std::optional<asset::TextureAssetInfo>>;
+  std::unordered_map<std::string, TextureFuture> textureLoadFutures;
 
-  auto const addTex = [this, &textureLoadTasks, &texDir, &projectPath](
+  auto const addTex = [this, &textureLoadFutures, &texDir, &projectPath](
                           std::string texName, core::TextureFormat texFormat) {
-    if (texName.empty() || textureLoadTasks.contains(texName)) {
+    if (texName.empty() || textureLoadFutures.contains(texName)) {
       return;
     }
 
@@ -691,12 +688,10 @@ AssetConverter::TextureAssetInfoMap AssetConverter::extractTexturesForMaterials(
     fs::path dstPath = projectPath / texName;
     dstPath.replace_extension(globals::textureAssetExt);
 
-    task::TaskBase const* task = &_taskExecutor.enqueue(
+    textureLoadFutures[texName] = _taskExecutor.enqueue(
         task::TaskType::general, [this, srcPath, dstPath, texFormat]() {
           return getOrImportTexture(srcPath, dstPath, texFormat);
         });
-
-    textureLoadTasks[texName] = task;
   };
 
   for (std::size_t i = 0; i < materials.size(); ++i) {
@@ -708,19 +703,10 @@ AssetConverter::TextureAssetInfoMap AssetConverter::extractTexturesForMaterials(
     addTex(getRoughnessTexName(mat), core::TextureFormat::R8G8B8A8_LINEAR);
   }
 
-  // Wait for all texture tasks to finish
-  while (true) {
-    if (std::all_of(textureLoadTasks.cbegin(), textureLoadTasks.cend(),
-                    [](auto const& it) { return it.second->isDone(); }))
-      break;
-  }
-
   TextureAssetInfoMap resultTextureInfos;
 
-  for (auto const& t : textureLoadTasks) {
-    std::optional<asset::TextureAssetInfo> texInfoOpt =
-        *reinterpret_cast<std::optional<asset::TextureAssetInfo> const*>(
-            t.second->getReturn());
+  for (auto& t : textureLoadFutures) {
+    std::optional<asset::TextureAssetInfo> texInfoOpt = t.second.get();
     resultTextureInfos[t.first] = texInfoOpt;
   }
 
