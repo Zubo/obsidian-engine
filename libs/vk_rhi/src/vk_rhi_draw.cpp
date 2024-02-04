@@ -57,6 +57,8 @@ auto getSortByDistanceFunc(glm::mat4 viewProj) {
 }
 
 void VulkanRHI::depthPrepass(DrawPassParams const& params) {
+  ZoneScoped;
+
   VkClearValue depthClearValue;
   depthClearValue.depthStencil.depth = 1.0f;
 
@@ -154,6 +156,8 @@ void VulkanRHI::depthPrepass(DrawPassParams const& params) {
 }
 
 void VulkanRHI::ssaoPass(DrawPassParams const& params) {
+  ZoneScoped;
+
   uploadBufferData(params.frameInd, params.cameraData, _cameraBuffer);
 
   VkRenderPassBeginInfo ssaoRenderPassBeginInfo = {};
@@ -256,6 +260,8 @@ void VulkanRHI::drawSsaoPostProcessing(DrawPassParams const& params) {
 }
 
 void VulkanRHI::shadowPasses(DrawPassParams const& params) {
+  ZoneScoped;
+
   glm::mat4 const inverseView = glm::inverse(params.cameraData.view);
   glm::vec3 const mainCameraPos = {inverseView[3][0], inverseView[3][1],
                                    inverseView[3][2]};
@@ -331,6 +337,8 @@ void VulkanRHI::shadowPasses(DrawPassParams const& params) {
 
 void VulkanRHI::colorPass(DrawPassParams const& params, glm::vec3 ambientColor,
                           VkFramebuffer targetFramebuffer, VkExtent2D extent) {
+  ZoneScoped;
+
   std::array<VkClearValue, 2> clearValues;
   clearValues[0].color = environmentColor;
   clearValues[1].depthStencil.depth = 1.0f;
@@ -372,6 +380,8 @@ void VulkanRHI::colorPass(DrawPassParams const& params, glm::vec3 ambientColor,
 }
 
 void VulkanRHI::environmentMapPasses(struct DrawPassParams const& params) {
+  ZoneScoped;
+
   VkCommandBuffer cmd = params.currentFrameData.vkCommandBuffer;
 
   constexpr std::array<glm::vec3, 6> cubeSides = {
@@ -473,6 +483,7 @@ void VulkanRHI::environmentMapPasses(struct DrawPassParams const& params) {
 
 void VulkanRHI::present(VkSemaphore renderSemaphore,
                         std::uint32_t swapchainImageIndex) {
+  ZoneScoped;
 
   VkPresentInfoKHR vkPresentInfo = {};
   vkPresentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -493,9 +504,8 @@ void VulkanRHI::present(VkSemaphore renderSemaphore,
                                       &vkPresentInfo);
   }
 
-  if (presentResult == VK_ERROR_OUT_OF_DATE_KHR ||
-      presentResult == VK_SUBOPTIMAL_KHR) {
-  } else {
+  if (presentResult != VK_ERROR_OUT_OF_DATE_KHR &&
+      presentResult != VK_SUBOPTIMAL_KHR) {
     VK_CHECK(presentResult);
   }
 }
