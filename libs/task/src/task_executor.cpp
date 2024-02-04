@@ -93,7 +93,6 @@ void TaskExecutor::shutdown() {
   _taskQueues.clear();
   _dequeuedTasks.clear();
   _threads.clear();
-  _running = false;
   _shutdownComplete = true;
 }
 

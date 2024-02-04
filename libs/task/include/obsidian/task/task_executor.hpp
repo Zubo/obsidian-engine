@@ -69,7 +69,7 @@ private:
   mutable std::mutex _taskQueueMutex;
   mutable std::condition_variable _waitIdleCondVar;
   std::atomic<bool> _running = false;
-  bool _shutdownComplete = false;
+  std::atomic<bool> _shutdownComplete = false;
 };
 
 } /*namespace obsidian::task*/

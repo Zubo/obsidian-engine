@@ -62,9 +62,14 @@ int main(int argc, char** argv) {
 
   fs::directory_iterator dirIter(*srcPath);
 
-  for (auto const& entry : dirIter) {
-    ZoneScopedN("Convert entry");
+  unsigned int nCores = std::thread::hardware_concurrency();
+  nCores = nCores ? nCores : 2;
 
+  obsidian::task::TaskExecutor taskExecutor;
+  taskExecutor.initAndRun({{obsidian::task::TaskType::general, nCores}});
+  obsidian::asset_converter::AssetConverter converter{taskExecutor};
+
+  for (auto const& entry : dirIter) {
     if (!std::filesystem::is_regular_file(entry)) {
       continue;
     }
@@ -81,12 +86,6 @@ int main(int argc, char** argv) {
     fileName.replace_extension(extensionMapping->second);
     fs::path dstFilePath = *dstPath / fileName;
 
-    unsigned int const nCores = std::thread::hardware_concurrency();
-
-    obsidian::task::TaskExecutor taskExecutor;
-    taskExecutor.initAndRun({{obsidian::task::TaskType::general, nCores}});
-
-    obsidian::asset_converter::AssetConverter converter{taskExecutor};
     if (!converter.convertAsset(srcFilePath, dstFilePath)) {
       return -1;
     }
