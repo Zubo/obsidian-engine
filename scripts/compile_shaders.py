@@ -57,4 +57,4 @@ def compile_shaders(shader_src_dir, shader_out_dir, debugOn):
                 shader_names.add(key + Path(shader_src_name).stem)
 
 compile_shaders("../assets/shaders/src", args.output, args.dbg is not None)
-compile_shaders("../assets/shaders/src/built-in", f"{args.output}/built-in", args.dbg)
+compile_shaders("../assets/shaders/src/built-in", f"{args.output}/built-in", args.dbg is not None)

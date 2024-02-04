@@ -15,6 +15,8 @@ set(SHADER_SRC_FILES
     "ssao.frag"
     "post-processing.vert"
     "post-processing.frag"
+    "water.vert"
+    "water.frag"
 )
 
 set(SHADER_OUTPUT_DIR "${CMAKE_BINARY_DIR}/shaders")
@@ -34,7 +36,7 @@ foreach(SHADER_SRC ${SHADER_SRC_FILES})
             "${SHADER_OUTPUT_DIR}/${SHADER_SRC_DIR}/${SHADER_OUTPUT_FILE_NAME}.spv"
     )
 
-    if (${SHADER_OUTPUT_FILE_NAME} MATCHES "^default")
+    if (${SHADER_OUTPUT_FILE_NAME} MATCHES "(^default)(-unlit)?((-frag)|(-vert))")
         list(APPEND
             SHADER_OUTPUT_LIST
                 "${SHADER_OUTPUT_DIR}/${SHADER_SRC_DIR}/c-${SHADER_OUTPUT_FILE_NAME}.spv"
