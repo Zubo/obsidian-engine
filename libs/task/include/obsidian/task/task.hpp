@@ -34,13 +34,13 @@ public:
 
 protected:
   std::shared_ptr<void const> _argPtr = nullptr;
-  bool _done = false;
+  std::atomic<bool> _done = false;
 
 private:
   static std::atomic<TaskId> nextTaskId;
 
-  TaskId _taskId;
-  TaskType _type;
+  std::atomic<TaskId> _taskId;
+  std::atomic<TaskType> _type;
 };
 
 template <typename F> class Task : public TaskBase {
