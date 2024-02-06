@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <future>
 #include <iostream>
 #include <string>
 #include <thread>
@@ -24,11 +25,11 @@ TEST(task, task_executor_basic_execution) {
   constexpr int deltaPerTask = 1000000;
   constexpr int numberOfTasks = 100;
 
-  std::vector<TaskBase const*> tasks;
+  std::vector<std::future<void>> futures;
 
   // act
   for (std::size_t i = 0; i < numberOfTasks; ++i) {
-    tasks.push_back(&executor.enqueue(taskType, [&cnt]() {
+    futures.push_back(executor.enqueue(taskType, [&cnt]() {
       for (std::size_t j = 0; j < deltaPerTask; ++j) {
         ++cnt;
       }
@@ -36,11 +37,8 @@ TEST(task, task_executor_basic_execution) {
   }
 
   // assert
-  while (true) {
-    if (std::all_of(tasks.cbegin(), tasks.cend(),
-                    [](auto t) { return t->isDone(); })) {
-      break;
-    }
+  for (auto& f : futures) {
+    f.wait();
   }
 
   ASSERT_EQ(cnt, deltaPerTask * numberOfTasks);

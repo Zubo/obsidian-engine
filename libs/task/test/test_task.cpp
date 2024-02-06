@@ -44,7 +44,6 @@ TEST(task, task_execute_ret_val) {
   t.execute();
 
   // assert
-  void const* returnVal = t.getReturn();
-  EXPECT_NE(returnVal, nullptr);
-  EXPECT_EQ(val, *reinterpret_cast<int const*>(returnVal));
+  auto future = t.getFuture();
+  EXPECT_EQ(val, future.get());
 }
