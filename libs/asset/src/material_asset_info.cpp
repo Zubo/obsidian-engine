@@ -204,6 +204,10 @@ bool packMaterial(MaterialAssetInfo const& materialAssetInfo,
                   std::vector<char> materialData, Asset& outAsset) {
   ZoneScoped;
 
+  if (!outAsset.metadata) {
+    outAsset.metadata.emplace();
+  }
+
   outAsset.metadata->type[0] = 'm';
   outAsset.metadata->type[1] = 'a';
   outAsset.metadata->type[2] = 't';
@@ -251,6 +255,7 @@ bool packMaterial(MaterialAssetInfo const& materialAssetInfo,
     json[hasTimerJsonName] = materialAssetInfo.hasTimer;
 
     outAsset.metadata->json = json.dump();
+    outAsset.metadata->jsonSize = outAsset.metadata->json.size();
 
     if (materialAssetInfo.compressionMode == CompressionMode::none) {
       outAsset.binaryBlob = std::move(materialData);

@@ -34,6 +34,10 @@ bool packShader(ShaderAssetInfo const& shaderAssetInfo,
                 std::vector<char> shaderData, Asset& outAsset) {
   ZoneScoped;
 
+  if (!outAsset.metadata) {
+    outAsset.metadata.emplace();
+  }
+
   outAsset.metadata->type[0] = 's';
   outAsset.metadata->type[1] = 'h';
   outAsset.metadata->type[2] = 'a';
@@ -48,6 +52,7 @@ bool packShader(ShaderAssetInfo const& shaderAssetInfo,
     json[shaderTypeJsonName] = shaderAssetInfo.shaderType;
 
     outAsset.metadata->json = json.dump();
+    outAsset.metadata->jsonSize = outAsset.metadata->json.size();
 
     if (shaderAssetInfo.compressionMode == CompressionMode::none) {
       outAsset.binaryBlob = std::move(shaderData);

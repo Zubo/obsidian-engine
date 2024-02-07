@@ -28,6 +28,10 @@ bool packPrefab(PrefabAssetInfo const& prefabAssetInfo,
                 std::vector<char> prefabData, Asset& outAsset) {
   ZoneScoped;
 
+  if (!outAsset.metadata) {
+    outAsset.metadata.emplace();
+  }
+
   outAsset.metadata->type[0] = 'p';
   outAsset.metadata->type[1] = 'r';
   outAsset.metadata->type[2] = 'e';
@@ -42,6 +46,7 @@ bool packPrefab(PrefabAssetInfo const& prefabAssetInfo,
     json[compressionModeJsonName] = prefabAssetInfo.compressionMode;
 
     outAsset.metadata->json = json.dump();
+    outAsset.metadata->jsonSize = outAsset.metadata->json.size();
 
     if (prefabAssetInfo.compressionMode == CompressionMode::none) {
       outAsset.binaryBlob = std::move(prefabData);

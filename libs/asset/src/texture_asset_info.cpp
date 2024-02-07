@@ -44,6 +44,10 @@ bool packTexture(TextureAssetInfo const& textureAssetInfo,
                  void const* pixelData, Asset& outAsset) {
   ZoneScoped;
 
+  if (!outAsset.metadata) {
+    outAsset.metadata.emplace();
+  }
+
   outAsset.metadata->type[0] = 't';
   outAsset.metadata->type[1] = 'e';
   outAsset.metadata->type[2] = 'x';
@@ -89,6 +93,7 @@ bool updateTextureAssetInfo(TextureAssetInfo const& textureAssetInfo,
     assetJson[transparentJsonName] = textureAssetInfo.transparent;
 
     outAsset.metadata->json = assetJson.dump();
+    outAsset.metadata->jsonSize = outAsset.metadata->json.size();
   } catch (std::exception const& e) {
     OBS_LOG_ERR(e.what());
     return false;

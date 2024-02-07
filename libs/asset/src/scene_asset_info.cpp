@@ -34,6 +34,10 @@ bool packSceneAsset(SceneAssetInfo const& sceneAssetInfo,
                     std::vector<char> sceneData, Asset& outAsset) {
   ZoneScoped;
 
+  if (!outAsset.metadata) {
+    outAsset.metadata.emplace();
+  }
+
   outAsset.metadata->type[0] = 's';
   outAsset.metadata->type[1] = 'c';
   outAsset.metadata->type[2] = 'e';
@@ -48,6 +52,7 @@ bool packSceneAsset(SceneAssetInfo const& sceneAssetInfo,
     json[compressionModeJsonName] = sceneAssetInfo.compressionMode;
 
     outAsset.metadata->json = json.dump();
+    outAsset.metadata->jsonSize = outAsset.metadata->json.size();
 
     if (sceneAssetInfo.compressionMode == CompressionMode::none) {
       outAsset.binaryBlob = std::move(sceneData);

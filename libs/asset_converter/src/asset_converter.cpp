@@ -37,6 +37,7 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <memory>
 #include <numeric>
 #include <optional>
 #include <string>
@@ -81,15 +82,18 @@ std::optional<asset::TextureAssetInfo> AssetConverter::convertImgToAsset(
 
   constexpr const int channelCnt = 4;
 
-  unsigned char* stbiImgData = nullptr;
+  auto const stbiDeleter = [](stbi_uc* p) {
+    ZoneScopedN("STBI free");
+    stbi_image_free(p);
+  };
 
-  {
-    ZoneScopedN("STBI load");
-    stbiImgData =
-        stbi_load(srcPath.c_str(), &w, &h, &fileChannelCnt, channelCnt);
-  }
+  using StbiImgUniquePtr = std::unique_ptr<stbi_uc, decltype(stbiDeleter)>;
 
-  unsigned char* data = stbiImgData;
+  StbiImgUniquePtr stbiImgData = StbiImgUniquePtr(
+      stbi_load(srcPath.c_str(), &w, &h, &fileChannelCnt, channelCnt),
+      stbiDeleter);
+
+  unsigned char* data = stbiImgData.get();
 
   if (!data) {
     OBS_LOG_ERR("Failed to load image with path: " + srcPath.string());
@@ -199,11 +203,6 @@ std::optional<asset::TextureAssetInfo> AssetConverter::convertImgToAsset(
   textureAssetInfo.mipLevels = mipLevels;
 
   bool const packResult = asset::packTexture(textureAssetInfo, data, outAsset);
-
-  {
-    ZoneScopedN("STBI free");
-    stbi_image_free(stbiImgData);
-  }
 
   if (!packResult) {
     return std::nullopt;

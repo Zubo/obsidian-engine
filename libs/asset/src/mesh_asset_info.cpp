@@ -81,6 +81,10 @@ bool packMeshAsset(MeshAssetInfo const& meshAssetInfo,
                    std::vector<char> meshData, Asset& outAsset) {
   ZoneScoped;
 
+  if (!outAsset.metadata) {
+    outAsset.metadata.emplace();
+  }
+
   outAsset.metadata->type[0] = 'm';
   outAsset.metadata->type[1] = 'e';
   outAsset.metadata->type[2] = 's';
@@ -128,6 +132,7 @@ bool packMeshAsset(MeshAssetInfo const& meshAssetInfo,
               std::back_inserter(defaultMatPathsJson));
 
     outAsset.metadata->json = json.dump();
+    outAsset.metadata->jsonSize = outAsset.metadata->json.size();
 
     if (meshAssetInfo.compressionMode == CompressionMode::none) {
       outAsset.binaryBlob = std::move(meshData);
