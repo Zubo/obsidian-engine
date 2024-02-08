@@ -2,8 +2,7 @@
 #extension GL_GOOGLE_include_directive : enable
 
 layout(location = 0) in vec3 inWorldPos;
-layout(location = 1) in vec3 inNormal;
-layout(location = 2) in vec2 inUV;
+layout(location = 1) in mat3x3 inTBN;
 
 layout(location = 0) out float outFragColor;
 
@@ -12,19 +11,9 @@ layout(location = 0) out float outFragColor;
 layout(std140, set = 1, binding = 2) uniform ssaoSamples { vec4 values[64]; }
 SsaoSamples;
 
-layout(set = 1, binding = 3) uniform sampler2D noise;
-
 layout(set = 1, binding = 4) uniform sampler2D depth;
 
 void main() {
-  const vec3 sampledNoise = vec3(texture(noise, inUV * 800.0f).xy, 0.0f);
-  const vec3 normal = normalize(inNormal);
-  const vec3 tangent =
-      normalize(sampledNoise - normal * dot(sampledNoise, normal));
-  const vec3 bitangent = normalize(cross(normal, tangent));
-
-  const mat3x3 TBN = mat3x3(tangent, bitangent, normal);
-
   const float offsetRadius = 5.0f;
   const float maxDepthDiff = 0.001f;
 
@@ -32,7 +21,7 @@ void main() {
 
   for (int i = 0; i < 64; ++i) {
     const vec3 offsetTangentSpace = SsaoSamples.values[i].xyz;
-    const vec3 offsetWorldSpace = TBN * offsetTangentSpace;
+    const vec3 offsetWorldSpace = inTBN * offsetTangentSpace;
     const vec3 sampleWorldPos = offsetRadius * offsetWorldSpace + inWorldPos;
     const vec4 samplePosClipSpace =
         cameraData.viewProj * vec4(sampleWorldPos, 1.0f);

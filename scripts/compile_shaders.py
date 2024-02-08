@@ -28,7 +28,7 @@ shader_define_variants = {
 def execute_compilation(shader_src_path, shader_out_dir, shader_out_name, debugOn, defines = []):
     vert_shader_src_path = shader_src_path + ".vert"
     frag_shader_src_path = shader_src_path + ".frag"
-    compile_options =  ["-Od", "-gVS"] if debugOn else ["-Os"]
+    compile_options =  ["-s", "-Od", "-gVS"] if debugOn else ["-s", "-Os"]
     subprocess.check_output(
         ["glslangValidator", "-V"]
         + compile_options + defines

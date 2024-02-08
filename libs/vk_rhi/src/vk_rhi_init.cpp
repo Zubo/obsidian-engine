@@ -1255,7 +1255,7 @@ void VulkanRHI::initSsaoDescriptors() {
                     VK_SHADER_STAGE_FRAGMENT_BIT)
         .bindImage(3, noiseDescriptorImageInfo,
                    VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                   VK_SHADER_STAGE_FRAGMENT_BIT)
+                   VK_SHADER_STAGE_VERTEX_BIT)
         .bindImage(4, depthDescriptorImageInfo,
                    VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                    VK_SHADER_STAGE_FRAGMENT_BIT)
