@@ -8,8 +8,6 @@ pushConstants;
 
 void main() {
   const vec2 textureSize = textureSize(inputTexture, 0);
-  const vec2 dFragCoord = dFdx(gl_FragCoord.xy);
-
   float accumulatedColor = 0.0f;
 
   for (int i = -1; i < 2; ++i) {

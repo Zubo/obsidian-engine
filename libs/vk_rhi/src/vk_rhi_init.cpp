@@ -294,7 +294,7 @@ void VulkanRHI::initDepthRenderPass() {
 void VulkanRHI::initSsaoRenderPass() {
   RenderPassBuilder::begin(_vkDevice)
       .setColorAttachment(_ssaoFormat, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
-      .setDepthAttachment(_depthFormat, false)
+      .setDepthAttachment(_depthFormat, true)
       .setSubpassPipelineBindPoint(0, VK_PIPELINE_BIND_POINT_GRAPHICS)
       .setColorSubpassReference(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
       .setDepthSubpassReference(
@@ -411,24 +411,27 @@ void VulkanRHI::initShadowPassFramebuffers() {
 }
 
 void VulkanRHI::initSsaoFramebuffers() {
+  VkExtent2D const ssaoExtent = getSsaoExtent();
+
   for (FrameData& frameData : _frameDataArray) {
     frameData.vkSsaoFramebuffer = _ssaoRenderPass.generateFramebuffer(
-        _vmaAllocator, _vkbSwapchain.extent,
-        {
-            .colorImageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
-                               VK_IMAGE_USAGE_SAMPLED_BIT,
-        },
-        VK_NULL_HANDLE,
-        frameData.vkDepthPrepassFramebuffer.depthBufferImageView);
+        _vmaAllocator, ssaoExtent,
+        {.colorImageUsage =
+             VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+         .depthImageUsage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT});
 
-    _swapchainDeletionQueue.pushFunction(
-        [this, &framebuffer = frameData.vkSsaoFramebuffer]() {
-          vkDestroyFramebuffer(_vkDevice, framebuffer.vkFramebuffer, nullptr);
-          vkDestroyImageView(_vkDevice, framebuffer.colorBufferImageView,
-                             nullptr);
-          vmaDestroyImage(_vmaAllocator, framebuffer.colorBufferImage.vkImage,
-                          framebuffer.colorBufferImage.allocation);
-        });
+    _swapchainDeletionQueue.pushFunction([this,
+                                          &framebuffer =
+                                              frameData.vkSsaoFramebuffer]() {
+      vkDestroyFramebuffer(_vkDevice, framebuffer.vkFramebuffer, nullptr);
+      vkDestroyImageView(_vkDevice, framebuffer.colorBufferImageView, nullptr);
+      vmaDestroyImage(_vmaAllocator, framebuffer.colorBufferImage.vkImage,
+                      framebuffer.colorBufferImage.allocation);
+
+      vkDestroyImageView(_vkDevice, framebuffer.depthBufferImageView, nullptr);
+      vmaDestroyImage(_vmaAllocator, framebuffer.depthBufferImage.vkImage,
+                      framebuffer.depthBufferImage.allocation);
+    });
   }
 }
 
@@ -436,7 +439,7 @@ void VulkanRHI::initSsaoPostProcessingFramebuffers() {
   for (FrameData& frameData : _frameDataArray) {
     frameData.vkSsaoPostProcessingFramebuffer =
         _postProcessingRenderPass.generateFramebuffer(
-            _vmaAllocator, _vkbSwapchain.extent,
+            _vmaAllocator, getSsaoExtent(),
             {.colorImageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
                                 VK_IMAGE_USAGE_SAMPLED_BIT});
 
@@ -725,7 +728,7 @@ void VulkanRHI::initSsaoPipeline() {
   pipelineBuilder._vkInputAssemblyCreateInfo =
       vkinit::inputAssemblyCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
   pipelineBuilder._vkDepthStencilStateCreateInfo =
-      vkinit::depthStencilStateCreateInfo(true, false);
+      vkinit::depthStencilStateCreateInfo(true, true);
   pipelineBuilder._vkRasterizationCreateInfo =
       vkinit::rasterizationCreateInfo(VK_POLYGON_MODE_FILL);
   pipelineBuilder._vkColorBlendAttachmentState.blendEnable = false;
@@ -937,6 +940,20 @@ void VulkanRHI::initDescriptors() {
     _cameraBuffer = {};
   });
 
+  if (_vkGlobalDescriptorSet == VK_NULL_HANDLE) {
+    _globalSettingsBuffer = createBuffer(
+        getPaddedBufferSize(sizeof(GPUGlobalSettings)),
+        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0);
+
+    _deletionQueue.pushFunction([this]() {
+      vmaDestroyBuffer(_vmaAllocator, _globalSettingsBuffer.buffer,
+                       _globalSettingsBuffer.allocation);
+    });
+  }
+
+  updateGlobalSettingsDescriptor();
+
   VkDescriptorBufferInfo sceneDescriptorBufferInfo;
   sceneDescriptorBufferInfo.buffer = _sceneDataBuffer.buffer;
   sceneDescriptorBufferInfo.offset = 0;
@@ -947,6 +964,11 @@ void VulkanRHI::initDescriptors() {
   envMapDataDescriptorBufferInfo.offset = 0;
   envMapDataDescriptorBufferInfo.range =
       sizeof(GpuEnvironmentMapDataCollection);
+
+  VkDescriptorBufferInfo globalSettingsDescriptorBufferInfo;
+  globalSettingsDescriptorBufferInfo.buffer = _globalSettingsBuffer.buffer;
+  globalSettingsDescriptorBufferInfo.offset = 0;
+  globalSettingsDescriptorBufferInfo.range = sizeof(GPUGlobalSettings);
 
   DescriptorBuilder::begin(_vkDevice, _swapchainBoundDescriptorAllocator,
                            _descriptorLayoutCache)
@@ -959,6 +981,9 @@ void VulkanRHI::initDescriptors() {
       .declareUnusedImage(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                           VK_SHADER_STAGE_FRAGMENT_BIT, nullptr,
                           maxEnvironmentMaps)
+      .bindBuffer(3, globalSettingsDescriptorBufferInfo,
+                  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                  VK_SHADER_STAGE_FRAGMENT_BIT)
       .build(_vkGlobalDescriptorSet, _vkGlobalDescriptorSetLayout);
 
   for (int i = 0; i < frameOverlap; ++i) {

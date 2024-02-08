@@ -170,6 +170,7 @@ private:
   VkSampler _ssaoNoiseSampler;
   rhi::ResourceIdRHI _ssaoVertexShaderId;
   rhi::ResourceIdRHI _ssaoFragmentShaderId;
+  std::uint32_t _ssaoResolutionDivider = 2;
 
   // Post processing
   RenderPass _postProcessingRenderPass;
@@ -197,6 +198,7 @@ private:
   VkDescriptorSetLayout _vkPbrMaterialDescriptorSetLayout;
   AllocatedBuffer _sceneDataBuffer;
   AllocatedBuffer _cameraBuffer;
+  AllocatedBuffer _globalSettingsBuffer;
   AllocatedBuffer _lightDataBuffer;
   VkDescriptorSet _vkGlobalDescriptorSet;
   VkDescriptorSet _emptyDescriptorSet;
@@ -275,6 +277,7 @@ private:
   ImmediateSubmitContext&
   getImmediateCtxForCurrentThread(std::uint32_t queueIdx);
   void destroyImmediateCtxForCurrentThread();
+  void updateGlobalSettingsDescriptor();
 
   FrameData& getCurrentFrameData();
   FrameData& getPreviousFrameData();
@@ -360,10 +363,13 @@ private:
   GPUCameraData
   getSceneCameraData(rhi::SceneGlobalParams const& sceneParams) const;
   GPULightData getGPULightData(glm::vec3 mainCameraPos) const;
+  VkExtent2D getSsaoExtent() const;
+  VkViewport getSsaoViewport() const;
+  VkRect2D getSsaoScissor() const;
 
   void depthPrepass(struct DrawPassParams const& params);
   void ssaoPass(struct DrawPassParams const& params);
-  void drawSsaoPostProcessing(struct DrawPassParams const& params);
+  void ssaoPostProcessingPass(struct DrawPassParams const& params);
   void shadowPasses(struct DrawPassParams const& params);
   void colorPass(struct DrawPassParams const& params, glm::vec3 ambientColor,
                  VkFramebuffer targetFramebuffer, VkExtent2D extent);

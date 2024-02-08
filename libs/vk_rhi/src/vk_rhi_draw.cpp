@@ -167,7 +167,7 @@ void VulkanRHI::ssaoPass(DrawPassParams const& params) {
   ssaoRenderPassBeginInfo.framebuffer =
       params.currentFrameData.vkSsaoFramebuffer.vkFramebuffer;
   ssaoRenderPassBeginInfo.renderArea.offset = {0, 0};
-  ssaoRenderPassBeginInfo.renderArea.extent = _vkbSwapchain.extent;
+  ssaoRenderPassBeginInfo.renderArea.extent = getSsaoExtent();
   std::array<VkClearValue, 2> ssaoClearValues = {};
   ssaoClearValues[0].color.float32[0] = 128.0f;
   ssaoClearValues[1].depthStencil.depth = 1.0f;
@@ -179,8 +179,8 @@ void VulkanRHI::ssaoPass(DrawPassParams const& params) {
   vkCmdBeginRenderPass(cmd, &ssaoRenderPassBeginInfo,
                        VK_SUBPASS_CONTENTS_INLINE);
 
-  vkCmdSetViewport(cmd, 0, 1, &params.viewport);
-  vkCmdSetScissor(cmd, 0, 1, &params.scissor);
+  VkViewport const viewport = getSsaoViewport();
+  VkRect2D const scissor = getSsaoScissor();
 
   std::vector<std::uint32_t> const ssaoDynamicOffsets{
       static_cast<std::uint32_t>(params.frameInd *
@@ -194,7 +194,7 @@ void VulkanRHI::ssaoPass(DrawPassParams const& params) {
                   params.cameraData, _vkSsaoPipeline, _vkSsaoPipelineLayout,
                   ssaoDynamicOffsets,
                   params.currentFrameData.vkSsaoRenderPassDescriptorSet,
-                  ssaoVertInputSpec, params.viewport, params.scissor);
+                  ssaoVertInputSpec, viewport, scissor);
 
   vkCmdEndRenderPass(cmd);
 
@@ -208,7 +208,7 @@ void VulkanRHI::ssaoPass(DrawPassParams const& params) {
                        nullptr, 1, &ssaoImageMemoryBarrier);
 }
 
-void VulkanRHI::drawSsaoPostProcessing(DrawPassParams const& params) {
+void VulkanRHI::ssaoPostProcessingPass(DrawPassParams const& params) {
   VkRenderPassBeginInfo ssaoPostProcessingRenderPassBeginInfo = {};
   ssaoPostProcessingRenderPassBeginInfo.sType =
       VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -219,8 +219,7 @@ void VulkanRHI::drawSsaoPostProcessing(DrawPassParams const& params) {
   ssaoPostProcessingRenderPassBeginInfo.framebuffer =
       params.currentFrameData.vkSsaoPostProcessingFramebuffer.vkFramebuffer;
   ssaoPostProcessingRenderPassBeginInfo.renderArea.offset = {0, 0};
-  ssaoPostProcessingRenderPassBeginInfo.renderArea.extent =
-      _vkbSwapchain.extent;
+  ssaoPostProcessingRenderPassBeginInfo.renderArea.extent = getSsaoExtent();
 
   VkClearValue ssaoPostProcessingClearColorValue;
   ssaoPostProcessingClearColorValue.color.float32[0] = 0.0f;
@@ -240,11 +239,14 @@ void VulkanRHI::drawSsaoPostProcessing(DrawPassParams const& params) {
     }
   }
 
+  VkViewport const viewport = getSsaoViewport();
+  VkRect2D const scissor = getSsaoScissor();
+
   drawPostProcessing(
       cmd, kernel,
       params.currentFrameData.vkSsaoPostProcessingFramebuffer.vkFramebuffer,
-      params.currentFrameData.vkSsaoPostProcessingDescriptorSet,
-      params.viewport, params.scissor);
+      params.currentFrameData.vkSsaoPostProcessingDescriptorSet, viewport,
+      scissor);
 
   vkCmdEndRenderPass(cmd);
 
@@ -596,7 +598,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
 
   ssaoPass(params);
 
-  drawSsaoPostProcessing(params);
+  ssaoPostProcessingPass(params);
 
   shadowPasses(params);
 

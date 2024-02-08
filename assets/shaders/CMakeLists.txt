@@ -17,6 +17,19 @@ set(SHADER_SRC_FILES
     "post-processing.frag"
     "water.vert"
     "water.frag"
+    "include/blend.glsl"
+    "include/blinn-phong-lighting.glsl"
+    "include/camera.glsl"
+    "include/environment-maps.glsl"
+    "include/global-settings.glsl"
+    "include/lighting.glsl"
+    "include/lit-material.glsl"
+    "include/pbr-lighting.glsl"
+    "include/pbr-material.glsl"
+    "include/renderpass-data.glsl"
+    "include/ssao.glsl"
+    "include/timer.glsl"
+    "include/unlit-material.glsl"
 )
 
 set(SHADER_OUTPUT_DIR "${CMAKE_BINARY_DIR}/shaders")

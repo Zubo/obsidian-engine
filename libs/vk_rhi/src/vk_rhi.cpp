@@ -1060,6 +1060,26 @@ GPULightData VulkanRHI::getGPULightData(glm::vec3 mainCameraPos) const {
   return lightData;
 }
 
+VkExtent2D VulkanRHI::getSsaoExtent() const {
+  return {_vkbSwapchain.extent.width / _ssaoResolutionDivider,
+          _vkbSwapchain.extent.height / _ssaoResolutionDivider};
+}
+
+VkViewport VulkanRHI::getSsaoViewport() const {
+  VkExtent2D const ssaoExtent = getSsaoExtent();
+  return {0.0f,
+          0.0f,
+          static_cast<float>(ssaoExtent.width),
+          static_cast<float>(ssaoExtent.height),
+          0,
+          1};
+}
+
+VkRect2D VulkanRHI::getSsaoScissor() const {
+  VkExtent2D const ssaoExtent = getSsaoExtent();
+  return {{0, 0}, ssaoExtent};
+}
+
 void VulkanRHI::applyPendingExtentUpdate() {
   if (_pendingExtentUpdate) {
     _vkbSwapchain.extent.width = _pendingExtentUpdate->width;
@@ -1104,4 +1124,12 @@ VulkanRHI::getImmediateCtxForCurrentThread(std::uint32_t queueIdx) {
 void VulkanRHI::destroyImmediateCtxForCurrentThread() {
   immediateSubmitContext = {};
   contextsInitialized = false;
+}
+
+void VulkanRHI::updateGlobalSettingsDescriptor() {
+  GPUGlobalSettings globalSettings = {};
+  globalSettings.swapchainWidth = _vkbSwapchain.extent.width;
+  globalSettings.swapchainHeight = _vkbSwapchain.extent.height;
+
+  uploadBufferData(0, globalSettings, _globalSettingsBuffer);
 }

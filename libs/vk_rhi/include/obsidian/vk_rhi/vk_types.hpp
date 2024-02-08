@@ -190,6 +190,11 @@ struct EnvironmentMap {
   bool released = false;
 };
 
+struct GPUGlobalSettings {
+  std::uint32_t swapchainWidth;
+  std::uint32_t swapchainHeight;
+};
+
 struct EnvironmentMapData {
   glm::vec3 pos;
   float radius;

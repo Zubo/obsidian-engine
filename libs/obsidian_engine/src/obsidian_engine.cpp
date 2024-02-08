@@ -42,8 +42,8 @@ bool ObsidianEngine::init(IWindowBackendProvider const& windowBackendProvider,
       IWindowBackendProvider::CreateWindowParams::windowCenetered;
   windowParams.posY =
       IWindowBackendProvider::CreateWindowParams::windowCenetered;
-  windowParams.width = 1000;
-  windowParams.height = 800;
+  windowParams.width = 1920;
+  windowParams.height = 1080;
 
   _context.window.init(windowBackendProvider.createWindow(
                            windowParams, rhi::RHIBackends::vulkan),
