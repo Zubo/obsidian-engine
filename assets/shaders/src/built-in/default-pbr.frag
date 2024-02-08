@@ -15,6 +15,7 @@ layout(set = 2, binding = 4) uniform sampler2D roughnessTex;
 
 #include "include/pbr-lighting.glsl"
 #include "include/pbr-material.glsl"
+#include "include/ssao.glsl"
 
 void main() {
   const mat4 inverseView = inverse(cameraData.view);
@@ -46,7 +47,11 @@ void main() {
                   spotlightRadiance(lightIdx, normal, cameraPos);
   }
 
-  const vec3 ambientLighting = vec3(0.01f);
+  vec3 ambientLighting = vec3(0.05f);
+
+  const float ssao = getSsao();
+  ambientLighting *= (ssao / 128.0f);
+
   finalColor += ambientLighting;
 
   const float alpha = texture(albedoTex, inUV).a;
