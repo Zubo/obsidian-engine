@@ -20,14 +20,15 @@ void readAssetMetadata(std::ifstream& inputFileStream,
   inputFileStream.read(reinterpret_cast<char*>(&outAssetMetadata.version),
                        sizeof(outAssetMetadata.version));
 
-  inputFileStream.read(reinterpret_cast<char*>(&outAssetMetadata.jsonSize),
+  AssetMetadata::SizeType jsonSize;
+  inputFileStream.read(reinterpret_cast<char*>(&jsonSize),
                        sizeof(AssetMetadata::SizeType));
 
   inputFileStream.read(
       reinterpret_cast<char*>(&outAssetMetadata.binaryBlobSize),
       sizeof(AssetMetadata::SizeType));
 
-  outAssetMetadata.json.resize(outAssetMetadata.jsonSize);
+  outAssetMetadata.json.resize(jsonSize);
   inputFileStream.read(outAssetMetadata.json.data(),
                        outAssetMetadata.json.length());
 }
@@ -79,10 +80,11 @@ bool loadAssetFromFile(fs::path const& path, Asset& outAsset) {
     outAsset.metadata.emplace();
     readAssetMetadata(inputFileStream, *outAsset.metadata);
   } else {
-    std::size_t metadataSize =
-        sizeof(AssetMetadata::type) + sizeof(AssetMetadata::jsonSize) +
-        sizeof(AssetMetadata::binaryBlobSize) + sizeof(AssetMetadata::version) +
-        outAsset.metadata->jsonSize;
+    std::size_t metadataSize = sizeof(AssetMetadata::type) +
+                               /*json size:*/ sizeof(AssetMetadata::SizeType) +
+                               sizeof(AssetMetadata::binaryBlobSize) +
+                               sizeof(AssetMetadata::version) +
+                               outAsset.metadata->json.size();
     inputFileStream.seekg(metadataSize);
   }
 

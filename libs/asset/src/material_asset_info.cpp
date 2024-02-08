@@ -255,7 +255,6 @@ bool packMaterial(MaterialAssetInfo const& materialAssetInfo,
     json[hasTimerJsonName] = materialAssetInfo.hasTimer;
 
     outAsset.metadata->json = json.dump();
-    outAsset.metadata->jsonSize = outAsset.metadata->json.size();
 
     if (materialAssetInfo.compressionMode == CompressionMode::none) {
       outAsset.binaryBlob = std::move(materialData);

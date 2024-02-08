@@ -52,7 +52,6 @@ bool packShader(ShaderAssetInfo const& shaderAssetInfo,
     json[shaderTypeJsonName] = shaderAssetInfo.shaderType;
 
     outAsset.metadata->json = json.dump();
-    outAsset.metadata->jsonSize = outAsset.metadata->json.size();
 
     if (shaderAssetInfo.compressionMode == CompressionMode::none) {
       outAsset.binaryBlob = std::move(shaderData);

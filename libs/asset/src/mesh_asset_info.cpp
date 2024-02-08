@@ -132,7 +132,6 @@ bool packMeshAsset(MeshAssetInfo const& meshAssetInfo,
               std::back_inserter(defaultMatPathsJson));
 
     outAsset.metadata->json = json.dump();
-    outAsset.metadata->jsonSize = outAsset.metadata->json.size();
 
     if (meshAssetInfo.compressionMode == CompressionMode::none) {
       outAsset.binaryBlob = std::move(meshData);

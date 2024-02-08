@@ -93,7 +93,6 @@ bool updateTextureAssetInfo(TextureAssetInfo const& textureAssetInfo,
     assetJson[transparentJsonName] = textureAssetInfo.transparent;
 
     outAsset.metadata->json = assetJson.dump();
-    outAsset.metadata->jsonSize = outAsset.metadata->json.size();
   } catch (std::exception const& e) {
     OBS_LOG_ERR(e.what());
     return false;

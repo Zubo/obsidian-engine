@@ -46,7 +46,6 @@ bool packPrefab(PrefabAssetInfo const& prefabAssetInfo,
     json[compressionModeJsonName] = prefabAssetInfo.compressionMode;
 
     outAsset.metadata->json = json.dump();
-    outAsset.metadata->jsonSize = outAsset.metadata->json.size();
 
     if (prefabAssetInfo.compressionMode == CompressionMode::none) {
       outAsset.binaryBlob = std::move(prefabData);

@@ -16,7 +16,6 @@ struct AssetMetadata {
   using SizeType = std::size_t;
 
   char type[4];
-  SizeType jsonSize;
   SizeType binaryBlobSize;
   std::uint32_t version;
   std::string json;

@@ -52,7 +52,6 @@ bool packSceneAsset(SceneAssetInfo const& sceneAssetInfo,
     json[compressionModeJsonName] = sceneAssetInfo.compressionMode;
 
     outAsset.metadata->json = json.dump();
-    outAsset.metadata->jsonSize = outAsset.metadata->json.size();
 
     if (sceneAssetInfo.compressionMode == CompressionMode::none) {
       outAsset.binaryBlob = std::move(sceneData);
