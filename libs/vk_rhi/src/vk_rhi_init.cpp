@@ -940,18 +940,6 @@ void VulkanRHI::initDescriptors() {
     _cameraBuffer = {};
   });
 
-  if (_vkGlobalDescriptorSet == VK_NULL_HANDLE) {
-    _globalSettingsBuffer = createBuffer(
-        getPaddedBufferSize(sizeof(GPUGlobalSettings)),
-        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-        VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0);
-
-    _deletionQueue.pushFunction([this]() {
-      vmaDestroyBuffer(_vmaAllocator, _globalSettingsBuffer.buffer,
-                       _globalSettingsBuffer.allocation);
-    });
-  }
-
   updateGlobalSettingsDescriptor();
 
   VkDescriptorBufferInfo sceneDescriptorBufferInfo;
