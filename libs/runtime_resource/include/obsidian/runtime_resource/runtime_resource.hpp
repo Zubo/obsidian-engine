@@ -37,9 +37,11 @@ class RuntimeResource;
 class RuntimeResourceRef {
 public:
   explicit RuntimeResourceRef(RuntimeResource& runtimeResource);
+  RuntimeResourceRef(RuntimeResourceRef const& other);
   RuntimeResourceRef(RuntimeResourceRef&& other) noexcept;
   ~RuntimeResourceRef();
 
+  RuntimeResourceRef& operator=(RuntimeResourceRef const& other) noexcept;
   RuntimeResourceRef& operator=(RuntimeResourceRef&& other) noexcept;
   RuntimeResource& operator*();
   RuntimeResource const& operator*() const;

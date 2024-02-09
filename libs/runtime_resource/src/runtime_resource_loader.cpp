@@ -77,8 +77,11 @@ void RuntimeResourceLoader::uploaderFunc() {
           });
 
       if (depsReady) {
-        _taskExecutor->enqueue(task::TaskType::rhiUpload,
-                               [r] { r->performUploadToRHI(); });
+        std::vector<RuntimeResourceRef> depsVec{deps.begin(), deps.end()};
+        _taskExecutor->enqueue(
+            task::TaskType::rhiUpload,
+            [r, /*hold references so they don't get deallocated*/ depsV =
+                    std::move(depsVec)] { r->performUploadToRHI(); });
       } else {
         _rhiUploadQueue.push_back(r);
       }

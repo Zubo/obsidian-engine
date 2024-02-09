@@ -26,6 +26,10 @@ RuntimeResourceRef::RuntimeResourceRef(RuntimeResource& runtimeResource)
   _runtimeResource->acquireRef();
 }
 
+RuntimeResourceRef::RuntimeResourceRef(RuntimeResourceRef const& other) {
+  *this = other;
+}
+
 RuntimeResourceRef::RuntimeResourceRef(RuntimeResourceRef&& other) noexcept {
   *this = std::move(other);
 }
@@ -36,6 +40,23 @@ RuntimeResourceRef::~RuntimeResourceRef() {
   }
 
   _runtimeResource->releaseRef();
+  _runtimeResource = nullptr;
+}
+
+RuntimeResourceRef&
+RuntimeResourceRef::operator=(RuntimeResourceRef const& other) noexcept {
+  if (&other == this) {
+    return *this;
+  }
+
+  if (_runtimeResource) {
+    _runtimeResource->releaseRef();
+  }
+
+  _runtimeResource = other._runtimeResource;
+  _runtimeResource->acquireRef();
+
+  return *this;
 }
 
 RuntimeResourceRef&
