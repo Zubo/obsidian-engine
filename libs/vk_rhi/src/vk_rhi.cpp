@@ -118,27 +118,31 @@ void VulkanRHI::uploadTexture(rhi::ResourceIdRHI id,
 
         vmaUnmapMemory(_vmaAllocator, stagingBuffer.allocation);
 
-        immediateSubmit(_transferQueueFamilyIndex, [&newTexture, &info](
+        VkImageMemoryBarrier vkImageBarrier = vkinit::layoutImageBarrier(
+            newTexture.image.vkImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT,
+            info.mipLevels);
+
+        vkImageBarrier.srcQueueFamilyIndex = _transferQueueFamilyIndex;
+        vkImageBarrier.dstQueueFamilyIndex = _graphicsQueueFamilyIndex;
+
+        immediateSubmit(_transferQueueFamilyIndex, [this, &extent, &newTexture,
+                                                    &stagingBuffer, &info, size,
+                                                    &vkImageBarrier](
                                                        VkCommandBuffer cmd) {
+          VkDeviceSize offset = 0;
+          VkDeviceSize const mipLevelSize =
+              info.mipLevels > 1 ? (size / 2) : size;
+
           VkImageMemoryBarrier vkImgBarrierToTransfer =
               vkinit::layoutImageBarrier(
                   newTexture.image.vkImage, VK_IMAGE_LAYOUT_UNDEFINED,
                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                   VK_IMAGE_ASPECT_COLOR_BIT, info.mipLevels);
-          vkImgBarrierToTransfer.srcAccessMask = VK_ACCESS_NONE;
-          vkImgBarrierToTransfer.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 
-          vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                               VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
-                               nullptr, 1, &vkImgBarrierToTransfer);
-        });
-
-        immediateSubmit(_transferQueueFamilyIndex, [&extent, &newTexture,
-                                                    &stagingBuffer, &info,
-                                                    size](VkCommandBuffer cmd) {
-          VkDeviceSize offset = 0;
-          VkDeviceSize const mipLevelSize =
-              info.mipLevels > 1 ? (size / 2) : size;
+          vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                               VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0,
+                               nullptr, 0, nullptr, 1, &vkImgBarrierToTransfer);
 
           for (std::size_t i = 0; i < info.mipLevels; ++i) {
             VkBufferImageCopy vkBufferImgCopy = {};
@@ -156,27 +160,26 @@ void VulkanRHI::uploadTexture(rhi::ResourceIdRHI id,
 
             offset += mipLevelSize >> (i * 2);
           }
+
+          vkImageBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+          vkImageBarrier.dstAccessMask = VK_ACCESS_NONE;
+          vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                               VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, 0, nullptr,
+                               0, nullptr, 1, &vkImageBarrier);
         });
+
+        immediateSubmit(
+            _graphicsQueueFamilyIndex,
+            [this, &info, &newTexture, &vkImageBarrier](VkCommandBuffer cmd) {
+              vkImageBarrier.srcAccessMask = VK_ACCESS_NONE;
+              vkImageBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+              vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                                   VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0,
+                                   nullptr, 0, nullptr, 1, &vkImageBarrier);
+            });
 
         vmaDestroyBuffer(_vmaAllocator, stagingBuffer.buffer,
                          stagingBuffer.allocation);
-
-        immediateSubmit(_graphicsQueueFamilyIndex, [&newTexture, &info](
-                                                       VkCommandBuffer cmd) {
-          VkImageMemoryBarrier vkImageBarrierToRead =
-              vkinit::layoutImageBarrier(
-                  newTexture.image.vkImage,
-                  VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                  VK_IMAGE_ASPECT_COLOR_BIT, info.mipLevels);
-
-          vkImageBarrierToRead.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-          vkImageBarrierToRead.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-          vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                               VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0,
-                               nullptr, 0, nullptr, 1, &vkImageBarrierToRead);
-        });
 
         rhi::ResourceState expected = rhi::ResourceState::uploading;
 

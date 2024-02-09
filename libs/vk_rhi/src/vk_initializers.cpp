@@ -277,6 +277,8 @@ VkImageMemoryBarrier layoutImageBarrier(VkImage image, VkImageLayout oldLayout,
   barrier.oldLayout = oldLayout;
   barrier.newLayout = newLayout;
   barrier.image = image;
+  barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
   barrier.subresourceRange.aspectMask = aspectMask;
   barrier.subresourceRange.baseMipLevel = 0;
   barrier.subresourceRange.levelCount = mipLevelCount;

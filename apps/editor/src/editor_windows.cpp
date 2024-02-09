@@ -356,6 +356,7 @@ void gameObjectHierarchy(scene::GameObject& gameObject,
 
 void engineTab(SceneData& sceneData, ObsidianEngine& engine,
                bool& engineStarted) {
+  ZoneScoped;
 
   ImGuiTabItemFlags engineTabFlags = 0;
   if (openEngineTab) {
@@ -673,6 +674,8 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
 }
 
 void importTab(ObsidianEngine& engine) {
+  ZoneScoped;
+
   if (ImGui::BeginTabItem("Import")) {
     static char srcFilePath[maxPathSize];
     ImGui::InputText("Src file path", srcFilePath, std::size(srcFilePath));
@@ -767,6 +770,8 @@ void litMaterialEditor(asset::LitMaterialAssetData& litMatData) {
 void pbrMaterialEditor(asset::PBRMaterialAssetData& pbrMatData) {}
 
 void materialCreatorTab() {
+  ZoneScoped;
+
   constexpr bool materialsIncludeNone = false;
   ValueStrings const materialValueStrings =
       materialsInProj.getValueStrings(materialsIncludeNone);
@@ -957,6 +962,8 @@ void materialCreatorTab() {
 }
 
 void textureEditorTab() {
+  ZoneScoped;
+
   if (ImGui::BeginTabItem("Textures")) {
     static int textureComboInd = 0;
     static asset::TextureAssetInfo selectedTextureAssetInfo;
@@ -1011,6 +1018,8 @@ void textureEditorTab() {
 }
 
 void projectTab(ObsidianEngine& engine, bool& engineStarted) {
+  ZoneScoped;
+
   if (ImGui::BeginTabItem("Project")) {
     static char projPathBuf[maxPathSize];
     ImGui::InputText("Project Path", projPathBuf, std::size(projPathBuf));
@@ -1102,20 +1111,31 @@ void editor(SDL_Renderer& renderer, ImGuiIO& imguiIO, DataContext& context,
   importPopup(engine);
 
   ImGui::End();
-  // Rendering
-  ImGui::Render();
-  ImGui::UpdatePlatformWindows();
-  ImGui::RenderPlatformWindowsDefault();
-  SDL_RenderSetScale(&renderer, imguiIO.DisplayFramebufferScale.x,
-                     imguiIO.DisplayFramebufferScale.y);
+  {
+    ZoneScopedN("ImGui rendering");
+    // Rendering
+    ImGui::Render();
+    ImGui::UpdatePlatformWindows();
+    ImGui::RenderPlatformWindowsDefault();
+    SDL_RenderSetScale(&renderer, imguiIO.DisplayFramebufferScale.x,
+                       imguiIO.DisplayFramebufferScale.y);
 
-  ImVec4 const clearColor = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-  SDL_SetRenderDrawColor(
-      &renderer, (Uint8)(clearColor.x * 255), (Uint8)(clearColor.y * 255),
-      (Uint8)(clearColor.z * 255), (Uint8)(clearColor.w * 255));
-  SDL_RenderClear(&renderer);
-  ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData());
-  SDL_RenderPresent(&renderer);
+    ImVec4 const clearColor = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+    SDL_SetRenderDrawColor(
+        &renderer, (Uint8)(clearColor.x * 255), (Uint8)(clearColor.y * 255),
+        (Uint8)(clearColor.z * 255), (Uint8)(clearColor.w * 255));
+    SDL_RenderClear(&renderer);
+
+    {
+      ZoneScopedN("ImGui_ImplSDLRenderer2_RenderDrawData");
+      ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData());
+    }
+
+    {
+      ZoneScopedN("SDL_RenderPresent");
+      SDL_RenderPresent(&renderer);
+    }
+  }
 }
 
 void instantiatePrefab(fs::path const& prefabPath, ObsidianEngine& engine) {
