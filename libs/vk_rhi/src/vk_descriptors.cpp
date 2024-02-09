@@ -252,6 +252,8 @@ DescriptorBuilder& DescriptorBuilder::bindBuffer(
 
   if (partiallyBound) {
     partiallyBoundBinding(bindingInd);
+  } else if (_bindings.size() > _bindingCreateFlags.size()) {
+    _bindingCreateFlags.resize(_bindings.size(), 0);
   }
 
   VkWriteDescriptorSet& vkWriteDescriptorSet = _writes.emplace_back();
@@ -302,6 +304,8 @@ DescriptorBuilder& DescriptorBuilder::bindImage(
 
   if (partiallyBound) {
     partiallyBoundBinding(bindingInd);
+  } else if (_bindings.size() > _bindingCreateFlags.size()) {
+    _bindingCreateFlags.resize(_bindings.size(), 0);
   }
 
   VkWriteDescriptorSet& vkWriteDescriptorSet = _writes.emplace_back();

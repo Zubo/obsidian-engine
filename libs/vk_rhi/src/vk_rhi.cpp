@@ -1095,6 +1095,7 @@ void VulkanRHI::applyPendingExtentUpdate() {
     initSsaoFramebuffers();
     initSsaoPostProcessingFramebuffers();
     initDescriptors();
+    updateGlobalSettingsBuffer();
     initDepthPrepassDescriptors();
     initSsaoDescriptors();
     initSsaoPostProcessingDescriptors();
@@ -1126,19 +1127,7 @@ void VulkanRHI::destroyImmediateCtxForCurrentThread() {
   contextsInitialized = false;
 }
 
-void VulkanRHI::updateGlobalSettingsDescriptor() {
-  if (_globalSettingsBuffer.buffer == VK_NULL_HANDLE) {
-    _globalSettingsBuffer = createBuffer(
-        getPaddedBufferSize(sizeof(GPUGlobalSettings)),
-        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-        VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0);
-
-    _deletionQueue.pushFunction([this]() {
-      vmaDestroyBuffer(_vmaAllocator, _globalSettingsBuffer.buffer,
-                       _globalSettingsBuffer.allocation);
-    });
-  }
-
+void VulkanRHI::updateGlobalSettingsBuffer() {
   GPUGlobalSettings globalSettings = {};
   globalSettings.swapchainWidth = _vkbSwapchain.extent.width;
   globalSettings.swapchainHeight = _vkbSwapchain.extent.height;

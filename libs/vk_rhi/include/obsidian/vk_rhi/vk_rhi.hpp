@@ -241,6 +241,7 @@ private:
   void initSwapchainFramebuffers();
   void initDepthPrepassFramebuffers();
   void initShadowPassFramebuffers();
+  void initGlobalSettingsBuffer();
   void initSsaoFramebuffers();
   void initSsaoPostProcessingFramebuffers();
   void initSyncStructures();
@@ -277,7 +278,7 @@ private:
   ImmediateSubmitContext&
   getImmediateCtxForCurrentThread(std::uint32_t queueIdx);
   void destroyImmediateCtxForCurrentThread();
-  void updateGlobalSettingsDescriptor();
+  void updateGlobalSettingsBuffer();
 
   FrameData& getCurrentFrameData();
   FrameData& getPreviousFrameData();
