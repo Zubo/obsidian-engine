@@ -35,8 +35,8 @@ GameObject& GameObject::operator=(GameObject&& other) {
     cleanup();
 
     _name = std::move(other._name);
-    _materialRelativePaths = std::move(other._materialRelativePaths);
-    _meshResourceRelativePath = std::move(other._meshResourceRelativePath);
+    _materialResourceRefs = std::move(other._materialResourceRefs);
+    _meshResourceRef = std::move(other._meshResourceRef);
     _directionalLight = std::move(other._directionalLight);
     _spotlight = std::move(other._spotlight);
     _envMapRadius = std::move(other._envMapRadius);
@@ -68,30 +68,47 @@ std::string_view GameObject::getName() const { return _name; }
 void GameObject::setName(std::string_view name) { _name = name; }
 
 void GameObject::setMaterials(
-    std::vector<std::filesystem::path> const& materialResourceRelativePaths) {
+    std::vector<fs::path> const& materialResourceRelativePaths) {
   releaseMaterialResources();
 
-  _materialRelativePaths = materialResourceRelativePaths;
-
-  for (std::filesystem::path const& p : _materialRelativePaths) {
-    _resourceManager.get().getResource(p).declareRef();
+  for (fs::path const& p : materialResourceRelativePaths) {
+    _materialResourceRefs.push_back(_resourceManager.get().getResource(p));
   }
 }
 
-std::vector<std::filesystem::path> const&
-GameObject::getMaterialRelativePaths() {
-  return _materialRelativePaths;
+std::vector<fs::path> GameObject::getMaterialRelativePaths() const {
+  std::vector<fs::path> paths;
+
+  std::transform(_materialResourceRefs.cbegin(), _materialResourceRefs.cend(),
+                 std::back_inserter(paths),
+                 [](auto const& ref) { return ref->getRelativePath(); });
+
+  return paths;
 }
 
-void GameObject::setMesh(std::filesystem::path meshRelativePath) {
+std::vector<std::string> GameObject::getMaterialRelativePathStrings() const {
+  std::vector<std::string> pathStrings;
+
+  std::transform(_materialResourceRefs.cbegin(), _materialResourceRefs.cend(),
+                 std::back_inserter(pathStrings), [](auto const& ref) {
+                   return ref->getRelativePath().string();
+                 });
+
+  return pathStrings;
+}
+
+void GameObject::setMesh(fs::path meshRelativePath) {
   releaseMeshResource();
 
-  _meshResourceRelativePath = meshRelativePath;
-  _resourceManager.get().getResource(_meshResourceRelativePath).declareRef();
+  _meshResourceRef = _resourceManager.get().getResource(meshRelativePath);
 }
 
-std::filesystem::path const& GameObject::getMeshRelativePath() {
-  return _meshResourceRelativePath;
+fs::path GameObject::getMeshRelativePath() const {
+  if (!_meshResourceRef) {
+    return {};
+  }
+
+  return (*_meshResourceRef)->getRelativePath();
 }
 
 void GameObject::setDirectionalLight(
@@ -223,11 +240,9 @@ serialization::GameObjectData GameObject::getGameObjectData() const {
 
   result.gameObjectName = _name;
 
-  std::transform(_materialRelativePaths.cbegin(), _materialRelativePaths.cend(),
-                 std::back_inserter(result.materialPaths),
-                 [](fs::path const& matRes) { return matRes; });
+  result.materialPaths = getMaterialRelativePathStrings();
 
-  result.meshPath = _meshResourceRelativePath;
+  result.meshPath = getMeshRelativePath();
 
   result.directionalLight = _directionalLight;
   result.spotlight = _spotlight;
@@ -250,9 +265,8 @@ void GameObject::draw(glm::mat4 const& parentTransform) {
 
   bool meshReady = false;
 
-  if (!_meshResourceRelativePath.empty()) {
-    runtime_resource::RuntimeResource& meshResource =
-        _resourceManager.get().getResource(_meshResourceRelativePath);
+  if (_meshResourceRef) {
+    runtime_resource::RuntimeResource& meshResource = **_meshResourceRef;
 
     if (meshResource.isResourceReady()) {
       meshReady = true;
@@ -263,28 +277,20 @@ void GameObject::draw(glm::mat4 const& parentTransform) {
 
   bool materialsReady = true;
 
-  if (_materialRelativePaths.size()) {
-    for (auto& matRelativePath : _materialRelativePaths) {
-      runtime_resource::RuntimeResource& matResource =
-          _resourceManager.get().getResource(matRelativePath);
-      if (!matResource.isResourceReady()) {
-        matResource.requestLoad();
-        materialsReady = false;
-      }
+  for (auto& matRef : _materialResourceRefs) {
+    if (!matRef->isResourceReady()) {
+      matRef->requestLoad();
+      materialsReady = false;
     }
   }
 
   if (meshReady && materialsReady) {
     rhi::DrawCall drawCall;
-    for (auto const& materialResourcePath : _materialRelativePaths) {
-      drawCall.materialIds.push_back(_resourceManager.get()
-                                         .getResource(materialResourcePath)
-                                         .getResourceId());
+    for (auto const& matRef : _materialResourceRefs) {
+      drawCall.materialIds.push_back(matRef->getResourceId());
     }
 
-    drawCall.meshId = _resourceManager.get()
-                          .getResource(_meshResourceRelativePath)
-                          .getResourceId();
+    drawCall.meshId = (*_meshResourceRef)->getResourceId();
     drawCall.transform = transform;
     _rhi.get().submitDrawCall(drawCall);
   }
@@ -326,19 +332,6 @@ void GameObject::updateTransform() {
   _transform *= glm::scale(_scale);
 }
 
-void GameObject::releaseMaterialResources() {
-  if (_materialRelativePaths.size()) {
-    for (fs::path const& matRelativePath : _materialRelativePaths) {
-      _resourceManager.get().getResource(matRelativePath).releaseRef();
-    }
-  }
-  _materialRelativePaths.clear();
-}
+void GameObject::releaseMaterialResources() { _materialResourceRefs.clear(); }
 
-void GameObject::releaseMeshResource() {
-  if (!_meshResourceRelativePath.empty()) {
-    _resourceManager.get().getResource(_meshResourceRelativePath).releaseRef();
-  }
-
-  _meshResourceRelativePath.clear();
-}
+void GameObject::releaseMeshResource() { _meshResourceRef.reset(); }

@@ -40,10 +40,11 @@ public:
 
   void
   setMaterials(std::vector<std::filesystem::path> const& materialRelativePaths);
-  std::vector<std::filesystem::path> const& getMaterialRelativePaths();
+  std::vector<std::filesystem::path> getMaterialRelativePaths() const;
+  std::vector<std::string> getMaterialRelativePathStrings() const;
 
   void setMesh(std::filesystem::path meshRelativePath);
-  std::filesystem::path const& getMeshRelativePath();
+  std::filesystem::path getMeshRelativePath() const;
 
   void setDirectionalLight(core::DirectionalLight const& directionalLight);
   std::optional<core::DirectionalLight> getDirectionalLight() const;
@@ -96,8 +97,8 @@ private:
   void destroyEnvironmentMapRHI();
 
   std::string _name;
-  std::vector<std::filesystem::path> _materialRelativePaths;
-  std::filesystem::path _meshResourceRelativePath;
+  std::vector<runtime_resource::RuntimeResourceRef> _materialResourceRefs;
+  std::optional<runtime_resource::RuntimeResourceRef> _meshResourceRef;
   std::optional<core::DirectionalLight> _directionalLight;
   std::optional<core::Spotlight> _spotlight;
   std::optional<float> _envMapRadius;

@@ -14,11 +14,71 @@
 #include <obsidian/runtime_resource/runtime_resource_loader.hpp>
 #include <obsidian/runtime_resource/runtime_resource_manager.hpp>
 
+#include <cassert>
 #include <memory>
 #include <variant>
 
 using namespace obsidian;
 using namespace obsidian::runtime_resource;
+
+RuntimeResourceRef::RuntimeResourceRef(RuntimeResource& runtimeResource)
+    : _runtimeResource(&runtimeResource) {
+  _runtimeResource->acquireRef();
+}
+
+RuntimeResourceRef::RuntimeResourceRef(RuntimeResourceRef&& other) noexcept {
+  *this = std::move(other);
+}
+
+RuntimeResourceRef::~RuntimeResourceRef() {
+  if (!_runtimeResource) {
+    return;
+  }
+
+  _runtimeResource->releaseRef();
+}
+
+RuntimeResourceRef&
+RuntimeResourceRef::operator=(RuntimeResourceRef&& other) noexcept {
+  if (&other == this) {
+    return *this;
+  }
+
+  if (_runtimeResource) {
+    _runtimeResource->releaseRef();
+  }
+
+  _runtimeResource = other._runtimeResource;
+  other._runtimeResource = nullptr;
+
+  return *this;
+}
+
+RuntimeResource& RuntimeResourceRef::operator*() {
+  assert(_runtimeResource);
+  return *_runtimeResource;
+}
+
+RuntimeResource const& RuntimeResourceRef::operator*() const {
+  assert(_runtimeResource);
+  return *_runtimeResource;
+}
+
+RuntimeResource* RuntimeResourceRef::operator->() { return _runtimeResource; }
+
+RuntimeResource const* RuntimeResourceRef::operator->() const {
+  return _runtimeResource;
+}
+
+RuntimeResource& RuntimeResourceRef::get() {
+  assert(_runtimeResource);
+  return *_runtimeResource;
+}
+
+RuntimeResource const& RuntimeResourceRef::get() const {
+  assert(_runtimeResource);
+  return *_runtimeResource;
+}
 
 RuntimeResource::RuntimeResource(std::filesystem::path path,
                                  RuntimeResourceManager& runtimeResourceManager,
@@ -53,9 +113,9 @@ void RuntimeResource::requestLoad() {
 
   if (_resourceState.compare_exchange_strong(
           expected, RuntimeResourceState::pendingLoad)) {
-    std::vector<RuntimeResource*> const& deps = fetchDependencies();
+    std::span<RuntimeResourceRef> deps = fetchDependencies();
 
-    for (RuntimeResource* const d : deps) {
+    for (RuntimeResourceRef& d : deps) {
       if (d->getResourceState() == RuntimeResourceState::initial) {
         d->requestLoad();
       }
@@ -88,7 +148,7 @@ std::filesystem::path RuntimeResource::getRelativePath() const {
       _path);
 }
 
-void RuntimeResource::declareRef() { ++_refCount; }
+void RuntimeResource::acquireRef() { ++_refCount; }
 
 void RuntimeResource::releaseRef() {
   assert(_refCount);
@@ -246,10 +306,10 @@ void RuntimeResource::performUploadToRHI() {
       uploadUnlitMat.color = unlitInfo.color;
 
       if (!unlitInfo.colorTexturePath.empty()) {
-        RuntimeResource& colorTexResource =
+        RuntimeResourceRef colorTexResourceRef =
             _runtimeResourceManager.getResource(unlitInfo.colorTexturePath);
 
-        uploadUnlitMat.colorTextureId = colorTexResource.getResourceId();
+        uploadUnlitMat.colorTextureId = colorTexResourceRef->getResourceId();
       }
       break;
     }
@@ -262,17 +322,17 @@ void RuntimeResource::performUploadToRHI() {
           std::get<asset::LitMaterialAssetData>(info.materialSubtypeData);
 
       if (!litInfo.diffuseTexturePath.empty()) {
-        RuntimeResource& diffuseTexResource =
+        RuntimeResourceRef diffuseTexResourceRef =
             _runtimeResourceManager.getResource(litInfo.diffuseTexturePath);
 
-        uploadLitMat.diffuseTextureId = diffuseTexResource.getResourceId();
+        uploadLitMat.diffuseTextureId = diffuseTexResourceRef->getResourceId();
       }
 
       if (!litInfo.normalMapTexturePath.empty()) {
-        RuntimeResource& normalMapResource =
+        RuntimeResourceRef normalMapResourceRef =
             _runtimeResourceManager.getResource(litInfo.normalMapTexturePath);
 
-        uploadLitMat.normalTextureId = normalMapResource.getResourceId();
+        uploadLitMat.normalTextureId = normalMapResourceRef->getResourceId();
       }
 
       uploadLitMat.ambientColor = litInfo.ambientColor;
@@ -293,33 +353,33 @@ void RuntimeResource::performUploadToRHI() {
 
       uploadPbrMat.albedoTextureId =
           _runtimeResourceManager.getResource(pbrInfo.albedoTexturePath)
-              .getResourceId();
+              ->getResourceId();
       uploadPbrMat.normalTextureId =
           _runtimeResourceManager.getResource(pbrInfo.normalMapTexturePath)
-              .getResourceId();
+              ->getResourceId();
       uploadPbrMat.metalnessTextureId =
           _runtimeResourceManager.getResource(pbrInfo.metalnessTexturePath)
-              .getResourceId();
+              ->getResourceId();
 
       if (!pbrInfo.roughnessTexturePath.empty()) {
         uploadPbrMat.roughnessTextureId =
             _runtimeResourceManager.getResource(pbrInfo.roughnessTexturePath)
-                .getResourceId();
+                ->getResourceId();
       }
 
       break;
     }
     }
 
-    RuntimeResource& vertexShaderResource =
+    RuntimeResourceRef vertexShaderResource =
         _runtimeResourceManager.getResource(info.vertexShaderPath);
 
-    uploadMaterial.vertexShaderId = vertexShaderResource.getResourceId();
+    uploadMaterial.vertexShaderId = vertexShaderResource->getResourceId();
 
-    RuntimeResource& fragmentShaderResource =
+    RuntimeResourceRef fragmentShaderResource =
         _runtimeResourceManager.getResource(info.fragmentShaderPath);
 
-    uploadMaterial.fragmentShaderId = fragmentShaderResource.getResourceId();
+    uploadMaterial.fragmentShaderId = fragmentShaderResource->getResourceId();
 
     uploadMaterial.transparent = info.transparent;
     uploadMaterial.hasTimer = info.hasTimer;
@@ -356,7 +416,7 @@ void RuntimeResource::performUploadToRHI() {
   _resourceState = RuntimeResourceState::uploadedToRhi;
 }
 
-std::vector<RuntimeResource*> const& RuntimeResource::fetchDependencies() {
+std::span<RuntimeResourceRef> RuntimeResource::fetchDependencies() {
   if (!_dependencies) {
     _dependencies.emplace();
 
@@ -382,39 +442,39 @@ std::vector<RuntimeResource*> const& RuntimeResource::fetchDependencies() {
           core::visitor{
               [this](asset::UnlitMaterialAssetData const& unlitData) {
                 if (!unlitData.colorTexturePath.empty()) {
-                  _dependencies->push_back(&_runtimeResourceManager.getResource(
+                  _dependencies->push_back(_runtimeResourceManager.getResource(
                       unlitData.colorTexturePath));
                 }
               },
               [this](asset::LitMaterialAssetData const& litData) {
                 if (!litData.diffuseTexturePath.empty()) {
-                  _dependencies->push_back(&_runtimeResourceManager.getResource(
+                  _dependencies->push_back(_runtimeResourceManager.getResource(
                       litData.diffuseTexturePath));
                 }
 
                 if (!litData.normalMapTexturePath.empty()) {
-                  _dependencies->push_back(&_runtimeResourceManager.getResource(
+                  _dependencies->push_back(_runtimeResourceManager.getResource(
                       litData.normalMapTexturePath));
                 }
               },
               [this](asset::PBRMaterialAssetData const& pbrData) {
-                _dependencies->push_back(&_runtimeResourceManager.getResource(
+                _dependencies->push_back(_runtimeResourceManager.getResource(
                     pbrData.albedoTexturePath));
-                _dependencies->push_back(&_runtimeResourceManager.getResource(
+                _dependencies->push_back(_runtimeResourceManager.getResource(
                     pbrData.normalMapTexturePath));
-                _dependencies->push_back(&_runtimeResourceManager.getResource(
+                _dependencies->push_back(_runtimeResourceManager.getResource(
                     pbrData.metalnessTexturePath));
 
                 if (!pbrData.roughnessTexturePath.empty()) {
-                  _dependencies->push_back(&_runtimeResourceManager.getResource(
+                  _dependencies->push_back(_runtimeResourceManager.getResource(
                       pbrData.roughnessTexturePath));
                 }
               }},
           materialAssetInfo.materialSubtypeData);
 
-      _dependencies->push_back(&_runtimeResourceManager.getResource(
+      _dependencies->push_back(_runtimeResourceManager.getResource(
           materialAssetInfo.vertexShaderPath));
-      _dependencies->push_back(&_runtimeResourceManager.getResource(
+      _dependencies->push_back(_runtimeResourceManager.getResource(
           materialAssetInfo.fragmentShaderPath));
     }
   }

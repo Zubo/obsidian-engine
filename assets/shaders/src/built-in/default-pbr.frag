@@ -47,14 +47,15 @@ void main() {
                   spotlightRadiance(lightIdx, normal, cameraPos);
   }
 
-  vec3 ambientLighting = vec3(0.05f);
+  const vec4 albedo = texture(albedoTex, inUV);
+  vec3 ambientLighting = vec3(0.1f) * albedo.xyz;
 
   const float ssao = getSsao();
   ambientLighting *= (ssao / 128.0f);
 
   finalColor += ambientLighting;
 
-  const float alpha = texture(albedoTex, inUV).a;
+  const float alpha = albedo.a;
 
   outFragColor = vec4(finalColor / (1.0f + finalColor), alpha);
 }

@@ -37,7 +37,9 @@ void populateGameObject(serialization::GameObjectData const& gameObjectData,
 
   outGameObject.setMaterials(materialRelativePaths);
 
-  outGameObject.setMesh(gameObjectData.meshPath);
+  if (gameObjectData.meshPath.size()) {
+    outGameObject.setMesh(gameObjectData.meshPath);
+  }
 
   if (gameObjectData.directionalLight) {
     outGameObject.setDirectionalLight(*gameObjectData.directionalLight);

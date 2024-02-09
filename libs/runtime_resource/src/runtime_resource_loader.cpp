@@ -69,10 +69,10 @@ void RuntimeResourceLoader::uploaderFunc() {
         continue;
       }
 
-      std::vector<RuntimeResource*> const& deps = r->fetchDependencies();
+      std::span<RuntimeResourceRef> deps = r->fetchDependencies();
 
       bool const depsReady =
-          std::all_of(deps.cbegin(), deps.cend(), [](RuntimeResource const* r) {
+          std::all_of(deps.begin(), deps.end(), [](RuntimeResourceRef& r) {
             return r->getResourceState() == RuntimeResourceState::uploadedToRhi;
           });
 

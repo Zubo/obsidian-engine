@@ -6,6 +6,7 @@
 #include <obsidian/project/project.hpp>
 #include <obsidian/rhi/resource_rhi.hpp>
 #include <obsidian/rhi/rhi.hpp>
+#include <obsidian/runtime_resource/runtime_resource.hpp>
 #include <obsidian/runtime_resource/runtime_resource_manager.hpp>
 
 #include <cassert>
@@ -17,8 +18,6 @@ using namespace obsidian;
 using namespace obsidian::runtime_resource;
 
 namespace fs = std::filesystem;
-
-// RuntimeResourceManager::RuntimeResourceManager() {}
 
 void RuntimeResourceManager::init(rhi::RHI& rhi, project::Project& project,
                                   task::TaskExecutor& taskExecutor) {
@@ -77,7 +76,7 @@ void RuntimeResourceManager::cleanup() {
   }
 }
 
-RuntimeResource& RuntimeResourceManager::getResource(fs::path const& path) {
+RuntimeResourceRef RuntimeResourceManager::getResource(fs::path const& path) {
   assert(_rhi && "RuntimeResourceManager is not initialized.");
 
   auto const resourceIter = _runtimeResources.find(path);
@@ -87,10 +86,10 @@ RuntimeResource& RuntimeResourceManager::getResource(fs::path const& path) {
         std::forward_as_tuple(_project->getAbsolutePath(path), *this,
                               _resourceLoader, *_rhi));
 
-    return (*result.first).second;
+    return RuntimeResourceRef{result.first->second};
   }
 
-  return resourceIter->second;
+  return RuntimeResourceRef{resourceIter->second};
 }
 
 project::Project const& RuntimeResourceManager::getProject() const {

@@ -43,7 +43,7 @@ public:
 
   void cleanup();
 
-  RuntimeResource& getResource(std::filesystem::path const& path);
+  RuntimeResourceRef getResource(std::filesystem::path const& path);
 
   project::Project const& getProject() const;
 

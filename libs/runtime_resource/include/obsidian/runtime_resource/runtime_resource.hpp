@@ -8,6 +8,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <span>
 #include <vector>
 
 namespace obsidian::rhi {
@@ -31,6 +32,27 @@ enum class RuntimeResourceState {
   assetLoadingFailed
 };
 
+class RuntimeResource;
+
+class RuntimeResourceRef {
+public:
+  explicit RuntimeResourceRef(RuntimeResource& runtimeResource);
+  RuntimeResourceRef(RuntimeResourceRef&& other) noexcept;
+  ~RuntimeResourceRef();
+
+  RuntimeResourceRef& operator=(RuntimeResourceRef&& other) noexcept;
+  RuntimeResource& operator*();
+  RuntimeResource const& operator*() const;
+  RuntimeResource* operator->();
+  RuntimeResource const* operator->() const;
+
+  RuntimeResource& get();
+  RuntimeResource const& get() const;
+
+private:
+  RuntimeResource* _runtimeResource = nullptr;
+};
+
 class RuntimeResource {
 public:
   RuntimeResource(std::filesystem::path path,
@@ -47,15 +69,15 @@ public:
   rhi::ResourceIdRHI getResourceId() const;
   void requestLoad();
   std::filesystem::path getRelativePath() const;
-  void declareRef();
-  void releaseRef();
 
 private:
+  void acquireRef();
+  void releaseRef();
   void releaseFromRHI();
   bool performAssetLoad();
   void releaseAsset();
   void performUploadToRHI();
-  std::vector<RuntimeResource*> const& fetchDependencies();
+  std::span<RuntimeResourceRef> fetchDependencies();
   std::function<void(char*)> getUnpackFunc(auto const& info);
 
   using ReleaseRHIResource = void (*)(rhi::RHI&, rhi::ResourceIdRHI);
@@ -66,13 +88,14 @@ private:
   std::shared_ptr<asset::Asset> _asset;
   rhi::ResourceRHI* _resourceRHI = nullptr;
   ReleaseRHIResource _releaseFunc = nullptr;
-  std::optional<std::vector<RuntimeResource*>> _dependencies;
+  std::optional<std::vector<RuntimeResourceRef>> _dependencies;
   std::mutex _resourceMutex;
   std::atomic<RuntimeResourceState> _resourceState =
       RuntimeResourceState::initial;
   std::uint32_t _refCount = 0;
 
   friend class RuntimeResourceLoader;
+  friend class RuntimeResourceRef;
 };
 
 } /*namespace obsidian::runtime_resource*/
