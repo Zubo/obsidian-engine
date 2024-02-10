@@ -355,7 +355,7 @@ void gameObjectHierarchy(scene::GameObject& gameObject,
 }
 
 void engineTab(SceneData& sceneData, ObsidianEngine& engine,
-               bool& engineStarted) {
+               std::atomic<bool>& engineStarted) {
   ZoneScoped;
 
   ImGuiTabItemFlags engineTabFlags = 0;
@@ -1017,7 +1017,7 @@ void textureEditorTab() {
   }
 }
 
-void projectTab(ObsidianEngine& engine, bool& engineStarted) {
+void projectTab(ObsidianEngine& engine, std::atomic<bool>& engineStarted) {
   ZoneScoped;
 
   if (ImGui::BeginTabItem("Project")) {
@@ -1081,8 +1081,7 @@ void projectTab(ObsidianEngine& engine, bool& engineStarted) {
   }
 }
 
-void editor(SDL_Renderer& renderer, ImGuiIO& imguiIO, DataContext& context,
-            ObsidianEngine& engine, bool& engineStarted) {
+void begnEditorFrame(ImGuiIO& imguiIO) {
   ZoneScoped;
 
   if (assetListDirty) {
@@ -1096,6 +1095,39 @@ void editor(SDL_Renderer& renderer, ImGuiIO& imguiIO, DataContext& context,
 
   ImGui::SetNextWindowSize(imguiIO.DisplaySize);
   ImGui::SetNextWindowPos({0, 0});
+}
+
+void endEditorFrame(SDL_Renderer& renderer, ImGuiIO& imguiIO) {
+  ZoneScoped;
+
+  // Rendering
+  ImGui::Render();
+  ImGui::UpdatePlatformWindows();
+  ImGui::RenderPlatformWindowsDefault();
+  SDL_RenderSetScale(&renderer, imguiIO.DisplayFramebufferScale.x,
+                     imguiIO.DisplayFramebufferScale.y);
+
+  ImVec4 const clearColor = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+  SDL_SetRenderDrawColor(
+      &renderer, (Uint8)(clearColor.x * 255), (Uint8)(clearColor.y * 255),
+      (Uint8)(clearColor.z * 255), (Uint8)(clearColor.w * 255));
+  SDL_RenderClear(&renderer);
+
+  {
+    ZoneScopedN("ImGui_ImplSDLRenderer2_RenderDrawData");
+    ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData());
+  }
+
+  {
+    ZoneScopedN("SDL_RenderPresent");
+    SDL_RenderPresent(&renderer);
+  }
+}
+
+void editorWindow(SDL_Renderer& renderer, ImGuiIO& imguiIO,
+                  DataContext& context, ObsidianEngine& engine,
+                  std::atomic<bool>& engineStarted) {
+  ZoneScoped;
 
   ImGui::Begin("EditorWindow");
   if (ImGui::BeginTabBar("EditorTabBar")) {
@@ -1111,31 +1143,6 @@ void editor(SDL_Renderer& renderer, ImGuiIO& imguiIO, DataContext& context,
   importPopup(engine);
 
   ImGui::End();
-  {
-    ZoneScopedN("ImGui rendering");
-    // Rendering
-    ImGui::Render();
-    ImGui::UpdatePlatformWindows();
-    ImGui::RenderPlatformWindowsDefault();
-    SDL_RenderSetScale(&renderer, imguiIO.DisplayFramebufferScale.x,
-                       imguiIO.DisplayFramebufferScale.y);
-
-    ImVec4 const clearColor = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-    SDL_SetRenderDrawColor(
-        &renderer, (Uint8)(clearColor.x * 255), (Uint8)(clearColor.y * 255),
-        (Uint8)(clearColor.z * 255), (Uint8)(clearColor.w * 255));
-    SDL_RenderClear(&renderer);
-
-    {
-      ZoneScopedN("ImGui_ImplSDLRenderer2_RenderDrawData");
-      ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData());
-    }
-
-    {
-      ZoneScopedN("SDL_RenderPresent");
-      SDL_RenderPresent(&renderer);
-    }
-  }
 }
 
 void instantiatePrefab(fs::path const& prefabPath, ObsidianEngine& engine) {

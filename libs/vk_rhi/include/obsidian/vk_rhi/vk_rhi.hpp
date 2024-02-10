@@ -55,6 +55,8 @@ public:
 
   void cleanup() override;
 
+  void clearFrameData();
+
   void draw(rhi::SceneGlobalParams const& sceneParams) override;
 
   void updateExtent(rhi::WindowExtentRHI newExtent) override;

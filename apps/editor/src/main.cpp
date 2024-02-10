@@ -18,6 +18,12 @@
 #include <imgui.h>
 #include <tracy/Tracy.hpp>
 
+#include <atomic>
+#include <barrier>
+#include <condition_variable>
+#include <mutex>
+#include <thread>
+
 #if !SDL_VERSION_ATLEAST(2, 0, 17)
 #error This backend requires SDL 2.0.17+ because of SDL_RenderGeometry() function
 #endif
@@ -74,17 +80,44 @@ int main(int, char**) {
   ObsidianEngine engine;
   auto& sdlBackend = sdl_wrapper::SDLBackend::instance();
 
-  bool engineStarted = false;
-
-  // engine.init(sdlBackend);
+  std::atomic<bool> engineStarted = false;
 
   ObsidianEngineContext& engineContext = engine.getContext();
 
   editor::DataContext dataContext;
 
-  bool shouldQuit = false;
+  std::atomic_flag shouldQuit;
 
-  while (!shouldQuit) {
+  bool dataReady = false;
+  std::condition_variable dataReadyConditionVar;
+  std::mutex dataReadyMutex;
+
+  std::barrier frameBarrier{2};
+
+  std::thread engineFrameThread{[&]() {
+    std::unique_lock l{dataReadyMutex, std::defer_lock};
+
+    while (true) {
+      if (engineStarted) {
+        l.lock();
+        dataReadyConditionVar.wait(
+            l, [&]() { return dataReady || shouldQuit.test(); });
+
+        if (shouldQuit.test()) {
+          break;
+        }
+
+        engineContext.window.pollEvents();
+        engine.processFrame();
+        dataReady = false;
+        l.unlock();
+      }
+
+      frameBarrier.arrive_and_wait();
+    }
+  }};
+
+  while (!shouldQuit.test()) {
     ZoneScoped;
 
     sdlBackend.pollEvents();
@@ -93,13 +126,12 @@ int main(int, char**) {
     for (SDL_Event const& e : polledEvenets) {
       ImGui_ImplSDL2_ProcessEvent(&e);
 
-      if (e.type == SDL_QUIT) {
-        shouldQuit = true;
+      if (e.type == SDL_QUIT || (e.type == SDL_WINDOWEVENT &&
+                                 e.window.event == SDL_WINDOWEVENT_CLOSE)) {
+        shouldQuit.test_and_set();
+        dataReadyConditionVar.notify_all();
       }
-      if (e.type == SDL_WINDOWEVENT &&
-          e.window.event == SDL_WINDOWEVENT_CLOSE) {
-        shouldQuit = true;
-      }
+
       if (e.type == SDL_DROPFILE) {
         if (e.drop.windowID == SDL_GetWindowID(editorWindow)) {
           editor::fileDropped(e.drop.file, engine);
@@ -107,18 +139,30 @@ int main(int, char**) {
       }
     }
 
-    editor::editor(*editorUIRenderer, io, dataContext, engine, engineStarted);
+    scene::SceneState& sceneState = engineContext.scene.getState();
+    sceneState.ambientColor = dataContext.sceneData.ambientColor;
 
-    if (engineStarted) {
-      engineContext.window.pollEvents();
-      scene::SceneState& sceneState = engineContext.scene.getState();
-      sceneState.ambientColor = dataContext.sceneData.ambientColor;
+    editor::begnEditorFrame(io);
+    editor::editorWindow(*editorUIRenderer, io, dataContext, engine,
+                         engineStarted);
 
-      engine.processFrame();
+    {
+      std::scoped_lock l{dataReadyMutex};
+      dataReady = true;
+    }
+
+    dataReadyConditionVar.notify_one();
+
+    editor::endEditorFrame(*editorUIRenderer, io);
+
+    if (!shouldQuit.test()) {
+      frameBarrier.arrive_and_wait();
     }
 
     FrameMark;
   }
+
+  engineFrameThread.join();
 
   // Cleanup
   engine.cleanup();

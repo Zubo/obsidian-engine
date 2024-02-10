@@ -512,24 +512,27 @@ void VulkanRHI::present(VkSemaphore renderSemaphore,
   }
 }
 
+void VulkanRHI::clearFrameData() {
+  _submittedDirectionalLights.clear();
+  _submittedSpotlights.clear();
+  _drawCallQueue.clear();
+  _ssaoDrawCallQueue.clear();
+  _transparentDrawCallQueue.clear();
+}
+
 void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   if (_envMapDescriptorSetPendingUpdate || _pendingExtentUpdate) {
+    // skipping frame
     waitDeviceIdle();
     applyPendingExtentUpdate();
     applyPendingEnvironmentMapUpdates();
-
-    _submittedDirectionalLights.clear();
-    _submittedSpotlights.clear();
-    _drawCallQueue.clear();
-    _ssaoDrawCallQueue.clear();
-    _transparentDrawCallQueue.clear();
-    // skipping frame
+    clearFrameData();
     return;
   }
 
   FrameData& currentFrameData = getCurrentFrameData();
 
-  constexpr std::uint64_t timeoutNanoseconds = 1000000000;
+  constexpr std::uint64_t timeoutNanoseconds = 10000000000;
   {
     ZoneScopedN("Wait For Render Fence");
     VK_CHECK(vkWaitForFences(_vkDevice, 1, &currentFrameData.vkRenderFence,
