@@ -863,8 +863,11 @@ void VulkanRHI::immediateSubmit(
                            immediateSubmitContext.vkFence));
   }
 
-  vkWaitForFences(_vkDevice, 1, &immediateSubmitContext.vkFence, VK_TRUE,
-                  9999999999);
+  {
+    ZoneScopedN("ImmediateSubmit wait for fences");
+    vkWaitForFences(_vkDevice, 1, &immediateSubmitContext.vkFence, VK_TRUE,
+                    9999999999);
+  }
   vkResetFences(_vkDevice, 1, &immediateSubmitContext.vkFence);
 
   VK_CHECK(
