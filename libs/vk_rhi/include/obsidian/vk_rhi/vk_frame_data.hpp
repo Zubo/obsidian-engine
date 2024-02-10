@@ -23,6 +23,9 @@ struct FrameData {
 
   Framebuffer vkDepthPrepassFramebuffer;
 
+  AllocatedImage depthPassResultShaderReadImage;
+  VkImageView vkDepthPassResultShaderReadImageView;
+
   Framebuffer vkSsaoFramebuffer;
   VkDescriptorSet vkSsaoRenderPassDescriptorSet;
 

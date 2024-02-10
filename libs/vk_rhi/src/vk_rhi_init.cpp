@@ -353,36 +353,40 @@ void VulkanRHI::initDepthPrepassFramebuffers() {
           vmaDestroyImage(_vmaAllocator, framebuffer.depthBufferImage.vkImage,
                           framebuffer.depthBufferImage.allocation);
         });
+
+    VkImageCreateInfo depthPrepassResultImgCreateInfo = vkinit::imageCreateInfo(
+        VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        {_vkbSwapchain.extent.width, _vkbSwapchain.extent.height, 1},
+        _depthFormat);
+    depthPrepassResultImgCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+    VmaAllocationCreateInfo depthPrepassResultAllocationCreateInfo = {};
+    depthPrepassResultAllocationCreateInfo.usage =
+        VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+
+    VK_CHECK(vmaCreateImage(
+        _vmaAllocator, &depthPrepassResultImgCreateInfo,
+        &depthPrepassResultAllocationCreateInfo,
+        &frameData.depthPassResultShaderReadImage.vkImage,
+        &frameData.depthPassResultShaderReadImage.allocation, nullptr));
+
+    VkImageViewCreateInfo const depthPrepassResultImgViewCreateInfo =
+        vkinit::imageViewCreateInfo(
+            frameData.depthPassResultShaderReadImage.vkImage, _depthFormat,
+            VK_IMAGE_ASPECT_DEPTH_BIT);
+
+    VK_CHECK(vkCreateImageView(
+        _vkDevice, &depthPrepassResultImgViewCreateInfo, nullptr,
+        &frameData.vkDepthPassResultShaderReadImageView));
+
+    _swapchainDeletionQueue.pushFunction([this, &frameData]() {
+      vkDestroyImageView(
+          _vkDevice, frameData.vkDepthPassResultShaderReadImageView, nullptr);
+      vmaDestroyImage(_vmaAllocator,
+                      frameData.depthPassResultShaderReadImage.vkImage,
+                      frameData.depthPassResultShaderReadImage.allocation);
+    });
   }
-
-  VkImageCreateInfo depthPrepassResultImgCreateInfo = vkinit::imageCreateInfo(
-      VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-      {_vkbSwapchain.extent.width, _vkbSwapchain.extent.height, 1},
-      _depthFormat);
-  depthPrepassResultImgCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-
-  VmaAllocationCreateInfo depthPrepassResultAllocationCreateInfo = {};
-  depthPrepassResultAllocationCreateInfo.usage =
-      VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
-
-  VK_CHECK(vmaCreateImage(_vmaAllocator, &depthPrepassResultImgCreateInfo,
-                          &depthPrepassResultAllocationCreateInfo,
-                          &_depthPassResultShaderReadImage.vkImage,
-                          &_depthPassResultShaderReadImage.allocation,
-                          nullptr));
-
-  VkImageViewCreateInfo const depthPrepassResultImgViewCreateInfo =
-      vkinit::imageViewCreateInfo(_depthPassResultShaderReadImage.vkImage,
-                                  _depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
-
-  VK_CHECK(vkCreateImageView(_vkDevice, &depthPrepassResultImgViewCreateInfo,
-                             nullptr, &_depthPassResultShaderReadImageView));
-
-  _swapchainDeletionQueue.pushFunction([this]() {
-    vkDestroyImageView(_vkDevice, _depthPassResultShaderReadImageView, nullptr);
-    vmaDestroyImage(_vmaAllocator, _depthPassResultShaderReadImage.vkImage,
-                    _depthPassResultShaderReadImage.allocation);
-  });
 }
 
 void VulkanRHI::initShadowPassFramebuffers() {
@@ -1264,7 +1268,8 @@ void VulkanRHI::initSsaoDescriptors() {
     noiseDescriptorImageInfo.sampler = _ssaoNoiseSampler;
 
     VkDescriptorImageInfo depthDescriptorImageInfo = {};
-    depthDescriptorImageInfo.imageView = _depthPassResultShaderReadImageView;
+    depthDescriptorImageInfo.imageView =
+        frameData.vkDepthPassResultShaderReadImageView;
     depthDescriptorImageInfo.imageLayout =
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     depthDescriptorImageInfo.sampler = _vkDepthSampler;

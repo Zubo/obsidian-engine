@@ -110,8 +110,9 @@ void VulkanRHI::depthPrepass(DrawPassParams const& params) {
 
   VkImageMemoryBarrier depthPrepassShaderReadBarrier =
       vkinit::layoutImageBarrier(
-          _depthPassResultShaderReadImage.vkImage, VK_IMAGE_LAYOUT_UNDEFINED,
-          VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
+          params.currentFrameData.depthPassResultShaderReadImage.vkImage,
+          VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+          VK_IMAGE_ASPECT_DEPTH_BIT);
 
   vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
                        VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
@@ -133,7 +134,7 @@ void VulkanRHI::depthPrepass(DrawPassParams const& params) {
                  params.currentFrameData.vkDepthPrepassFramebuffer
                      .depthBufferImage.vkImage,
                  VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                 _depthPassResultShaderReadImage.vkImage,
+                 params.currentFrameData.depthPassResultShaderReadImage.vkImage,
                  VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &vkImageCopy);
 
   depthPrepassAttachmentBarrier.oldLayout =
