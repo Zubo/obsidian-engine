@@ -97,21 +97,19 @@ int main(int, char**) {
   std::thread engineFrameThread{[&]() {
     std::unique_lock l{dataReadyMutex, std::defer_lock};
 
-    while (true) {
-      if (engineStarted) {
-        l.lock();
-        dataReadyConditionVar.wait(
-            l, [&]() { return dataReady || shouldQuit.test(); });
+    while (!shouldQuit.test()) {
+      l.lock();
 
-        if (shouldQuit.test()) {
-          break;
-        }
+      dataReadyConditionVar.wait(l, [&]() { return dataReady; });
 
+      if (engineStarted && !shouldQuit.test()) {
         engineContext.window.pollEvents();
         engine.processFrame();
-        dataReady = false;
-        l.unlock();
       }
+
+      dataReady = false;
+
+      l.unlock();
 
       frameBarrier.arrive_and_wait();
     }
@@ -129,7 +127,6 @@ int main(int, char**) {
       if (e.type == SDL_QUIT || (e.type == SDL_WINDOWEVENT &&
                                  e.window.event == SDL_WINDOWEVENT_CLOSE)) {
         shouldQuit.test_and_set();
-        dataReadyConditionVar.notify_all();
       }
 
       if (e.type == SDL_DROPFILE) {
@@ -155,9 +152,7 @@ int main(int, char**) {
 
     editor::endEditorFrame(*editorUIRenderer, io);
 
-    if (!shouldQuit.test()) {
-      frameBarrier.arrive_and_wait();
-    }
+    frameBarrier.arrive_and_wait();
 
     FrameMark;
   }
