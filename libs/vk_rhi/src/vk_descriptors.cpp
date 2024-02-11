@@ -119,6 +119,9 @@ bool DescriptorLayoutCache::DescriptorLayoutInfo::operator==(
   if (other.descriptorLayoutBindings.size() != descriptorLayoutBindings.size())
     return false;
 
+  if (other.descriptorBindingFlags.size() != descriptorBindingFlags.size())
+    return false;
+
   for (std::size_t i = 0; i < descriptorLayoutBindings.size(); ++i) {
     if (other.descriptorLayoutBindings[i].binding !=
         descriptorLayoutBindings[i].binding)
@@ -135,7 +138,7 @@ bool DescriptorLayoutCache::DescriptorLayoutInfo::operator==(
     if (other.descriptorLayoutBindings[i].pImmutableSamplers !=
         descriptorLayoutBindings[i].pImmutableSamplers)
       return false;
-    if (other.descriptorBindingFlags != descriptorBindingFlags) {
+    if (other.descriptorBindingFlags[i] != descriptorBindingFlags[i]) {
       return false;
     }
   }
@@ -184,13 +187,13 @@ VkDescriptorSetLayout DescriptorLayoutCache::getLayout(
               return first.binding < second.binding;
             });
 
-  auto const cachedLayoutIter = _descriptorSetLayoutMap.find(info);
+  auto insertResult = _descriptorSetLayoutMap.try_emplace(info);
 
-  if (cachedLayoutIter != _descriptorSetLayoutMap.cend()) {
-    return cachedLayoutIter->second;
+  if (!insertResult.second) {
+    return insertResult.first->second;
   }
 
-  VkDescriptorSetLayout& newLayout = _descriptorSetLayoutMap[info];
+  VkDescriptorSetLayout& newLayout = insertResult.first->second;
 
   VK_CHECK(vkCreateDescriptorSetLayout(
       _vkDevice, &vkDescriptorSetLayoutCreateInfo, nullptr, &newLayout));
