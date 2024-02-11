@@ -1,17 +1,27 @@
 #include <obsidian/vk_rhi/vk_check.hpp>
 #include <obsidian/vk_rhi/vk_rhi.hpp>
 
-#include <vulkan/vulkan.h>
-
 #include <cstdint>
 
-using namespace obsidian::vk_rhi;
+namespace obsidian::vk_rhi {
 
 #ifdef USE_VULKAN_DEBUG_FEATURES
 
-void VulkanRHI::setDbgResourceName(std::uint64_t objHandle,
-                                   VkObjectType objType, char const* objName,
-                                   char const* additionalInfo) {
+static std::atomic<PFN_vkSetDebugUtilsObjectNameEXT> vkSetDebugUtilsObject =
+    nullptr;
+
+void initDebugUtils(VkInstance vkInstance) {
+  assert(!vkSetDebugUtilsObject);
+
+  vkSetDebugUtilsObject = reinterpret_cast<PFN_vkSetDebugUtilsObjectNameEXT>(
+      vkGetInstanceProcAddr(vkInstance, "vkSetDebugUtilsObjectNameEXT"));
+}
+
+void setDbgResourceName(VkDevice vkDevice, std::uint64_t objHandle,
+                        VkObjectType objType, char const* objName,
+                        char const* additionalInfo) {
+  assert(vkSetDebugUtilsObject);
+
   if (!objHandle || !objName) {
     return;
   }
@@ -31,36 +41,38 @@ void VulkanRHI::setDbgResourceName(std::uint64_t objHandle,
   nameInfo.objectHandle = objHandle;
   nameInfo.pObjectName = objName;
 
-  VK_CHECK(_vkSetDebugUtilsObjectNameEXT(_vkDevice, &nameInfo));
+  VK_CHECK((vkSetDebugUtilsObject.load()(vkDevice, &nameInfo)));
 }
 
-void VulkanRHI::nameFramebufferResources(Framebuffer const& framebuffer,
-                                         char const* framebufferName) {
+void nameFramebufferResources(VkDevice vkDevice, Framebuffer const& framebuffer,
+                              char const* framebufferName) {
 
-  setDbgResourceName((std::uint64_t)framebuffer.vkFramebuffer,
+  setDbgResourceName(vkDevice, (std::uint64_t)framebuffer.vkFramebuffer,
                      VK_OBJECT_TYPE_FRAMEBUFFER, framebufferName,
                      "Framebuffer");
 
   if (framebuffer.colorBufferImage.vkImage != VK_NULL_HANDLE) {
-    setDbgResourceName((std::uint64_t)framebuffer.colorBufferImage.vkImage,
-                       VK_OBJECT_TYPE_IMAGE, framebufferName,
-                       "Color attachment image");
+    setDbgResourceName(
+        vkDevice, (std::uint64_t)framebuffer.colorBufferImage.vkImage,
+        VK_OBJECT_TYPE_IMAGE, framebufferName, "Color attachment image");
   }
 
   if (framebuffer.colorBufferImageView != VK_NULL_HANDLE) {
-    setDbgResourceName((std::uint64_t)framebuffer.colorBufferImageView,
+    setDbgResourceName(vkDevice,
+                       (std::uint64_t)framebuffer.colorBufferImageView,
                        VK_OBJECT_TYPE_IMAGE_VIEW, framebufferName,
                        "Color attachment image view");
   }
 
   if (framebuffer.depthBufferImage.vkImage != VK_NULL_HANDLE) {
-    setDbgResourceName((std::uint64_t)framebuffer.depthBufferImage.vkImage,
-                       VK_OBJECT_TYPE_IMAGE, framebufferName,
-                       "Depth attachment image");
+    setDbgResourceName(
+        vkDevice, (std::uint64_t)framebuffer.depthBufferImage.vkImage,
+        VK_OBJECT_TYPE_IMAGE, framebufferName, "Depth attachment image");
   }
 
   if (framebuffer.depthBufferImageView != VK_NULL_HANDLE) {
-    setDbgResourceName((std::uint64_t)framebuffer.depthBufferImageView,
+    setDbgResourceName(vkDevice,
+                       (std::uint64_t)framebuffer.depthBufferImageView,
                        VK_OBJECT_TYPE_IMAGE_VIEW, framebufferName,
                        "Depth attachment image view");
   }
@@ -68,11 +80,16 @@ void VulkanRHI::nameFramebufferResources(Framebuffer const& framebuffer,
 
 #else
 
-void VulkanRHI::setDbgResourceName(std::uint64_t objHandle,
-                                   VkObjectType objType, char const* objName,
-                                   char const* additionalInfo) {}
+void initDebugUtils(VkInstance vkInstance) {}
 
-void VulkanRHI::nameFramebufferResources(Framebuffer const& framebuffer,
-                                         char const* framebufferName) {}
+void setDbgResourceName(VkDevice vkDevice, std::uint64_t objHandle,
+                        VkObjectType objType, char const* objName,
+                        char const* additionalInfo) {}
+
+void nameFramebufferResources(VkDevice vkDevice, Framebuffer const& framebuffer,
+                              char const* framebufferName) {}
+}
 
 #endif
+
+} /*namespace obsidian::vk_rhi */

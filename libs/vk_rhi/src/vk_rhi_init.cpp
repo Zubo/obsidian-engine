@@ -7,6 +7,7 @@
 #include <obsidian/task/task_executor.hpp>
 #include <obsidian/task/task_type.hpp>
 #include <obsidian/vk_rhi/vk_check.hpp>
+#include <obsidian/vk_rhi/vk_debug.hpp>
 #include <obsidian/vk_rhi/vk_descriptors.hpp>
 #include <obsidian/vk_rhi/vk_frame_data.hpp>
 #include <obsidian/vk_rhi/vk_framebuffer.hpp>
@@ -26,7 +27,6 @@
 #include <cstring>
 #include <numeric>
 #include <random>
-#include <vulkan/vulkan_core.h>
 
 using namespace obsidian::vk_rhi;
 
@@ -145,9 +145,7 @@ void VulkanRHI::initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider) {
   _vkInstance = vkbInstance.instance;
   _vkDebugMessenger = vkbInstance.debug_messenger;
 
-  _vkSetDebugUtilsObjectNameEXT =
-      reinterpret_cast<PFN_vkSetDebugUtilsObjectNameEXT>(
-          vkGetInstanceProcAddr(_vkInstance, "vkSetDebugUtilsObjectNameEXT"));
+  initDebugUtils(_vkInstance);
 
   surfaceProvider.provideSurface(*this);
 
@@ -278,10 +276,10 @@ void VulkanRHI::initMainRenderPasses() {
           0, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
       .build(_envMapRenderPass);
 
-  setDbgResourceName((std::uint64_t)_mainRenderPassReuseDepth.vkRenderPass,
-                     VK_OBJECT_TYPE_RENDER_PASS,
-                     "Main render pass (reuse depth)");
-  setDbgResourceName((std::uint64_t)_envMapRenderPass.vkRenderPass,
+  setDbgResourceName(
+      _vkDevice, (std::uint64_t)_mainRenderPassReuseDepth.vkRenderPass,
+      VK_OBJECT_TYPE_RENDER_PASS, "Main render pass (reuse depth)");
+  setDbgResourceName(_vkDevice, (std::uint64_t)_envMapRenderPass.vkRenderPass,
                      VK_OBJECT_TYPE_RENDER_PASS, "Env map render pass");
 
   _swapchainDeletionQueue.pushFunction([this]() {
@@ -299,7 +297,7 @@ void VulkanRHI::initDepthRenderPass() {
           0, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
       .build(_depthRenderPass);
 
-  setDbgResourceName((std::uint64_t)_depthRenderPass.vkRenderPass,
+  setDbgResourceName(_vkDevice, (std::uint64_t)_depthRenderPass.vkRenderPass,
                      VK_OBJECT_TYPE_RENDER_PASS, "Depth render pass");
 
   _deletionQueue.pushFunction([this]() {
@@ -317,7 +315,7 @@ void VulkanRHI::initSsaoRenderPass() {
           0, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
       .build(_ssaoRenderPass);
 
-  setDbgResourceName((std::uint64_t)_ssaoRenderPass.vkRenderPass,
+  setDbgResourceName(_vkDevice, (std::uint64_t)_ssaoRenderPass.vkRenderPass,
                      VK_OBJECT_TYPE_RENDER_PASS, "Ssao render pass");
 
   _deletionQueue.pushFunction([this]() {
@@ -332,7 +330,8 @@ void VulkanRHI::initPostProcessingRenderPass() {
       .setColorSubpassReference(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
       .build(_postProcessingRenderPass);
 
-  setDbgResourceName((std::uint64_t)_postProcessingRenderPass.vkRenderPass,
+  setDbgResourceName(_vkDevice,
+                     (std::uint64_t)_postProcessingRenderPass.vkRenderPass,
                      VK_OBJECT_TYPE_RENDER_PASS, "Post processing render pass");
 
   _deletionQueue.pushFunction([this]() {
@@ -352,7 +351,7 @@ void VulkanRHI::initSwapchainFramebuffers() {
               _frameDataArray[j]
                   .vkDepthPrepassFramebuffer.depthBufferImageView);
 
-      nameFramebufferResources(_vkSwapchainFramebuffers[i][j],
+      nameFramebufferResources(_vkDevice, _vkSwapchainFramebuffers[i][j],
                                "Post processing");
 
       _swapchainDeletionQueue.pushFunction(
@@ -370,7 +369,7 @@ void VulkanRHI::initDepthPrepassFramebuffers() {
         {.depthImageUsage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
                             VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT});
 
-    nameFramebufferResources(frameData.vkDepthPrepassFramebuffer,
+    nameFramebufferResources(_vkDevice, frameData.vkDepthPrepassFramebuffer,
                              "Depth prepass");
 
     _swapchainDeletionQueue.pushFunction(
@@ -432,8 +431,8 @@ void VulkanRHI::initShadowPassFramebuffers() {
               {.depthImageUsage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
                                   VK_IMAGE_USAGE_SAMPLED_BIT});
 
-      nameFramebufferResources(_frameDataArray[i].shadowFrameBuffers[j],
-                               "Shadow pass");
+      nameFramebufferResources(
+          _vkDevice, _frameDataArray[i].shadowFrameBuffers[j], "Shadow pass");
 
       _deletionQueue.pushFunction(
           [this, &framebuffer = _frameDataArray[i].shadowFrameBuffers[j]]() {
@@ -453,7 +452,7 @@ void VulkanRHI::initGlobalSettingsBuffer() {
       VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
       VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0);
 
-  setDbgResourceName((std::uint64_t)_globalSettingsBuffer.buffer,
+  setDbgResourceName(_vkDevice, (std::uint64_t)_globalSettingsBuffer.buffer,
                      VK_OBJECT_TYPE_BUFFER, "Global settings buffer");
 
   _deletionQueue.pushFunction([this]() {
@@ -472,7 +471,7 @@ void VulkanRHI::initSsaoFramebuffers() {
              VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
          .depthImageUsage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT});
 
-    nameFramebufferResources(frameData.vkSsaoFramebuffer, "Ssao");
+    nameFramebufferResources(_vkDevice, frameData.vkSsaoFramebuffer, "Ssao");
 
     _swapchainDeletionQueue.pushFunction([this,
                                           &framebuffer =
@@ -497,7 +496,8 @@ void VulkanRHI::initSsaoPostProcessingFramebuffers() {
             {.colorImageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
                                 VK_IMAGE_USAGE_SAMPLED_BIT});
 
-    nameFramebufferResources(frameData.vkSsaoFramebuffer, "Post processing");
+    nameFramebufferResources(_vkDevice, frameData.vkSsaoFramebuffer,
+                             "Post processing");
 
     _swapchainDeletionQueue.pushFunction(
         [this, &frameBuffer = frameData.vkSsaoPostProcessingFramebuffer]() {
@@ -949,7 +949,7 @@ void VulkanRHI::initLightDataBuffer() {
       VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
       VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0);
 
-  setDbgResourceName((std::uint64_t)_lightDataBuffer.buffer,
+  setDbgResourceName(_vkDevice, (std::uint64_t)_lightDataBuffer.buffer,
                      VK_OBJECT_TYPE_BUFFER, "Light data buffer");
 
   _deletionQueue.pushFunction([this]() {
@@ -1348,7 +1348,7 @@ void VulkanRHI::initSsaoSamplesAndNoise() {
                                         VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                     VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0);
 
-  setDbgResourceName((std::uint64_t)_ssaoSamplesBuffer.buffer,
+  setDbgResourceName(_vkDevice, (std::uint64_t)_ssaoSamplesBuffer.buffer,
                      VK_OBJECT_TYPE_BUFFER, "Ssao samples buffer");
 
   immediateSubmit(_transferQueueFamilyIndex, [this, &randomDevice,
@@ -1513,7 +1513,7 @@ void VulkanRHI::initEnvMapDataBuffer() {
       VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
       VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0);
 
-  setDbgResourceName((std::uint64_t)_envMapDataBuffer.buffer,
+  setDbgResourceName(_vkDevice, (std::uint64_t)_envMapDataBuffer.buffer,
                      VK_OBJECT_TYPE_BUFFER, "Env map data buffer");
 
   GpuEnvironmentMapDataCollection data = {};
@@ -1565,8 +1565,8 @@ void VulkanRHI::initTimer() {
                                   VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                               VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0);
 
-  setDbgResourceName((std::uint64_t)_timerBuffer.buffer, VK_OBJECT_TYPE_BUFFER,
-                     "Timer buffer");
+  setDbgResourceName(_vkDevice, (std::uint64_t)_timerBuffer.buffer,
+                     VK_OBJECT_TYPE_BUFFER, "Timer buffer");
 
   _deletionQueue.pushFunction([this]() {
     vmaDestroyBuffer(_vmaAllocator, _timerBuffer.buffer,

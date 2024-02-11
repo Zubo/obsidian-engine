@@ -135,7 +135,6 @@ private:
   std::vector<VkImageView> _swapchainImageViews;
   std::uint32_t _frameNumber = 0;
   PFN_vkCmdSetVertexInputEXT _vkCmdSetVertexInput;
-  PFN_vkSetDebugUtilsObjectNameEXT _vkSetDebugUtilsObjectNameEXT;
   float _maxSamplerAnisotropy;
 
   // Default pass
@@ -284,12 +283,6 @@ private:
 
   FrameData& getCurrentFrameData();
   FrameData& getPreviousFrameData();
-
-  void setDbgResourceName(std::uint64_t objHandle, VkObjectType objType,
-                          char const* objName,
-                          char const* additionalInfo = nullptr);
-  void nameFramebufferResources(Framebuffer const& framebuffer,
-                                char const* framebufferName);
 
   template <typename T>
   void uploadBufferData(std::size_t const index, T const& value,

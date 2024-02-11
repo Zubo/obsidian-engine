@@ -28,6 +28,7 @@ add_library(VulkanRHI
     "include/obsidian/vk_rhi/vk_descriptors.hpp"
     "include/obsidian/vk_rhi/vk_framebuffer.hpp"
     "include/obsidian/vk_rhi/vk_frame_data.hpp"
+    "include/obsidian/vk_rhi/vk_debug.hpp"
 )
 
 target_include_directories(VulkanRHI

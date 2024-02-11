@@ -8,6 +8,7 @@
 #include <obsidian/rhi/submit_types_rhi.hpp>
 #include <obsidian/task/task_type.hpp>
 #include <obsidian/vk_rhi/vk_check.hpp>
+#include <obsidian/vk_rhi/vk_debug.hpp>
 #include <obsidian/vk_rhi/vk_deletion_queue.hpp>
 #include <obsidian/vk_rhi/vk_descriptors.hpp>
 #include <obsidian/vk_rhi/vk_frame_data.hpp>
@@ -84,7 +85,7 @@ void VulkanRHI::uploadTexture(rhi::ResourceIdRHI id,
                           &imgAllocationCreateInfo, &newTexture.image.vkImage,
                           &newTexture.image.allocation, nullptr));
 
-  setDbgResourceName((std::uint64_t)newTexture.image.vkImage,
+  setDbgResourceName(_vkDevice, (std::uint64_t)newTexture.image.vkImage,
                      VK_OBJECT_TYPE_IMAGE, uploadTextureInfoRHI.debugName);
 
   VkImageViewCreateInfo imageViewCreateInfo = vkinit::imageViewCreateInfo(
@@ -94,7 +95,7 @@ void VulkanRHI::uploadTexture(rhi::ResourceIdRHI id,
   VK_CHECK(vkCreateImageView(_vkDevice, &imageViewCreateInfo, nullptr,
                              &newTexture.imageView));
 
-  setDbgResourceName((std::uint64_t)newTexture.imageView,
+  setDbgResourceName(_vkDevice, (std::uint64_t)newTexture.imageView,
                      VK_OBJECT_TYPE_IMAGE_VIEW, uploadTextureInfoRHI.debugName);
 
   assert(_taskExecutor);
@@ -241,7 +242,7 @@ void VulkanRHI::uploadMesh(rhi::ResourceIdRHI id, rhi::UploadMeshRHI meshInfo) {
                                    VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0);
   mesh.vertexCount = meshInfo.vertexCount;
 
-  setDbgResourceName((std::uint64_t)mesh.vertexBuffer.buffer,
+  setDbgResourceName(_vkDevice, (std::uint64_t)mesh.vertexBuffer.buffer,
                      VK_OBJECT_TYPE_BUFFER, meshInfo.debugName,
                      "Vertex Buffer");
 
@@ -253,7 +254,7 @@ void VulkanRHI::uploadMesh(rhi::ResourceIdRHI id, rhi::UploadMeshRHI meshInfo) {
                                       VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
                                   VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0);
 
-  setDbgResourceName((std::uint64_t)mesh.indexBuffer.buffer,
+  setDbgResourceName(_vkDevice, (std::uint64_t)mesh.indexBuffer.buffer,
                      VK_OBJECT_TYPE_BUFFER, meshInfo.debugName, "Index Buffer");
 
   mesh.indexBufferSizes = meshInfo.indexBufferSizes;
@@ -368,8 +369,8 @@ void VulkanRHI::uploadShader(rhi::ResourceIdRHI id,
     assert(false && "Failed to load shader.");
   }
 
-  setDbgResourceName((std::uint64_t)shaderModule, VK_OBJECT_TYPE_SHADER_MODULE,
-                     uploadShader.debugName);
+  setDbgResourceName(_vkDevice, (std::uint64_t)shaderModule,
+                     VK_OBJECT_TYPE_SHADER_MODULE, uploadShader.debugName);
 
   shader.vkShaderModule = shaderModule;
 
@@ -467,7 +468,7 @@ void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
   newMaterial.vkPipelineReuseDepth = pipelineBuilder.buildPipeline(
       _vkDevice, _mainRenderPassReuseDepth.vkRenderPass);
 
-  setDbgResourceName((std::uint64_t)newMaterial.vkPipelineReuseDepth,
+  setDbgResourceName(_vkDevice, (std::uint64_t)newMaterial.vkPipelineReuseDepth,
                      VK_OBJECT_TYPE_PIPELINE, uploadMaterial.debugName,
                      "Reuse depth pipeline");
 
@@ -480,7 +481,8 @@ void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
   pipelineBuilder._vkRasterizationCreateInfo.frontFace =
       VK_FRONT_FACE_COUNTER_CLOCKWISE;
 
-  setDbgResourceName((std::uint64_t)newMaterial.vkPipelineEnvironmentRendering,
+  setDbgResourceName(_vkDevice,
+                     (std::uint64_t)newMaterial.vkPipelineEnvironmentRendering,
                      VK_OBJECT_TYPE_PIPELINE, uploadMaterial.debugName,
                      "Environment rendering pipeline");
 
