@@ -94,8 +94,8 @@ void VulkanRHI::uploadTexture(rhi::ResourceIdRHI id,
   VK_CHECK(vkCreateImageView(_vkDevice, &imageViewCreateInfo, nullptr,
                              &newTexture.imageView));
 
-  setDbgResourceName((std::uint64_t)newTexture.imageView, VK_OBJECT_TYPE_IMAGE,
-                     uploadTextureInfoRHI.debugName);
+  setDbgResourceName((std::uint64_t)newTexture.imageView,
+                     VK_OBJECT_TYPE_IMAGE_VIEW, uploadTextureInfoRHI.debugName);
 
   assert(_taskExecutor);
 
@@ -123,6 +123,7 @@ void VulkanRHI::uploadTexture(rhi::ResourceIdRHI id,
         }
 
         vmaUnmapMemory(_vmaAllocator, stagingBuffer.allocation);
+        vmaFlushAllocation(_vmaAllocator, stagingBuffer.allocation, 0, size);
 
         VkImageMemoryBarrier vkImageBarrier = vkinit::layoutImageBarrier(
             newTexture.image.vkImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
@@ -145,10 +146,14 @@ void VulkanRHI::uploadTexture(rhi::ResourceIdRHI id,
                   newTexture.image.vkImage, VK_IMAGE_LAYOUT_UNDEFINED,
                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                   VK_IMAGE_ASPECT_COLOR_BIT, info.mipLevels);
+          vkImgBarrierToTransfer.srcQueueFamilyIndex =
+              _transferQueueFamilyIndex;
+          vkImgBarrierToTransfer.dstQueueFamilyIndex =
+              _transferQueueFamilyIndex;
 
-          vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                               VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0,
-                               nullptr, 0, nullptr, 1, &vkImgBarrierToTransfer);
+          vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                               VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
+                               nullptr, 1, &vkImgBarrierToTransfer);
 
           for (std::size_t i = 0; i < info.mipLevels; ++i) {
             VkBufferImageCopy vkBufferImgCopy = {};
@@ -179,7 +184,7 @@ void VulkanRHI::uploadTexture(rhi::ResourceIdRHI id,
             [this, &info, &newTexture, &vkImageBarrier](VkCommandBuffer cmd) {
               vkImageBarrier.srcAccessMask = VK_ACCESS_NONE;
               vkImageBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-              vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+              vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
                                    VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0,
                                    nullptr, 0, nullptr, 1, &vkImageBarrier);
             });
@@ -897,6 +902,8 @@ void VulkanRHI::immediateSubmit(
   VK_CHECK(
       vkResetCommandPool(_vkDevice, immediateSubmitContext.vkCommandPool, 0));
 }
+
+void immediateUploadImage() {}
 
 FrameData& VulkanRHI::getCurrentFrameData() {
   std::size_t const currentFrameDataInd = _frameNumber % frameOverlap;

@@ -453,6 +453,9 @@ void VulkanRHI::initGlobalSettingsBuffer() {
       VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
       VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0);
 
+  setDbgResourceName((std::uint64_t)_globalSettingsBuffer.buffer,
+                     VK_OBJECT_TYPE_BUFFER, "Global settings buffer");
+
   _deletionQueue.pushFunction([this]() {
     vmaDestroyBuffer(_vmaAllocator, _globalSettingsBuffer.buffer,
                      _globalSettingsBuffer.allocation);
@@ -946,6 +949,9 @@ void VulkanRHI::initLightDataBuffer() {
       VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
       VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0);
 
+  setDbgResourceName((std::uint64_t)_lightDataBuffer.buffer,
+                     VK_OBJECT_TYPE_BUFFER, "Light data buffer");
+
   _deletionQueue.pushFunction([this]() {
     vmaDestroyBuffer(_vmaAllocator, _lightDataBuffer.buffer,
                      _lightDataBuffer.allocation);
@@ -1342,6 +1348,9 @@ void VulkanRHI::initSsaoSamplesAndNoise() {
                                         VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                     VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0);
 
+  setDbgResourceName((std::uint64_t)_ssaoSamplesBuffer.buffer,
+                     VK_OBJECT_TYPE_BUFFER, "Ssao samples buffer");
+
   immediateSubmit(_transferQueueFamilyIndex, [this, &randomDevice,
                                               &uniformDistribution](
                                                  VkCommandBuffer cmd) {
@@ -1404,6 +1413,7 @@ void VulkanRHI::initSsaoSamplesAndNoise() {
     std::memcpy(dst, reinterpret_cast<char const*>(noise.data()),
                 noise.size() * sizeof(decltype(noiseVectors)::value_type));
   };
+  uploadTextureRHI.debugName = "Ssao noise texture";
 
   (void)noiseVectors;
 
@@ -1503,6 +1513,9 @@ void VulkanRHI::initEnvMapDataBuffer() {
       VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
       VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0);
 
+  setDbgResourceName((std::uint64_t)_envMapDataBuffer.buffer,
+                     VK_OBJECT_TYPE_BUFFER, "Env map data buffer");
+
   GpuEnvironmentMapDataCollection data = {};
   uploadBufferData(0, data, _envMapDataBuffer);
 
@@ -1552,6 +1565,9 @@ void VulkanRHI::initTimer() {
                                   VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                               VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0);
 
+  setDbgResourceName((std::uint64_t)_timerBuffer.buffer, VK_OBJECT_TYPE_BUFFER,
+                     "Timer buffer");
+
   _deletionQueue.pushFunction([this]() {
     vmaDestroyBuffer(_vmaAllocator, _timerBuffer.buffer,
                      _timerBuffer.allocation);
@@ -1561,6 +1577,7 @@ void VulkanRHI::initTimer() {
 }
 
 void VulkanRHI::updateTimerBuffer(VkCommandBuffer cmd) {
+  return;
   using namespace std::chrono;
 
   std::uint32_t const msElapsedSinceInit =

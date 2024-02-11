@@ -273,6 +273,7 @@ private:
   void initEnvMapRenderPassDescriptorSets();
   void immediateSubmit(std::uint32_t queueInd,
                        std::function<void(VkCommandBuffer cmd)>&& function);
+  void immediateUploadImage();
   void uploadMesh(Mesh& mesh);
   void applyPendingExtentUpdate();
   void updateTimerBuffer(VkCommandBuffer cmd);
