@@ -84,12 +84,18 @@ void VulkanRHI::uploadTexture(rhi::ResourceIdRHI id,
                           &imgAllocationCreateInfo, &newTexture.image.vkImage,
                           &newTexture.image.allocation, nullptr));
 
+  setDbgResourceName((std::uint64_t)newTexture.image.vkImage,
+                     VK_OBJECT_TYPE_IMAGE, uploadTextureInfoRHI.debugName);
+
   VkImageViewCreateInfo imageViewCreateInfo = vkinit::imageViewCreateInfo(
       newTexture.image.vkImage, getVkTextureFormat(uploadTextureInfoRHI.format),
       VK_IMAGE_ASPECT_COLOR_BIT, uploadTextureInfoRHI.mipLevels);
 
   VK_CHECK(vkCreateImageView(_vkDevice, &imageViewCreateInfo, nullptr,
                              &newTexture.imageView));
+
+  setDbgResourceName((std::uint64_t)newTexture.imageView, VK_OBJECT_TYPE_IMAGE,
+                     uploadTextureInfoRHI.debugName);
 
   assert(_taskExecutor);
 
@@ -230,6 +236,10 @@ void VulkanRHI::uploadMesh(rhi::ResourceIdRHI id, rhi::UploadMeshRHI meshInfo) {
                                    VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0);
   mesh.vertexCount = meshInfo.vertexCount;
 
+  setDbgResourceName((std::uint64_t)mesh.vertexBuffer.buffer,
+                     VK_OBJECT_TYPE_BUFFER, meshInfo.debugName,
+                     "Vertex Buffer");
+
   std::size_t const totalIndexBufferSize = std::accumulate(
       meshInfo.indexBufferSizes.cbegin(), meshInfo.indexBufferSizes.cend(), 0);
 
@@ -237,6 +247,9 @@ void VulkanRHI::uploadMesh(rhi::ResourceIdRHI id, rhi::UploadMeshRHI meshInfo) {
                                   VK_BUFFER_USAGE_TRANSFER_DST_BIT |
                                       VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
                                   VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0);
+
+  setDbgResourceName((std::uint64_t)mesh.indexBuffer.buffer,
+                     VK_OBJECT_TYPE_BUFFER, meshInfo.debugName, "Index Buffer");
 
   mesh.indexBufferSizes = meshInfo.indexBufferSizes;
   mesh.indexCount = meshInfo.indexCount;
@@ -350,6 +363,9 @@ void VulkanRHI::uploadShader(rhi::ResourceIdRHI id,
     assert(false && "Failed to load shader.");
   }
 
+  setDbgResourceName((std::uint64_t)shaderModule, VK_OBJECT_TYPE_SHADER_MODULE,
+                     uploadShader.debugName);
+
   shader.vkShaderModule = shaderModule;
 
   expected = rhi::ResourceState::uploading;
@@ -446,6 +462,10 @@ void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
   newMaterial.vkPipelineReuseDepth = pipelineBuilder.buildPipeline(
       _vkDevice, _mainRenderPassReuseDepth.vkRenderPass);
 
+  setDbgResourceName((std::uint64_t)newMaterial.vkPipelineReuseDepth,
+                     VK_OBJECT_TYPE_PIPELINE, uploadMaterial.debugName,
+                     "Reuse depth pipeline");
+
   pipelineBuilder._vkDepthStencilStateCreateInfo =
       vkinit::depthStencilStateCreateInfo(true, true);
   pipelineBuilder._vkRasterizationCreateInfo.frontFace =
@@ -454,6 +474,10 @@ void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
       pipelineBuilder.buildPipeline(_vkDevice, _envMapRenderPass.vkRenderPass);
   pipelineBuilder._vkRasterizationCreateInfo.frontFace =
       VK_FRONT_FACE_COUNTER_CLOCKWISE;
+
+  setDbgResourceName((std::uint64_t)newMaterial.vkPipelineEnvironmentRendering,
+                     VK_OBJECT_TYPE_PIPELINE, uploadMaterial.debugName,
+                     "Environment rendering pipeline");
 
   newMaterial.transparent = uploadMaterial.transparent;
 

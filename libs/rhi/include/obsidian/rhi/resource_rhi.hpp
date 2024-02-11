@@ -32,6 +32,7 @@ struct UploadTextureRHI {
   std::uint32_t height;
   std::uint32_t mipLevels;
   std::function<void(char*)> unpackFunc;
+  char const* debugName = nullptr;
 };
 
 struct UploadMeshRHI {
@@ -45,11 +46,13 @@ struct UploadMeshRHI {
   bool hasColors;
   bool hasUV;
   bool hasTangents;
+  char const* debugName = nullptr;
 };
 
 struct UploadShaderRHI {
   std::size_t shaderDataSize;
   std::function<void(char*)> unpackFunc;
+  char const* debugName = nullptr;
 };
 
 struct UploadUnlitMaterialRHI {
@@ -85,6 +88,7 @@ struct UploadMaterialRHI {
   ResourceIdRHI fragmentShaderId;
   bool transparent;
   bool hasTimer;
+  char const* debugName = nullptr;
 };
 
 struct InitResourcesRHI {

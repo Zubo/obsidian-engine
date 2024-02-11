@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
 
-option (FORCE_VALIDATION_LAYERS "Force validation layers in non-debug builds" OFF)
+option (VULKAN_FORCE_VALIDATION_LAYERS "Force validation layers in non-debug builds" OFF)
+option (VULKAN_DEBUG_FEATURES "Enable Vulkan debug features" OFF)
 
 add_library(VulkanRHI
     "src/vk_rhi.cpp"
@@ -15,6 +16,7 @@ add_library(VulkanRHI
     "src/vk_types.cpp"
     "src/vk_framebuffer.cpp"
     "src/vk_rhi_environment_maps.cpp"
+    "src/vk_debug.cpp"
     "include/obsidian/vk_rhi/vk_rhi.hpp"
     "include/obsidian/vk_rhi/vk_check.hpp"
     "include/obsidian/vk_rhi/vk_types.hpp"
@@ -53,5 +55,12 @@ if (FORCE_VALIDATION_LAYERS OR (DEFINED CMAKE_BUILD_TYPE AND CMAKE_BUILD_TYPE ST
     target_compile_definitions(VulkanRHI
         PRIVATE
             USE_VULKAN_VALIDATION_LAYERS
+    )
+endif()
+
+if (VULKAN_DEBUG_FEATURES)
+    target_compile_definitions(VulkanRHI
+        PRIVATE
+            USE_VULKAN_DEBUG_FEATURES
     )
 endif()

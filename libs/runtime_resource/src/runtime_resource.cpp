@@ -273,6 +273,7 @@ void RuntimeResource::performUploadToRHI() {
     uploadMesh.hasColors = info.hasColors;
     uploadMesh.hasUV = info.hasUV;
     uploadMesh.hasTangents = info.hasTangents;
+    uploadMesh.debugName = _path.c_str();
 
     _resourceRHI = &_rhi.initMeshResource();
     _rhi.uploadMesh(_resourceRHI->id, uploadMesh);
@@ -295,6 +296,7 @@ void RuntimeResource::performUploadToRHI() {
     uploadTexture.height = info.height;
     uploadTexture.mipLevels = info.mipLevels;
     uploadTexture.unpackFunc = getUnpackFunc(info);
+    uploadTexture.debugName = _path.c_str();
 
     _resourceRHI = &_rhi.initTextureResource();
     _rhi.uploadTexture(_resourceRHI->id, std::move(uploadTexture));
@@ -314,6 +316,7 @@ void RuntimeResource::performUploadToRHI() {
 
     rhi::UploadMaterialRHI uploadMaterial;
     uploadMaterial.materialType = info.materialType;
+    uploadMaterial.debugName = _path.c_str();
 
     switch (uploadMaterial.materialType) {
     case core::MaterialType::unlit: {
@@ -422,6 +425,7 @@ void RuntimeResource::performUploadToRHI() {
     rhi::UploadShaderRHI uploadShader;
     uploadShader.shaderDataSize = info.unpackedSize;
     uploadShader.unpackFunc = getUnpackFunc(info);
+    uploadShader.debugName = _path.c_str();
 
     _resourceRHI = &_rhi.initShaderResource();
     _rhi.uploadShader(_resourceRHI->id, uploadShader);

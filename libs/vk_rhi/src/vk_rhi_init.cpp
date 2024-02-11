@@ -26,6 +26,7 @@
 #include <cstring>
 #include <numeric>
 #include <random>
+#include <vulkan/vulkan_core.h>
 
 using namespace obsidian::vk_rhi;
 
@@ -132,17 +133,21 @@ void VulkanRHI::initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider) {
   constexpr bool enable_validation_layers = false;
 #endif
 
-  auto const builderReturn =
-      builder.set_app_name("Obsidian Engine")
-          .request_validation_layers(enable_validation_layers)
-          .require_api_version(1, 2, 0)
-          .use_default_debug_messenger()
-          .build();
+  auto builderReturn = builder.set_app_name("Obsidian Engine")
+                           .request_validation_layers(enable_validation_layers)
+                           .enable_extension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)
+                           .require_api_version(1, 2, 0)
+                           .use_default_debug_messenger()
+                           .build();
 
   vkb::Instance vkbInstance = builderReturn.value();
 
   _vkInstance = vkbInstance.instance;
   _vkDebugMessenger = vkbInstance.debug_messenger;
+
+  _vkSetDebugUtilsObjectNameEXT =
+      reinterpret_cast<PFN_vkSetDebugUtilsObjectNameEXT>(
+          vkGetInstanceProcAddr(_vkInstance, "vkSetDebugUtilsObjectNameEXT"));
 
   surfaceProvider.provideSurface(*this);
 
@@ -155,7 +160,8 @@ void VulkanRHI::initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider) {
           .set_surface(_vkSurface)
           .add_required_extension(
               VK_EXT_VERTEX_INPUT_DYNAMIC_STATE_EXTENSION_NAME)
-          .add_required_extension("VK_KHR_shader_non_semantic_info")
+          .add_required_extension(
+              VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME)
           .set_required_features(vkPhysicalDeviceFeatures)
           .select()
           .value();
@@ -272,6 +278,12 @@ void VulkanRHI::initMainRenderPasses() {
           0, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
       .build(_envMapRenderPass);
 
+  setDbgResourceName((std::uint64_t)_mainRenderPassReuseDepth.vkRenderPass,
+                     VK_OBJECT_TYPE_RENDER_PASS,
+                     "Main render pass (reuse depth)");
+  setDbgResourceName((std::uint64_t)_envMapRenderPass.vkRenderPass,
+                     VK_OBJECT_TYPE_RENDER_PASS, "Env map render pass");
+
   _swapchainDeletionQueue.pushFunction([this]() {
     vkDestroyRenderPass(_vkDevice, _mainRenderPassReuseDepth.vkRenderPass,
                         nullptr);
@@ -286,6 +298,9 @@ void VulkanRHI::initDepthRenderPass() {
       .setDepthSubpassReference(
           0, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
       .build(_depthRenderPass);
+
+  setDbgResourceName((std::uint64_t)_depthRenderPass.vkRenderPass,
+                     VK_OBJECT_TYPE_RENDER_PASS, "Depth render pass");
 
   _deletionQueue.pushFunction([this]() {
     vkDestroyRenderPass(_vkDevice, _depthRenderPass.vkRenderPass, nullptr);
@@ -302,6 +317,9 @@ void VulkanRHI::initSsaoRenderPass() {
           0, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
       .build(_ssaoRenderPass);
 
+  setDbgResourceName((std::uint64_t)_ssaoRenderPass.vkRenderPass,
+                     VK_OBJECT_TYPE_RENDER_PASS, "Ssao render pass");
+
   _deletionQueue.pushFunction([this]() {
     vkDestroyRenderPass(_vkDevice, _ssaoRenderPass.vkRenderPass, nullptr);
   });
@@ -313,6 +331,9 @@ void VulkanRHI::initPostProcessingRenderPass() {
       .setSubpassPipelineBindPoint(0, VK_PIPELINE_BIND_POINT_GRAPHICS)
       .setColorSubpassReference(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
       .build(_postProcessingRenderPass);
+
+  setDbgResourceName((std::uint64_t)_postProcessingRenderPass.vkRenderPass,
+                     VK_OBJECT_TYPE_RENDER_PASS, "Post processing render pass");
 
   _deletionQueue.pushFunction([this]() {
     vkDestroyRenderPass(_vkDevice, _postProcessingRenderPass.vkRenderPass,
@@ -330,6 +351,10 @@ void VulkanRHI::initSwapchainFramebuffers() {
               _vmaAllocator, _vkbSwapchain.extent, {}, _swapchainImageViews[i],
               _frameDataArray[j]
                   .vkDepthPrepassFramebuffer.depthBufferImageView);
+
+      nameFramebufferResources(_vkSwapchainFramebuffers[i][j],
+                               "Post processing");
+
       _swapchainDeletionQueue.pushFunction(
           [this, &framebuffer = _vkSwapchainFramebuffers[i][j]]() {
             vkDestroyFramebuffer(_vkDevice, framebuffer.vkFramebuffer, nullptr);
@@ -344,6 +369,9 @@ void VulkanRHI::initDepthPrepassFramebuffers() {
         _vmaAllocator, _vkbSwapchain.extent,
         {.depthImageUsage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
                             VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT});
+
+    nameFramebufferResources(frameData.vkDepthPrepassFramebuffer,
+                             "Depth prepass");
 
     _swapchainDeletionQueue.pushFunction(
         [this, &framebuffer = frameData.vkDepthPrepassFramebuffer]() {
@@ -403,6 +431,10 @@ void VulkanRHI::initShadowPassFramebuffers() {
               _vmaAllocator, extent,
               {.depthImageUsage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
                                   VK_IMAGE_USAGE_SAMPLED_BIT});
+
+      nameFramebufferResources(_frameDataArray[i].shadowFrameBuffers[j],
+                               "Shadow pass");
+
       _deletionQueue.pushFunction(
           [this, &framebuffer = _frameDataArray[i].shadowFrameBuffers[j]]() {
             vkDestroyFramebuffer(_vkDevice, framebuffer.vkFramebuffer, nullptr);
@@ -437,6 +469,8 @@ void VulkanRHI::initSsaoFramebuffers() {
              VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
          .depthImageUsage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT});
 
+    nameFramebufferResources(frameData.vkSsaoFramebuffer, "Ssao");
+
     _swapchainDeletionQueue.pushFunction([this,
                                           &framebuffer =
                                               frameData.vkSsaoFramebuffer]() {
@@ -459,6 +493,8 @@ void VulkanRHI::initSsaoPostProcessingFramebuffers() {
             _vmaAllocator, getSsaoExtent(),
             {.colorImageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
                                 VK_IMAGE_USAGE_SAMPLED_BIT});
+
+    nameFramebufferResources(frameData.vkSsaoFramebuffer, "Post processing");
 
     _swapchainDeletionQueue.pushFunction(
         [this, &frameBuffer = frameData.vkSsaoPostProcessingFramebuffer]() {
