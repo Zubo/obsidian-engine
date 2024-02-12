@@ -28,6 +28,7 @@
 #include <string_view>
 #include <type_traits>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -121,6 +122,7 @@ private:
   VkSurfaceKHR _vkSurface;
   VkPhysicalDeviceProperties _vkPhysicalDeviceProperties;
   VkFormat _depthFormat = VK_FORMAT_D32_SFLOAT;
+  std::unordered_set<std::uint32_t> _queueFamilyIndices;
   std::uint32_t _graphicsQueueFamilyIndex;
   std::uint32_t _transferQueueFamilyIndex;
   std::unordered_map<std::uint32_t, VkQueue> _gpuQueues;
@@ -217,6 +219,8 @@ private:
   rhi::ResourceIdRHI _emptyFragShaderId;
   AllocatedBuffer _postProcessingQuadBuffer;
   std::optional<rhi::WindowExtentRHI> _pendingExtentUpdate = std::nullopt;
+  std::mutex _resourceTransfersMutex;
+  std::vector<ResourceTransfer> _resourceTransfers;
 
   // Timer
   AllocatedBuffer _timerStagingBuffer;
@@ -272,6 +276,12 @@ private:
   void initEnvMapRenderPassDescriptorSets();
   void immediateSubmit(std::uint32_t queueInd,
                        std::function<void(VkCommandBuffer cmd)>&& function);
+  void uploadDataToImage(AllocatedBuffer stagingBuffer, VkImage dstImg,
+                         ImageTransferInfo const& imageTransferInfo,
+                         std::uint32_t currentImgQeueuFamilyIdx,
+                         ImageTransferDstState transferDstState);
+  void initResourceTransferContext(ResourceTransferContext& ctx);
+  ResourceTransferContext& getResourceTransferContextForCurrentThread();
   void immediateUploadImage();
   void uploadMesh(Mesh& mesh);
   void applyPendingExtentUpdate();

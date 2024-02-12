@@ -15,6 +15,17 @@ ImmediateSubmitContext::~ImmediateSubmitContext() {
   }
 }
 
+ResourceTransferContext::~ResourceTransferContext() {
+  if (initialized) {
+    for (auto& pool : queueCommandPools) {
+      vkDestroyCommandPool(device, pool.second, nullptr);
+    }
+
+    queueCommandPools.clear();
+    initialized = false;
+  }
+}
+
 VkFormat getVkTextureFormat(core::TextureFormat format) {
   switch (format) {
   case core::TextureFormat::R8G8B8A8_SRGB:

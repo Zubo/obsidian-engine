@@ -203,6 +203,9 @@ void VulkanRHI::initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider) {
   // init mutex
   _gpuQueueMutexes[_transferQueueFamilyIndex];
 
+  _queueFamilyIndices.emplace(_graphicsQueueFamilyIndex);
+  _queueFamilyIndices.emplace(_transferQueueFamilyIndex);
+
   VmaAllocatorCreateInfo allocatorInfo = {};
   allocatorInfo.physicalDevice = _vkPhysicalDevice;
   allocatorInfo.device = _vkDevice;

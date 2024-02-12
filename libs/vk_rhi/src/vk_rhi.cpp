@@ -126,72 +126,21 @@ void VulkanRHI::uploadTexture(rhi::ResourceIdRHI id,
         vmaUnmapMemory(_vmaAllocator, stagingBuffer.allocation);
         vmaFlushAllocation(_vmaAllocator, stagingBuffer.allocation, 0, size);
 
-        VkImageMemoryBarrier vkImageBarrier = vkinit::layoutImageBarrier(
-            newTexture.image.vkImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT,
-            info.mipLevels);
+        ImageTransferInfo const transferInfo = {
+            .format = info.format,
+            .width = info.width,
+            .height = info.height,
+            .mipCount = info.mipLevels,
+            .layerCount = 1,
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+        };
 
-        vkImageBarrier.srcQueueFamilyIndex = _transferQueueFamilyIndex;
-        vkImageBarrier.dstQueueFamilyIndex = _graphicsQueueFamilyIndex;
+        ImageTransferDstState const transferDstState = {
+            _graphicsQueueFamilyIndex, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            VK_ACCESS_SHADER_READ_BIT};
 
-        immediateSubmit(_transferQueueFamilyIndex, [this, &extent, &newTexture,
-                                                    &stagingBuffer, &info, size,
-                                                    &vkImageBarrier](
-                                                       VkCommandBuffer cmd) {
-          VkDeviceSize offset = 0;
-          VkDeviceSize const mipLevelSize =
-              info.mipLevels > 1 ? (size / 2) : size;
-
-          VkImageMemoryBarrier vkImgBarrierToTransfer =
-              vkinit::layoutImageBarrier(
-                  newTexture.image.vkImage, VK_IMAGE_LAYOUT_UNDEFINED,
-                  VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                  VK_IMAGE_ASPECT_COLOR_BIT, info.mipLevels);
-          vkImgBarrierToTransfer.srcQueueFamilyIndex =
-              _transferQueueFamilyIndex;
-          vkImgBarrierToTransfer.dstQueueFamilyIndex =
-              _transferQueueFamilyIndex;
-
-          vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-                               VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
-                               nullptr, 1, &vkImgBarrierToTransfer);
-
-          for (std::size_t i = 0; i < info.mipLevels; ++i) {
-            VkBufferImageCopy vkBufferImgCopy = {};
-            vkBufferImgCopy.bufferOffset = offset;
-            vkBufferImgCopy.imageExtent = {extent.width >> i,
-                                           extent.height >> i, extent.depth};
-            vkBufferImgCopy.imageSubresource.aspectMask =
-                VK_IMAGE_ASPECT_COLOR_BIT;
-            vkBufferImgCopy.imageSubresource.layerCount = 1;
-            vkBufferImgCopy.imageSubresource.mipLevel = i;
-
-            vkCmdCopyBufferToImage(
-                cmd, stagingBuffer.buffer, newTexture.image.vkImage,
-                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &vkBufferImgCopy);
-
-            offset += mipLevelSize >> (i * 2);
-          }
-
-          vkImageBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-          vkImageBarrier.dstAccessMask = VK_ACCESS_NONE;
-          vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                               VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, 0, nullptr,
-                               0, nullptr, 1, &vkImageBarrier);
-        });
-
-        immediateSubmit(
-            _graphicsQueueFamilyIndex,
-            [this, &info, &newTexture, &vkImageBarrier](VkCommandBuffer cmd) {
-              vkImageBarrier.srcAccessMask = VK_ACCESS_NONE;
-              vkImageBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-              vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                                   VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0,
-                                   nullptr, 0, nullptr, 1, &vkImageBarrier);
-            });
-
-        vmaDestroyBuffer(_vmaAllocator, stagingBuffer.buffer,
-                         stagingBuffer.allocation);
+        uploadDataToImage(stagingBuffer, newTexture.image.vkImage, transferInfo,
+                          VK_QUEUE_FAMILY_IGNORED, transferDstState);
 
         rhi::ResourceState expected = rhi::ResourceState::uploading;
 
@@ -827,6 +776,33 @@ void VulkanRHI::destroyUnusedResources(
   }
 
   pendingResourcesToDestroy.environmentMapsToDestroy.clear();
+
+  {
+    std::scoped_lock l{_resourceTransfersMutex};
+
+    static std::vector<ResourceTransfer> transfers;
+
+    _resourceTransfers.swap(transfers);
+
+    for (auto const& t : transfers) {
+      VkResult const result = vkGetFenceStatus(_vkDevice, t.transferFence);
+      if (result == VK_SUCCESS) {
+        vmaDestroyBuffer(_vmaAllocator, t.stagingBuffer.buffer,
+                         t.stagingBuffer.allocation);
+
+        vkDestroyFence(_vkDevice, t.transferFence, nullptr);
+
+        for (VkSemaphore s : t.semaphores) {
+          vkDestroySemaphore(_vkDevice, s, nullptr);
+        }
+      } else if (result != VK_NOT_READY) {
+        VK_CHECK(result);
+        _resourceTransfers.push_back(t);
+      }
+    }
+
+    transfers.clear();
+  }
 }
 
 void VulkanRHI::submitDrawCall(rhi::DrawCall const& drawCall) {
@@ -905,7 +881,287 @@ void VulkanRHI::immediateSubmit(
       vkResetCommandPool(_vkDevice, immediateSubmitContext.vkCommandPool, 0));
 }
 
-void immediateUploadImage() {}
+void VulkanRHI::initResourceTransferContext(ResourceTransferContext& ctx) {
+  assert(!ctx.initialized);
+
+  ctx.device = _vkDevice;
+
+  for (std::uint32_t queueFamilyIdx : _queueFamilyIndices) {
+    VkCommandPoolCreateInfo commandPoolCreateInfo =
+        vkinit::commandPoolCreateInfo(queueFamilyIdx,
+                                      VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
+    VkCommandPool& pool = ctx.queueCommandPools[queueFamilyIdx];
+    vkCreateCommandPool(ctx.device, &commandPoolCreateInfo, nullptr, &pool);
+  }
+
+  ctx.initialized = true;
+}
+
+ResourceTransferContext&
+VulkanRHI::getResourceTransferContextForCurrentThread() {
+  static thread_local ResourceTransferContext ctx;
+
+  if (!ctx.initialized) {
+    initResourceTransferContext(ctx);
+  }
+
+  return ctx;
+}
+
+void VulkanRHI::uploadDataToImage(AllocatedBuffer stagingBuffer, VkImage dstImg,
+                                  ImageTransferInfo const& imgTransferInfo,
+                                  std::uint32_t currentImgQueueFamilyIdx,
+                                  ImageTransferDstState transferDstState) {
+  ResourceTransferContext& ctx = getResourceTransferContextForCurrentThread();
+  ResourceTransfer transfer = {};
+  transfer.stagingBuffer = stagingBuffer;
+
+  VkFenceCreateInfo fenceCreateInfo = {.sType =
+                                           VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+                                       .pNext = nullptr,
+                                       .flags = 0};
+
+  VK_CHECK(vkCreateFence(ctx.device, &fenceCreateInfo, nullptr,
+                         &transfer.transferFence));
+
+  VkSemaphore transitionToTransferQueueSemaphore = VK_NULL_HANDLE;
+
+  VkCommandBuffer& cmdTransfer = transfer.commandBuffers.emplace_back();
+
+  VkCommandBufferAllocateInfo const cmdTransferAllocInfo =
+      vkinit::commandBufferAllocateInfo(
+          ctx.queueCommandPools.at(_transferQueueFamilyIndex));
+
+  VK_CHECK(vkAllocateCommandBuffers(ctx.device, &cmdTransferAllocInfo,
+                                    &cmdTransfer));
+
+  VkCommandBufferBeginInfo const cmdTransferBegininfo =
+      vkinit::commandBufferBeginInfo(
+          VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+
+  vkBeginCommandBuffer(cmdTransfer, &cmdTransferBegininfo);
+
+  VkImageMemoryBarrier barrierTransitionToTransferQueue = {};
+  barrierTransitionToTransferQueue.sType =
+      VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+  barrierTransitionToTransferQueue.pNext = nullptr;
+  barrierTransitionToTransferQueue.srcAccessMask = VK_ACCESS_NONE;
+  barrierTransitionToTransferQueue.dstAccessMask = VK_ACCESS_NONE;
+  barrierTransitionToTransferQueue.srcQueueFamilyIndex =
+      VK_QUEUE_FAMILY_IGNORED;
+  barrierTransitionToTransferQueue.dstQueueFamilyIndex =
+      VK_QUEUE_FAMILY_IGNORED;
+  barrierTransitionToTransferQueue.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+  barrierTransitionToTransferQueue.newLayout =
+      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+  barrierTransitionToTransferQueue.image = dstImg;
+  barrierTransitionToTransferQueue.subresourceRange.aspectMask =
+      imgTransferInfo.aspectMask;
+  barrierTransitionToTransferQueue.subresourceRange.baseMipLevel = 0;
+  barrierTransitionToTransferQueue.subresourceRange.levelCount =
+      imgTransferInfo.mipCount;
+  barrierTransitionToTransferQueue.subresourceRange.baseArrayLayer = 0;
+  barrierTransitionToTransferQueue.subresourceRange.layerCount =
+      imgTransferInfo.layerCount;
+
+  if (currentImgQueueFamilyIdx != VK_QUEUE_FAMILY_IGNORED &&
+      currentImgQueueFamilyIdx != _transferQueueFamilyIndex) {
+    // Transition queue ownership from current queue to transfer queue
+    barrierTransitionToTransferQueue.srcQueueFamilyIndex =
+        currentImgQueueFamilyIdx;
+    barrierTransitionToTransferQueue.dstQueueFamilyIndex =
+        _transferQueueFamilyIndex;
+
+    VkCommandBuffer& cmdRelease = transfer.commandBuffers.emplace_back();
+
+    VkCommandBufferAllocateInfo const cmdReleaseAllocInfo =
+        vkinit::commandBufferAllocateInfo(
+            ctx.queueCommandPools.at(currentImgQueueFamilyIdx));
+
+    VK_CHECK(vkAllocateCommandBuffers(ctx.device, &cmdReleaseAllocInfo,
+                                      &cmdRelease));
+
+    VkSemaphoreCreateInfo const semaphoreCreateInfo =
+        vkinit::semaphoreCreateInfo(0);
+
+    VK_CHECK(vkCreateSemaphore(ctx.device, &semaphoreCreateInfo, nullptr,
+                               &transitionToTransferQueueSemaphore));
+    transfer.semaphores.push_back(transitionToTransferQueueSemaphore);
+
+    VkCommandBufferBeginInfo cmdBufferBeginInfo =
+        vkinit::commandBufferBeginInfo(
+            VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+
+    vkBeginCommandBuffer(cmdRelease, &cmdBufferBeginInfo);
+
+    vkCmdPipelineBarrier(cmdRelease, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                         VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
+                         nullptr, 1, &barrierTransitionToTransferQueue);
+
+    vkEndCommandBuffer(cmdRelease);
+
+    VkSubmitInfo releaseSubmitInfo = {};
+    releaseSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    releaseSubmitInfo.pNext = nullptr;
+
+    releaseSubmitInfo.signalSemaphoreCount = 1;
+    releaseSubmitInfo.pSignalSemaphores = &transitionToTransferQueueSemaphore;
+
+    {
+      std::scoped_lock l{_gpuQueueMutexes.at(currentImgQueueFamilyIdx)};
+      VK_CHECK(vkQueueSubmit(_gpuQueues.at(currentImgQueueFamilyIdx), 1,
+                             &releaseSubmitInfo, VK_NULL_HANDLE));
+    }
+  }
+
+  vkCmdPipelineBarrier(cmdTransfer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                       VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
+                       nullptr, 1, &barrierTransitionToTransferQueue);
+
+  std::size_t const size = imgTransferInfo.width * imgTransferInfo.height *
+                           core::getFormatPixelSize(imgTransferInfo.format) *
+                           (imgTransferInfo.mipCount > 1 ? 2 : 1);
+  VkDeviceSize const mipLevelSize =
+      imgTransferInfo.mipCount > 1 ? (size / 2) : size;
+
+  VkDeviceSize offset = 0;
+  for (std::size_t i = 0; i < imgTransferInfo.mipCount; ++i) {
+    VkBufferImageCopy vkBufferImgCopy = {};
+    vkBufferImgCopy.bufferOffset = offset;
+    vkBufferImgCopy.imageExtent = {imgTransferInfo.width >> i,
+                                   imgTransferInfo.height >> i, 1};
+    vkBufferImgCopy.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    vkBufferImgCopy.imageSubresource.layerCount = 1;
+    vkBufferImgCopy.imageSubresource.mipLevel = i;
+
+    vkCmdCopyBufferToImage(cmdTransfer, stagingBuffer.buffer, dstImg,
+                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1,
+                           &vkBufferImgCopy);
+
+    offset += mipLevelSize >> (i * 2);
+  }
+
+  VkSubmitInfo transferSubmitInfo = {};
+  transferSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+  transferSubmitInfo.pNext = nullptr;
+
+  if (transitionToTransferQueueSemaphore != VK_NULL_HANDLE) {
+    transferSubmitInfo.waitSemaphoreCount = 1;
+    transferSubmitInfo.pWaitSemaphores = &transitionToTransferQueueSemaphore;
+  }
+
+  VkPipelineStageFlags waitDstStageFlag = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+  transferSubmitInfo.pWaitDstStageMask = &waitDstStageFlag;
+  transferSubmitInfo.commandBufferCount = 1;
+  transferSubmitInfo.pCommandBuffers = &cmdTransfer;
+
+  if (transferDstState.dstImgQueueFamilyIdx != VK_QUEUE_FAMILY_IGNORED &&
+      transferDstState.dstImgQueueFamilyIdx != _transferQueueFamilyIndex) {
+    // transition image ownership to dst queue family with barriers
+
+    VkImageMemoryBarrier barrierTransitionToDstQueue = {};
+    barrierTransitionToDstQueue.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrierTransitionToDstQueue.pNext = nullptr;
+    barrierTransitionToDstQueue.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    barrierTransitionToDstQueue.dstAccessMask = VK_ACCESS_NONE;
+    barrierTransitionToDstQueue.srcQueueFamilyIndex = _transferQueueFamilyIndex;
+    barrierTransitionToDstQueue.dstQueueFamilyIndex =
+        transferDstState.dstImgQueueFamilyIdx;
+    barrierTransitionToDstQueue.oldLayout =
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrierTransitionToDstQueue.newLayout = transferDstState.dstLayout;
+    barrierTransitionToDstQueue.image = dstImg;
+    barrierTransitionToDstQueue.subresourceRange.aspectMask =
+        imgTransferInfo.aspectMask;
+    barrierTransitionToDstQueue.subresourceRange.baseMipLevel = 0;
+    barrierTransitionToDstQueue.subresourceRange.levelCount =
+        imgTransferInfo.mipCount;
+    barrierTransitionToDstQueue.subresourceRange.baseArrayLayer = 0;
+    barrierTransitionToDstQueue.subresourceRange.layerCount =
+        imgTransferInfo.layerCount;
+
+    // release queue ownership barrier
+    vkCmdPipelineBarrier(cmdTransfer, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                         VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, 0, nullptr, 0,
+                         nullptr, 1, &barrierTransitionToDstQueue);
+
+    VkSemaphore& transitionToDstQueueSemaphore =
+        transfer.semaphores.emplace_back();
+
+    VkSemaphoreCreateInfo const semaphoreCreateInfo =
+        vkinit::semaphoreCreateInfo(0);
+
+    VK_CHECK(vkCreateSemaphore(ctx.device, &semaphoreCreateInfo, nullptr,
+                               &transitionToDstQueueSemaphore));
+
+    transferSubmitInfo.signalSemaphoreCount = 1;
+    transferSubmitInfo.pSignalSemaphores = &transitionToDstQueueSemaphore;
+
+    VK_CHECK(vkEndCommandBuffer(cmdTransfer));
+    {
+      std::scoped_lock l{_gpuQueueMutexes.at(_transferQueueFamilyIndex)};
+      VK_CHECK(vkQueueSubmit(_gpuQueues[_transferQueueFamilyIndex], 1,
+                             &transferSubmitInfo, VK_NULL_HANDLE));
+    }
+
+    VkCommandBuffer& cmdAcquire = transfer.commandBuffers.emplace_back();
+
+    VkCommandBufferAllocateInfo const cmdAcquireAllocInfo =
+        vkinit::commandBufferAllocateInfo(
+            ctx.queueCommandPools.at(transferDstState.dstImgQueueFamilyIdx));
+
+    VK_CHECK(vkAllocateCommandBuffers(ctx.device, &cmdAcquireAllocInfo,
+                                      &cmdAcquire));
+
+    VkCommandBufferBeginInfo cmdAcquireBeginInfo =
+        vkinit::commandBufferBeginInfo(
+            VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+
+    VK_CHECK(vkBeginCommandBuffer(cmdAcquire, &cmdAcquireBeginInfo));
+
+    barrierTransitionToDstQueue.srcAccessMask = VK_ACCESS_NONE;
+    barrierTransitionToDstQueue.dstAccessMask = transferDstState.dstAccessMask;
+    vkCmdPipelineBarrier(cmdAcquire, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr,
+                         0, nullptr, 1, &barrierTransitionToDstQueue);
+
+    VK_CHECK(vkEndCommandBuffer(cmdAcquire));
+
+    VkSubmitInfo acquireSubmitInfo = {};
+    acquireSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    acquireSubmitInfo.pNext = nullptr;
+
+    acquireSubmitInfo.commandBufferCount = 1;
+    acquireSubmitInfo.pCommandBuffers = &cmdAcquire;
+    acquireSubmitInfo.waitSemaphoreCount = 1;
+    acquireSubmitInfo.pWaitSemaphores = &transitionToDstQueueSemaphore;
+    VkPipelineStageFlags waitSemaphoreStageFlags =
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    acquireSubmitInfo.pWaitDstStageMask = &waitSemaphoreStageFlags;
+
+    {
+      std::scoped_lock l{
+          _gpuQueueMutexes.at(transferDstState.dstImgQueueFamilyIdx)};
+      // TODO: add fence!
+      VK_CHECK(
+          vkQueueSubmit(_gpuQueues.at(transferDstState.dstImgQueueFamilyIdx), 1,
+                        &acquireSubmitInfo, transfer.transferFence));
+    }
+  } else {
+    VK_CHECK(vkEndCommandBuffer(cmdTransfer));
+
+    {
+      std::scoped_lock l{_gpuQueueMutexes.at(_transferQueueFamilyIndex)};
+      VK_CHECK(vkQueueSubmit(_gpuQueues[_transferQueueFamilyIndex], 1,
+                             &transferSubmitInfo, transfer.transferFence));
+    }
+  }
+
+  {
+    std::scoped_lock l{_resourceTransfersMutex};
+    _resourceTransfers.push_back(transfer);
+  }
+}
 
 FrameData& VulkanRHI::getCurrentFrameData() {
   std::size_t const currentFrameDataInd = _frameNumber % frameOverlap;

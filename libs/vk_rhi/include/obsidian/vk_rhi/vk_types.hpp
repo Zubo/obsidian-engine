@@ -159,6 +159,36 @@ struct ImmediateSubmitContext {
   bool initialized = false;
 };
 
+struct ResourceTransferContext {
+  ~ResourceTransferContext();
+
+  std::unordered_map<std::uint32_t, VkCommandPool> queueCommandPools;
+  VkDevice device;
+  bool initialized = false;
+};
+
+struct ResourceTransfer {
+  AllocatedBuffer stagingBuffer;
+  VkFence transferFence;
+  std::vector<VkSemaphore> semaphores;
+  std::vector<VkCommandBuffer> commandBuffers;
+};
+
+struct ImageTransferInfo {
+  core::TextureFormat format;
+  std::uint32_t width;
+  std::uint32_t height;
+  std::uint32_t mipCount;
+  std::uint32_t layerCount;
+  VkImageAspectFlags aspectMask;
+};
+
+struct ImageTransferDstState {
+  std::uint32_t dstImgQueueFamilyIdx;
+  VkImageLayout dstLayout;
+  VkAccessFlags dstAccessMask;
+};
+
 struct FramebufferImageViews {
   std::vector<VkImageView> vkImageViews;
 };
