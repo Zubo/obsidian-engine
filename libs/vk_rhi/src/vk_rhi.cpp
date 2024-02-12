@@ -795,9 +795,10 @@ void VulkanRHI::destroyUnusedResources(
         for (VkSemaphore s : t.semaphores) {
           vkDestroySemaphore(_vkDevice, s, nullptr);
         }
-      } else if (result != VK_NOT_READY) {
-        VK_CHECK(result);
+      } else if (result == VK_NOT_READY) {
         _resourceTransfers.push_back(t);
+      } else {
+        VK_CHECK(result);
       }
     }
 
