@@ -187,6 +187,7 @@ struct ImageTransferDstState {
   std::uint32_t dstImgQueueFamilyIdx;
   VkImageLayout dstLayout;
   VkAccessFlags dstAccessMask;
+  VkPipelineStageFlags dstPipelineStage;
 };
 
 struct FramebufferImageViews {

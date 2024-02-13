@@ -137,7 +137,7 @@ void VulkanRHI::uploadTexture(rhi::ResourceIdRHI id,
 
         ImageTransferDstState const transferDstState = {
             _graphicsQueueFamilyIndex, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            VK_ACCESS_SHADER_READ_BIT};
+            VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT};
 
         uploadDataToImage(stagingBuffer, newTexture.image.vkImage, transferInfo,
                           VK_QUEUE_FAMILY_IGNORED, transferDstState);
@@ -947,11 +947,11 @@ void VulkanRHI::uploadDataToImage(AllocatedBuffer stagingBuffer, VkImage dstImg,
       VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
   barrierTransitionToTransferQueue.pNext = nullptr;
   barrierTransitionToTransferQueue.srcAccessMask = VK_ACCESS_NONE;
-  barrierTransitionToTransferQueue.dstAccessMask = VK_ACCESS_NONE;
+  barrierTransitionToTransferQueue.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
   barrierTransitionToTransferQueue.srcQueueFamilyIndex =
-      VK_QUEUE_FAMILY_IGNORED;
+      _transferQueueFamilyIndex;
   barrierTransitionToTransferQueue.dstQueueFamilyIndex =
-      VK_QUEUE_FAMILY_IGNORED;
+      _transferQueueFamilyIndex;
   barrierTransitionToTransferQueue.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
   barrierTransitionToTransferQueue.newLayout =
       VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
@@ -960,7 +960,7 @@ void VulkanRHI::uploadDataToImage(AllocatedBuffer stagingBuffer, VkImage dstImg,
       imgTransferInfo.aspectMask;
   barrierTransitionToTransferQueue.subresourceRange.baseMipLevel = 0;
   barrierTransitionToTransferQueue.subresourceRange.levelCount =
-      imgTransferInfo.mipCount;
+      VK_REMAINING_MIP_LEVELS;
   barrierTransitionToTransferQueue.subresourceRange.baseArrayLayer = 0;
   barrierTransitionToTransferQueue.subresourceRange.layerCount =
       imgTransferInfo.layerCount;
@@ -1076,7 +1076,7 @@ void VulkanRHI::uploadDataToImage(AllocatedBuffer stagingBuffer, VkImage dstImg,
         imgTransferInfo.aspectMask;
     barrierTransitionToDstQueue.subresourceRange.baseMipLevel = 0;
     barrierTransitionToDstQueue.subresourceRange.levelCount =
-        imgTransferInfo.mipCount;
+        VK_REMAINING_MIP_LEVELS;
     barrierTransitionToDstQueue.subresourceRange.baseArrayLayer = 0;
     barrierTransitionToDstQueue.subresourceRange.layerCount =
         imgTransferInfo.layerCount;
@@ -1120,11 +1120,12 @@ void VulkanRHI::uploadDataToImage(AllocatedBuffer stagingBuffer, VkImage dstImg,
 
     VK_CHECK(vkBeginCommandBuffer(cmdAcquire, &cmdAcquireBeginInfo));
 
+    // acquire ownership of the dst queue
     barrierTransitionToDstQueue.srcAccessMask = VK_ACCESS_NONE;
     barrierTransitionToDstQueue.dstAccessMask = transferDstState.dstAccessMask;
     vkCmdPipelineBarrier(cmdAcquire, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr,
-                         0, nullptr, 1, &barrierTransitionToDstQueue);
+                         transferDstState.dstPipelineStage, 0, 0, nullptr, 0,
+                         nullptr, 1, &barrierTransitionToDstQueue);
 
     VK_CHECK(vkEndCommandBuffer(cmdAcquire));
 
