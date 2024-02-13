@@ -1143,7 +1143,6 @@ void VulkanRHI::uploadDataToImage(AllocatedBuffer stagingBuffer, VkImage dstImg,
     {
       std::scoped_lock l{
           _gpuQueueMutexes.at(transferDstState.dstImgQueueFamilyIdx)};
-      // TODO: add fence!
       VK_CHECK(
           vkQueueSubmit(_gpuQueues.at(transferDstState.dstImgQueueFamilyIdx), 1,
                         &acquireSubmitInfo, transfer.transferFence));

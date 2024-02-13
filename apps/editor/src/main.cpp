@@ -113,6 +113,8 @@ int main(int, char**) {
 
       frameBarrier.arrive_and_wait();
     }
+
+    frameBarrier.arrive_and_drop();
   }};
 
   while (!shouldQuit.test()) {
@@ -156,6 +158,8 @@ int main(int, char**) {
 
     FrameMark;
   }
+
+  frameBarrier.arrive_and_drop();
 
   engineFrameThread.join();
 

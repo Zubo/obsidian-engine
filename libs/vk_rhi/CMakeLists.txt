@@ -52,7 +52,7 @@ target_link_libraries(VulkanRHI
 
 add_dependencies(VulkanRHI ShaderAssets)
 
-if (FORCE_VALIDATION_LAYERS OR (DEFINED CMAKE_BUILD_TYPE AND CMAKE_BUILD_TYPE STREQUAL "Debug"))
+if (VULKAN_FORCE_VALIDATION_LAYERS OR (DEFINED CMAKE_BUILD_TYPE AND CMAKE_BUILD_TYPE STREQUAL "Debug"))
     target_compile_definitions(VulkanRHI
         PRIVATE
             USE_VULKAN_VALIDATION_LAYERS
