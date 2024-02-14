@@ -165,3 +165,29 @@ FetchContent_Declare(fetch_gtest
 )
 
 FetchContent_MakeAvailable(fetch_gtest)
+
+if (WIN32)
+    set_target_properties(
+        gtest
+        gtest_main
+        gmock
+        gmock_main
+        SDL2
+        SDL2_test
+        SDL2main
+        SDL2-static
+        sdl_headers_copy
+        TracyClient
+        tinyobjloader
+        vk-bootstrap
+        lz4_static
+        loader_example
+        DearImgui
+        uninstall
+        VulkanMemoryAllocator
+        StbImage
+        HashLibrary
+            PROPERTIES
+                FOLDER ThirdParty
+    )
+endif()

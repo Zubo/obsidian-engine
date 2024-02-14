@@ -5,6 +5,10 @@ project(ObsidianEngine
 
 set(CMAKE_CXX_STANDARD 20)
 
+if (WIN32)
+    set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+endif()
+
 enable_testing()
 
 set(GENERATED_ASSETS_DIR "${CMAKE_BINARY_DIR}/generated-assets" CACHE PATH "GENERATED_ASSETS_DIR")
