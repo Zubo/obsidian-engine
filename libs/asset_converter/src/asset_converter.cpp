@@ -62,7 +62,7 @@ bool saveAsset(fs::path const& srcPath, fs::path const& dstPath,
   ZoneScoped;
 
   if (!dstPath.has_extension()) {
-    auto const extensionIter = extensionMap.find(srcPath.extension());
+    auto const extensionIter = extensionMap.find(srcPath.extension().string());
 
     if (extensionIter != extensionMap.cend()) {
       fs::path dstPathExt = dstPath;
@@ -89,8 +89,9 @@ std::optional<asset::TextureAssetInfo> AssetConverter::convertImgToAsset(
 
   using StbiImgUniquePtr = std::unique_ptr<stbi_uc, decltype(stbiDeleter)>;
 
+  std::string srcPathString = srcPath.string();
   StbiImgUniquePtr stbiImgData = StbiImgUniquePtr(
-      stbi_load(srcPath.c_str(), &w, &h, &fileChannelCnt, channelCnt),
+      stbi_load(srcPathString.c_str(), &w, &h, &fileChannelCnt, channelCnt),
       stbiDeleter);
 
   unsigned char* data = stbiImgData.get();
@@ -231,8 +232,9 @@ bool AssetConverter::convertObjToAsset(fs::path const& srcPath,
   std::string warning, error;
 
   fs::path const srcDirPath = srcPath.parent_path();
+  std::string const srcDirPathStr = srcDirPath.string();
   tinyobj::LoadObj(&attrib, &shapes, &materials, &warning, &error,
-                   srcPath.c_str(), srcDirPath.c_str());
+                   srcPath.string().c_str(), srcDirPathStr.c_str());
 
   if (!warning.empty()) {
     OBS_LOG_WARN("tinyobj warning: " + warning);
@@ -342,9 +344,9 @@ bool AssetConverter::convertGltfToAsset(fs::path const& srcPath,
 
     bool const loadResult =
         (srcPath.extension() == ".gltf" &&
-         loader.LoadASCIIFromFile(&model, &err, &warn, srcPath)) ||
+         loader.LoadASCIIFromFile(&model, &err, &warn, srcPath.string())) ||
         (srcPath.extension() == ".glb" &&
-         loader.LoadBinaryFromFile(&model, &err, &warn, srcPath));
+         loader.LoadBinaryFromFile(&model, &err, &warn, srcPath.string()));
     if (!loadResult) {
       if (!err.empty()) {
         OBS_LOG_ERR(err);
@@ -524,7 +526,7 @@ bool AssetConverter::convertGltfToAsset(fs::path const& srcPath,
                  std::back_inserter(meshRelativePaths),
                  [dstPath](std::string const& pathStr) {
                    return fs::path(pathStr).lexically_relative(
-                       dstPath.parent_path());
+                       dstPath.parent_path()).string();
                  });
 
   for (std::size_t sceneInd = 0; sceneInd < model.scenes.size(); ++sceneInd) {
@@ -734,7 +736,7 @@ void extractUnlitMaterialData(
         (colorTexInfo && colorTexInfo->transparent);
     fs::path dstPath = colorTexName;
     dstPath.replace_extension(globals::textureAssetExt);
-    unlitMatAssetData.colorTexturePath = dstPath;
+    unlitMatAssetData.colorTexturePath = dstPath.string();
   }
 }
 
@@ -763,7 +765,7 @@ void extractLitMaterialData(
     outMaterialAssetInfo.transparent |= (texInfo && texInfo->transparent);
     fs::path dstPath = diffuseTexName;
     dstPath.replace_extension(globals::textureAssetExt);
-    litMatAssetData.diffuseTexturePath = dstPath;
+    litMatAssetData.diffuseTexturePath = dstPath.string();
   }
 
   std::string const normalTexName = getNormalTexName(mat);
@@ -774,7 +776,7 @@ void extractLitMaterialData(
 
     fs::path dstPath = normalTexName;
     dstPath.replace_extension(globals::textureAssetExt);
-    litMatAssetData.normalMapTexturePath = dstPath;
+    litMatAssetData.normalMapTexturePath = dstPath.string();
   }
 }
 
@@ -817,7 +819,7 @@ void extractPbrOrFallbackMaterialData(
 
   fs::path albedoDstPath = albedoTexName;
   albedoDstPath.replace_extension(globals::textureAssetExt);
-  pbrMatAssetData.albedoTexturePath = albedoDstPath;
+  pbrMatAssetData.albedoTexturePath = albedoDstPath.string();
 
   // normal map
   assert(!normalTexName.empty() && "Normal map texture missing.");
@@ -827,7 +829,7 @@ void extractPbrOrFallbackMaterialData(
 
   fs::path normalMapDstPath = normalTexName;
   normalMapDstPath.replace_extension(globals::textureAssetExt);
-  pbrMatAssetData.normalMapTexturePath = normalMapDstPath;
+  pbrMatAssetData.normalMapTexturePath = normalMapDstPath.string();
 
   // metalness
   assert(!metalnessTexName.empty() && "Normal map texture missing.");
@@ -837,7 +839,7 @@ void extractPbrOrFallbackMaterialData(
 
   fs::path metalnessDstPath = metalnessTexName;
   metalnessDstPath.replace_extension(globals::textureAssetExt);
-  pbrMatAssetData.metalnessTexturePath = metalnessDstPath;
+  pbrMatAssetData.metalnessTexturePath = metalnessDstPath.string();
 
   // roughness
   if (isMetallicRoughnessTexSeparate(mat)) {
@@ -849,7 +851,7 @@ void extractPbrOrFallbackMaterialData(
 
     fs::path roughnessDstPath = roughnessTexName;
     roughnessDstPath.replace_extension(globals::textureAssetExt);
-    pbrMatAssetData.roughnessTexturePath = roughnessDstPath;
+    pbrMatAssetData.roughnessTexturePath = roughnessDstPath.string();
   }
 }
 
@@ -916,7 +918,7 @@ AssetConverter::extractMaterials(fs::path const& srcDirPath,
         std::size_t vertInfoInteger = representAsInteger(vertInfo);
         int matInd = getMatInd(mat);
         materialPathTable[vertInfoInteger][matInd] =
-            fs::relative(materialPath, projectPath);
+            fs::relative(materialPath, projectPath).string();
       }
     }
   }

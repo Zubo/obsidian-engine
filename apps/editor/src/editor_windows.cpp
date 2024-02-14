@@ -717,7 +717,7 @@ void unlitMaterialEditor(asset::UnlitMaterialAssetData& unlitMatData) {
   if (ImGui::Combo("Color Tex", &colorTexComboInd, texValueStrings.valueStrings,
                    texValueStrings.size)) {
     unlitMatData.colorTexturePath =
-        texturesInProj.at(colorTexComboInd, texIncludeNone);
+        texturesInProj.at(colorTexComboInd, texIncludeNone).string();
   }
 
   if (ImGui::SliderFloat4("Color", &unlitMatData.color.r, 0.0f, 1.0f)) {
@@ -736,7 +736,7 @@ void litMaterialEditor(asset::LitMaterialAssetData& litMatData) {
   if (ImGui::Combo("Diffuse Tex", &diffuseTexComboInd,
                    texValueStrings.valueStrings, texValueStrings.size)) {
     litMatData.diffuseTexturePath =
-        texturesInProj.at(diffuseTexComboInd, texturesIncludeNone);
+        texturesInProj.at(diffuseTexComboInd, texturesIncludeNone).string();
   }
 
   int normalTexComboInd = texturesInProj.listItemInd(
@@ -745,7 +745,7 @@ void litMaterialEditor(asset::LitMaterialAssetData& litMatData) {
   if (ImGui::Combo("Normal Tex", &normalTexComboInd,
                    texValueStrings.valueStrings, texValueStrings.size)) {
     litMatData.normalMapTexturePath =
-        texturesInProj.at(normalTexComboInd, texturesIncludeNone);
+        texturesInProj.at(normalTexComboInd, texturesIncludeNone).string();
   }
 
   if (ImGui::SliderFloat4("Ambient Color", &litMatData.ambientColor.r, 0.0f,
@@ -915,7 +915,7 @@ void materialCreatorTab() {
                        shaderSizeAndStrings.size)) {
         materialsData.selectedMaterialAssetInfo.vertexShaderPath =
             shadersInProj.at(materialsData.vertexShaderComboInd,
-                             shadersIncludeNone);
+                             shadersIncludeNone).string();
       }
 
       if (ImGui::Combo("Fragment Shader", &materialsData.vertexShaderComboInd,
@@ -923,7 +923,7 @@ void materialCreatorTab() {
                        shaderSizeAndStrings.size)) {
         materialsData.selectedMaterialAssetInfo.fragmentShaderPath =
             shadersInProj.at(materialsData.fragmentShaderComboInd,
-                             shadersIncludeNone);
+                             shadersIncludeNone).string();
       }
 
       if (ImGui::Checkbox(
@@ -1053,14 +1053,16 @@ void projectTab(ObsidianEngine& engine, std::atomic<bool>& engineStarted) {
       if (!lastOpenProject.empty()) {
         if (ImGui::Button("Load last project")) {
           project.open(lastOpenProject);
-          std::strncpy(projPathBuf, lastOpenProject.c_str(),
-                       lastOpenProject.string().size());
+          std::string const lastOpenProjectStr = lastOpenProject.string();
+          std::strncpy(projPathBuf, lastOpenProjectStr.c_str(),
+                       lastOpenProjectStr.size());
           assetListDirty = true;
         }
         if (ImGui::Button("Load last project and run")) {
           if (project.open(lastOpenProject)) {
-            std::strncpy(projPathBuf, lastOpenProject.c_str(),
-                         lastOpenProject.string().size());
+            std::string const lastOpenProjectStr = lastOpenProject.string();
+            std::strncpy(projPathBuf, lastOpenProjectStr.c_str(),
+                         lastOpenProjectStr.size());
             assetListDirty = true;
             engineStarted = engine.init(sdl_wrapper::SDLBackend::instance(),
                                         project.getOpenProjectPath());

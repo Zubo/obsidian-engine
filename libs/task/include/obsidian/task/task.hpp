@@ -17,8 +17,6 @@ namespace obsidian::task {
 
 using TaskId = std::size_t;
 
-template <typename F> class Task;
-
 class TaskBase {
 public:
   TaskBase(TaskType type);

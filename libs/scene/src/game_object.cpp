@@ -242,7 +242,7 @@ serialization::GameObjectData GameObject::getGameObjectData() const {
 
   result.materialPaths = getMaterialRelativePathStrings();
 
-  result.meshPath = getMeshRelativePath();
+  result.meshPath = getMeshRelativePath().string();
 
   result.directionalLight = _directionalLight;
   result.spotlight = _spotlight;

@@ -10,6 +10,8 @@
 #include <obsidian/vk_rhi/vk_rhi.hpp>
 #include <obsidian/window/window.hpp>
 
+#define  SDL_MAIN_HANDLED
+
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_video.h>
 #include <SDL_events.h>
@@ -28,7 +30,7 @@
 #error This backend requires SDL 2.0.17+ because of SDL_RenderGeometry() function
 #endif
 
-int main(int, char**) {
+int main(int argc, char const** argv) {
   // Setup SDL
   if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_EVENTS |
                SDL_INIT_GAMECONTROLLER) != 0) {

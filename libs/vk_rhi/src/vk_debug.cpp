@@ -88,7 +88,6 @@ void setDbgResourceName(VkDevice vkDevice, std::uint64_t objHandle,
 
 void nameFramebufferResources(VkDevice vkDevice, Framebuffer const& framebuffer,
                               char const* framebufferName) {}
-}
 
 #endif
 

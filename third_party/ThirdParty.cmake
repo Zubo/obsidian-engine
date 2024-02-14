@@ -114,7 +114,7 @@ target_include_directories(DearImgui
 target_link_libraries(DearImgui
     PUBLIC
         ${Vulkan_LIBRARIES}
-        SDL2::SDL2
+        SDL2::SDL2-static
 )
 
 

@@ -14,15 +14,17 @@ struct ValueStrings {
 
 template <typename ValueType> class ItemListDataSource {
 public:
-  void setValues(std::vector<ValueType> values) {
-    _values = std::move(values);
+  void setValues(std::vector<ValueType> const& values) {
+    _values.clear();
+    std::transform(values.cbegin(), values.cend(), std::back_inserter(_values),
+                   [](ValueType const& v) { return v.string(); });
 
     _valueStringPtrs.resize(_values.size() + 1);
     _valueStringPtrs[0] = "none";
 
     std::transform(_values.cbegin(), _values.cend(),
                    _valueStringPtrs.begin() + 1,
-                   [](ValueType const& v) { return v.c_str(); });
+                   [](std::string const& v) { return v.c_str(); });
   }
 
   // returns size and the pointer to the first string pointer in the array
@@ -63,7 +65,7 @@ public:
   std::size_t valuesSize() const { return _values.size(); }
 
 private:
-  std::vector<ValueType> _values;
+  std::vector<std::string> _values;
   std::vector<char const*> _valueStringPtrs;
 };
 

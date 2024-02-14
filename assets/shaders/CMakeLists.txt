@@ -38,24 +38,26 @@ set(SHADER_INPUT_LIST)
 set(SHADER_OUTPUT_LIST)
 
 foreach(SHADER_SRC ${SHADER_SRC_FILES})
-    list(APPEND
-        SHADER_INPUT_LIST
-            "src/${SHADER_SRC_DIR}/${SHADER_SRC}"
-    )
+    if (NOT ${SHADER_SRC} MATCHES "^include/")
+        list(APPEND
+            SHADER_INPUT_LIST
+                "src/${SHADER_SRC_DIR}/${SHADER_SRC}"
+        )
 
-    string(REPLACE "." "-" SHADER_OUTPUT_FILE_NAME ${SHADER_SRC})
-    list(APPEND
-        SHADER_OUTPUT_LIST
-            "${SHADER_OUTPUT_DIR}/${SHADER_SRC_DIR}/${SHADER_OUTPUT_FILE_NAME}.spv"
-    )
-
-    if (${SHADER_OUTPUT_FILE_NAME} MATCHES "(^default)(-unlit)?((-frag)|(-vert))")
+        string(REPLACE "." "-" SHADER_OUTPUT_FILE_NAME ${SHADER_SRC})
         list(APPEND
             SHADER_OUTPUT_LIST
-                "${SHADER_OUTPUT_DIR}/${SHADER_SRC_DIR}/c-${SHADER_OUTPUT_FILE_NAME}.spv"
-                "${SHADER_OUTPUT_DIR}/${SHADER_SRC_DIR}/u-${SHADER_OUTPUT_FILE_NAME}.spv"
-                "${SHADER_OUTPUT_DIR}/${SHADER_SRC_DIR}/cu-${SHADER_OUTPUT_FILE_NAME}.spv"
+                "${SHADER_OUTPUT_DIR}/${SHADER_SRC_DIR}/${SHADER_OUTPUT_FILE_NAME}.spv"
         )
+
+        if (${SHADER_OUTPUT_FILE_NAME} MATCHES "(^default)(-unlit)?((-frag)|(-vert))")
+            list(APPEND
+                SHADER_OUTPUT_LIST
+                    "${SHADER_OUTPUT_DIR}/${SHADER_SRC_DIR}/c-${SHADER_OUTPUT_FILE_NAME}.spv"
+                    "${SHADER_OUTPUT_DIR}/${SHADER_SRC_DIR}/u-${SHADER_OUTPUT_FILE_NAME}.spv"
+                    "${SHADER_OUTPUT_DIR}/${SHADER_SRC_DIR}/cu-${SHADER_OUTPUT_FILE_NAME}.spv"
+            )
+        endif()
     endif()
 endforeach()
 
@@ -68,7 +70,7 @@ endif()
 add_custom_command(
     OUTPUT ${SHADER_OUTPUT_LIST}
     COMMAND ${CMAKE_COMMAND} -E remove file ${SHADER_OUTPUT_LIST}
-    COMMAND python3 ${PROJECT_SOURCE_DIR}/scripts/compile_shaders.py -o ${CMAKE_BINARY_DIR}/shaders ${SHADERS_DEBUG}
+    COMMAND python ${PROJECT_SOURCE_DIR}/scripts/compile_shaders.py -o ${CMAKE_BINARY_DIR}/shaders ${SHADERS_DEBUG}
     DEPENDS ${SHADER_INPUT_LIST}
 )
 

@@ -19,7 +19,7 @@ void reportInvalidArguments() {
               "-d <destination-dir-path>\n");
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char const** argv) {
   if (argc != 5) {
     reportInvalidArguments();
     return -1;
