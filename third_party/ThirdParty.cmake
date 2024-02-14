@@ -125,6 +125,9 @@ FetchContent_Declare(fetch_lz4
     GIT_PROGRESS TRUE
 )
 
+set(LZ4_BUILD_CLI OFF CACHE BOOL "Build lz4 program" FORCE)
+set(LZ4_BUILD_LEGACY_LZ4C OFF CACHE BOOL "Build lz4c program with legacy argument support" FORCE)
+
 FetchContent_MakeAvailable(fetch_lz4)
 
 FetchContent_Declare(fetch_json
