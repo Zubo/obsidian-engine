@@ -223,7 +223,6 @@ private:
   std::vector<ResourceTransfer> _resourceTransfers;
 
   // Timer
-  AllocatedBuffer _timerStagingBuffer;
   AllocatedBuffer _timerBuffer;
   using Clock = std::chrono::high_resolution_clock;
   std::chrono::time_point<Clock> _engineInitTimePoint;
@@ -276,10 +275,14 @@ private:
   void initEnvMapRenderPassDescriptorSets();
   void immediateSubmit(std::uint32_t queueInd,
                        std::function<void(VkCommandBuffer cmd)>&& function);
-  void uploadDataToImage(AllocatedBuffer stagingBuffer, VkImage dstImg,
-                         ImageTransferInfo const& imageTransferInfo,
-                         std::uint32_t currentImgQeueuFamilyIdx,
-                         ImageTransferDstState transferDstState);
+  void transferDataToImage(AllocatedBuffer stagingBuffer, VkImage dstImg,
+                           ImageTransferInfo const& imageTransferInfo,
+                           std::uint32_t currentImgQeueueFamilyIdx,
+                           ImageTransferDstState transferDstState);
+  void transferDataToBuffer(AllocatedBuffer stagingBuffer, VkBuffer dstBuffer,
+                            BufferTransferInfo const& bufferTransferInfo,
+                            std::uint32_t currentBufferQeueueFamilyIdx,
+                            BufferTransferDstState transferDstState);
   void initResourceTransferContext(ResourceTransferContext& ctx);
   ResourceTransferContext& getResourceTransferContextForCurrentThread();
   void immediateUploadImage();
@@ -289,14 +292,16 @@ private:
   ImmediateSubmitContext&
   getImmediateCtxForCurrentThread(std::uint32_t queueIdx);
   void destroyImmediateCtxForCurrentThread();
-  void updateGlobalSettingsBuffer();
+  void destroyResourceTransferContextForCurrentThread();
+  void updateGlobalSettingsBuffer(bool init);
 
   FrameData& getCurrentFrameData();
   FrameData& getPreviousFrameData();
 
   template <typename T>
   void uploadBufferData(std::size_t const index, T const& value,
-                        AllocatedBuffer const& dstBuffer) {
+                        AllocatedBuffer const& dstBuffer,
+                        std::uint32_t bufferQueueFamilyInd) {
     using ValueType = std::decay_t<T>;
 
     std::size_t const valueSize = getPaddedBufferSize(sizeof(ValueType));
@@ -305,30 +310,25 @@ private:
         valueSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_AUTO,
         VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
 
-    immediateSubmit(_transferQueueFamilyIndex, [this, valueSize, &stagingBuffer,
-                                                index, &value, &dstBuffer](
-                                                   VkCommandBuffer cmd) {
-      void* data = nullptr;
+    void* data = nullptr;
 
-      VK_CHECK(vmaMapMemory(_vmaAllocator, stagingBuffer.allocation, &data));
+    VK_CHECK(vmaMapMemory(_vmaAllocator, stagingBuffer.allocation, &data));
 
-      std::memcpy(data, reinterpret_cast<char const*>(&value),
-                  sizeof(ValueType));
+    std::memcpy(data, reinterpret_cast<char const*>(&value), sizeof(ValueType));
 
-      vmaUnmapMemory(_vmaAllocator, stagingBuffer.allocation);
-      (void)data;
+    vmaUnmapMemory(_vmaAllocator, stagingBuffer.allocation);
+    (void)data;
 
-      VkBufferCopy copyRegion = {};
-      copyRegion.srcOffset = 0;
-      copyRegion.dstOffset = index * valueSize;
-      copyRegion.size = sizeof(ValueType);
+    BufferTransferInfo bufferTransferInfo = {.offset = index * valueSize,
+                                             .size = valueSize};
 
-      vkCmdCopyBuffer(cmd, stagingBuffer.buffer, dstBuffer.buffer, 1,
-                      &copyRegion);
-    });
+    BufferTransferDstState const bufferTransferDstState = {
+        .dstBufferQueueFamilyIdx = _graphicsQueueFamilyIndex,
+        .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT,
+        .dstPipelineStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT};
 
-    vmaDestroyBuffer(_vmaAllocator, stagingBuffer.buffer,
-                     stagingBuffer.allocation);
+    transferDataToBuffer(stagingBuffer, dstBuffer.buffer, bufferTransferInfo,
+                         bufferQueueFamilyInd, bufferTransferDstState);
   }
 
   void drawWithMaterials(VkCommandBuffer cmd, VKDrawCall* first, int count,

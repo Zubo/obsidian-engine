@@ -79,11 +79,14 @@ void VulkanRHI::depthPrepass(DrawPassParams const& params) {
 
   vkCmdBeginRenderPass(cmd, &depthPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-  uploadBufferData(params.frameInd, params.cameraData, _cameraBuffer);
+  uploadBufferData(params.frameInd, params.cameraData, _cameraBuffer,
+                   _graphicsQueueFamilyIndex);
 
   std::vector<std::uint32_t> const depthPassDynamicOffsets = {
-      0, static_cast<std::uint32_t>(
-             params.frameInd * getPaddedBufferSize(sizeof(GPUCameraData)))};
+      static_cast<std::uint32_t>(params.frameInd *
+                                 getPaddedBufferSize(sizeof(GPUSceneData))),
+      static_cast<std::uint32_t>(params.frameInd *
+                                 getPaddedBufferSize(sizeof(GPUCameraData)))};
 
   VertexInputSpec const depthPrepassInputSpec = {true, false, false, false,
                                                  false};
@@ -159,7 +162,8 @@ void VulkanRHI::depthPrepass(DrawPassParams const& params) {
 void VulkanRHI::ssaoPass(DrawPassParams const& params) {
   ZoneScoped;
 
-  uploadBufferData(params.frameInd, params.cameraData, _cameraBuffer);
+  uploadBufferData(params.frameInd, params.cameraData, _cameraBuffer,
+                   _graphicsQueueFamilyIndex);
 
   VkRenderPassBeginInfo ssaoRenderPassBeginInfo = {};
   ssaoRenderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -185,9 +189,9 @@ void VulkanRHI::ssaoPass(DrawPassParams const& params) {
 
   std::vector<std::uint32_t> const ssaoDynamicOffsets{
       static_cast<std::uint32_t>(params.frameInd *
-                                 getPaddedBufferSize(sizeof(GPUCameraData))),
+                                 getPaddedBufferSize(sizeof(GPUSceneData))),
       static_cast<std::uint32_t>(params.frameInd *
-                                 getPaddedBufferSize(sizeof(GPUSceneData)))};
+                                 getPaddedBufferSize(sizeof(GPUCameraData)))};
 
   VertexInputSpec const ssaoVertInputSpec = {true, true, false, true, false};
 
@@ -305,11 +309,13 @@ void VulkanRHI::shadowPasses(DrawPassParams const& params) {
         params.frameInd * rhi::maxLightsPerDrawPass + shadowPass.shadowMapIndex;
 
     uploadBufferData(cameraBufferInd, shadowPass.gpuCameraData,
-                     _shadowPassCameraBuffer);
+                     _shadowPassCameraBuffer, _graphicsQueueFamilyIndex);
 
     std::vector<std::uint32_t> const dynamicOffsets = {
-        0, static_cast<std::uint32_t>(
-               cameraBufferInd * getPaddedBufferSize(sizeof(GPUCameraData)))};
+        static_cast<std::uint32_t>(params.frameInd *
+                                   getPaddedBufferSize(sizeof(GPUSceneData))),
+        static_cast<std::uint32_t>(cameraBufferInd *
+                                   getPaddedBufferSize(sizeof(GPUCameraData)))};
 
     drawNoMaterials(cmd, _drawCallQueue.data(), _drawCallQueue.size(),
                     shadowPass.gpuCameraData, _vkShadowPassPipeline,
@@ -426,7 +432,8 @@ void VulkanRHI::environmentMapPasses(struct DrawPassParams const& params) {
       cameraData.proj[0][0] *= -1;
       cameraData.viewProj = cameraData.proj * cameraData.view;
 
-      uploadBufferData(6 * params.frameInd + i, cameraData, map.cameraBuffer);
+      uploadBufferData(6 * params.frameInd + i, cameraData, map.cameraBuffer,
+                       _graphicsQueueFamilyIndex);
 
       std::array<VkClearValue, 2> clearValues;
       clearValues[0].color = environmentColor;
@@ -581,10 +588,11 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
 
   GPUSceneData gpuSceneData;
   gpuSceneData.ambientColor = glm::vec4(sceneParams.ambientColor, 1.0f);
-  uploadBufferData(params.frameInd, gpuSceneData, _sceneDataBuffer);
+  uploadBufferData(params.frameInd, gpuSceneData, _sceneDataBuffer,
+                   _graphicsQueueFamilyIndex);
 
   uploadBufferData(params.frameInd, getGPULightData(sceneParams.cameraPos),
-                   _lightDataBuffer);
+                   _lightDataBuffer, _graphicsQueueFamilyIndex);
 
   auto const sortByDistanceAscending =
       getSortByDistanceFunc<true>(params.cameraData.viewProj);

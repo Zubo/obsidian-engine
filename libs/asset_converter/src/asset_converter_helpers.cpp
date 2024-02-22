@@ -150,7 +150,8 @@ std::size_t generateVerticesFromObj(
   using Vertex = typename V::Vertex;
 
   assert(!outVertices.size() &&
-         !std::accumulate(outSurfaces.cbegin(), outSurfaces.cend(), 0,
+         !std::accumulate(outSurfaces.cbegin(), outSurfaces.cend(),
+                          std::size_t{0},
                           [](std::size_t acc, auto const& surfaceIndices) {
                             return surfaceIndices.size() + acc;
                           }) &&

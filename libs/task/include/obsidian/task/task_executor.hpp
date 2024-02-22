@@ -67,7 +67,6 @@ public:
 
 private:
   std::map<TaskType, TaskQueue> _taskQueues;
-  std::vector<std::unique_ptr<TaskBase>> _dequeuedTasks;
   std::vector<std::thread> _threads;
   mutable std::mutex _taskQueueMutex;
   mutable std::condition_variable _waitIdleCondVar;

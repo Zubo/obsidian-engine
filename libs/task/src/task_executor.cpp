@@ -48,8 +48,7 @@ void TaskExecutor::workerFunc(TaskType taskType) {
       return;
     }
 
-    TaskBase& task =
-        *_dequeuedTasks.emplace_back(std::move(taskQueue.tasks.back()));
+    std::unique_ptr<TaskBase> task = std::move(taskQueue.tasks.back());
     taskQueue.tasks.pop_back();
 
     ++taskQueue.tasksInProgress;
@@ -57,7 +56,7 @@ void TaskExecutor::workerFunc(TaskType taskType) {
     lock.unlock();
     taskQueue.taskQueueCondVar.notify_one();
 
-    task.execute();
+    task->execute();
 
     lock.lock();
 
@@ -91,7 +90,6 @@ void TaskExecutor::shutdown() {
   _waitIdleCondVar.notify_all();
 
   _taskQueues.clear();
-  _dequeuedTasks.clear();
   _threads.clear();
   _shutdownComplete = true;
 }

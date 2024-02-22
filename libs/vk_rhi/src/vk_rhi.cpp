@@ -139,8 +139,9 @@ void VulkanRHI::uploadTexture(rhi::ResourceIdRHI id,
             _graphicsQueueFamilyIndex, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT};
 
-        uploadDataToImage(stagingBuffer, newTexture.image.vkImage, transferInfo,
-                          VK_QUEUE_FAMILY_IGNORED, transferDstState);
+        transferDataToImage(stagingBuffer, newTexture.image.vkImage,
+                            transferInfo, VK_QUEUE_FAMILY_IGNORED,
+                            transferDstState);
 
         rhi::ResourceState expected = rhi::ResourceState::uploading;
 
@@ -350,7 +351,8 @@ void VulkanRHI::createAndBindMaterialDataBuffer(
       VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
       VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0);
 
-  uploadBufferData(0, materialData, materialDataBuffer);
+  uploadBufferData(0, materialData, materialDataBuffer,
+                   VK_QUEUE_FAMILY_IGNORED);
 
   _deletionQueue.pushFunction([this, materialDataBuffer]() {
     vmaDestroyBuffer(_vmaAllocator, materialDataBuffer.buffer,
@@ -877,7 +879,7 @@ void VulkanRHI::immediateSubmit(
     vkWaitForFences(_vkDevice, 1, &immediateSubmitContext.vkFence, VK_TRUE,
                     9999999999);
   }
-  vkResetFences(_vkDevice, 1, &immediateSubmitContext.vkFence);
+  VK_CHECK(vkResetFences(_vkDevice, 1, &immediateSubmitContext.vkFence));
 
   VK_CHECK(
       vkResetCommandPool(_vkDevice, immediateSubmitContext.vkCommandPool, 0));
@@ -910,10 +912,15 @@ VulkanRHI::getResourceTransferContextForCurrentThread() {
   return ctx;
 }
 
-void VulkanRHI::uploadDataToImage(AllocatedBuffer stagingBuffer, VkImage dstImg,
-                                  ImageTransferInfo const& imgTransferInfo,
-                                  std::uint32_t currentImgQueueFamilyIdx,
-                                  ImageTransferDstState transferDstState) {
+void VulkanRHI::destroyResourceTransferContextForCurrentThread() {
+  getResourceTransferContextForCurrentThread() = {};
+}
+
+void VulkanRHI::transferDataToImage(AllocatedBuffer stagingBuffer,
+                                    VkImage dstImg,
+                                    ImageTransferInfo const& imgTransferInfo,
+                                    std::uint32_t currentImgQueueFamilyIdx,
+                                    ImageTransferDstState transferDstState) {
   ResourceTransferContext& ctx = getResourceTransferContextForCurrentThread();
   ResourceTransfer transfer = {};
   transfer.stagingBuffer = stagingBuffer;
@@ -928,7 +935,7 @@ void VulkanRHI::uploadDataToImage(AllocatedBuffer stagingBuffer, VkImage dstImg,
 
   VkSemaphore transitionToTransferQueueSemaphore = VK_NULL_HANDLE;
 
-  VkCommandBuffer& cmdTransfer = transfer.commandBuffers.emplace_back();
+  VkCommandBuffer cmdTransfer = VK_NULL_HANDLE;
 
   VkCommandBufferAllocateInfo const cmdTransferAllocInfo =
       vkinit::commandBufferAllocateInfo(
@@ -936,6 +943,7 @@ void VulkanRHI::uploadDataToImage(AllocatedBuffer stagingBuffer, VkImage dstImg,
 
   VK_CHECK(vkAllocateCommandBuffers(ctx.device, &cmdTransferAllocInfo,
                                     &cmdTransfer));
+  transfer.commandBuffers.push_back(cmdTransfer);
 
   VkCommandBufferBeginInfo const cmdTransferBegininfo =
       vkinit::commandBufferBeginInfo(
@@ -950,9 +958,9 @@ void VulkanRHI::uploadDataToImage(AllocatedBuffer stagingBuffer, VkImage dstImg,
   barrierTransitionToTransferQueue.srcAccessMask = VK_ACCESS_NONE;
   barrierTransitionToTransferQueue.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
   barrierTransitionToTransferQueue.srcQueueFamilyIndex =
-      _transferQueueFamilyIndex;
+      VK_QUEUE_FAMILY_IGNORED;
   barrierTransitionToTransferQueue.dstQueueFamilyIndex =
-      _transferQueueFamilyIndex;
+      VK_QUEUE_FAMILY_IGNORED;
   barrierTransitionToTransferQueue.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
   barrierTransitionToTransferQueue.newLayout =
       VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
@@ -974,7 +982,7 @@ void VulkanRHI::uploadDataToImage(AllocatedBuffer stagingBuffer, VkImage dstImg,
     barrierTransitionToTransferQueue.dstQueueFamilyIndex =
         _transferQueueFamilyIndex;
 
-    VkCommandBuffer& cmdRelease = transfer.commandBuffers.emplace_back();
+    VkCommandBuffer cmdRelease = VK_NULL_HANDLE;
 
     VkCommandBufferAllocateInfo const cmdReleaseAllocInfo =
         vkinit::commandBufferAllocateInfo(
@@ -982,6 +990,7 @@ void VulkanRHI::uploadDataToImage(AllocatedBuffer stagingBuffer, VkImage dstImg,
 
     VK_CHECK(vkAllocateCommandBuffers(ctx.device, &cmdReleaseAllocInfo,
                                       &cmdRelease));
+    transfer.commandBuffers.push_back(cmdRelease);
 
     VkSemaphoreCreateInfo const semaphoreCreateInfo =
         vkinit::semaphoreCreateInfo(0);
@@ -1006,6 +1015,8 @@ void VulkanRHI::uploadDataToImage(AllocatedBuffer stagingBuffer, VkImage dstImg,
     releaseSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     releaseSubmitInfo.pNext = nullptr;
 
+    releaseSubmitInfo.commandBufferCount = 1;
+    releaseSubmitInfo.pCommandBuffers = &cmdRelease;
     releaseSubmitInfo.signalSemaphoreCount = 1;
     releaseSubmitInfo.pSignalSemaphores = &transitionToTransferQueueSemaphore;
 
@@ -1087,14 +1098,14 @@ void VulkanRHI::uploadDataToImage(AllocatedBuffer stagingBuffer, VkImage dstImg,
                          VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, 0, nullptr, 0,
                          nullptr, 1, &barrierTransitionToDstQueue);
 
-    VkSemaphore& transitionToDstQueueSemaphore =
-        transfer.semaphores.emplace_back();
+    VkSemaphore transitionToDstQueueSemaphore = VK_NULL_HANDLE;
 
     VkSemaphoreCreateInfo const semaphoreCreateInfo =
         vkinit::semaphoreCreateInfo(0);
 
     VK_CHECK(vkCreateSemaphore(ctx.device, &semaphoreCreateInfo, nullptr,
                                &transitionToDstQueueSemaphore));
+    transfer.semaphores.push_back(transitionToDstQueueSemaphore);
 
     transferSubmitInfo.signalSemaphoreCount = 1;
     transferSubmitInfo.pSignalSemaphores = &transitionToDstQueueSemaphore;
@@ -1106,7 +1117,7 @@ void VulkanRHI::uploadDataToImage(AllocatedBuffer stagingBuffer, VkImage dstImg,
                              &transferSubmitInfo, VK_NULL_HANDLE));
     }
 
-    VkCommandBuffer& cmdAcquire = transfer.commandBuffers.emplace_back();
+    VkCommandBuffer cmdAcquire = VK_NULL_HANDLE;
 
     VkCommandBufferAllocateInfo const cmdAcquireAllocInfo =
         vkinit::commandBufferAllocateInfo(
@@ -1114,6 +1125,7 @@ void VulkanRHI::uploadDataToImage(AllocatedBuffer stagingBuffer, VkImage dstImg,
 
     VK_CHECK(vkAllocateCommandBuffers(ctx.device, &cmdAcquireAllocInfo,
                                       &cmdAcquire));
+    transfer.commandBuffers.push_back(cmdAcquire);
 
     VkCommandBufferBeginInfo cmdAcquireBeginInfo =
         vkinit::commandBufferBeginInfo(
@@ -1165,6 +1177,230 @@ void VulkanRHI::uploadDataToImage(AllocatedBuffer stagingBuffer, VkImage dstImg,
   }
 }
 
+void VulkanRHI::transferDataToBuffer(
+    AllocatedBuffer stagingBuffer, VkBuffer dstBuffer,
+    BufferTransferInfo const& bufferTransferInfo,
+    std::uint32_t currentBufferQeueueFamilyIdx,
+    BufferTransferDstState transferDstState) {
+  ResourceTransferContext& ctx = getResourceTransferContextForCurrentThread();
+  ResourceTransfer transfer = {};
+  transfer.stagingBuffer = stagingBuffer;
+
+  VkFenceCreateInfo fenceCreateInfo = {.sType =
+                                           VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+                                       .pNext = nullptr,
+                                       .flags = 0};
+
+  VK_CHECK(vkCreateFence(ctx.device, &fenceCreateInfo, nullptr,
+                         &transfer.transferFence));
+
+  VkSemaphore transitionToTransferQueueSemaphore = VK_NULL_HANDLE;
+
+  VkCommandBuffer cmdTransfer = VK_NULL_HANDLE;
+
+  VkCommandBufferAllocateInfo const cmdTransferAllocInfo =
+      vkinit::commandBufferAllocateInfo(
+          ctx.queueCommandPools.at(_transferQueueFamilyIndex));
+
+  VK_CHECK(vkAllocateCommandBuffers(ctx.device, &cmdTransferAllocInfo,
+                                    &cmdTransfer));
+  transfer.commandBuffers.push_back(cmdTransfer);
+
+  VkCommandBufferBeginInfo const cmdTransferBegininfo =
+      vkinit::commandBufferBeginInfo(
+          VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+
+  VK_CHECK(vkBeginCommandBuffer(cmdTransfer, &cmdTransferBegininfo));
+
+  VkBufferMemoryBarrier barrierTransitionToTransferQueue = {};
+  barrierTransitionToTransferQueue.sType =
+      VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+  barrierTransitionToTransferQueue.pNext = nullptr;
+
+  barrierTransitionToTransferQueue.srcAccessMask = VK_ACCESS_NONE;
+  barrierTransitionToTransferQueue.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+  barrierTransitionToTransferQueue.srcQueueFamilyIndex =
+      VK_QUEUE_FAMILY_IGNORED;
+  barrierTransitionToTransferQueue.dstQueueFamilyIndex =
+      VK_QUEUE_FAMILY_IGNORED;
+  barrierTransitionToTransferQueue.buffer = dstBuffer;
+  barrierTransitionToTransferQueue.offset = bufferTransferInfo.offset;
+  barrierTransitionToTransferQueue.size = bufferTransferInfo.size;
+
+  if (currentBufferQeueueFamilyIdx != VK_QUEUE_FAMILY_IGNORED &&
+      currentBufferQeueueFamilyIdx != _transferQueueFamilyIndex) {
+    // Transition queue ownership from current queue to transfer queue
+    barrierTransitionToTransferQueue.srcQueueFamilyIndex =
+        currentBufferQeueueFamilyIdx;
+    barrierTransitionToTransferQueue.dstQueueFamilyIndex =
+        _transferQueueFamilyIndex;
+
+    VkCommandBuffer cmdRelease = VK_NULL_HANDLE;
+
+    VkCommandBufferAllocateInfo const cmdReleaseAllocInfo =
+        vkinit::commandBufferAllocateInfo(
+            ctx.queueCommandPools.at(currentBufferQeueueFamilyIdx));
+
+    VK_CHECK(vkAllocateCommandBuffers(ctx.device, &cmdReleaseAllocInfo,
+                                      &cmdRelease));
+    transfer.commandBuffers.push_back(cmdRelease);
+
+    VkSemaphoreCreateInfo const semaphoreCreateInfo =
+        vkinit::semaphoreCreateInfo(0);
+
+    VK_CHECK(vkCreateSemaphore(ctx.device, &semaphoreCreateInfo, nullptr,
+                               &transitionToTransferQueueSemaphore));
+    transfer.semaphores.push_back(transitionToTransferQueueSemaphore);
+
+    VkCommandBufferBeginInfo cmdBufferBeginInfo =
+        vkinit::commandBufferBeginInfo(
+            VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+
+    VK_CHECK(vkBeginCommandBuffer(cmdRelease, &cmdBufferBeginInfo));
+
+    vkCmdPipelineBarrier(cmdRelease, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                         VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 1,
+                         &barrierTransitionToTransferQueue, 0, nullptr);
+
+    VK_CHECK(vkEndCommandBuffer(cmdRelease));
+
+    VkSubmitInfo releaseSubmitInfo = {};
+    releaseSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    releaseSubmitInfo.pNext = nullptr;
+
+    releaseSubmitInfo.commandBufferCount = 1;
+    releaseSubmitInfo.pCommandBuffers = &cmdRelease;
+    releaseSubmitInfo.signalSemaphoreCount = 1;
+    releaseSubmitInfo.pSignalSemaphores = &transitionToTransferQueueSemaphore;
+
+    {
+      std::scoped_lock l{_gpuQueueMutexes.at(currentBufferQeueueFamilyIdx)};
+      VK_CHECK(vkQueueSubmit(_gpuQueues.at(currentBufferQeueueFamilyIdx), 1,
+                             &releaseSubmitInfo, VK_NULL_HANDLE));
+    }
+  }
+
+  vkCmdPipelineBarrier(cmdTransfer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                       VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 1,
+                       &barrierTransitionToTransferQueue, 0, nullptr);
+  VkBufferCopy const bufferCopy{.srcOffset = 0,
+                                .dstOffset = bufferTransferInfo.offset,
+                                .size = bufferTransferInfo.size};
+
+  vkCmdCopyBuffer(cmdTransfer, stagingBuffer.buffer, dstBuffer, 1, &bufferCopy);
+
+  VkSubmitInfo transferSubmitInfo = {};
+  transferSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+  transferSubmitInfo.pNext = nullptr;
+
+  if (transitionToTransferQueueSemaphore != VK_NULL_HANDLE) {
+    transferSubmitInfo.waitSemaphoreCount = 1;
+    transferSubmitInfo.pWaitSemaphores = &transitionToTransferQueueSemaphore;
+  }
+
+  VkPipelineStageFlags waitDstStageFlag = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+  transferSubmitInfo.pWaitDstStageMask = &waitDstStageFlag;
+  transferSubmitInfo.commandBufferCount = 1;
+  transferSubmitInfo.pCommandBuffers = &cmdTransfer;
+
+  if (transferDstState.dstBufferQueueFamilyIdx != VK_QUEUE_FAMILY_IGNORED &&
+      transferDstState.dstBufferQueueFamilyIdx != _transferQueueFamilyIndex) {
+    // transition image ownership to dst queue family with barriers
+
+    VkBufferMemoryBarrier barrierTransitionToDstQueue = {};
+    barrierTransitionToDstQueue.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+    barrierTransitionToDstQueue.pNext = nullptr;
+
+    barrierTransitionToDstQueue.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    barrierTransitionToDstQueue.dstAccessMask = transferDstState.dstAccessMask;
+    barrierTransitionToDstQueue.srcQueueFamilyIndex = _transferQueueFamilyIndex;
+    barrierTransitionToDstQueue.dstQueueFamilyIndex =
+        transferDstState.dstBufferQueueFamilyIdx;
+    barrierTransitionToDstQueue.buffer = dstBuffer;
+    barrierTransitionToDstQueue.offset = bufferTransferInfo.offset;
+    barrierTransitionToDstQueue.size = bufferTransferInfo.size;
+
+    // release queue ownership barrier
+    vkCmdPipelineBarrier(cmdTransfer, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                         VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, 0, nullptr, 1,
+                         &barrierTransitionToDstQueue, 0, nullptr);
+
+    VkSemaphore transitionToDstQueueSemaphore = VK_NULL_HANDLE;
+
+    VkSemaphoreCreateInfo const semaphoreCreateInfo =
+        vkinit::semaphoreCreateInfo(0);
+
+    VK_CHECK(vkCreateSemaphore(ctx.device, &semaphoreCreateInfo, nullptr,
+                               &transitionToDstQueueSemaphore));
+    transfer.semaphores.push_back(transitionToDstQueueSemaphore);
+
+    transferSubmitInfo.signalSemaphoreCount = 1;
+    transferSubmitInfo.pSignalSemaphores = &transitionToDstQueueSemaphore;
+
+    VK_CHECK(vkEndCommandBuffer(cmdTransfer));
+    {
+      std::scoped_lock l{_gpuQueueMutexes.at(_transferQueueFamilyIndex)};
+      VK_CHECK(vkQueueSubmit(_gpuQueues.at(_transferQueueFamilyIndex), 1,
+                             &transferSubmitInfo, VK_NULL_HANDLE));
+    }
+
+    VkCommandBuffer cmdAcquire = VK_NULL_HANDLE;
+
+    VkCommandBufferAllocateInfo const cmdAcquireAllocInfo =
+        vkinit::commandBufferAllocateInfo(
+            ctx.queueCommandPools.at(transferDstState.dstBufferQueueFamilyIdx));
+
+    VK_CHECK(vkAllocateCommandBuffers(ctx.device, &cmdAcquireAllocInfo,
+                                      &cmdAcquire));
+    transfer.commandBuffers.push_back(cmdAcquire);
+
+    VkCommandBufferBeginInfo cmdAcquireBeginInfo =
+        vkinit::commandBufferBeginInfo(
+            VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+
+    VK_CHECK(vkBeginCommandBuffer(cmdAcquire, &cmdAcquireBeginInfo));
+
+    // acquire ownership of the dst queue
+    vkCmdPipelineBarrier(cmdAcquire, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                         transferDstState.dstPipelineStage, 0, 0, nullptr, 1,
+                         &barrierTransitionToDstQueue, 0, nullptr);
+
+    VK_CHECK(vkEndCommandBuffer(cmdAcquire));
+
+    VkSubmitInfo acquireSubmitInfo = {};
+    acquireSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    acquireSubmitInfo.pNext = nullptr;
+
+    acquireSubmitInfo.commandBufferCount = 1;
+    acquireSubmitInfo.pCommandBuffers = &cmdAcquire;
+    acquireSubmitInfo.waitSemaphoreCount = 1;
+    acquireSubmitInfo.pWaitSemaphores = &transitionToDstQueueSemaphore;
+    VkPipelineStageFlags waitSemaphoreStageFlags =
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    acquireSubmitInfo.pWaitDstStageMask = &waitSemaphoreStageFlags;
+
+    {
+      std::scoped_lock l{
+          _gpuQueueMutexes.at(transferDstState.dstBufferQueueFamilyIdx)};
+      VK_CHECK(
+          vkQueueSubmit(_gpuQueues.at(transferDstState.dstBufferQueueFamilyIdx),
+                        1, &acquireSubmitInfo, transfer.transferFence));
+    }
+  } else {
+    VK_CHECK(vkEndCommandBuffer(cmdTransfer));
+
+    {
+      std::scoped_lock l{_gpuQueueMutexes.at(_transferQueueFamilyIndex)};
+      VK_CHECK(vkQueueSubmit(_gpuQueues[_transferQueueFamilyIndex], 1,
+                             &transferSubmitInfo, transfer.transferFence));
+    }
+  }
+
+  {
+    std::scoped_lock l{_resourceTransfersMutex};
+    _resourceTransfers.push_back(transfer);
+  }
+}
 FrameData& VulkanRHI::getCurrentFrameData() {
   std::size_t const currentFrameDataInd = _frameNumber % frameOverlap;
   return _frameDataArray[currentFrameDataInd];
@@ -1392,7 +1628,7 @@ void VulkanRHI::applyPendingExtentUpdate() {
     initSsaoFramebuffers();
     initSsaoPostProcessingFramebuffers();
     initDescriptors();
-    updateGlobalSettingsBuffer();
+    updateGlobalSettingsBuffer(false);
     initDepthPrepassDescriptors();
     initSsaoDescriptors();
     initSsaoPostProcessingDescriptors();
@@ -1424,10 +1660,11 @@ void VulkanRHI::destroyImmediateCtxForCurrentThread() {
   contextsInitialized = false;
 }
 
-void VulkanRHI::updateGlobalSettingsBuffer() {
+void VulkanRHI::updateGlobalSettingsBuffer(bool init) {
   GPUGlobalSettings globalSettings = {};
   globalSettings.swapchainWidth = _vkbSwapchain.extent.width;
   globalSettings.swapchainHeight = _vkbSwapchain.extent.height;
 
-  uploadBufferData(0, globalSettings, _globalSettingsBuffer);
+  uploadBufferData(0, globalSettings, _globalSettingsBuffer,
+                   init ? VK_QUEUE_FAMILY_IGNORED : _graphicsQueueFamilyIndex);
 }

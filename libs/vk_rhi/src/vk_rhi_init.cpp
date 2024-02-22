@@ -454,6 +454,7 @@ void VulkanRHI::initGlobalSettingsBuffer() {
       getPaddedBufferSize(sizeof(GPUGlobalSettings)),
       VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
       VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0);
+  updateGlobalSettingsBuffer(true);
 
   setDbgResourceName(_vkDevice, (std::uint64_t)_globalSettingsBuffer.buffer,
                      VK_OBJECT_TYPE_BUFFER, "Global settings buffer");
@@ -935,10 +936,12 @@ void VulkanRHI::initMainRenderPassDataBuffer() {
       getPaddedBufferSize(sizeof(GpuRenderPassData)),
       VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
       VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0);
+  setDbgResourceName(_vkDevice, (std::uint64_t)_mainRenderPassDataBuffer.buffer,
+                     VK_OBJECT_TYPE_BUFFER, "Main render pass data");
 
   GpuRenderPassData data{VK_TRUE};
 
-  uploadBufferData(0, data, _mainRenderPassDataBuffer);
+  uploadBufferData(0, data, _mainRenderPassDataBuffer, VK_QUEUE_FAMILY_IGNORED);
 
   _deletionQueue.pushFunction([this]() {
     vmaDestroyBuffer(_vmaAllocator, _mainRenderPassDataBuffer.buffer,
@@ -987,6 +990,9 @@ void VulkanRHI::initDescriptors() {
                                       VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                   VMA_MEMORY_USAGE_AUTO, 0);
 
+  setDbgResourceName(_vkDevice, (std::uint64_t)_sceneDataBuffer.buffer,
+                     VK_OBJECT_TYPE_BUFFER, "Scene data");
+
   _swapchainDeletionQueue.pushFunction([this]() {
     vmaDestroyBuffer(_vmaAllocator, _sceneDataBuffer.buffer,
                      _sceneDataBuffer.allocation);
@@ -996,6 +1002,10 @@ void VulkanRHI::initDescriptors() {
       frameOverlap * getPaddedBufferSize(sizeof(GPUCameraData)),
       VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
       VMA_MEMORY_USAGE_AUTO, 0);
+
+  setDbgResourceName(_vkDevice, (std::uint64_t)_cameraBuffer.buffer,
+                     VK_OBJECT_TYPE_BUFFER, "Camera data");
+
   _swapchainDeletionQueue.pushFunction([this]() {
     vmaDestroyBuffer(_vmaAllocator, _cameraBuffer.buffer,
                      _cameraBuffer.allocation);
@@ -1276,6 +1286,9 @@ void VulkanRHI::initShadowPassDescriptors() {
       VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
       VMA_MEMORY_USAGE_AUTO, 0);
 
+  setDbgResourceName(_vkDevice, (std::uint64_t)_shadowPassCameraBuffer.buffer,
+                     VK_OBJECT_TYPE_BUFFER, "Shadow pass camera data");
+
   _deletionQueue.pushFunction([this]() {
     vmaDestroyBuffer(_vmaAllocator, _shadowPassCameraBuffer.buffer,
                      _shadowPassCameraBuffer.allocation);
@@ -1499,10 +1512,15 @@ void VulkanRHI::initEnvMapRenderPassDataBuffer() {
       VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
       VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0);
 
+  setDbgResourceName(_vkDevice,
+                     (std::uint64_t)_envMapRenderPassDataBuffer.buffer,
+                     VK_OBJECT_TYPE_BUFFER, "Env map render pass data");
+
   GpuRenderPassData renderPassData = {};
   renderPassData.applySsao = VK_FALSE;
 
-  uploadBufferData(0, renderPassData, _envMapRenderPassDataBuffer);
+  uploadBufferData(0, renderPassData, _envMapRenderPassDataBuffer,
+                   VK_QUEUE_FAMILY_IGNORED);
 
   _deletionQueue.pushFunction([this]() {
     vmaDestroyBuffer(_vmaAllocator, _envMapRenderPassDataBuffer.buffer,
@@ -1520,7 +1538,7 @@ void VulkanRHI::initEnvMapDataBuffer() {
                      VK_OBJECT_TYPE_BUFFER, "Env map data buffer");
 
   GpuEnvironmentMapDataCollection data = {};
-  uploadBufferData(0, data, _envMapDataBuffer);
+  uploadBufferData(0, data, _envMapDataBuffer, VK_QUEUE_FAMILY_IGNORED);
 
   _deletionQueue.pushFunction([this]() {
     vmaDestroyBuffer(_vmaAllocator, _envMapDataBuffer.buffer,
@@ -1558,15 +1576,15 @@ void VulkanRHI::initImmediateSubmitContext(ImmediateSubmitContext& context,
 void VulkanRHI::initTimer() {
   _engineInitTimePoint = Clock::now();
 
-  _timerStagingBuffer =
-      createBuffer(sizeof(std::uint32_t), VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                   VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
-                   VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
-
-  _timerBuffer = createBuffer(sizeof(std::uint32_t),
+  _timerBuffer = createBuffer(getPaddedBufferSize(sizeof(std::uint32_t)),
                               VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |
                                   VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                               VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE, 0);
+
+  std::uint32_t const msElapsedSinceInit = 0;
+
+  uploadBufferData(0, msElapsedSinceInit, _timerBuffer,
+                   VK_QUEUE_FAMILY_IGNORED);
 
   setDbgResourceName(_vkDevice, (std::uint64_t)_timerBuffer.buffer,
                      VK_OBJECT_TYPE_BUFFER, "Timer buffer");
@@ -1574,32 +1592,15 @@ void VulkanRHI::initTimer() {
   _deletionQueue.pushFunction([this]() {
     vmaDestroyBuffer(_vmaAllocator, _timerBuffer.buffer,
                      _timerBuffer.allocation);
-    vmaDestroyBuffer(_vmaAllocator, _timerStagingBuffer.buffer,
-                     _timerStagingBuffer.allocation);
   });
 }
 
 void VulkanRHI::updateTimerBuffer(VkCommandBuffer cmd) {
-  return;
   using namespace std::chrono;
 
   std::uint32_t const msElapsedSinceInit =
       duration_cast<milliseconds>(Clock::now() - _engineInitTimePoint).count();
 
-  void* data;
-  VK_CHECK(vmaMapMemory(_vmaAllocator, _timerStagingBuffer.allocation, &data));
-
-  std::memcpy(data, static_cast<void const*>(&msElapsedSinceInit),
-              sizeof(msElapsedSinceInit));
-
-  vmaUnmapMemory(_vmaAllocator, _timerStagingBuffer.allocation);
-  (void)data;
-
-  VkBufferCopy bufferCopy = {};
-  bufferCopy.srcOffset = 0;
-  bufferCopy.dstOffset = 0;
-  bufferCopy.size = sizeof(msElapsedSinceInit);
-
-  vkCmdCopyBuffer(cmd, _timerStagingBuffer.buffer, _timerBuffer.buffer, 1,
-                  &bufferCopy);
+  uploadBufferData(0, msElapsedSinceInit, _timerBuffer,
+                   _graphicsQueueFamilyIndex);
 }

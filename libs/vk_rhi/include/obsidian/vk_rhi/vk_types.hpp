@@ -190,6 +190,17 @@ struct ImageTransferDstState {
   VkPipelineStageFlags dstPipelineStage;
 };
 
+struct BufferTransferInfo {
+  VkDeviceSize offset;
+  VkDeviceSize size;
+};
+
+struct BufferTransferDstState {
+  std::uint32_t dstBufferQueueFamilyIdx;
+  VkAccessFlags dstAccessMask;
+  VkPipelineStageFlags dstPipelineStage;
+};
+
 struct FramebufferImageViews {
   std::vector<VkImageView> vkImageViews;
 };

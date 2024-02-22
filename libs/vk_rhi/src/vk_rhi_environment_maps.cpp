@@ -209,7 +209,8 @@ void VulkanRHI::applyPendingEnvironmentMapUpdates() {
       ++mapIter;
     }
 
-    uploadBufferData(0, envMapData, _envMapDataBuffer);
+    uploadBufferData(0, envMapData, _envMapDataBuffer,
+                     _graphicsQueueFamilyIndex);
 
     if (writeImageInfos.size()) {
       VkWriteDescriptorSet writeEnvGlobalDescriptorSet = {};
