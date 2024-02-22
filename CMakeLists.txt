@@ -11,6 +11,18 @@ endif()
 
 enable_testing()
 
+option(ENABLE_ADDRESS_SANITIZER "Enables address sanitizer for the whole project." OFF)
+
+if (ENABLE_ADDRESS_SANITIZER)
+    if(MSVC)
+        add_compile_options(/fsanitize=address)
+        add_link_options(/fsanitize=address)
+    elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+        add_compile_options(-fsanitize=address)
+        add_link_options(-fsanitize=address)
+    endif()
+endif()
+
 set(GENERATED_ASSETS_DIR "${CMAKE_BINARY_DIR}/generated-assets" CACHE PATH "GENERATED_ASSETS_DIR")
 configure_file("${CMAKE_SOURCE_DIR}/.clang-format" "${CMAKE_BINARY_DIR}/.clang-format" COPYONLY)
 
