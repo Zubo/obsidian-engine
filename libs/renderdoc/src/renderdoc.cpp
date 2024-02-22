@@ -14,7 +14,6 @@
 #include <dlfcn.h>
 #endif
 
-
 #include <renderdoc_app.h>
 
 RENDERDOC_API_1_6_0* renderdocApi = nullptr;
@@ -24,8 +23,7 @@ void loadRenderdocLibrary() {
 
 #ifdef _WIN32
   namespace fs = std::filesystem;
-  fs::path renderdocModulePath =
-      fs::path{RENDERDOC_PATH} / "renderdoc.dll";
+  fs::path renderdocModulePath = fs::path{RENDERDOC_PATH} / "renderdoc.dll";
   std::string pathStr = renderdocModulePath.string();
   HMODULE renderdocHModule = LoadLibraryA(pathStr.c_str());
   RENDERDOC_GetAPI =

@@ -10,7 +10,7 @@
 #include <obsidian/vk_rhi/vk_rhi.hpp>
 #include <obsidian/window/window.hpp>
 
-#define  SDL_MAIN_HANDLED
+#define SDL_MAIN_HANDLED
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_video.h>

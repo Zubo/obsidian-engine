@@ -914,16 +914,18 @@ void materialCreatorTab() {
                        shaderSizeAndStrings.valueStrings,
                        shaderSizeAndStrings.size)) {
         materialsData.selectedMaterialAssetInfo.vertexShaderPath =
-            shadersInProj.at(materialsData.vertexShaderComboInd,
-                             shadersIncludeNone).string();
+            shadersInProj
+                .at(materialsData.vertexShaderComboInd, shadersIncludeNone)
+                .string();
       }
 
       if (ImGui::Combo("Fragment Shader", &materialsData.vertexShaderComboInd,
                        shaderSizeAndStrings.valueStrings,
                        shaderSizeAndStrings.size)) {
         materialsData.selectedMaterialAssetInfo.fragmentShaderPath =
-            shadersInProj.at(materialsData.fragmentShaderComboInd,
-                             shadersIncludeNone).string();
+            shadersInProj
+                .at(materialsData.fragmentShaderComboInd, shadersIncludeNone)
+                .string();
       }
 
       if (ImGui::Checkbox(
