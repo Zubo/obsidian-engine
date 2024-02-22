@@ -174,17 +174,22 @@ void RuntimeResource::acquireRef() { ++_refCount; }
 void RuntimeResource::releaseRef() {
   assert(_refCount);
 
-  --_refCount;
+  std::uint32_t const cnt = --_refCount;
 
-  if (!_refCount) {
+  if (!cnt) {
     releaseFromRHI();
-    _dependencies->clear();
+    _dependencies.reset();
     _resourceState = RuntimeResourceState::initial;
   }
 }
 
 void RuntimeResource::releaseFromRHI() {
   if (_releaseFunc && _resourceRHI) {
+    if (_transferRHI.transferStarted()) {
+      _transferRHI.waitCompleted();
+    }
+
+    _transferRHI = {};
     _releaseFunc(_rhi, _resourceRHI->id);
     _releaseFunc = nullptr;
     _resourceRHI = nullptr;
@@ -277,7 +282,7 @@ void RuntimeResource::performUploadToRHI() {
     uploadMesh.debugName = debugNameStr.c_str();
 
     _resourceRHI = &_rhi.initMeshResource();
-    _rhi.uploadMesh(_resourceRHI->id, uploadMesh);
+    _transferRHI = _rhi.uploadMesh(_resourceRHI->id, uploadMesh);
     _releaseFunc = [](rhi::RHI& rhi, rhi::ResourceIdRHI id) {
       rhi.releaseMesh(id);
     };
@@ -301,7 +306,8 @@ void RuntimeResource::performUploadToRHI() {
     uploadTexture.debugName = debugNameStr.c_str();
 
     _resourceRHI = &_rhi.initTextureResource();
-    _rhi.uploadTexture(_resourceRHI->id, std::move(uploadTexture));
+    _transferRHI =
+        _rhi.uploadTexture(_resourceRHI->id, std::move(uploadTexture));
 
     _releaseFunc = [](rhi::RHI& rhi, rhi::ResourceIdRHI id) {
       rhi.releaseTexture(id);
@@ -412,7 +418,7 @@ void RuntimeResource::performUploadToRHI() {
     uploadMaterial.hasTimer = info.hasTimer;
 
     _resourceRHI = &_rhi.initMaterialResource();
-    _rhi.uploadMaterial(_resourceRHI->id, uploadMaterial);
+    _transferRHI = _rhi.uploadMaterial(_resourceRHI->id, uploadMaterial);
     _releaseFunc = [](rhi::RHI& rhi, rhi::ResourceIdRHI id) {
       rhi.releaseMaterial(id);
     };
@@ -433,7 +439,7 @@ void RuntimeResource::performUploadToRHI() {
     uploadShader.debugName = debugNameStr.c_str();
 
     _resourceRHI = &_rhi.initShaderResource();
-    _rhi.uploadShader(_resourceRHI->id, uploadShader);
+    _transferRHI = _rhi.uploadShader(_resourceRHI->id, uploadShader);
     _releaseFunc = [](rhi::RHI& rhi, rhi::ResourceIdRHI id) {
       rhi.releaseShader(id);
     };

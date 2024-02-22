@@ -194,7 +194,7 @@ void ObsidianEngine::initTaskExecutor() {
 
   _context.taskExecutor.initAndRun(
       {{task::TaskType ::rhiMain, 1},
-       {task::TaskType::rhiUpload, 1},
+       {task::TaskType::resourceUpload, 1},
        {task::TaskType::general,
         static_cast<unsigned>(std::max(nCores - 6, 2))}});
 }

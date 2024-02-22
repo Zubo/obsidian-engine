@@ -94,7 +94,8 @@ private:
   std::mutex _resourceMutex;
   std::atomic<RuntimeResourceState> _resourceState =
       RuntimeResourceState::initial;
-  std::uint32_t _refCount = 0;
+  std::atomic<std::uint32_t> _refCount = 0;
+  rhi::ResourceTransferRHI _transferRHI;
 
   friend class RuntimeResourceLoader;
   friend class RuntimeResourceRef;

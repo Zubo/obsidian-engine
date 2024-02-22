@@ -73,13 +73,12 @@ void RuntimeResourceLoader::uploaderFunc() {
       std::vector<RuntimeResourceRef> depsVec{deps.begin(), deps.end()};
 
       bool const depsReady = std::all_of(
-          depsVec.begin(), depsVec.end(), [](RuntimeResourceRef& r) {
-            return r->getResourceState() == RuntimeResourceState::uploadedToRhi;
-          });
+          depsVec.begin(), depsVec.end(),
+          [](RuntimeResourceRef& r) { return r->isResourceReady(); });
 
       if (depsReady) {
         _taskExecutor->enqueue(
-            task::TaskType::rhiUpload,
+            task::TaskType::resourceUpload,
             [r, /*hold references so they don't get deallocated*/ depsV =
                     std::move(depsVec)] { r->performUploadToRHI(); });
       } else {

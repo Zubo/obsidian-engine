@@ -87,26 +87,32 @@ void VulkanRHI::init(rhi::WindowExtentRHI extent,
 void VulkanRHI::initResources(rhi::InitResourcesRHI const& initResources) {
   assert(IsInitialized);
 
+  std::vector<rhi::ResourceTransferRHI> transfers;
+
   _depthPassVertexShaderId = initShaderResource().id;
-  uploadShader(_depthPassVertexShaderId, initResources.shadowPassVertexShader);
+  transfers.emplace_back(uploadShader(_depthPassVertexShaderId,
+                                      initResources.shadowPassVertexShader));
 
   _depthPassFragmentShaderId = initShaderResource().id;
-  uploadShader(_depthPassFragmentShaderId,
-               initResources.shadowPassFragmentShader);
+  transfers.emplace_back(uploadShader(_depthPassFragmentShaderId,
+                                      initResources.shadowPassFragmentShader));
 
   _ssaoVertexShaderId = initShaderResource().id;
-  uploadShader(_ssaoVertexShaderId, initResources.ssaoVertexShader);
+  transfers.emplace_back(
+      uploadShader(_ssaoVertexShaderId, initResources.ssaoVertexShader));
 
   _ssaoFragmentShaderId = initShaderResource().id;
-  uploadShader(_ssaoFragmentShaderId, initResources.ssaoFragmentShader);
+  transfers.emplace_back(
+      uploadShader(_ssaoFragmentShaderId, initResources.ssaoFragmentShader));
 
   _postProcessingVertexShaderId = initShaderResource().id;
-  uploadShader(_postProcessingVertexShaderId,
-               initResources.postProcessingVertexShader);
+  transfers.emplace_back(uploadShader(
+      _postProcessingVertexShaderId, initResources.postProcessingVertexShader));
 
   _postProcessingFragmentShaderId = initShaderResource().id;
-  uploadShader(_postProcessingFragmentShaderId,
-               initResources.postProcessingFragmentShader);
+  transfers.emplace_back(
+      uploadShader(_postProcessingFragmentShaderId,
+                   initResources.postProcessingFragmentShader));
 
   _deletionQueue.pushFunction([this]() {
     releaseShader(_depthPassVertexShaderId);
@@ -116,6 +122,11 @@ void VulkanRHI::initResources(rhi::InitResourcesRHI const& initResources) {
     releaseShader(_postProcessingVertexShaderId);
     releaseShader(_postProcessingFragmentShaderId);
   });
+
+  for (rhi::ResourceTransferRHI& t : transfers) {
+    assert(t.transferStarted());
+    t.waitCompleted();
+  }
 
   initDepthPrepassPipeline();
   initShadowPassPipeline();

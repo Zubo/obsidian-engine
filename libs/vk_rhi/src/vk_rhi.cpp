@@ -54,8 +54,9 @@ rhi::ResourceRHI& VulkanRHI::initTextureResource() {
   return newTexture.resource;
 }
 
-void VulkanRHI::uploadTexture(rhi::ResourceIdRHI id,
-                              rhi::UploadTextureRHI uploadTextureInfoRHI) {
+rhi::ResourceTransferRHI
+VulkanRHI::uploadTexture(rhi::ResourceIdRHI id,
+                         rhi::UploadTextureRHI uploadTextureInfoRHI) {
   Texture& newTexture = _textures.at(id);
 
   rhi::ResourceState expected = rhi::ResourceState::initial;
@@ -63,7 +64,7 @@ void VulkanRHI::uploadTexture(rhi::ResourceIdRHI id,
   if (!newTexture.resource.state.compare_exchange_strong(
           expected, rhi::ResourceState::uploading)) {
     OBS_LOG_ERR("Trying to upload a texture that is not in the initial state.");
-    return;
+    return {};
   }
 
   VkImageUsageFlags const imageUsageFlags =
@@ -98,7 +99,7 @@ void VulkanRHI::uploadTexture(rhi::ResourceIdRHI id,
   setDbgResourceName(_vkDevice, (std::uint64_t)newTexture.imageView,
                      VK_OBJECT_TYPE_IMAGE_VIEW, uploadTextureInfoRHI.debugName);
 
-  _taskExecutor.enqueue(
+  return rhi::ResourceTransferRHI{_taskExecutor.enqueue(
       task::TaskType::rhiTransfer,
       [this, &newTexture, extent, info = std::move(uploadTextureInfoRHI)]() {
         bool const hasMips = info.mipLevels > 1;
@@ -147,7 +148,7 @@ void VulkanRHI::uploadTexture(rhi::ResourceIdRHI id,
                 expected, rhi::ResourceState::uploaded)) {
           OBS_LOG_ERR("Texture resource state expected to be uploading.");
         }
-      });
+      })};
 }
 
 void VulkanRHI::releaseTexture(rhi::ResourceIdRHI resourceIdRHI) {
@@ -171,7 +172,8 @@ rhi::ResourceRHI& VulkanRHI::initMeshResource() {
   return newMesh.resource;
 }
 
-void VulkanRHI::uploadMesh(rhi::ResourceIdRHI id, rhi::UploadMeshRHI meshInfo) {
+rhi::ResourceTransferRHI VulkanRHI::uploadMesh(rhi::ResourceIdRHI id,
+                                               rhi::UploadMeshRHI meshInfo) {
   Mesh& mesh = _meshes[id];
 
   rhi::ResourceState expected = rhi::ResourceState::initial;
@@ -179,7 +181,7 @@ void VulkanRHI::uploadMesh(rhi::ResourceIdRHI id, rhi::UploadMeshRHI meshInfo) {
   if (!mesh.resource.state.compare_exchange_strong(
           expected, rhi::ResourceState::uploading)) {
     OBS_LOG_ERR("Trying to upload a mesh that is not in the initial state.");
-    return;
+    return {};
   }
 
   mesh.vertexBuffer = createBuffer(meshInfo.vertexBufferSize,
@@ -212,7 +214,7 @@ void VulkanRHI::uploadMesh(rhi::ResourceIdRHI id, rhi::UploadMeshRHI meshInfo) {
   mesh.hasTangents = meshInfo.hasTangents;
   mesh.aabb = meshInfo.aabb;
 
-  _taskExecutor.enqueue(
+  return rhi::ResourceTransferRHI{_taskExecutor.enqueue(
       task::TaskType::rhiTransfer,
       [this, totalIndexBufferSize, &mesh, info = std::move(meshInfo)]() {
         AllocatedBuffer stagingBuffer = createBuffer(
@@ -259,7 +261,7 @@ void VulkanRHI::uploadMesh(rhi::ResourceIdRHI id, rhi::UploadMeshRHI meshInfo) {
                 expected, rhi::ResourceState::uploaded)) {
           OBS_LOG_ERR("Mesh resource state expected to be uploading.");
         }
-      });
+      })};
 }
 
 void VulkanRHI::releaseMesh(rhi::ResourceIdRHI resourceIdRHI) {
@@ -283,54 +285,63 @@ rhi::ResourceRHI& VulkanRHI::initShaderResource() {
   return shader.resource;
 }
 
-void VulkanRHI::uploadShader(rhi::ResourceIdRHI id,
-                             rhi::UploadShaderRHI uploadShader) {
-  Shader& shader = _shaderModules[id];
+rhi::ResourceTransferRHI
+VulkanRHI::uploadShader(rhi::ResourceIdRHI id,
+                        rhi::UploadShaderRHI uploadShader) {
+  Shader& shader = _shaderModules.at(id);
 
   rhi::ResourceState expected = rhi::ResourceState::initial;
 
   if (!shader.resource.state.compare_exchange_strong(
           expected, rhi::ResourceState::uploading)) {
     OBS_LOG_ERR("Trying to upload a shader that is not in the initial state.");
-    return;
+    return {};
   }
 
-  std::vector<std::uint32_t> buffer(
-      (uploadShader.shaderDataSize + sizeof(std::uint32_t) - 1) /
-      sizeof(std::uint32_t));
+  return rhi::ResourceTransferRHI{_taskExecutor.enqueue(
+      task::TaskType::rhiTransfer,
+      [this, id, uploadShader = std::move(uploadShader)]() {
+        Shader& shader = _shaderModules.at(id);
 
-  {
-    ZoneScopedN("Unpack Shader");
-    uploadShader.unpackFunc(reinterpret_cast<char*>(buffer.data()));
-  }
+        std::vector<std::uint32_t> buffer(
+            (uploadShader.shaderDataSize + sizeof(std::uint32_t) - 1) /
+            sizeof(std::uint32_t));
 
-  VkShaderModuleCreateInfo shaderModuleCreateInfo = {};
-  shaderModuleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-  shaderModuleCreateInfo.pNext = nullptr;
-  shaderModuleCreateInfo.codeSize = uploadShader.shaderDataSize;
-  shaderModuleCreateInfo.pCode = buffer.data();
+        {
+          ZoneScopedN("Unpack Shader");
+          uploadShader.unpackFunc(reinterpret_cast<char*>(buffer.data()));
+        }
 
-  VkShaderModule shaderModule;
-  if (vkCreateShaderModule(_vkDevice, &shaderModuleCreateInfo, nullptr,
-                           &shaderModule)) {
-    assert(false && "Failed to load shader.");
-  }
+        VkShaderModuleCreateInfo shaderModuleCreateInfo = {};
+        shaderModuleCreateInfo.sType =
+            VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+        shaderModuleCreateInfo.pNext = nullptr;
+        shaderModuleCreateInfo.codeSize = uploadShader.shaderDataSize;
+        shaderModuleCreateInfo.pCode = buffer.data();
 
-  setDbgResourceName(_vkDevice, (std::uint64_t)shaderModule,
-                     VK_OBJECT_TYPE_SHADER_MODULE, uploadShader.debugName);
+        VkShaderModule shaderModule;
+        if (vkCreateShaderModule(_vkDevice, &shaderModuleCreateInfo, nullptr,
+                                 &shaderModule)) {
+          assert(false && "Failed to load shader.");
+        }
 
-  shader.vkShaderModule = shaderModule;
+        setDbgResourceName(_vkDevice, (std::uint64_t)shaderModule,
+                           VK_OBJECT_TYPE_SHADER_MODULE,
+                           uploadShader.debugName);
 
-  expected = rhi::ResourceState::uploading;
+        shader.vkShaderModule = shaderModule;
 
-  if (!shader.resource.state.compare_exchange_strong(
-          expected, rhi::ResourceState::uploaded)) {
-    assert(false && "Shader resource in invalid state");
-  }
+        rhi::ResourceState expected = rhi::ResourceState::uploading;
+
+        if (!shader.resource.state.compare_exchange_strong(
+                expected, rhi::ResourceState::uploaded)) {
+          assert(false && "Shader resource in invalid state");
+        }
+      })};
 }
 
 void VulkanRHI::releaseShader(rhi::ResourceIdRHI resourceIdRHI) {
-  Shader& shader = _shaderModules[resourceIdRHI];
+  Shader& shader = _shaderModules.at(resourceIdRHI);
   if (!--shader.resource.refCount) {
     FrameData& prevFrameData = getPreviousFrameData();
     prevFrameData.pendingResourcesToDestroy.shadersToDestroy.push_back(
@@ -375,8 +386,9 @@ rhi::ResourceRHI& VulkanRHI::initMaterialResource() {
   return newMaterial.resource;
 }
 
-void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
-                               rhi::UploadMaterialRHI uploadMaterial) {
+rhi::ResourceTransferRHI
+VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
+                          rhi::UploadMaterialRHI uploadMaterial) {
   VkMaterial& newMaterial = _materials[id];
 
   rhi::ResourceState expected = rhi::ResourceState::initial;
@@ -384,10 +396,10 @@ void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
   if (!newMaterial.resource.state.compare_exchange_strong(
           expected, rhi::ResourceState::uploading)) {
     OBS_LOG_ERR("Trying to upload a shader that is not in the initial state.");
-    return;
+    return {};
   }
 
-  _taskExecutor.enqueue(
+  return rhi::ResourceTransferRHI{_taskExecutor.enqueue(
       task::TaskType::rhiTransfer,
       [this, id, uploadMaterial = std::move(uploadMaterial)]() {
         VkMaterial& newMaterial = _materials[id];
@@ -396,7 +408,7 @@ void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
             _pipelineBuilders[uploadMaterial.materialType];
 
         Shader& vertexShaderModule =
-            _shaderModules[uploadMaterial.vertexShaderId];
+            _shaderModules.at(uploadMaterial.vertexShaderId);
         ++vertexShaderModule.resource.refCount;
         newMaterial.vertexShaderResourceDependencyId =
             vertexShaderModule.resource.id;
@@ -407,7 +419,7 @@ void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
                 VK_SHADER_STAGE_VERTEX_BIT, vertexShaderModule.vkShaderModule));
 
         Shader& fragmentShaderModule =
-            _shaderModules[uploadMaterial.fragmentShaderId];
+            _shaderModules.at(uploadMaterial.fragmentShaderId);
         ++fragmentShaderModule.resource.refCount;
         newMaterial.fragmentShaderResourceDependencyId =
             fragmentShaderModule.resource.id;
@@ -673,7 +685,7 @@ void VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
             assert(false && "Material resource in invalid state");
           }
         }
-      });
+      })};
 }
 
 void VulkanRHI::releaseMaterial(rhi::ResourceIdRHI resourceIdRHI) {

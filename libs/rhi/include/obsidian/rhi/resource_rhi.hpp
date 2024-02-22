@@ -9,6 +9,7 @@
 #include <atomic>
 #include <cstdint>
 #include <functional>
+#include <future>
 #include <optional>
 #include <variant>
 #include <vector>
@@ -89,6 +90,18 @@ struct UploadMaterialRHI {
   bool transparent;
   bool hasTimer;
   char const* debugName = nullptr;
+};
+
+class ResourceTransferRHI {
+public:
+  ResourceTransferRHI() = default;
+  explicit ResourceTransferRHI(std::future<void> transferCompletedFuture);
+
+  bool transferStarted() const;
+  void waitCompleted() const;
+
+private:
+  std::future<void> _transferCompletedFuture;
 };
 
 struct InitResourcesRHI {
