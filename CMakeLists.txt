@@ -12,6 +12,7 @@ endif()
 enable_testing()
 
 set(GENERATED_ASSETS_DIR "${CMAKE_BINARY_DIR}/generated-assets" CACHE PATH "GENERATED_ASSETS_DIR")
+configure_file("${CMAKE_SOURCE_DIR}/.clang-format" "${CMAKE_BINARY_DIR}/.clang-format" COPYONLY)
 
 add_subdirectory(apps)
 add_subdirectory(libs)
