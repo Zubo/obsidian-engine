@@ -354,8 +354,7 @@ void gameObjectHierarchy(scene::GameObject& gameObject,
   }
 }
 
-void engineTab(SceneData& sceneData, ObsidianEngine& engine,
-               std::atomic<bool>& engineStarted) {
+void engineTab(SceneData& sceneData, ObsidianEngine& engine) {
   ZoneScoped;
 
   ImGuiTabItemFlags engineTabFlags = 0;
@@ -365,7 +364,7 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
   }
 
   if (ImGui::BeginTabItem("Engine", NULL, engineTabFlags)) {
-    if (engineStarted) {
+    if (engine.isInitialized()) {
       if (ImGui::CollapsingHeader("Global Scene Params")) {
         ImGui::SliderFloat("Ambient light color r", &sceneData.ambientColor.r,
                            0.f, 1.f);
@@ -420,7 +419,6 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
         }
 
         if (ImGui::Button("Load Scene")) {
-          engine.getContext().taskExecutor.waitIdle();
           loadScene(scenePath, sceneState, engine);
         }
 
@@ -663,8 +661,8 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine,
       }
     } else {
       if (ImGui::Button("Start Engine")) {
-        engineStarted = engine.init(sdl_wrapper::SDLBackend::instance(),
-                                    project.getOpenProjectPath());
+        engine.init(sdl_wrapper::SDLBackend::instance(),
+                    project.getOpenProjectPath());
         openEngineTab = true;
       }
     }
@@ -1019,7 +1017,7 @@ void textureEditorTab() {
   }
 }
 
-void projectTab(ObsidianEngine& engine, std::atomic<bool>& engineStarted) {
+void projectTab(ObsidianEngine& engine) {
   ZoneScoped;
 
   if (ImGui::BeginTabItem("Project")) {
@@ -1066,9 +1064,8 @@ void projectTab(ObsidianEngine& engine, std::atomic<bool>& engineStarted) {
             std::strncpy(projPathBuf, lastOpenProjectStr.c_str(),
                          lastOpenProjectStr.size());
             assetListDirty = true;
-            engineStarted = engine.init(sdl_wrapper::SDLBackend::instance(),
+            openEngineTab = engine.init(sdl_wrapper::SDLBackend::instance(),
                                         project.getOpenProjectPath());
-            openEngineTab = engineStarted;
           }
         }
       }
@@ -1129,16 +1126,15 @@ void endEditorFrame(SDL_Renderer& renderer, ImGuiIO& imguiIO) {
 }
 
 void editorWindow(SDL_Renderer& renderer, ImGuiIO& imguiIO,
-                  DataContext& context, ObsidianEngine& engine,
-                  std::atomic<bool>& engineStarted) {
+                  DataContext& context, ObsidianEngine& engine) {
   ZoneScoped;
 
   ImGui::Begin("EditorWindow");
   if (ImGui::BeginTabBar("EditorTabBar")) {
 
-    projectTab(engine, engineStarted);
+    projectTab(engine);
     if (!project.getOpenProjectPath().empty()) {
-      engineTab(context.sceneData, engine, engineStarted);
+      engineTab(context.sceneData, engine);
     }
 
     ImGui::EndTabBar();

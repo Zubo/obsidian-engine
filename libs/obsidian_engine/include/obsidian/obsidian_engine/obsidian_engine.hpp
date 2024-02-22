@@ -9,7 +9,10 @@
 #include <obsidian/vk_rhi/vk_rhi.hpp>
 #include <obsidian/window/window.hpp>
 
+#include <atomic>
+#include <condition_variable>
 #include <filesystem>
+#include <mutex>
 
 namespace obsidian::window::interface {
 
@@ -42,7 +45,9 @@ public:
   bool init(IWindowBackendProvider const& windowBackendProvider,
             std::filesystem::path projectPath);
   void cleanup();
-  void processFrame();
+  void prepareRenderData();
+  void waitFrameProcessed();
+  void requestShutdown();
   ObsidianEngineContext& getContext();
   ObsidianEngineContext const& getContext() const;
   bool const isInitialized() const;
@@ -53,6 +58,10 @@ private:
 
   ObsidianEngineContext _context;
   bool _isInitialized = false;
+  bool _readyToRender = false;
+  std::atomic_flag _shutdownRequested;
+  std::condition_variable _renderLoopCondVar;
+  std::mutex _renderLoopMutex;
 };
 
 } /*namespace obsidian*/

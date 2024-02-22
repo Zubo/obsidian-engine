@@ -57,8 +57,42 @@ bool ObsidianEngine::init(IWindowBackendProvider const& windowBackendProvider,
   rhi::WindowExtentRHI extent;
   extent.width = windowParams.width;
   extent.height = windowParams.height;
-  _context.vulkanRHI.init(extent, _context.window.getWindowBackend(),
-                          _context.taskExecutor);
+
+  std::future<void> const vkRhiInitFuture =
+      _context.taskExecutor.enqueue(task::TaskType::rhiMain, [this, extent]() {
+        _context.vulkanRHI.init(extent, _context.window.getWindowBackend());
+      });
+
+  vkRhiInitFuture.wait();
+
+  _context.taskExecutor.enqueue(task::TaskType::rhiMain, [this, extent]() {
+    std::unique_lock l{_renderLoopMutex, std::defer_lock};
+
+    while (!_shutdownRequested.test()) {
+      l.lock();
+
+      _renderLoopCondVar.wait(
+          l, [&]() { return _readyToRender || _shutdownRequested.test(); });
+
+      if (!_shutdownRequested.test()) {
+        ZoneScopedN("RHI draw");
+
+        rhi::SceneGlobalParams sceneGlobalParams;
+        scene::SceneState const& sceneState = _context.scene.getState();
+        sceneGlobalParams.ambientColor = sceneState.ambientColor;
+        sceneGlobalParams.cameraPos = sceneState.camera.pos;
+        sceneGlobalParams.cameraRotationRad = sceneState.camera.rotationRad;
+
+        _context.vulkanRHI.draw(sceneGlobalParams);
+      }
+
+      _readyToRender = false;
+
+      l.unlock();
+
+      _renderLoopCondVar.notify_all();
+    }
+  });
 
   _context.inputContext.windowEventEmitter.subscribeToWindowResizedEvent(
       [this](std::size_t w, std::size_t h) {
@@ -84,8 +118,12 @@ void ObsidianEngine::cleanup() {
   _context.inputContext.mouseEventEmitter.cleanup();
   _context.inputContext.windowEventEmitter.cleanup();
   _context.resourceManager.cleanup();
+
+  std::future<void> const cleanupFuture = _context.taskExecutor.enqueue(
+      task::TaskType::rhiMain, [this]() { _context.vulkanRHI.cleanup(); });
+  cleanupFuture.wait();
+
   _context.taskExecutor.shutdown();
-  _context.vulkanRHI.cleanup();
 }
 
 ObsidianEngineContext& ObsidianEngine::getContext() { return _context; }
@@ -96,25 +134,46 @@ ObsidianEngineContext const& ObsidianEngine::getContext() const {
 
 bool const ObsidianEngine::isInitialized() const { return _isInitialized; }
 
-void ObsidianEngine::processFrame() {
-  scene::SceneState& sceneState = _context.scene.getState();
+void ObsidianEngine::prepareRenderData() {
   ZoneScoped;
+
+  if (_shutdownRequested.test()) {
+    OBS_LOG_WARN(
+        "Prepare render data called after engine shutdown was requested");
+    return;
+  }
+
+  scene::SceneState& sceneState = _context.scene.getState();
+
   {
     ZoneScopedN("Draw call recursion");
+
     for (auto& gameObject : sceneState.gameObjects) {
       gameObject.draw(glm::mat4{1.0f});
     }
   }
 
-  rhi::SceneGlobalParams sceneGlobalParams;
-  sceneGlobalParams.ambientColor = sceneState.ambientColor;
-  sceneGlobalParams.cameraPos = sceneState.camera.pos;
-  sceneGlobalParams.cameraRotationRad = sceneState.camera.rotationRad;
-
   {
-    ZoneScopedN("RHI draw");
-    _context.vulkanRHI.draw(sceneGlobalParams);
+    std::scoped_lock l{_renderLoopMutex};
+    assert(!_readyToRender);
+    _readyToRender = true;
   }
+
+  _renderLoopCondVar.notify_all();
+}
+
+void ObsidianEngine::waitFrameProcessed() {
+  std::unique_lock l{_renderLoopMutex};
+  _renderLoopCondVar.wait(l, [this]() { return !_readyToRender; });
+}
+
+void ObsidianEngine::requestShutdown() {
+  if (_shutdownRequested.test_and_set()) {
+    OBS_LOG_WARN("Shutdown requested multiple times");
+    return;
+  }
+
+  _renderLoopCondVar.notify_all();
 }
 
 void ObsidianEngine::openProject(std::filesystem::path projectPath) {
@@ -134,8 +193,8 @@ void ObsidianEngine::initTaskExecutor() {
       std::max(static_cast<int>(std::thread::hardware_concurrency()), 2);
 
   _context.taskExecutor.initAndRun(
-      {{task::TaskType::rhiTransfer, 4},
+      {{task::TaskType ::rhiMain, 1},
        {task::TaskType::rhiUpload, 1},
        {task::TaskType::general,
-        static_cast<unsigned>(std::max(nCores - 5, 1))}});
+        static_cast<unsigned>(std::max(nCores - 6, 2))}});
 }

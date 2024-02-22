@@ -15,7 +15,9 @@ ImmediateSubmitContext::~ImmediateSubmitContext() {
   }
 }
 
-ResourceTransferContext::~ResourceTransferContext() {
+ResourceTransferContext::~ResourceTransferContext() { cleanup(); }
+
+void ResourceTransferContext::cleanup() {
   if (initialized) {
     for (auto& pool : queueCommandPools) {
       vkDestroyCommandPool(device, pool.second, nullptr);

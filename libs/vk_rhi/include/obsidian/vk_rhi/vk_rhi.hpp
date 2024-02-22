@@ -45,8 +45,7 @@ public:
   int FrameNumber{0};
 
   void init(rhi::WindowExtentRHI extent,
-            rhi::ISurfaceProviderRHI const& surfaceProvider,
-            task::TaskExecutor& taskExecutor) override;
+            rhi::ISurfaceProviderRHI const& surfaceProvider) override;
 
   void initResources(rhi::InitResourcesRHI const& initResources) override;
 
@@ -110,7 +109,7 @@ public:
   void applyPendingEnvironmentMapUpdates();
 
 private:
-  task::TaskExecutor* _taskExecutor = nullptr;
+  task::TaskExecutor _taskExecutor;
 
   // Instance
   VkInstance _vkInstance;

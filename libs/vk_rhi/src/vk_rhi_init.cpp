@@ -31,9 +31,8 @@
 using namespace obsidian::vk_rhi;
 
 void VulkanRHI::init(rhi::WindowExtentRHI extent,
-                     rhi::ISurfaceProviderRHI const& surfaceProvider,
-                     task::TaskExecutor& taskExecutor) {
-  _taskExecutor = &taskExecutor;
+                     rhi::ISurfaceProviderRHI const& surfaceProvider) {
+  _taskExecutor.initAndRun({{task::TaskType::rhiTransfer, 4}});
 
   renderdoc::initRenderdoc();
 

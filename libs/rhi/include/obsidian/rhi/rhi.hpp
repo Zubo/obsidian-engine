@@ -24,8 +24,7 @@ public:
   virtual ~RHI() = default;
 
   virtual void init(WindowExtentRHI extent,
-                    ISurfaceProviderRHI const& surfaceProvider,
-                    task::TaskExecutor& taskExecutor) = 0;
+                    ISurfaceProviderRHI const& surfaceProvider) = 0;
 
   virtual void initResources(InitResourcesRHI const& initResources) = 0;
 

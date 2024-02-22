@@ -11,7 +11,7 @@
 
 using namespace obsidian::runtime_resource;
 
-RuntimeResourceLoader::~RuntimeResourceLoader() { joinLoaderThread(); }
+RuntimeResourceLoader::~RuntimeResourceLoader() { cleanup(); }
 
 void RuntimeResourceLoader::run(task::TaskExecutor& taskExecutor) {
   _running = true;
