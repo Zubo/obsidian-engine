@@ -404,8 +404,8 @@ VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
       [this, id, uploadMaterial = std::move(uploadMaterial)]() {
         VkMaterial& newMaterial = _materials[id];
 
-        PipelineBuilder& pipelineBuilder =
-            _pipelineBuilders[uploadMaterial.materialType];
+        PipelineBuilder pipelineBuilder =
+            _pipelineBuilders.at(uploadMaterial.materialType);
 
         Shader& vertexShaderModule =
             _shaderModules.at(uploadMaterial.vertexShaderId);
