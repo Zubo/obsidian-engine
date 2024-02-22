@@ -10,6 +10,7 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
     GIT_TAG SDL2
     GIT_PROGRESS TRUE
+    SYSTEM
 )
 
 FetchContent_MakeAvailable(fetch_sdl)
@@ -19,6 +20,7 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/charles-lunarg/vk-bootstrap
     GIT_TAG v0.7
     GIT_PROGRESS TRUE
+    SYSTEM
 )
 
 FetchContent_MakeAvailable(fetch_vk_bootstrap)
@@ -28,6 +30,7 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
     GIT_TAG 0e89587db3ebee4d463f191bd296374c5fafc8ea
     GIT_PROGRESS TRUE
+    SYSTEM
 )
 
 FetchContent_MakeAvailable(fetch_vulkan_memory_allocator)
@@ -36,6 +39,7 @@ FetchContent_Declare(fetch_glm
     GIT_REPOSITORY https://github.com/g-truc/glm.git
     GIT_TAG 0.9.9.8
     GIT_PROGRESS TRUE
+    SYSTEM
 )
 
 FetchContent_MakeAvailable(fetch_glm)
@@ -44,6 +48,7 @@ FetchContent_Declare(fetch_tinyobjloader
     GIT_REPOSITORY https://github.com/tinyobjloader/tinyobjloader.git
     GIT_TAG v2.0.0rc10
     GIT_PROGRESS TRUE
+    SYSTEM
 )
 
 FetchContent_MakeAvailable(fetch_tinyobjloader)
@@ -53,6 +58,7 @@ FetchContent_Declare(fetch_tinygltf
     GIT_REPOSITORY https://github.com/syoyo/tinygltf.git
     GIT_TAG release
     GIT_PROGRESS TRUE
+    SYSTEM
 
 )
 
@@ -74,6 +80,7 @@ FetchContent_Declare(fetch_hash_library
     GIT_TAG hash_library_v8
     GIT_SHALLOW TRUE
     GIT_PROGRESS TRUE
+    SYSTEM
 )
 
 FetchContent_MakeAvailable(fetch_hash_library)
@@ -91,6 +98,7 @@ FetchContent_Declare(fetch_dear_imgui
     GIT_REPOSITORY https://github.com/ocornut/imgui.git
     GIT_TAG v1.89.8-docking
     GIT_PROGRESS TRUE
+    SYSTEM
 )
 
 FetchContent_MakeAvailable(fetch_dear_imgui)
@@ -123,6 +131,7 @@ FetchContent_Declare(fetch_lz4
     GIT_TAG v1.9.4
     SOURCE_SUBDIR ./build/cmake
     GIT_PROGRESS TRUE
+    SYSTEM
 )
 
 set(LZ4_BUILD_CLI OFF CACHE BOOL "Build lz4 program" FORCE)
@@ -134,11 +143,13 @@ FetchContent_Declare(fetch_json
     GIT_REPOSITORY https://github.com/nlohmann/json.git
     GIT_TAG v3.11.2
     GIT_PROGRESS TRUE
+    SYSTEM
 )
 
 FetchContent_Declare(fetch_stb
     GIT_REPOSITORY https://github.com/nothings/stb.git
     GIT_PROGRESS TRUE
+    SYSTEM
 )
 
 FetchContent_Populate(fetch_stb)
@@ -162,6 +173,7 @@ FetchContent_Declare(fetch_gtest
     GIT_REPOSITORY https://github.com/google/googletest.git
     GIT_TAG v1.14.0
     GIT_PROGRESS TRUE
+    SYSTEM
 )
 
 FetchContent_MakeAvailable(fetch_gtest)
