@@ -13,7 +13,7 @@ struct VertexContentInfo {
 
 inline std::size_t representAsInteger(VertexContentInfo const& v) {
   return v.hasNormal * (1 << 3) | v.hasColor * (1 << 2) | v.hasUV * (1 << 1) |
-         v.hasTangent;
+         static_cast<int>(v.hasTangent);
 }
 
 constexpr std::size_t intRepresentationMax() { return (1 << 4) - 1; }

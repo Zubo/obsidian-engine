@@ -189,7 +189,7 @@ std::size_t generateVerticesFromObj(
     for (std::size_t f = 0; f < shape.mesh.num_face_vertices.size(); ++f) {
       unsigned char const vertexCount = shape.mesh.num_face_vertices[f];
 
-      glm::vec3 tangent;
+      glm::vec3 tangent = {};
 
       if constexpr (V::hasTangent) {
         std::array<glm::vec3, 3> facePositions = {};
@@ -496,7 +496,8 @@ std::size_t generateVerticesFromGltf(
           }
 
         } else {
-          surface.emplace_back(insertResult.first->second);
+          surface.emplace_back(
+              static_cast<core::MeshIndexType>(insertResult.first->second));
         }
       }
     }

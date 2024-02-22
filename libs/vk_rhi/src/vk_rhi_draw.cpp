@@ -715,9 +715,11 @@ void VulkanRHI::drawWithMaterials(
     VkDeviceSize const bufferOffset = 0;
     vkCmdBindVertexBuffers(cmd, 0, 1, &mesh.vertexBuffer.buffer, &bufferOffset);
 
-    VkDeviceSize const indBufferOffset = std::accumulate(
-        mesh.indexBufferSizes.cbegin(),
-        mesh.indexBufferSizes.cbegin() + drawCall.indexBufferInd, 0);
+    VkDeviceSize const indBufferOffset =
+        static_cast<VkDeviceSize>(std::accumulate(
+            mesh.indexBufferSizes.cbegin(),
+            mesh.indexBufferSizes.cbegin() + drawCall.indexBufferInd,
+            std::size_t{0}));
     vkCmdBindIndexBuffer(cmd, mesh.indexBuffer.buffer, indBufferOffset,
                          VK_INDEX_TYPE_UINT32);
 
@@ -784,9 +786,11 @@ void VulkanRHI::drawNoMaterials(
     vkCmdBindVertexBuffers(cmd, 0, 1, &mesh.vertexBuffer.buffer,
                            &vertBufferOffset);
 
-    VkDeviceSize const indBufferOffset = std::accumulate(
-        mesh.indexBufferSizes.cbegin(),
-        mesh.indexBufferSizes.cbegin() + drawCall.indexBufferInd, 0);
+    VkDeviceSize const indBufferOffset =
+        static_cast<VkDeviceSize>(std::accumulate(
+            mesh.indexBufferSizes.cbegin(),
+            mesh.indexBufferSizes.cbegin() + drawCall.indexBufferInd,
+            std::size_t{0}));
 
     vkCmdBindIndexBuffer(cmd, mesh.indexBuffer.buffer, indBufferOffset,
                          VK_INDEX_TYPE_UINT32);

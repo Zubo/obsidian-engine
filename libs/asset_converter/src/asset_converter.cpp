@@ -306,7 +306,7 @@ bool AssetConverter::convertObjToAsset(fs::path const& srcPath,
 
   std::size_t const totalIndexBufferSize =
       std::accumulate(meshAssetInfo.indexBufferSizes.cbegin(),
-                      meshAssetInfo.indexBufferSizes.cend(), 0);
+                      meshAssetInfo.indexBufferSizes.cend(), std::size_t{0});
   meshAssetInfo.unpackedSize =
       meshAssetInfo.vertexBufferSize + totalIndexBufferSize;
   outVertices.resize(outVertices.size() + totalIndexBufferSize);
@@ -480,7 +480,7 @@ bool AssetConverter::convertGltfToAsset(fs::path const& srcPath,
 
     std::size_t const totalIndexBufferSize =
         std::accumulate(meshAssetInfo.indexBufferSizes.cbegin(),
-                        meshAssetInfo.indexBufferSizes.cend(), 0);
+                        meshAssetInfo.indexBufferSizes.cend(), std::size_t{0});
     meshAssetInfo.unpackedSize =
         meshAssetInfo.vertexBufferSize + totalIndexBufferSize;
     outVertices.resize(outVertices.size() + totalIndexBufferSize);
@@ -525,8 +525,9 @@ bool AssetConverter::convertGltfToAsset(fs::path const& srcPath,
   std::transform(meshExportPaths.cbegin(), meshExportPaths.cend(),
                  std::back_inserter(meshRelativePaths),
                  [dstPath](std::string const& pathStr) {
-                   return fs::path(pathStr).lexically_relative(
-                       dstPath.parent_path()).string();
+                   return fs::path(pathStr)
+                       .lexically_relative(dstPath.parent_path())
+                       .string();
                  });
 
   for (std::size_t sceneInd = 0; sceneInd < model.scenes.size(); ++sceneInd) {

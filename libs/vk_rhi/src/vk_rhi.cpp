@@ -195,8 +195,9 @@ void VulkanRHI::uploadMesh(rhi::ResourceIdRHI id, rhi::UploadMeshRHI meshInfo) {
                      VK_OBJECT_TYPE_BUFFER, meshInfo.debugName,
                      "Vertex Buffer");
 
-  std::size_t const totalIndexBufferSize = std::accumulate(
-      meshInfo.indexBufferSizes.cbegin(), meshInfo.indexBufferSizes.cend(), 0);
+  std::size_t const totalIndexBufferSize =
+      std::accumulate(meshInfo.indexBufferSizes.cbegin(),
+                      meshInfo.indexBufferSizes.cend(), std::size_t{0});
 
   mesh.indexBuffer = createBuffer(totalIndexBufferSize,
                                   VK_BUFFER_USAGE_TRANSFER_DST_BIT |
