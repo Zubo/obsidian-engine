@@ -322,7 +322,12 @@ private:
     vmaUnmapMemory(_vmaAllocator, stagingBuffer.allocation);
     (void)data;
 
-    BufferTransferInfo bufferTransferInfo = {.offset = index * valueSize,
+    VkDeviceSize const offset = index * valueSize;
+
+    vmaFlushAllocation(_vmaAllocator, stagingBuffer.allocation, offset,
+                       valueSize);
+
+    BufferTransferInfo bufferTransferInfo = {.offset = offset,
                                              .size = valueSize};
 
     BufferTransferDstState const bufferTransferDstState = {
