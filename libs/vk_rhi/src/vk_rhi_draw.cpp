@@ -273,7 +273,11 @@ void VulkanRHI::ssaoPostProcessingPass(DrawPassParams const& params) {
       VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
       VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
-  vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+  ssaoPostProcessingBarrier.srcAccessMask =
+      VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+  ssaoPostProcessingBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+  vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
                        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0,
                        nullptr, 1, &ssaoPostProcessingBarrier);
 }
@@ -340,6 +344,7 @@ void VulkanRHI::shadowPasses(DrawPassParams const& params) {
   VkImageMemoryBarrier depthImageMemoryBarrier = vkinit::layoutImageBarrier(
       VK_NULL_HANDLE, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
       VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
+  depthImageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
   for (std::size_t i = 0; i < params.currentFrameData.shadowFrameBuffers.size();
        ++i) {
@@ -347,10 +352,16 @@ void VulkanRHI::shadowPasses(DrawPassParams const& params) {
     depthImageMemoryBarrier.oldLayout =
         depthAttachmentUsed ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
                             : VK_IMAGE_LAYOUT_UNDEFINED;
+    depthImageMemoryBarrier.srcAccessMask =
+        depthAttachmentUsed ? VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT
+                            : VK_ACCESS_NONE;
+
     depthImageMemoryBarrier.image =
         params.currentFrameData.shadowFrameBuffers[i].depthBufferImage.vkImage;
 
-    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+    vkCmdPipelineBarrier(cmd,
+                         VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
+                             VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
                          VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr,
                          0, nullptr, 1, &depthImageMemoryBarrier);
   }
@@ -626,9 +637,19 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
 
   shadowPasses(params);
 
-  colorPass(params, sceneParams.ambientColor,
-            _vkSwapchainFramebuffers[swapchainImageIndex][params.frameInd]
-                .vkFramebuffer,
+  VkImageMemoryBarrier colorPassBarrier = vkinit::layoutImageBarrier(
+      _swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED,
+      VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+
+  colorPassBarrier.srcAccessMask = VK_ACCESS_NONE;
+  colorPassBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+  vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                       VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0,
+                       nullptr, 0, nullptr, 1, &colorPassBarrier);
+
+  Framebuffer const& framebuffer =
+      _vkSwapchainFramebuffers[swapchainImageIndex][params.frameInd];
+  colorPass(params, sceneParams.ambientColor, framebuffer.vkFramebuffer,
             _vkbSwapchain.extent);
 
   environmentMapPasses(params);

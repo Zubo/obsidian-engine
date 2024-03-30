@@ -137,6 +137,7 @@ private:
   std::vector<rhi::Spotlight> _submittedSpotlights;
   std::array<FrameData, frameOverlap> _frameDataArray = {};
   vkb::Swapchain _vkbSwapchain = {};
+  std::vector<VkImage> _swapchainImages;
   std::vector<VkImageView> _swapchainImageViews;
   std::uint32_t _frameNumber = 0;
   PFN_vkCmdSetVertexInputEXT _vkCmdSetVertexInput;

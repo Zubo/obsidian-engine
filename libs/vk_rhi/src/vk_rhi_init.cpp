@@ -238,6 +238,7 @@ void VulkanRHI::initSwapchain(rhi::WindowExtentRHI const& extent) {
 
   _vkbSwapchain = swapchainBuilder.build().value();
 
+  _swapchainImages = _vkbSwapchain.get_images().value();
   _swapchainImageViews = _vkbSwapchain.get_image_views().value();
   _swapchainDeletionQueue.pushFunction(
       [this]() { _vkbSwapchain.destroy_image_views(_swapchainImageViews); });
@@ -1400,6 +1401,8 @@ void VulkanRHI::initSsaoSamplesAndNoise() {
     }
 
     vmaUnmapMemory(_vmaAllocator, stagingBuffer.allocation);
+    vmaFlushAllocation(_vmaAllocator, stagingBuffer.allocation, 0,
+                       sampleBufferSize);
 
     VkBufferCopy vkBufferCopy = {};
     vkBufferCopy.srcOffset = 0;
