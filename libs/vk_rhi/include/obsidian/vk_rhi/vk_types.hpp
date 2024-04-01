@@ -61,7 +61,7 @@ struct MeshPushConstants {
   glm::mat4 modelMatrix;
 };
 
-struct PostProcessingpushConstants {
+struct PostProcessingPushConstants {
   glm::mat3 kernel;
 };
 

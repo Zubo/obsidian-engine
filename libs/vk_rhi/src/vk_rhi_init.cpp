@@ -677,7 +677,13 @@ void VulkanRHI::initDepthPassPipelineLayout() {
   VkPushConstantRange vkPushConstantRange;
   vkPushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
   vkPushConstantRange.offset = 0;
-  vkPushConstantRange.size = sizeof(MeshPushConstants);
+
+  constexpr std::size_t pushConstantSize = sizeof(MeshPushConstants);
+  static_assert(pushConstantSize <= 128 &&
+                "Push constants should not exceed size of 128 bytes to ensure "
+                "portability");
+  vkPushConstantRange.size = pushConstantSize;
+
   vkDepthPipelineLayoutCreateInfo.pushConstantRangeCount = 1;
   vkDepthPipelineLayoutCreateInfo.pPushConstantRanges = &vkPushConstantRange;
 
@@ -823,7 +829,12 @@ void VulkanRHI::initSsaoPipeline() {
   VkPushConstantRange pushConstantRange;
   pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
   pushConstantRange.offset = 0;
-  pushConstantRange.size = getPaddedBufferSize(sizeof(GPUObjectData));
+
+  constexpr std::size_t pushConstantSize = sizeof(GPUObjectData);
+  static_assert(pushConstantSize <= 128 &&
+                "Push constants should not exceed size of 128 bytes to ensure "
+                "portability");
+  pushConstantRange.size = pushConstantSize;
 
   pipelineLayoutCreateInfo.pushConstantRangeCount = 1;
   pipelineLayoutCreateInfo.pPushConstantRanges = &pushConstantRange;
@@ -889,8 +900,12 @@ void VulkanRHI::initSsaoPostProcessingPipeline() {
   VkPushConstantRange pushConstantRange;
   pushConstantRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
   pushConstantRange.offset = 0;
-  pushConstantRange.size =
-      getPaddedBufferSize(sizeof(PostProcessingpushConstants));
+
+  constexpr std::size_t pushConstantSize = sizeof(PostProcessingPushConstants);
+  static_assert(pushConstantSize <= 128 &&
+                "Push constants should not exceed size of 128 bytes to ensure "
+                "portability");
+  pushConstantRange.size = pushConstantSize;
 
   layoutCreateInfo.pushConstantRangeCount = 1;
   layoutCreateInfo.pPushConstantRanges = &pushConstantRange;

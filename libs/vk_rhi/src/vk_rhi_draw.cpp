@@ -894,12 +894,12 @@ void VulkanRHI::drawPostProcessing(VkCommandBuffer cmd,
       cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _vkSsaoPostProcessingPipelineLayout,
       0, descriptorSets.size(), descriptorSets.data(), 0, nullptr);
 
-  PostProcessingpushConstants ssaoPostProcessingPushConstants;
+  PostProcessingPushConstants ssaoPostProcessingPushConstants;
   ssaoPostProcessingPushConstants.kernel = kernel;
 
   vkCmdPushConstants(
       cmd, _vkSsaoPostProcessingPipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-      sizeof(PostProcessingpushConstants), &ssaoPostProcessingPushConstants);
+      sizeof(PostProcessingPushConstants), &ssaoPostProcessingPushConstants);
 
   VkDeviceSize offset = 0;
   vkCmdBindVertexBuffers(cmd, 0, 1, &_postProcessingQuadBuffer.buffer, &offset);

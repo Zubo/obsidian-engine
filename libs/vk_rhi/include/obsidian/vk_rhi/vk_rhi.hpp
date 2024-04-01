@@ -5,6 +5,7 @@
 #include <obsidian/rhi/rhi.hpp>
 #include <obsidian/rhi/submit_types_rhi.hpp>
 #include <obsidian/vk_rhi/vk_check.hpp>
+#include <obsidian/vk_rhi/vk_debug.hpp>
 #include <obsidian/vk_rhi/vk_deletion_queue.hpp>
 #include <obsidian/vk_rhi/vk_descriptors.hpp>
 #include <obsidian/vk_rhi/vk_frame_data.hpp>
@@ -313,6 +314,9 @@ private:
     AllocatedBuffer stagingBuffer = createBuffer(
         valueSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_AUTO,
         VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+
+    setDbgResourceName(_vkDevice, (std::uint64_t)stagingBuffer.buffer,
+                       VK_OBJECT_TYPE_BUFFER, "Upload buffer staging buffer");
 
     void* data = nullptr;
 
