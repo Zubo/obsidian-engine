@@ -778,6 +778,8 @@ void VulkanRHI::initDepthPrepassPipeline() {
 
   pipelineBuilder._vkPipelineLayout = _vkDepthPipelineLayout;
 
+  pipelineBuilder._vkColorBlendAttachmentState.blendEnable = VK_FALSE;
+
   _vkDepthPrepassPipeline =
       pipelineBuilder.buildPipeline(_vkDevice, _depthRenderPass.vkRenderPass);
 

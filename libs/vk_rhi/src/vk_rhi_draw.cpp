@@ -77,10 +77,10 @@ void VulkanRHI::depthPrepass(DrawPassParams const& params) {
 
   VkCommandBuffer cmd = params.currentFrameData.vkCommandBuffer;
 
-  vkCmdBeginRenderPass(cmd, &depthPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
   uploadBufferData(params.frameInd, params.cameraData, _cameraBuffer,
                    _graphicsQueueFamilyIndex);
+
+  vkCmdBeginRenderPass(cmd, &depthPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
   std::vector<std::uint32_t> const depthPassDynamicOffsets = {
       static_cast<std::uint32_t>(params.frameInd *
@@ -122,7 +122,7 @@ void VulkanRHI::depthPrepass(DrawPassParams const& params) {
   depthPrepassShaderReadBarrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
   depthPrepassShaderReadBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 
-  vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+  vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
                        VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
                        nullptr, 1, &depthPrepassShaderReadBarrier);
 
