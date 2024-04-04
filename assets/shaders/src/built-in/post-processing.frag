@@ -14,7 +14,7 @@ void main() {
     for (int j = -1; j < 2; ++j) {
       const vec2 sampleUv = (gl_FragCoord.xy + vec2(i, j)) / textureSize;
       accumulatedColor +=
-          texture(inputTexture, sampleUv).r * pushConstants.kernel[i][j];
+          texture(inputTexture, sampleUv).r * pushConstants.kernel[1 + i][1 + j];
     }
   }
 
