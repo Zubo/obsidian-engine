@@ -157,9 +157,15 @@ std::optional<asset::TextureAssetInfo> AssetConverter::convertImgToAsset(
     std::size_t dstOffset = srcLevelW * srcLevelH * channelCnt;
 
     while ((srcLevelW > 1) && (srcLevelH > 1)) {
-      core::utils::reduceTextureSize(data + srcOffset, data + dstOffset,
-                                     channelCnt, srcLevelW, srcLevelH, 2,
-                                     nonLinearChannelCnt);
+      if (core::isPowerOfTwo(w) && core::isPowerOfTwo(h)) {
+        core::utils::reduceTextureSize(data + srcOffset, data + dstOffset,
+                                       channelCnt, srcLevelW, srcLevelH, 2,
+                                       nonLinearChannelCnt);
+      } else {
+        OBS_LOG_WARN("Image at " + srcPath.string() +
+                     " will be imported without size reduction because "
+                     "its resolution is not a power of two.");
+      }
 
       srcOffset += srcLevelW * srcLevelH * channelCnt;
 
