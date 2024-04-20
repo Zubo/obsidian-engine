@@ -776,7 +776,7 @@ void materialCreatorTab() {
 
   if (ImGui::BeginTabItem("Materials")) {
     if (assetListDirty) {
-      materialsData.selectedMaterialInd = 0;
+      materialsData.selectedMaterialInd = materialsInProj.valuesSize() ? 0 : -1;
       materialsData.materialSelectionUpdated = true;
       ImGui::EndTabItem();
       return;
