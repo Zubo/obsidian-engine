@@ -1030,7 +1030,10 @@ void projectTab(ObsidianEngine& engine) {
           "OpenProjectDirectoryDlg", "Open project directory", nullptr);
     }
 
-    if (ImGuiFileDialog::Instance()->Display("OpenProjectDirectoryDlg")) {
+    if (ImGuiFileDialog::Instance()->Display("OpenProjectDirectoryDlg",
+                                             ImGuiWindowFlags_NoCollapse |
+                                                 ImGuiWindowFlags_NoDocking,
+                                             ImVec2(300, 300))) {
       if (ImGuiFileDialog::Instance()->IsOk()) {
         std::string const projectPath =
             ImGuiFileDialog::Instance()->GetCurrentPath();
@@ -1145,7 +1148,7 @@ void editorWindow(SDL_Renderer& renderer, ImGuiIO& imguiIO,
                   DataContext& context, ObsidianEngine& engine) {
   ZoneScoped;
 
-  ImGui::Begin("EditorWindow");
+  ImGui::Begin("EditorWindow", NULL, ImGuiWindowFlags_NoBringToFrontOnFocus);
   if (ImGui::BeginTabBar("EditorTabBar")) {
 
     projectTab(engine);
