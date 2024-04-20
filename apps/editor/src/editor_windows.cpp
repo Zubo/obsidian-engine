@@ -37,6 +37,7 @@
 #include <obsidian/task/task_executor.hpp>
 #include <obsidian/task/task_type.hpp>
 
+#include <ImGuiFileDialog.h>
 #include <SDL2/SDL.h>
 #include <backends/imgui_impl_sdl2.h>
 #include <backends/imgui_impl_sdlrenderer2.h>
@@ -1023,6 +1024,21 @@ void projectTab(ObsidianEngine& engine) {
   if (ImGui::BeginTabItem("Project")) {
     static char projPathBuf[maxPathSize];
     ImGui::InputText("Project Path", projPathBuf, std::size(projPathBuf));
+
+    if (ImGui::Button("Browse...")) {
+      ImGuiFileDialog::Instance()->OpenDialog(
+          "OpenProjectDirectoryDlg", "Open project directory", nullptr);
+    }
+
+    if (ImGuiFileDialog::Instance()->Display("OpenProjectDirectoryDlg")) {
+      if (ImGuiFileDialog::Instance()->IsOk()) {
+        std::string const projectPath =
+            ImGuiFileDialog::Instance()->GetCurrentPath();
+        strncpy(projPathBuf, projectPath.c_str(), projectPath.size());
+      }
+
+      ImGuiFileDialog::Instance()->Close();
+    }
 
     std::size_t projPathLen = std::strlen(projPathBuf);
     bool disabled = projPathLen == 0;

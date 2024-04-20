@@ -22,6 +22,7 @@ target_link_libraries(ObsidianEditor
         ObsidianEngine
         SDLWrapper
         DearImgui
+        ImGuiFileDialog
         TracyClient
         Core
         Globals

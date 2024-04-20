@@ -178,6 +178,17 @@ FetchContent_Declare(fetch_gtest
 
 FetchContent_MakeAvailable(fetch_gtest)
 
+FetchContent_Declare(fetch_imguifiledialog
+    GIT_REPOSITORY https://github.com/aiekick/ImGuiFileDialog
+    GIT_TAG v0.6.7
+    GIT_PROGRESS TRUE
+    SYSTEM
+)
+
+FetchContent_MakeAvailable(fetch_imguifiledialog)
+
+target_link_libraries(ImGuiFileDialog PUBLIC DearImgui)
+
 if (WIN32)
     set_target_properties(
         gtest
@@ -195,6 +206,7 @@ if (WIN32)
         lz4_static
         loader_example
         DearImgui
+        ImGuiFileDialog
         uninstall
         VulkanMemoryAllocator
         StbImage
