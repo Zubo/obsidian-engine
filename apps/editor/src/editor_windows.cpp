@@ -19,6 +19,7 @@
 #include <obsidian/core/logging.hpp>
 #include <obsidian/core/material.hpp>
 #include <obsidian/core/texture_format.hpp>
+#include <obsidian/core/utils/path_utils.hpp>
 #include <obsidian/core/utils/visitor.hpp>
 #include <obsidian/editor/data.hpp>
 #include <obsidian/editor/editor_windows.hpp>
@@ -26,6 +27,7 @@
 #include <obsidian/editor/settings.hpp>
 #include <obsidian/globals/file_extensions.hpp>
 #include <obsidian/obsidian_engine/obsidian_engine.hpp>
+#include <obsidian/platform/environment.hpp>
 #include <obsidian/project/project.hpp>
 #include <obsidian/rhi/resource_rhi.hpp>
 #include <obsidian/scene/game_object.hpp>
@@ -1066,6 +1068,20 @@ void projectTab(ObsidianEngine& engine) {
       ImGui::PopStyleVar();
     }
 
+    if (ImGui::Button("Load sample project")) {
+      fs::path sampleProjectPath = core::utils::findDirInParentTree(
+          obsidian::platform::getExecutableDirectoryPath(),
+          SAMPLE_PROJECT_DIR_NAME);
+
+      if (sampleProjectPath.empty()) {
+        OBS_LOG_ERR("Cannot find sample project path.");
+      } else {
+        project.open(sampleProjectPath);
+        setLastOpenProject(sampleProjectPath);
+        assetListDirty = true;
+      }
+    }
+
     if (project.getOpenProjectPath().empty()) {
       fs::path lastOpenProject = getLastOpenProject();
 
@@ -1077,6 +1093,7 @@ void projectTab(ObsidianEngine& engine) {
                        lastOpenProjectStr.size());
           assetListDirty = true;
         }
+
         if (ImGui::Button("Load last project and run")) {
           if (project.open(lastOpenProject)) {
             std::string const lastOpenProjectStr = lastOpenProject.string();

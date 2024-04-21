@@ -1,4 +1,5 @@
 #include <obsidian/core/logging.hpp>
+#include <obsidian/core/utils/path_utils.hpp>
 #include <obsidian/platform/environment.hpp>
 #include <obsidian/project/project.hpp>
 
@@ -9,23 +10,6 @@ using namespace obsidian;
 using namespace obsidian::project;
 
 namespace fs = std::filesystem;
-
-fs::path getInitialAssetsPath() {
-  fs::path currentPath = platform::getExecutableDirectoryPath();
-
-  while (!currentPath.empty() && currentPath.has_parent_path()) {
-    fs::path standardAssetsPath = currentPath / "standard-assets";
-
-    if (fs::exists(standardAssetsPath) &&
-        fs::is_directory(standardAssetsPath)) {
-      return standardAssetsPath;
-    }
-
-    currentPath = currentPath.parent_path();
-  }
-
-  return {};
-}
 
 bool importStandardAssetsToProject(fs::path const& standardAssetsPath,
                                    fs::path const& projectPath) {
@@ -52,7 +36,8 @@ bool Project::open(fs::path projectRootPath) {
     fs::create_directory(projectRootPath);
   }
 
-  fs::path const standardAssetsPath = getInitialAssetsPath();
+  fs::path const standardAssetsPath = core::utils::findDirInParentTree(
+      platform::getExecutableDirectoryPath(), "standard-assets");
 
   if (standardAssetsPath.empty()) {
     OBS_LOG_ERR("The initial assets are missing on path " +

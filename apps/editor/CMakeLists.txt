@@ -39,8 +39,15 @@ add_custom_target(CopyAssetsToEditorDir
 add_dependencies(CopyAssetsToEditorDir GeneratedAssets)
 
 
+set (SAMPLE_PROJECT_DIR_NAME "sample-project")
+
+target_compile_definitions(ObsidianEditor
+    PRIVATE
+        SAMPLE_PROJECT_DIR_NAME="${SAMPLE_PROJECT_DIR_NAME}"
+)
+
 add_custom_target(EditorSampleProject
-    COMMAND ObsidianSampleProjectGenerator ${EDITOR_OUTPUT_DIR}/sample-project
+    COMMAND ObsidianSampleProjectGenerator "${EDITOR_OUTPUT_DIR}/${SAMPLE_PROJECT_DIR_NAME}"
 )
 
 add_dependencies(EditorSampleProject ObsidianSampleProjectGenerator)
