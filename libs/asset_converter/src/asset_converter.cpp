@@ -619,9 +619,9 @@ bool AssetConverter::convertSpirvToAsset(fs::path const& srcPath,
   return saveAsset(srcPath, dstPath, shaderAsset);
 }
 
-bool AssetConverter::convertAsset(fs::path const& srcPath,
-                                  fs::path const& dstPath) {
-  std::string const extension = srcPath.extension().string();
+bool AssetConverter::convertAsset(fs::path const& srcFilePath,
+                                  fs::path const& dstFilePath) {
+  std::string const extension = srcFilePath.extension().string();
 
   if (!extension.size()) {
     OBS_LOG_ERR("Error: File doesn't have extension.");
@@ -630,13 +630,13 @@ bool AssetConverter::convertAsset(fs::path const& srcPath,
 
   if (extension == ".png" || extension == ".jpg" || extension == ".jpeg" ||
       extension == ".bmp") {
-    return convertImgToAsset(srcPath, dstPath, true).has_value();
+    return convertImgToAsset(srcFilePath, dstFilePath, true).has_value();
   } else if (extension == ".obj") {
-    return convertObjToAsset(srcPath, dstPath);
+    return convertObjToAsset(srcFilePath, dstFilePath);
   } else if (extension == ".gltf" || extension == ".glb") {
-    return convertGltfToAsset(srcPath, dstPath);
+    return convertGltfToAsset(srcFilePath, dstFilePath);
   } else if (extension == ".spv") {
-    return convertSpirvToAsset(srcPath, dstPath);
+    return convertSpirvToAsset(srcFilePath, dstFilePath);
   }
 
   OBS_LOG_ERR("Error: Unknown file extension.");

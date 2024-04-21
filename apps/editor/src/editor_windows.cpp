@@ -286,7 +286,8 @@ void importPopup(ObsidianEngine& engine) {
     fs::path dstPath = project.getAbsolutePath(importPath.filename());
     static core::MaterialType matType = core::MaterialType::lit;
 
-    if (dstPath.extension() == ".gltf" || dstPath.extension() == ".obj") {
+    if (dstPath.extension() == ".gltf" || dstPath.extension() == ".glb" ||
+        dstPath.extension() == ".obj") {
       int matInd = static_cast<int>(matType);
       if (ImGui::Combo("Render Pipeline", &matInd, materialTypes.data(),
                        materialTypes.size())) {

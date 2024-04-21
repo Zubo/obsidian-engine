@@ -7,6 +7,8 @@ add_executable(ObsidianSampleProjectGenerator
 target_link_libraries(ObsidianSampleProjectGenerator
     PRIVATE
         Project
+        AssetConverter
+        Task
         Core
 )
 

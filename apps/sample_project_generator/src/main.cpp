@@ -1,7 +1,11 @@
+#include <obsidian/asset_converter/asset_converter.hpp>
 #include <obsidian/core/logging.hpp>
 #include <obsidian/project/project.hpp>
+#include <obsidian/task/task_executor.hpp>
+#include <obsidian/task/task_type.hpp>
 
 #include <filesystem>
+#include <thread>
 
 namespace fs = std::filesystem;
 
@@ -20,6 +24,21 @@ int main(int argc, char const** argv) {
 
   if (!project.open(argv[1])) {
     OBS_LOG_ERR("Failed to open project at path " + std::string(argv[1]));
+    return 1;
+  }
+
+  unsigned int nCores = std::max(std::thread::hardware_concurrency(), 2u);
+
+  obsidian::task::TaskExecutor taskExecutor;
+  taskExecutor.initAndRun({{obsidian::task::TaskType::general, nCores}});
+
+  obsidian::asset_converter::AssetConverter converter{taskExecutor};
+
+  fs::path const modelPath =
+      fs::path{SAMPLE_ASSETS_DIR} / "SM_Deccer_Cubes_Textured.glb";
+
+  if (!converter.convertAsset(modelPath, argv[1] / modelPath.stem())) {
+    OBS_LOG_ERR("Failed to convert " + modelPath.string());
     return 1;
   }
 

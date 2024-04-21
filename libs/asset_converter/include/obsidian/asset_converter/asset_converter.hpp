@@ -36,8 +36,8 @@ public:
 
   AssetConverter(task::TaskExecutor& taskExecutor);
 
-  bool convertAsset(std::filesystem::path const& srcPath,
-                    std::filesystem::path const& dstPath);
+  bool convertAsset(std::filesystem::path const& srcFilePath,
+                    std::filesystem::path const& dstFilePath);
 
   void setMaterialType(core::MaterialType matType);
 
