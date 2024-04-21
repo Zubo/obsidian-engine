@@ -33,8 +33,19 @@ target_link_libraries(ObsidianEditor
 get_target_property(EDITOR_OUTPUT_DIR ObsidianEditor BINARY_DIR)
 
 add_custom_target(CopyAssetsToEditorDir
-${CMAKE_COMMAND} -E copy_directory ${GENERATED_ASSETS_DIR} ${EDITOR_OUTPUT_DIR}/assets
+    ${CMAKE_COMMAND} -E copy_directory ${STANDARD_ASSETS_DIR} ${EDITOR_OUTPUT_DIR}/standard-assets
 )
 
 add_dependencies(CopyAssetsToEditorDir GeneratedAssets)
-add_dependencies(ObsidianEditor CopyAssetsToEditorDir)
+
+
+add_custom_target(EditorSampleProject
+    COMMAND ObsidianSampleProjectGenerator ${EDITOR_OUTPUT_DIR}/sample-project
+)
+
+add_dependencies(EditorSampleProject ObsidianSampleProjectGenerator)
+
+add_dependencies(ObsidianEditor
+    CopyAssetsToEditorDir
+    EditorSampleProject
+)

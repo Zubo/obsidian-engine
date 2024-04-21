@@ -187,6 +187,16 @@ FetchContent_Declare(fetch_imguifiledialog
 
 FetchContent_MakeAvailable(fetch_imguifiledialog)
 
+FetchContent_Declare(fetch_deccer_cubes
+    GIT_REPOSITORY https://github.com/GraphicsProgramming/deccer-cubes.git
+    GIT_TAG main
+    GIT_PROGRESS TRUE
+)
+
+FetchContent_MakeAvailable(fetch_deccer_cubes)
+
+set(SAMPLE_ASSETS_DIR ${fetch_deccer_cubes_SOURCE_DIR} CACHE PATH "Path to directory containing assets for generating test scene." FORCE)
+
 target_link_libraries(ImGuiFileDialog PUBLIC DearImgui)
 
 if (WIN32)

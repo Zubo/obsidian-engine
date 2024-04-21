@@ -75,7 +75,7 @@ add_custom_command(
 )
 
 add_custom_target(ShaderAssets ALL
-    ObsidianAssetConverterTool "-s" "${CMAKE_BINARY_DIR}/shaders/built-in" "-d" "${GENERATED_ASSETS_DIR}/obsidian/shaders"
+    ObsidianAssetConverterTool "-s" "${CMAKE_BINARY_DIR}/shaders/built-in" "-d" "${STANDARD_ASSETS_DIR}/obsidian/shaders"
     DEPENDS ${SHADER_OUTPUT_LIST}
 )
 

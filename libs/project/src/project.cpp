@@ -11,22 +11,26 @@ using namespace obsidian::project;
 namespace fs = std::filesystem;
 
 fs::path getInitialAssetsPath() {
-  fs::path const exePath = platform::getExecutableDirectoryPath();
-  fs::path initialAssetsPath = exePath.parent_path() / "assets";
+  fs::path currentPath = platform::getExecutableDirectoryPath();
 
-  if (!fs::exists(initialAssetsPath)) {
-    // multi-config builds
-    initialAssetsPath = exePath.parent_path().parent_path() / "assets";
+  while (!currentPath.empty() && currentPath.has_parent_path()) {
+    fs::path standardAssetsPath = currentPath / "standard-assets";
+
+    if (fs::exists(standardAssetsPath) &&
+        fs::is_directory(standardAssetsPath)) {
+      return standardAssetsPath;
+    }
+
+    currentPath = currentPath.parent_path();
   }
 
-  return initialAssetsPath;
+  return {};
 }
 
-bool exportInitialProjectFiles(fs::path const& projectPath) {
-  fs::path const initialAssetsPath = getInitialAssetsPath();
-
+bool importStandardAssetsToProject(fs::path const& standardAssetsPath,
+                                   fs::path const& projectPath) {
   try {
-    fs::copy(initialAssetsPath, projectPath,
+    fs::copy(standardAssetsPath, projectPath,
              fs::copy_options::recursive |
                  fs ::copy_options::overwrite_existing);
   } catch (std::exception const& e) {
@@ -48,14 +52,15 @@ bool Project::open(fs::path projectRootPath) {
     fs::create_directory(projectRootPath);
   }
 
-  fs::path const initialAssetsPath = getInitialAssetsPath();
-  if (!fs::exists(initialAssetsPath)) {
+  fs::path const standardAssetsPath = getInitialAssetsPath();
+
+  if (standardAssetsPath.empty()) {
     OBS_LOG_ERR("The initial assets are missing on path " +
-                initialAssetsPath.string());
+                standardAssetsPath.string());
     return false;
   }
 
-  if (!exportInitialProjectFiles(projectRootPath)) {
+  if (!importStandardAssetsToProject(standardAssetsPath, projectRootPath)) {
     return false;
   }
 

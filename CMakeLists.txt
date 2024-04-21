@@ -23,10 +23,10 @@ if (ENABLE_ADDRESS_SANITIZER)
     endif()
 endif()
 
-set(GENERATED_ASSETS_DIR "${CMAKE_BINARY_DIR}/generated-assets" CACHE PATH "GENERATED_ASSETS_DIR")
+set(STANDARD_ASSETS_DIR "${CMAKE_BINARY_DIR}/standard-assets" CACHE PATH "STANDARD_ASSETS_DIR")
 configure_file("${CMAKE_SOURCE_DIR}/.clang-format" "${CMAKE_BINARY_DIR}/.clang-format" COPYONLY)
 
+add_subdirectory(third_party)
 add_subdirectory(apps)
 add_subdirectory(libs)
-add_subdirectory(third_party)
 add_subdirectory(assets)
