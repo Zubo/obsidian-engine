@@ -109,8 +109,7 @@ int main(int argc, char const** argv) {
     editor::begnEditorFrame(io);
     editor::editorWindow(*editorUIRenderer, io, dataContext, engine);
 
-    scene::SceneState& sceneState = engineContext.scene.getState();
-    sceneState.ambientColor = dataContext.sceneData.ambientColor;
+    engineContext.scene.setAmbientColor(dataContext.sceneData.ambientColor);
 
     if (engine.isInitialized() && !shouldQuit.test()) {
       engineContext.window.pollEvents();

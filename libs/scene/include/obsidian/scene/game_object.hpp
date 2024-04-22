@@ -89,6 +89,8 @@ public:
 
   void draw(glm::mat4 const& parentTransform);
 
+  void populate(serialization::GameObjectData const& gameObjectData);
+
 private:
   void cleanup();
   void updateTransform();

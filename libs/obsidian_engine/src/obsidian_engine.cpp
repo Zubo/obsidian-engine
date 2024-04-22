@@ -102,10 +102,11 @@ bool ObsidianEngine::init(IWindowBackendProvider const& windowBackendProvider,
         _context.vulkanRHI.updateExtent(newExtent);
       });
 
-  _context.scene.init(_context.inputContext);
   _context.resourceManager.init(_context.vulkanRHI, _context.project,
                                 _context.taskExecutor);
   _context.resourceManager.uploadInitRHIResources();
+  _context.scene.init(_context.inputContext, _context.vulkanRHI,
+                      _context.resourceManager);
 
   _isInitialized = true;
   return _isInitialized;
@@ -113,7 +114,7 @@ bool ObsidianEngine::init(IWindowBackendProvider const& windowBackendProvider,
 
 void ObsidianEngine::cleanup() {
   _context.taskExecutor.waitIdle();
-  _context.scene.getState().gameObjects.clear();
+  _context.scene.resetState();
   _context.inputContext.keyInputEmitter.cleanup();
   _context.inputContext.mouseEventEmitter.cleanup();
   _context.inputContext.windowEventEmitter.cleanup();
@@ -143,12 +144,10 @@ void ObsidianEngine::prepareRenderData() {
     return;
   }
 
-  scene::SceneState& sceneState = _context.scene.getState();
-
   {
     ZoneScopedN("Draw call recursion");
 
-    for (auto& gameObject : sceneState.gameObjects) {
+    for (auto& gameObject : _context.scene.getGameObjects()) {
       gameObject.draw(glm::mat4{1.0f});
     }
   }
@@ -178,7 +177,7 @@ void ObsidianEngine::requestShutdown() {
 
 void ObsidianEngine::openProject(std::filesystem::path projectPath) {
   _context.taskExecutor.waitIdle();
-  _context.scene.getState() = {};
+  _context.scene.resetState();
   _context.taskExecutor.shutdown();
   initTaskExecutor();
 

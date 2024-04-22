@@ -315,6 +315,45 @@ void GameObject::draw(glm::mat4 const& parentTransform) {
   }
 }
 
+void GameObject::populate(serialization::GameObjectData const& gameObjectData) {
+  setName(gameObjectData.gameObjectName);
+
+  std::vector<std::filesystem::path> materialRelativePaths;
+
+  std::transform(gameObjectData.materialPaths.cbegin(),
+                 gameObjectData.materialPaths.cend(),
+                 std::back_inserter(materialRelativePaths),
+                 [](std::string const& path) { return path; });
+
+  setMaterials(materialRelativePaths);
+
+  if (gameObjectData.meshPath.size()) {
+    setMesh(gameObjectData.meshPath);
+  }
+
+  if (gameObjectData.directionalLight) {
+    setDirectionalLight(*gameObjectData.directionalLight);
+  }
+
+  if (gameObjectData.spotlight) {
+    setSpotlight(*gameObjectData.spotlight);
+  }
+
+  if (gameObjectData.envMapRadius) {
+    setEnvironmentMap(*gameObjectData.envMapRadius);
+  }
+
+  setPosition(gameObjectData.position);
+  setRotationQuat(gameObjectData.rotationQuat);
+  setScale(gameObjectData.scale);
+
+  for (serialization::GameObjectData const& childData :
+       gameObjectData.children) {
+    GameObject& childGameObject = createChild();
+    childGameObject.populate(childData);
+  }
+}
+
 void GameObject::cleanup() {
   releaseMeshResource();
   releaseMaterialResources();

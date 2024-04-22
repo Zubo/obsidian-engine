@@ -2,29 +2,37 @@
 #include <obsidian/input/input_context.hpp>
 #include <obsidian/input/key_input_emitter.hpp>
 #include <obsidian/input/mouse_event_emitter.hpp>
+#include <obsidian/scene/game_object.hpp>
 #include <obsidian/scene/scene.hpp>
+#include <obsidian/serialization/game_object_data_serialization.hpp>
+#include <obsidian/serialization/scene_data_serialization.hpp>
 
 #include <glm/gtx/transform.hpp>
+#include <unistd.h>
 
 using namespace obsidian::scene;
 
-void Scene::init(input::InputContext& inputContext) {
+void Scene::init(input::InputContext& inputContext, rhi::RHI& rhi,
+                 runtime_resource::RuntimeResourceManager& resourceManager) {
   // scene movement
+  _rhi = &rhi;
+  _resourceManager = &resourceManager;
+
   input::KeyInputEmitter& keyInputEmitter = inputContext.keyInputEmitter;
 
   constexpr glm::vec3 worldY = {0.0f, 1.0f, 0.0f};
   constexpr float moveSpeed{0.1f};
   keyInputEmitter.subscribeToKeycodePressed(
-      [this]() { _state.camera.pos += moveSpeed * _state.camera.forward(); },
+      [this]() { _state.camera.pos += moveSpeed * forward(_state.camera); },
       core::KeyCode::e);
   keyInputEmitter.subscribeToKeycodePressed(
-      [this]() { _state.camera.pos -= moveSpeed * _state.camera.forward(); },
+      [this]() { _state.camera.pos -= moveSpeed * forward(_state.camera); },
       core::KeyCode::d);
   keyInputEmitter.subscribeToKeycodePressed(
-      [this]() { _state.camera.pos -= moveSpeed * _state.camera.right(); },
+      [this]() { _state.camera.pos -= moveSpeed * right(_state.camera); },
       core::KeyCode::s);
   keyInputEmitter.subscribeToKeycodePressed(
-      [this]() { _state.camera.pos += moveSpeed * _state.camera.right(); },
+      [this]() { _state.camera.pos += moveSpeed * right(_state.camera); },
       core::KeyCode::f);
   keyInputEmitter.subscribeToKeycodePressed(
       [this, worldY]() { _state.camera.pos += moveSpeed * worldY; },
@@ -66,5 +74,61 @@ void Scene::init(input::InputContext& inputContext) {
       });
 }
 
-SceneState& Scene::getState() { return _state; }
 SceneState const& Scene::getState() const { return _state; }
+
+void Scene::setAmbientColor(glm::vec3 ambientColor) {
+  _state.ambientColor = ambientColor;
+}
+
+obsidian::serialization::SceneData Scene::getData() const {
+  serialization::SceneData sceneData = {};
+  sceneData.ambientColor = _state.ambientColor;
+  sceneData.camera = _state.camera;
+
+  for (GameObject const& gameObject : _state.gameObjects) {
+    sceneData.gameObjects.push_back(gameObject.getGameObjectData());
+  }
+
+  return sceneData;
+}
+
+void Scene::loadFromData(serialization::SceneData const& sceneData) {
+  _state.ambientColor = sceneData.ambientColor;
+  _state.camera = sceneData.camera;
+
+  for (serialization::GameObjectData const& gameObjData :
+       sceneData.gameObjects) {
+    scene::GameObject& gameObject =
+        _state.gameObjects.emplace_back(*_rhi, *_resourceManager);
+    gameObject.populate(gameObjData);
+  }
+}
+
+GameObject&
+Scene::createGameObject(serialization::GameObjectData const& gameObjectData) {
+  GameObject& gameObject =
+      _state.gameObjects.emplace_back(*_rhi, *_resourceManager);
+  gameObject.populate(gameObjectData);
+
+  return gameObject;
+}
+
+std::list<GameObject>& Scene::getGameObjects() { return _state.gameObjects; }
+
+std::list<GameObject> const& Scene::getGameObjects() const {
+  return _state.gameObjects;
+}
+
+void Scene::destroyGameObject(GameObject::GameObjectId id) {
+  auto const gameObjectIter =
+      std::find_if(_state.gameObjects.cbegin(), _state.gameObjects.cend(),
+                   [id](auto const& g) { return id == g.getId(); });
+
+  if (gameObjectIter != _state.gameObjects.cend()) {
+    _state.gameObjects.erase(gameObjectIter);
+  }
+}
+
+void Scene::destroyAllGameObjects() { _state.gameObjects.clear(); }
+
+void Scene::resetState() { _state = {}; }

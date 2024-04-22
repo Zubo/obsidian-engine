@@ -32,9 +32,9 @@
 #include <obsidian/rhi/resource_rhi.hpp>
 #include <obsidian/scene/game_object.hpp>
 #include <obsidian/scene/scene.hpp>
-#include <obsidian/scene/serialization.hpp>
 #include <obsidian/sdl_wrapper/sdl_backend.hpp>
 #include <obsidian/serialization/game_object_data_serialization.hpp>
+#include <obsidian/serialization/scene_data_serialization.hpp>
 #include <obsidian/task/task.hpp>
 #include <obsidian/task/task_executor.hpp>
 #include <obsidian/task/task_type.hpp>
@@ -118,7 +118,7 @@ int indexorDefault(TCollection const& collection, TValue const& val,
   return std::distance(collection.cbegin(), resultIter);
 }
 
-void loadScene(char const scenePath[], scene::SceneState& sceneState,
+void loadScene(char const scenePath[], scene::Scene& scene,
                ObsidianEngine& engine) {
   asset::Asset sceneAsset;
   if (!asset::loadAssetFromFile(project.getAbsolutePath(scenePath),
@@ -150,11 +150,11 @@ void loadScene(char const scenePath[], scene::SceneState& sceneState,
     return;
   }
 
-  sceneState = {};
-
   ObsidianEngineContext& ctx = engine.getContext();
-  if (!scene::deserializeScene(sceneJson, ctx.vulkanRHI, ctx.resourceManager,
-                               sceneState)) {
+  serialization::SceneData sceneData;
+  if (serialization::deserializeScene(sceneJson, sceneData)) {
+    scene.loadFromData(sceneData);
+  } else {
     OBS_LOG_ERR("Failed to deserialize scene");
     return;
   }
@@ -162,10 +162,10 @@ void loadScene(char const scenePath[], scene::SceneState& sceneState,
   selectedGameObj = nullptr;
 }
 
-void saveScene(char const scenePath[], scene::SceneState& sceneState) {
+void saveScene(char const scenePath[], scene::Scene& scene) {
   nlohmann::json sceneJson;
 
-  if (!scene::serializeScene(sceneState, sceneJson)) {
+  if (!serialization::serializeScene(scene.getData(), sceneJson)) {
     OBS_LOG_ERR("Failed to serialize the scene.");
     return;
   }
@@ -311,8 +311,7 @@ void importPopup(ObsidianEngine& engine) {
   }
 }
 
-void gameObjectHierarchy(scene::GameObject& gameObject,
-                         scene::SceneState& sceneState) {
+void gameObjectHierarchy(scene::GameObject& gameObject) {
   bool selected = &gameObject == selectedGameObj;
 
   if (selected) {
@@ -343,7 +342,7 @@ void gameObjectHierarchy(scene::GameObject& gameObject,
     ImGui::PopID();
 
     for (scene::GameObject& childObject : gameObject.getChildren()) {
-      gameObjectHierarchy(childObject, sceneState);
+      gameObjectHierarchy(childObject);
     }
 
     ImGui::TreePop();
@@ -378,7 +377,7 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine) {
                            0.f, 1.f);
       }
 
-      scene::SceneState& sceneState = engine.getContext().scene.getState();
+      scene::Scene& scene = engine.getContext().scene;
 
       if (ImGui::CollapsingHeader("Scene")) {
         static char scenePath[maxPathSize] = "scene.obsscene";
@@ -398,7 +397,7 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine) {
           if (std::filesystem::exists(project.getAbsolutePath(scenePath))) {
             ImGui::OpenPopup("File already exists");
           } else {
-            saveScene(scenePath, sceneState);
+            saveScene(scenePath, scene);
           }
         }
 
@@ -408,7 +407,7 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine) {
           ImGui::BeginGroup();
 
           if (ImGui::Button("Overwrite")) {
-            saveScene(scenePath, sceneState);
+            saveScene(scenePath, scene);
             ImGui::CloseCurrentPopup();
           }
 
@@ -423,7 +422,7 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine) {
         }
 
         if (ImGui::Button("Load Scene")) {
-          loadScene(scenePath, sceneState, engine);
+          loadScene(scenePath, scene, engine);
         }
 
         if (disabled) {
@@ -436,12 +435,10 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine) {
 
         if (ImGui::TreeNodeEx("", ImGuiTreeNodeFlags_DefaultOpen)) {
           if (ImGui::Button("+")) {
-            sceneState.gameObjects.emplace_back(
-                engine.getContext().vulkanRHI,
-                engine.getContext().resourceManager);
+            scene.createGameObject();
           }
-          for (auto& gameObject : sceneState.gameObjects) {
-            gameObjectHierarchy(gameObject, sceneState);
+          for (auto& gameObject : scene.getGameObjects()) {
+            gameObjectHierarchy(gameObject);
           }
           ImGui::TreePop();
         }
@@ -455,15 +452,7 @@ void engineTab(SceneData& sceneData, ObsidianEngine& engine) {
             selectedGameObj = parent;
             parent->destroyChild(pendingObjDelete->getId());
           } else {
-            auto const gameObjectIter = std::find_if(
-                sceneState.gameObjects.cbegin(), sceneState.gameObjects.cend(),
-                [d = pendingObjDelete](auto const& g) {
-                  return d->getId() == g.getId();
-                });
-
-            if (gameObjectIter != sceneState.gameObjects.cend()) {
-              sceneState.gameObjects.erase(gameObjectIter);
-            }
+            scene.destroyGameObject(pendingObjDelete->getId());
           }
 
           pendingObjDelete = nullptr;
@@ -1226,9 +1215,8 @@ void instantiatePrefab(fs::path const& prefabPath, ObsidianEngine& engine) {
   }
 
   ObsidianEngineContext& ctx = engine.getContext();
-  scene::GameObject& obj = ctx.scene.getState().gameObjects.emplace_back(
-      ctx.vulkanRHI, ctx.resourceManager);
-  scene::populateGameObject(gameObjectData, obj);
+  scene::GameObject& obj = ctx.scene.createGameObject();
+  obj.populate(gameObjectData);
 }
 
 void fileDropped(const char* file, ObsidianEngine& engine) {
