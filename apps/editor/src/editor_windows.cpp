@@ -153,6 +153,7 @@ void loadScene(char const scenePath[], scene::Scene& scene,
   ObsidianEngineContext& ctx = engine.getContext();
   serialization::SceneData sceneData;
   if (serialization::deserializeScene(sceneJson, sceneData)) {
+    scene.resetState();
     scene.loadFromData(sceneData);
   } else {
     OBS_LOG_ERR("Failed to deserialize scene");
@@ -1058,7 +1059,7 @@ void projectTab(ObsidianEngine& engine) {
       ImGui::PopStyleVar();
     }
 
-    if (ImGui::Button("Load sample project")) {
+    if (ImGui::Button("Open sample scene")) {
       fs::path sampleProjectPath = core::utils::findDirInParentTree(
           obsidian::platform::getExecutableDirectoryPath(),
           SAMPLE_PROJECT_DIR_NAME);
@@ -1069,6 +1070,9 @@ void projectTab(ObsidianEngine& engine) {
         project.open(sampleProjectPath);
         setLastOpenProject(sampleProjectPath);
         assetListDirty = true;
+        openEngineTab = engine.init(sdl_wrapper::SDLBackend::instance(),
+                                    project.getOpenProjectPath());
+        loadScene("scene.obsscene", engine.getContext().scene, engine);
       }
     }
 
