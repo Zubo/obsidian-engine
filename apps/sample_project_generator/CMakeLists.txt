@@ -8,8 +8,11 @@ target_link_libraries(ObsidianSampleProjectGenerator
     PRIVATE
         Project
         AssetConverter
+        Asset
         Task
         Core
+        Serialization
+        nlohmann_json::nlohmann_json
 )
 
 target_compile_definitions(
