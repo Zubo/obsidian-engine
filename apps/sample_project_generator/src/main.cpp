@@ -1,5 +1,6 @@
 #include <obsidian/asset_converter/asset_converter.hpp>
 #include <obsidian/core/logging.hpp>
+#include <obsidian/core/material.hpp>
 #include <obsidian/project/project.hpp>
 #include <obsidian/task/task_executor.hpp>
 #include <obsidian/task/task_type.hpp>
@@ -33,9 +34,10 @@ int main(int argc, char const** argv) {
   taskExecutor.initAndRun({{obsidian::task::TaskType::general, nCores}});
 
   obsidian::asset_converter::AssetConverter converter{taskExecutor};
+  converter.setMaterialType(obsidian::core::MaterialType::lit);
 
   fs::path const modelPath =
-      fs::path{SAMPLE_ASSETS_DIR} / "SM_Deccer_Cubes_Textured.glb";
+      fs::path{SAMPLE_ASSETS_DIR} / "SM_Deccer_Cubes_Merged_Texture_Atlas.gltf";
 
   if (!converter.convertAsset(modelPath, argv[1] / modelPath.stem())) {
     OBS_LOG_ERR("Failed to convert " + modelPath.string());
