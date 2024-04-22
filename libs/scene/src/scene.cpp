@@ -8,7 +8,6 @@
 #include <obsidian/serialization/scene_data_serialization.hpp>
 
 #include <glm/gtx/transform.hpp>
-#include <unistd.h>
 
 using namespace obsidian::scene;
 
