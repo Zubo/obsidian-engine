@@ -829,6 +829,10 @@ void VulkanRHI::destroyUnusedResources(
         for (VkSemaphore s : t.semaphores) {
           vkDestroySemaphore(_vkDevice, s, nullptr);
         }
+
+        for (ResourceTransfer::CmdBufferPoolPair b : t.commandBuffers) {
+          vkFreeCommandBuffers(_vkDevice, b.pool, 1, &b.buffer);
+        }
       } else if (result == VK_NOT_READY) {
         _resourceTransfers.push_back(t);
       } else {
@@ -976,7 +980,8 @@ void VulkanRHI::transferDataToImage(AllocatedBuffer stagingBuffer,
 
   VK_CHECK(vkAllocateCommandBuffers(ctx.device, &cmdTransferAllocInfo,
                                     &cmdTransfer));
-  transfer.commandBuffers.push_back(cmdTransfer);
+  transfer.commandBuffers.push_back(
+      {cmdTransfer, cmdTransferAllocInfo.commandPool});
 
   VkCommandBufferBeginInfo const cmdTransferBegininfo =
       vkinit::commandBufferBeginInfo(
@@ -1023,7 +1028,8 @@ void VulkanRHI::transferDataToImage(AllocatedBuffer stagingBuffer,
 
     VK_CHECK(vkAllocateCommandBuffers(ctx.device, &cmdReleaseAllocInfo,
                                       &cmdRelease));
-    transfer.commandBuffers.push_back(cmdRelease);
+    transfer.commandBuffers.push_back(
+        {cmdRelease, cmdReleaseAllocInfo.commandPool});
 
     VkSemaphoreCreateInfo const semaphoreCreateInfo =
         vkinit::semaphoreCreateInfo(0);
@@ -1158,7 +1164,8 @@ void VulkanRHI::transferDataToImage(AllocatedBuffer stagingBuffer,
 
     VK_CHECK(vkAllocateCommandBuffers(ctx.device, &cmdAcquireAllocInfo,
                                       &cmdAcquire));
-    transfer.commandBuffers.push_back(cmdAcquire);
+    transfer.commandBuffers.push_back(
+        {cmdAcquire, cmdAcquireAllocInfo.commandPool});
 
     VkCommandBufferBeginInfo cmdAcquireBeginInfo =
         vkinit::commandBufferBeginInfo(
@@ -1237,7 +1244,8 @@ void VulkanRHI::transferDataToBuffer(
 
   VK_CHECK(vkAllocateCommandBuffers(ctx.device, &cmdTransferAllocInfo,
                                     &cmdTransfer));
-  transfer.commandBuffers.push_back(cmdTransfer);
+  transfer.commandBuffers.push_back(
+      {cmdTransfer, cmdTransferAllocInfo.commandPool});
 
   VkCommandBufferBeginInfo const cmdTransferBegininfo =
       vkinit::commandBufferBeginInfo(
@@ -1276,7 +1284,8 @@ void VulkanRHI::transferDataToBuffer(
 
     VK_CHECK(vkAllocateCommandBuffers(ctx.device, &cmdReleaseAllocInfo,
                                       &cmdRelease));
-    transfer.commandBuffers.push_back(cmdRelease);
+    transfer.commandBuffers.push_back(
+        {cmdRelease, cmdReleaseAllocInfo.commandPool});
 
     VkSemaphoreCreateInfo const semaphoreCreateInfo =
         vkinit::semaphoreCreateInfo(0);
@@ -1385,7 +1394,8 @@ void VulkanRHI::transferDataToBuffer(
 
     VK_CHECK(vkAllocateCommandBuffers(ctx.device, &cmdAcquireAllocInfo,
                                       &cmdAcquire));
-    transfer.commandBuffers.push_back(cmdAcquire);
+    transfer.commandBuffers.push_back(
+        {cmdAcquire, cmdAcquireAllocInfo.commandPool});
 
     VkCommandBufferBeginInfo cmdAcquireBeginInfo =
         vkinit::commandBufferBeginInfo(

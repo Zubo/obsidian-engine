@@ -170,10 +170,15 @@ struct ResourceTransferContext {
 };
 
 struct ResourceTransfer {
+  struct CmdBufferPoolPair {
+    VkCommandBuffer buffer;
+    VkCommandPool pool;
+  };
+
   AllocatedBuffer stagingBuffer;
   VkFence transferFence;
   std::vector<VkSemaphore> semaphores;
-  std::vector<VkCommandBuffer> commandBuffers;
+  std::vector<CmdBufferPoolPair> commandBuffers;
 };
 
 struct ImageTransferInfo {
