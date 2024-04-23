@@ -143,7 +143,7 @@ std::optional<asset::TextureAssetInfo> AssetConverter::convertImgToAsset(
 
   std::size_t mipLevels = 1;
 
-  if (generateMips) {
+  if (willGenerateMips) {
     if (!reduceSize) {
       modifiedImageBuffer.resize(resultW * resultH * channelCnt * 2);
       std::memcpy(modifiedImageBuffer.data(), data,
