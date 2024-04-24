@@ -27,6 +27,7 @@ struct ObsidianEngineContext {
   ObsidianEngineContext(ObsidianEngineContext const& other) = delete;
 
   task::TaskExecutor taskExecutor;
+  task::TaskExecutor rhiMainThreadExecutor;
   input::InputContext inputContext;
   window::Window window;
   vk_rhi::VulkanRHI vulkanRHI;

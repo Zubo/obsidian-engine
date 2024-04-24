@@ -58,41 +58,45 @@ bool ObsidianEngine::init(IWindowBackendProvider const& windowBackendProvider,
   extent.width = windowParams.width;
   extent.height = windowParams.height;
 
+  _context.rhiMainThreadExecutor.initAndRun({{task::TaskType::rhiMain, 1}});
+
   std::future<void> const vkRhiInitFuture =
-      _context.taskExecutor.enqueue(task::TaskType::rhiMain, [this, extent]() {
-        _context.vulkanRHI.init(extent, _context.window.getWindowBackend());
-      });
+      _context.rhiMainThreadExecutor.enqueue(
+          task::TaskType::rhiMain, [this, extent]() {
+            _context.vulkanRHI.init(extent, _context.window.getWindowBackend());
+          });
 
   vkRhiInitFuture.wait();
 
-  _context.taskExecutor.enqueue(task::TaskType::rhiMain, [this, extent]() {
-    std::unique_lock l{_renderLoopMutex, std::defer_lock};
+  _context.rhiMainThreadExecutor.enqueue(
+      task::TaskType::rhiMain, [this, extent]() {
+        std::unique_lock l{_renderLoopMutex, std::defer_lock};
 
-    while (!_shutdownRequested.test()) {
-      l.lock();
+        while (!_shutdownRequested.test()) {
+          l.lock();
 
-      _renderLoopCondVar.wait(
-          l, [&]() { return _readyToRender || _shutdownRequested.test(); });
+          _renderLoopCondVar.wait(
+              l, [&]() { return _readyToRender || _shutdownRequested.test(); });
 
-      if (!_shutdownRequested.test()) {
-        ZoneScopedN("RHI draw");
+          if (!_shutdownRequested.test()) {
+            ZoneScopedN("RHI draw");
 
-        rhi::SceneGlobalParams sceneGlobalParams;
-        scene::SceneState const& sceneState = _context.scene.getState();
-        sceneGlobalParams.ambientColor = sceneState.ambientColor;
-        sceneGlobalParams.cameraPos = sceneState.camera.pos;
-        sceneGlobalParams.cameraRotationRad = sceneState.camera.rotationRad;
+            rhi::SceneGlobalParams sceneGlobalParams;
+            scene::SceneState const& sceneState = _context.scene.getState();
+            sceneGlobalParams.ambientColor = sceneState.ambientColor;
+            sceneGlobalParams.cameraPos = sceneState.camera.pos;
+            sceneGlobalParams.cameraRotationRad = sceneState.camera.rotationRad;
 
-        _context.vulkanRHI.draw(sceneGlobalParams);
-      }
+            _context.vulkanRHI.draw(sceneGlobalParams);
+          }
 
-      _readyToRender = false;
+          _readyToRender = false;
 
-      l.unlock();
+          l.unlock();
 
-      _renderLoopCondVar.notify_all();
-    }
-  });
+          _renderLoopCondVar.notify_all();
+        }
+      });
 
   _context.inputContext.windowEventEmitter.subscribeToWindowResizedEvent(
       [this](std::size_t w, std::size_t h) {
@@ -120,11 +124,13 @@ void ObsidianEngine::cleanup() {
   _context.inputContext.windowEventEmitter.cleanup();
   _context.resourceManager.cleanup();
 
-  std::future<void> const cleanupFuture = _context.taskExecutor.enqueue(
-      task::TaskType::rhiMain, [this]() { _context.vulkanRHI.cleanup(); });
+  std::future<void> const cleanupFuture =
+      _context.rhiMainThreadExecutor.enqueue(
+          task::TaskType::rhiMain, [this]() { _context.vulkanRHI.cleanup(); });
   cleanupFuture.wait();
 
   _context.taskExecutor.shutdown();
+  _context.rhiMainThreadExecutor.shutdown();
 }
 
 ObsidianEngineContext& ObsidianEngine::getContext() { return _context; }
@@ -192,8 +198,7 @@ void ObsidianEngine::initTaskExecutor() {
       std::max(static_cast<int>(std::thread::hardware_concurrency()), 2);
 
   _context.taskExecutor.initAndRun(
-      {{task::TaskType ::rhiMain, 1},
-       {task::TaskType::resourceUpload, 1},
+      {{task::TaskType::resourceUpload, 1},
        {task::TaskType::general,
         static_cast<unsigned>(std::max(nCores - 6, 2))}});
 }
