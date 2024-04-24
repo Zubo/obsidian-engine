@@ -1070,8 +1070,12 @@ void projectTab(ObsidianEngine& engine) {
         project.open(sampleProjectPath);
         setLastOpenProject(sampleProjectPath);
         assetListDirty = true;
-        openEngineTab = engine.init(sdl_wrapper::SDLBackend::instance(),
-                                    project.getOpenProjectPath());
+
+        if (!engine.isInitialized()) {
+          openEngineTab = engine.init(sdl_wrapper::SDLBackend::instance(),
+                                      project.getOpenProjectPath());
+        }
+
         loadScene("scene.obsscene", engine.getContext().scene, engine);
       }
     }
