@@ -880,6 +880,7 @@ VkInstance VulkanRHI::getInstance() const { return _vkInstance; }
 void VulkanRHI::setSurface(VkSurfaceKHR surface) { _vkSurface = surface; }
 
 void VulkanRHI::updateExtent(rhi::WindowExtentRHI newExtent) {
+  std::scoped_lock l{_pendingExtentUpdateMutex};
   _pendingExtentUpdate = newExtent;
 }
 
@@ -1669,7 +1670,10 @@ VkRect2D VulkanRHI::getSsaoScissor() const {
 }
 
 void VulkanRHI::applyPendingExtentUpdate() {
+  std::scoped_lock l{_pendingExtentUpdateMutex};
   if (_pendingExtentUpdate) {
+    waitDeviceIdle();
+
     _vkbSwapchain.extent.width = _pendingExtentUpdate->width;
     _vkbSwapchain.extent.height = _pendingExtentUpdate->height;
 
@@ -1688,6 +1692,7 @@ void VulkanRHI::applyPendingExtentUpdate() {
     initSsaoDescriptors();
     initSsaoPostProcessingDescriptors();
 
+    clearFrameData();
     _pendingExtentUpdate = std::nullopt;
   }
 }

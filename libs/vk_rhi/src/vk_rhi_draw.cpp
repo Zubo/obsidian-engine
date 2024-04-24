@@ -552,10 +552,9 @@ void VulkanRHI::clearFrameData() {
 }
 
 void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
-  if (_envMapDescriptorSetPendingUpdate || _pendingExtentUpdate) {
+  if (_envMapDescriptorSetPendingUpdate) {
     // skipping frame
     waitDeviceIdle();
-    applyPendingExtentUpdate();
     applyPendingEnvironmentMapUpdates();
     clearFrameData();
     return;
@@ -570,16 +569,21 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
                              true, timeoutNanoseconds));
   }
 
-  VK_CHECK(vkResetFences(_vkDevice, 1, &currentFrameData.vkRenderFence));
-
   destroyUnusedResources(currentFrameData.pendingResourcesToDestroy);
 
   uint32_t swapchainImageIndex;
   {
     ZoneScopedN("Acquire Next Image");
-    VK_CHECK(vkAcquireNextImageKHR(_vkDevice, _vkbSwapchain, timeoutNanoseconds,
-                                   currentFrameData.vkPresentSemaphore,
-                                   VK_NULL_HANDLE, &swapchainImageIndex));
+    VkResult const acquireImgResult =
+        vkAcquireNextImageKHR(_vkDevice, _vkbSwapchain, timeoutNanoseconds,
+                              currentFrameData.vkPresentSemaphore,
+                              VK_NULL_HANDLE, &swapchainImageIndex);
+    if (acquireImgResult == VK_ERROR_OUT_OF_DATE_KHR) {
+      applyPendingExtentUpdate();
+      return;
+    } else {
+      VK_CHECK(vkResetFences(_vkDevice, 1, &currentFrameData.vkRenderFence));
+    }
   }
 
   DrawPassParams params;

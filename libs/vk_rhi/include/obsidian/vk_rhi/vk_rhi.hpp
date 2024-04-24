@@ -228,6 +228,7 @@ private:
   rhi::ResourceIdRHI _emptyFragShaderId;
   AllocatedBuffer _postProcessingQuadBuffer;
   std::optional<rhi::WindowExtentRHI> _pendingExtentUpdate = std::nullopt;
+  std::mutex _pendingExtentUpdateMutex;
   std::mutex _resourceTransfersMutex;
   std::vector<ResourceTransfer> _resourceTransfers;
 
