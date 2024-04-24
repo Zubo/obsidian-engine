@@ -51,4 +51,4 @@ Additional features include mipmap generation, optional asset compression, mater
 ## Linux environment setup
 
 Required packages:
-`vulkan-headers vulkan-tools vulkan-validation-layers shaderc sdl2 renderdoc cmake`
+`vulkan-headers vulkan-tools vulkan-validation-layers shaderc sdl2 renderdoc cmake python`
