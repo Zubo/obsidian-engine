@@ -930,12 +930,28 @@ void VulkanRHI::initResourceTransferContext(ResourceTransferContext& ctx) {
         vkinit::commandPoolCreateInfo(queueFamilyIdx,
                                       VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
     VkCommandPool& pool = ctx.queueCommandPools[queueFamilyIdx];
+
     vkCreateCommandPool(ctx.device, &commandPoolCreateInfo, nullptr, &pool);
+    {
+      std::scoped_lock l{_resourceTransferCommandPoolsMutex};
+      _resourceTransferCommandPools.push_back(pool);
+    }
+
     setDbgResourceName(_vkDevice, (std::uint64_t)pool,
                        VK_OBJECT_TYPE_COMMAND_POOL, "Resource transfer pool");
   }
 
   ctx.initialized = true;
+}
+
+void VulkanRHI::destroyResourceTransferCommandPools() {
+  std::scoped_lock l{_resourceTransferCommandPoolsMutex};
+
+  for (auto& pool : _resourceTransferCommandPools) {
+    vkDestroyCommandPool(_vkDevice, pool, nullptr);
+  }
+
+  _resourceTransferCommandPools.clear();
 }
 
 ResourceTransferContext&
@@ -947,10 +963,6 @@ VulkanRHI::getResourceTransferContextForCurrentThread() {
   }
 
   return ctx;
-}
-
-void VulkanRHI::destroyResourceTransferContextForCurrentThread() {
-  getResourceTransferContextForCurrentThread().cleanup();
 }
 
 void VulkanRHI::transferDataToImage(AllocatedBuffer stagingBuffer,

@@ -144,6 +144,10 @@ private:
   PFN_vkCmdSetVertexInputEXT _vkCmdSetVertexInput;
   float _maxSamplerAnisotropy;
 
+  // Resource transfer
+  std::vector<VkCommandPool> _resourceTransferCommandPools;
+  std::mutex _resourceTransferCommandPoolsMutex;
+
   // Default pass
   RenderPass _mainRenderPassReuseDepth;
   std::vector<std::array<Framebuffer, frameOverlap>> _vkSwapchainFramebuffers;
@@ -289,6 +293,7 @@ private:
                             std::uint32_t currentBufferQeueueFamilyIdx,
                             BufferTransferDstState transferDstState);
   void initResourceTransferContext(ResourceTransferContext& ctx);
+  void destroyResourceTransferCommandPools();
   ResourceTransferContext& getResourceTransferContextForCurrentThread();
   void immediateUploadImage();
   void uploadMesh(Mesh& mesh);
@@ -297,7 +302,6 @@ private:
   ImmediateSubmitContext&
   getImmediateCtxForCurrentThread(std::uint32_t queueIdx);
   void destroyImmediateCtxForCurrentThread();
-  void destroyResourceTransferContextForCurrentThread();
   void updateGlobalSettingsBuffer(bool init);
 
   FrameData& getCurrentFrameData();

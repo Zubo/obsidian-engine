@@ -160,10 +160,6 @@ struct ImmediateSubmitContext {
 };
 
 struct ResourceTransferContext {
-  ~ResourceTransferContext();
-
-  void cleanup();
-
   std::unordered_map<std::uint32_t, VkCommandPool> queueCommandPools;
   VkDevice device;
   bool initialized = false;

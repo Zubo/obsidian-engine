@@ -16,11 +16,12 @@ void VulkanRHI::cleanup() {
 
     waitDeviceIdle();
 
-    destroyResourceTransferContextForCurrentThread();
     destroyImmediateCtxForCurrentThread();
 
     _swapchainDeletionQueue.flush();
     _deletionQueue.flush();
+
+    destroyResourceTransferCommandPools();
 
     vkb::destroy_swapchain(_vkbSwapchain);
 
