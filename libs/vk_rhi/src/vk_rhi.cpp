@@ -233,7 +233,7 @@ rhi::ResourceTransferRHI VulkanRHI::uploadMesh(rhi::ResourceIdRHI id,
 
         vmaUnmapMemory(_vmaAllocator, stagingBuffer.allocation);
 
-        immediateSubmit(_transferQueueFamilyIndex, [this, &stagingBuffer, &mesh,
+        immediateSubmit(_graphicsQueueFamilyIndex, [this, &stagingBuffer, &mesh,
                                                     info, totalIndexBufferSize](
                                                        VkCommandBuffer cmd) {
           VkBufferCopy vkVertexBufferCopy = {};
@@ -250,6 +250,27 @@ rhi::ResourceTransferRHI VulkanRHI::uploadMesh(rhi::ResourceIdRHI id,
 
           vkCmdCopyBuffer(cmd, stagingBuffer.buffer, mesh.indexBuffer.buffer, 1,
                           &vkIndexBufferCopy);
+
+          VkBufferMemoryBarrier meshBufferBarrier = {};
+          meshBufferBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+          meshBufferBarrier.pNext = nullptr;
+          meshBufferBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+          meshBufferBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+          meshBufferBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+          meshBufferBarrier.offset = 0;
+          meshBufferBarrier.size = VK_WHOLE_SIZE;
+
+          meshBufferBarrier.buffer = mesh.vertexBuffer.buffer;
+          meshBufferBarrier.dstAccessMask = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
+          vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                               VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, 0, 0,
+                               nullptr, 1, &meshBufferBarrier, 0, nullptr);
+
+          meshBufferBarrier.buffer = mesh.indexBuffer.buffer;
+          meshBufferBarrier.dstAccessMask = VK_ACCESS_INDEX_READ_BIT;
+          vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                               VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, 0, 0,
+                               nullptr, 1, &meshBufferBarrier, 0, nullptr);
         });
 
         vmaDestroyBuffer(_vmaAllocator, stagingBuffer.buffer,

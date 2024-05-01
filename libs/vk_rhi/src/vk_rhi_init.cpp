@@ -1395,14 +1395,15 @@ void VulkanRHI::initSsaoSamplesAndNoise() {
   setDbgResourceName(_vkDevice, (std::uint64_t)_ssaoSamplesBuffer.buffer,
                      VK_OBJECT_TYPE_BUFFER, "Ssao samples buffer");
 
-  immediateSubmit(_transferQueueFamilyIndex, [this, &randomDevice,
-                                              &uniformDistribution](
-                                                 VkCommandBuffer cmd) {
-    AllocatedBuffer stagingBuffer =
-        createBuffer(sampleBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                     VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
-                     VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+  AllocatedBuffer stagingBuffer =
+      createBuffer(sampleBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                   VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+                   VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
 
+  immediateSubmit(_graphicsQueueFamilyIndex, [this, &randomDevice,
+                                              &uniformDistribution,
+                                              &stagingBuffer](
+                                                 VkCommandBuffer cmd) {
     void* data;
 
     VK_CHECK(vmaMapMemory(_vmaAllocator, stagingBuffer.allocation, &data));
@@ -1429,9 +1430,24 @@ void VulkanRHI::initSsaoSamplesAndNoise() {
     vkCmdCopyBuffer(cmd, stagingBuffer.buffer, _ssaoSamplesBuffer.buffer, 1,
                     &vkBufferCopy);
 
-    vmaDestroyBuffer(_vmaAllocator, stagingBuffer.buffer,
-                     stagingBuffer.allocation);
+    VkBufferMemoryBarrier ssaoSamplesBufferBarrier = {};
+    ssaoSamplesBufferBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+    ssaoSamplesBufferBarrier.pNext = nullptr;
+    ssaoSamplesBufferBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    ssaoSamplesBufferBarrier.dstAccessMask = VK_ACCESS_UNIFORM_READ_BIT;
+    ssaoSamplesBufferBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    ssaoSamplesBufferBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    ssaoSamplesBufferBarrier.offset = 0;
+    ssaoSamplesBufferBarrier.size = VK_WHOLE_SIZE;
+
+    ssaoSamplesBufferBarrier.buffer = _ssaoSamplesBuffer.buffer;
+    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr,
+                         1, &ssaoSamplesBufferBarrier, 0, nullptr);
   });
+
+  vmaDestroyBuffer(_vmaAllocator, stagingBuffer.buffer,
+                   stagingBuffer.allocation);
 
   _deletionQueue.pushFunction([this]() {
     vmaDestroyBuffer(_vmaAllocator, _ssaoSamplesBuffer.buffer,
