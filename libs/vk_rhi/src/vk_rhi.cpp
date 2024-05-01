@@ -23,7 +23,6 @@
 #include <tracy/Tracy.hpp>
 #include <vk_mem_alloc.h>
 
-#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstdint>

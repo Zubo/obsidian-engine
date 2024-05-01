@@ -25,7 +25,6 @@
 
 #include <cmath>
 #include <cstring>
-#include <numeric>
 #include <random>
 
 using namespace obsidian::vk_rhi;
