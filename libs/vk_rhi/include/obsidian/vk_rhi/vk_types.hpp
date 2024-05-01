@@ -198,8 +198,9 @@ struct BufferTransferInfo {
   VkDeviceSize size;
 };
 
-struct BufferTransferDstState {
+struct BufferTransferOptions {
   std::uint32_t dstBufferQueueFamilyIdx;
+  VkAccessFlags srcAccessMask;
   VkAccessFlags dstAccessMask;
   VkPipelineStageFlags dstPipelineStage;
 };

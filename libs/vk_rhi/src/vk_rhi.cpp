@@ -1234,7 +1234,7 @@ void VulkanRHI::transferDataToBuffer(
     AllocatedBuffer stagingBuffer, VkBuffer dstBuffer,
     BufferTransferInfo const& bufferTransferInfo,
     std::uint32_t currentBufferQeueueFamilyIdx,
-    BufferTransferDstState transferDstState) {
+    BufferTransferOptions bufferTransferOptions) {
   ResourceTransferContext& ctx = getResourceTransferContextForCurrentThread();
   ResourceTransfer transfer = {};
   transfer.stagingBuffer = stagingBuffer;
@@ -1271,7 +1271,8 @@ void VulkanRHI::transferDataToBuffer(
       VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
   barrierTransitionToTransferQueue.pNext = nullptr;
 
-  barrierTransitionToTransferQueue.srcAccessMask = VK_ACCESS_NONE;
+  barrierTransitionToTransferQueue.srcAccessMask =
+      bufferTransferOptions.srcAccessMask;
   barrierTransitionToTransferQueue.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
   barrierTransitionToTransferQueue.srcQueueFamilyIndex =
       VK_QUEUE_FAMILY_IGNORED;
@@ -1358,8 +1359,10 @@ void VulkanRHI::transferDataToBuffer(
   transferSubmitInfo.commandBufferCount = 1;
   transferSubmitInfo.pCommandBuffers = &cmdTransfer;
 
-  if (transferDstState.dstBufferQueueFamilyIdx != VK_QUEUE_FAMILY_IGNORED &&
-      transferDstState.dstBufferQueueFamilyIdx != _transferQueueFamilyIndex) {
+  if (bufferTransferOptions.dstBufferQueueFamilyIdx !=
+          VK_QUEUE_FAMILY_IGNORED &&
+      bufferTransferOptions.dstBufferQueueFamilyIdx !=
+          _transferQueueFamilyIndex) {
     // transition image ownership to dst queue family with barriers
 
     VkBufferMemoryBarrier barrierTransitionToDstQueue = {};
@@ -1367,10 +1370,11 @@ void VulkanRHI::transferDataToBuffer(
     barrierTransitionToDstQueue.pNext = nullptr;
 
     barrierTransitionToDstQueue.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    barrierTransitionToDstQueue.dstAccessMask = transferDstState.dstAccessMask;
+    barrierTransitionToDstQueue.dstAccessMask =
+        bufferTransferOptions.dstAccessMask;
     barrierTransitionToDstQueue.srcQueueFamilyIndex = _transferQueueFamilyIndex;
     barrierTransitionToDstQueue.dstQueueFamilyIndex =
-        transferDstState.dstBufferQueueFamilyIdx;
+        bufferTransferOptions.dstBufferQueueFamilyIdx;
     barrierTransitionToDstQueue.buffer = dstBuffer;
     barrierTransitionToDstQueue.offset = bufferTransferInfo.offset;
     barrierTransitionToDstQueue.size = bufferTransferInfo.size;
@@ -1402,8 +1406,8 @@ void VulkanRHI::transferDataToBuffer(
     VkCommandBuffer cmdAcquire = VK_NULL_HANDLE;
 
     VkCommandBufferAllocateInfo const cmdAcquireAllocInfo =
-        vkinit::commandBufferAllocateInfo(
-            ctx.queueCommandPools.at(transferDstState.dstBufferQueueFamilyIdx));
+        vkinit::commandBufferAllocateInfo(ctx.queueCommandPools.at(
+            bufferTransferOptions.dstBufferQueueFamilyIdx));
 
     VK_CHECK(vkAllocateCommandBuffers(ctx.device, &cmdAcquireAllocInfo,
                                       &cmdAcquire));
@@ -1418,8 +1422,8 @@ void VulkanRHI::transferDataToBuffer(
 
     // acquire ownership of the dst queue
     vkCmdPipelineBarrier(cmdAcquire, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                         transferDstState.dstPipelineStage, 0, 0, nullptr, 1,
-                         &barrierTransitionToDstQueue, 0, nullptr);
+                         bufferTransferOptions.dstPipelineStage, 0, 0, nullptr,
+                         1, &barrierTransitionToDstQueue, 0, nullptr);
 
     VK_CHECK(vkEndCommandBuffer(cmdAcquire));
 
@@ -1437,10 +1441,10 @@ void VulkanRHI::transferDataToBuffer(
 
     {
       std::scoped_lock l{
-          _gpuQueueMutexes.at(transferDstState.dstBufferQueueFamilyIdx)};
-      VK_CHECK(
-          vkQueueSubmit(_gpuQueues.at(transferDstState.dstBufferQueueFamilyIdx),
-                        1, &acquireSubmitInfo, transfer.transferFence));
+          _gpuQueueMutexes.at(bufferTransferOptions.dstBufferQueueFamilyIdx)};
+      VK_CHECK(vkQueueSubmit(
+          _gpuQueues.at(bufferTransferOptions.dstBufferQueueFamilyIdx), 1,
+          &acquireSubmitInfo, transfer.transferFence));
     }
   } else {
     VK_CHECK(vkEndCommandBuffer(cmdTransfer));

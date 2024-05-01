@@ -1632,5 +1632,5 @@ void VulkanRHI::updateTimerBuffer(VkCommandBuffer cmd) {
       duration_cast<milliseconds>(Clock::now() - _engineInitTimePoint).count();
 
   uploadBufferData(0, msElapsedSinceInit, _timerBuffer,
-                   _graphicsQueueFamilyIndex);
+                   _graphicsQueueFamilyIndex, VK_ACCESS_MEMORY_READ_BIT);
 }

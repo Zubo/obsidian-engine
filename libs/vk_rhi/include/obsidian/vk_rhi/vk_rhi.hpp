@@ -292,7 +292,7 @@ private:
   void transferDataToBuffer(AllocatedBuffer stagingBuffer, VkBuffer dstBuffer,
                             BufferTransferInfo const& bufferTransferInfo,
                             std::uint32_t currentBufferQeueueFamilyIdx,
-                            BufferTransferDstState transferDstState);
+                            BufferTransferOptions transferDstState);
   void initResourceTransferContext(ResourceTransferContext& ctx);
   void destroyResourceTransferCommandPools();
   ResourceTransferContext& getResourceTransferContextForCurrentThread();
@@ -311,7 +311,8 @@ private:
   template <typename T>
   void uploadBufferData(std::size_t const index, T const& value,
                         AllocatedBuffer const& dstBuffer,
-                        std::uint32_t bufferQueueFamilyInd) {
+                        std::uint32_t bufferQueueFamilyInd,
+                        VkAccessFlags srcAccessMask = VK_ACCESS_NONE) {
     using ValueType = std::decay_t<T>;
 
     std::size_t const valueSize = getPaddedBufferSize(sizeof(ValueType));
@@ -340,13 +341,14 @@ private:
     BufferTransferInfo bufferTransferInfo = {.offset = offset,
                                              .size = valueSize};
 
-    BufferTransferDstState const bufferTransferDstState = {
+    BufferTransferOptions const bufferTransferOptions = {
         .dstBufferQueueFamilyIdx = _graphicsQueueFamilyIndex,
+        .srcAccessMask = srcAccessMask,
         .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT,
         .dstPipelineStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT};
 
     transferDataToBuffer(stagingBuffer, dstBuffer.buffer, bufferTransferInfo,
-                         bufferQueueFamilyInd, bufferTransferDstState);
+                         bufferQueueFamilyInd, bufferTransferOptions);
   }
 
   void drawWithMaterials(VkCommandBuffer cmd, VKDrawCall* first, int count,
