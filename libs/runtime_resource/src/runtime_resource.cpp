@@ -278,7 +278,7 @@ void RuntimeResource::performUploadToRHI() {
     uploadMesh.hasColors = info.hasColors;
     uploadMesh.hasUV = info.hasUV;
     uploadMesh.hasTangents = info.hasTangents;
-    std::string const debugNameStr = _path.string();
+    std::string const debugNameStr = _path.stem().string();
     uploadMesh.debugName = debugNameStr.c_str();
 
     _resourceRHI = &_rhi.initMeshResource();
@@ -302,7 +302,7 @@ void RuntimeResource::performUploadToRHI() {
     uploadTexture.height = info.height;
     uploadTexture.mipLevels = info.mipLevels;
     uploadTexture.unpackFunc = getUnpackFunc(info);
-    std::string const debugNameStr = _path.string();
+    std::string const debugNameStr = _path.stem().string();
     uploadTexture.debugName = debugNameStr.c_str();
 
     _resourceRHI = &_rhi.initTextureResource();
@@ -324,7 +324,7 @@ void RuntimeResource::performUploadToRHI() {
 
     rhi::UploadMaterialRHI uploadMaterial;
     uploadMaterial.materialType = info.materialType;
-    std::string const debugNameStr = _path.string();
+    std::string const debugNameStr = _path.stem().string();
     uploadMaterial.debugName = debugNameStr.c_str();
 
     switch (uploadMaterial.materialType) {
@@ -435,7 +435,7 @@ void RuntimeResource::performUploadToRHI() {
     uploadShader.shaderDataSize = info.unpackedSize;
     uploadShader.unpackFunc = getUnpackFunc(info);
 
-    std::string const debugNameStr = _path.string();
+    std::string const debugNameStr = _path.stem().string();
     uploadShader.debugName = debugNameStr.c_str();
 
     _resourceRHI = &_rhi.initShaderResource();
