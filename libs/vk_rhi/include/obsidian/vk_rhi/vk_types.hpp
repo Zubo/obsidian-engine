@@ -194,8 +194,10 @@ struct ImageTransferDstState {
 };
 
 struct BufferTransferInfo {
-  VkDeviceSize offset;
+  VkDeviceSize srcOffset;
+  VkDeviceSize dstOffset;
   VkDeviceSize size;
+  VkBuffer dstBuffer;
 };
 
 struct BufferTransferOptions {

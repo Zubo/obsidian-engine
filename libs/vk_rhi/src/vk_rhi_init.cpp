@@ -1399,55 +1399,38 @@ void VulkanRHI::initSsaoSamplesAndNoise() {
       createBuffer(sampleBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                    VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
                    VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+  void* data;
 
-  immediateSubmit(_graphicsQueueFamilyIndex, [this, &randomDevice,
-                                              &uniformDistribution,
-                                              &stagingBuffer](
-                                                 VkCommandBuffer cmd) {
-    void* data;
+  VK_CHECK(vmaMapMemory(_vmaAllocator, stagingBuffer.allocation, &data));
 
-    VK_CHECK(vmaMapMemory(_vmaAllocator, stagingBuffer.allocation, &data));
+  glm::vec4* const samples = static_cast<glm::vec4*>(data);
 
-    glm::vec4* const samples = static_cast<glm::vec4*>(data);
+  for (std::size_t i = 0; i < sampleCount; ++i) {
+    float scale = static_cast<float>(i) / sampleCount;
+    scale = std::lerp(0.1f, 1.0f, scale * scale);
+    samples[i] = {scale * (uniformDistribution(randomDevice) * 2.0f - 1.0f),
+                  scale * (uniformDistribution(randomDevice) * 2.0 - 1.0f),
+                  scale * uniformDistribution(randomDevice), 0.0f};
+  }
 
-    for (std::size_t i = 0; i < sampleCount; ++i) {
-      float scale = static_cast<float>(i) / sampleCount;
-      scale = std::lerp(0.1f, 1.0f, scale * scale);
-      samples[i] = {scale * (uniformDistribution(randomDevice) * 2.0f - 1.0f),
-                    scale * (uniformDistribution(randomDevice) * 2.0 - 1.0f),
-                    scale * uniformDistribution(randomDevice), 0.0f};
-    }
+  vmaUnmapMemory(_vmaAllocator, stagingBuffer.allocation);
+  vmaFlushAllocation(_vmaAllocator, stagingBuffer.allocation, 0,
+                     sampleBufferSize);
 
-    vmaUnmapMemory(_vmaAllocator, stagingBuffer.allocation);
-    vmaFlushAllocation(_vmaAllocator, stagingBuffer.allocation, 0,
-                       sampleBufferSize);
+  BufferTransferInfo bufferTransferInfo = {.srcOffset = 0,
+                                           .dstOffset = 0,
+                                           .size = sampleBufferSize,
+                                           .dstBuffer =
+                                               _ssaoSamplesBuffer.buffer};
 
-    VkBufferCopy vkBufferCopy = {};
-    vkBufferCopy.srcOffset = 0;
-    vkBufferCopy.dstOffset = 0;
-    vkBufferCopy.size = sampleBufferSize;
+  BufferTransferOptions const bufferTransferOptions = {
+      .dstBufferQueueFamilyIdx = _graphicsQueueFamilyIndex,
+      .srcAccessMask = VK_ACCESS_NONE,
+      .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT,
+      .dstPipelineStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT};
 
-    vkCmdCopyBuffer(cmd, stagingBuffer.buffer, _ssaoSamplesBuffer.buffer, 1,
-                    &vkBufferCopy);
-
-    VkBufferMemoryBarrier ssaoSamplesBufferBarrier = {};
-    ssaoSamplesBufferBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
-    ssaoSamplesBufferBarrier.pNext = nullptr;
-    ssaoSamplesBufferBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    ssaoSamplesBufferBarrier.dstAccessMask = VK_ACCESS_UNIFORM_READ_BIT;
-    ssaoSamplesBufferBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    ssaoSamplesBufferBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    ssaoSamplesBufferBarrier.offset = 0;
-    ssaoSamplesBufferBarrier.size = VK_WHOLE_SIZE;
-
-    ssaoSamplesBufferBarrier.buffer = _ssaoSamplesBuffer.buffer;
-    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr,
-                         1, &ssaoSamplesBufferBarrier, 0, nullptr);
-  });
-
-  vmaDestroyBuffer(_vmaAllocator, stagingBuffer.buffer,
-                   stagingBuffer.allocation);
+  transferDataToBuffer(stagingBuffer, {bufferTransferInfo},
+                       VK_QUEUE_FAMILY_IGNORED, bufferTransferOptions);
 
   _deletionQueue.pushFunction([this]() {
     vmaDestroyBuffer(_vmaAllocator, _ssaoSamplesBuffer.buffer,

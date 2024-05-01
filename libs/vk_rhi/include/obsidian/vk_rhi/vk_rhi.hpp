@@ -289,10 +289,11 @@ private:
                            ImageTransferInfo const& imageTransferInfo,
                            std::uint32_t currentImgQeueueFamilyIdx,
                            ImageTransferDstState transferDstState);
-  void transferDataToBuffer(AllocatedBuffer stagingBuffer, VkBuffer dstBuffer,
-                            BufferTransferInfo const& bufferTransferInfo,
-                            std::uint32_t currentBufferQeueueFamilyIdx,
-                            BufferTransferOptions transferDstState);
+  void transferDataToBuffer(
+      AllocatedBuffer stagingBuffer,
+      std::vector<BufferTransferInfo> const& bufferTransferInfos,
+      std::uint32_t currentBufferQeueueFamilyIdx,
+      BufferTransferOptions bufferTransferOptions);
   void initResourceTransferContext(ResourceTransferContext& ctx);
   void destroyResourceTransferCommandPools();
   ResourceTransferContext& getResourceTransferContextForCurrentThread();
@@ -338,8 +339,10 @@ private:
     vmaFlushAllocation(_vmaAllocator, stagingBuffer.allocation, offset,
                        valueSize);
 
-    BufferTransferInfo bufferTransferInfo = {.offset = offset,
-                                             .size = valueSize};
+    BufferTransferInfo bufferTransferInfo = {.srcOffset = 0,
+                                             .dstOffset = offset,
+                                             .size = valueSize,
+                                             .dstBuffer = dstBuffer.buffer};
 
     BufferTransferOptions const bufferTransferOptions = {
         .dstBufferQueueFamilyIdx = _graphicsQueueFamilyIndex,
@@ -347,7 +350,7 @@ private:
         .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT,
         .dstPipelineStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT};
 
-    transferDataToBuffer(stagingBuffer, dstBuffer.buffer, bufferTransferInfo,
+    transferDataToBuffer(stagingBuffer, {bufferTransferInfo},
                          bufferQueueFamilyInd, bufferTransferOptions);
   }
 

@@ -233,48 +233,24 @@ rhi::ResourceTransferRHI VulkanRHI::uploadMesh(rhi::ResourceIdRHI id,
 
         vmaUnmapMemory(_vmaAllocator, stagingBuffer.allocation);
 
-        immediateSubmit(_graphicsQueueFamilyIndex, [this, &stagingBuffer, &mesh,
-                                                    info, totalIndexBufferSize](
-                                                       VkCommandBuffer cmd) {
-          VkBufferCopy vkVertexBufferCopy = {};
-          vkVertexBufferCopy.srcOffset = 0;
-          vkVertexBufferCopy.dstOffset = 0;
-          vkVertexBufferCopy.size = info.vertexBufferSize;
-          vkCmdCopyBuffer(cmd, stagingBuffer.buffer, mesh.vertexBuffer.buffer,
-                          1, &vkVertexBufferCopy);
+        std::vector<BufferTransferInfo> bufferTransferInfos = {
+            {.srcOffset = 0,
+             .dstOffset = 0,
+             .size = info.vertexBufferSize,
+             .dstBuffer = mesh.vertexBuffer.buffer},
+            {.srcOffset = info.vertexBufferSize,
+             .dstOffset = 0,
+             .size = totalIndexBufferSize,
+             .dstBuffer = mesh.indexBuffer.buffer}};
 
-          VkBufferCopy vkIndexBufferCopy = {};
-          vkIndexBufferCopy.srcOffset = info.vertexBufferSize;
-          vkIndexBufferCopy.dstOffset = 0;
-          vkIndexBufferCopy.size = totalIndexBufferSize;
+        BufferTransferOptions bufferTransferOptions = {
+            .dstBufferQueueFamilyIdx = _graphicsQueueFamilyIndex,
+            .srcAccessMask = VK_ACCESS_NONE,
+            .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT,
+            .dstPipelineStage = VK_PIPELINE_STAGE_VERTEX_INPUT_BIT};
 
-          vkCmdCopyBuffer(cmd, stagingBuffer.buffer, mesh.indexBuffer.buffer, 1,
-                          &vkIndexBufferCopy);
-
-          VkBufferMemoryBarrier meshBufferBarrier = {};
-          meshBufferBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
-          meshBufferBarrier.pNext = nullptr;
-          meshBufferBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-          meshBufferBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-          meshBufferBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-          meshBufferBarrier.offset = 0;
-          meshBufferBarrier.size = VK_WHOLE_SIZE;
-
-          meshBufferBarrier.buffer = mesh.vertexBuffer.buffer;
-          meshBufferBarrier.dstAccessMask = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
-          vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                               VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, 0, 0,
-                               nullptr, 1, &meshBufferBarrier, 0, nullptr);
-
-          meshBufferBarrier.buffer = mesh.indexBuffer.buffer;
-          meshBufferBarrier.dstAccessMask = VK_ACCESS_INDEX_READ_BIT;
-          vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                               VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, 0, 0,
-                               nullptr, 1, &meshBufferBarrier, 0, nullptr);
-        });
-
-        vmaDestroyBuffer(_vmaAllocator, stagingBuffer.buffer,
-                         stagingBuffer.allocation);
+        transferDataToBuffer(stagingBuffer, bufferTransferInfos,
+                             VK_QUEUE_FAMILY_IGNORED, bufferTransferOptions);
 
         rhi::ResourceState expected = rhi::ResourceState::uploading;
 
@@ -1225,7 +1201,7 @@ void VulkanRHI::transferDataToImage(AllocatedBuffer stagingBuffer,
     acquireSubmitInfo.waitSemaphoreCount = 1;
     acquireSubmitInfo.pWaitSemaphores = &transitionToDstQueueSemaphore;
     VkPipelineStageFlags waitSemaphoreStageFlags =
-        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
     acquireSubmitInfo.pWaitDstStageMask = &waitSemaphoreStageFlags;
 
     {
@@ -1252,8 +1228,8 @@ void VulkanRHI::transferDataToImage(AllocatedBuffer stagingBuffer,
 }
 
 void VulkanRHI::transferDataToBuffer(
-    AllocatedBuffer stagingBuffer, VkBuffer dstBuffer,
-    BufferTransferInfo const& bufferTransferInfo,
+    AllocatedBuffer stagingBuffer,
+    std::vector<BufferTransferInfo> const& bufferTransferInfos,
     std::uint32_t currentBufferQeueueFamilyIdx,
     BufferTransferOptions bufferTransferOptions) {
   ResourceTransferContext& ctx = getResourceTransferContextForCurrentThread();
@@ -1299,9 +1275,6 @@ void VulkanRHI::transferDataToBuffer(
       VK_QUEUE_FAMILY_IGNORED;
   barrierTransitionToTransferQueue.dstQueueFamilyIndex =
       VK_QUEUE_FAMILY_IGNORED;
-  barrierTransitionToTransferQueue.buffer = dstBuffer;
-  barrierTransitionToTransferQueue.offset = bufferTransferInfo.offset;
-  barrierTransitionToTransferQueue.size = bufferTransferInfo.size;
 
   if (currentBufferQeueueFamilyIdx != VK_QUEUE_FAMILY_IGNORED &&
       currentBufferQeueueFamilyIdx != _transferQueueFamilyIndex) {
@@ -1335,9 +1308,15 @@ void VulkanRHI::transferDataToBuffer(
 
     VK_CHECK(vkBeginCommandBuffer(cmdRelease, &cmdBufferBeginInfo));
 
-    vkCmdPipelineBarrier(cmdRelease, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                         VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 1,
-                         &barrierTransitionToTransferQueue, 0, nullptr);
+    for (BufferTransferInfo const& bufferTransferInfo : bufferTransferInfos) {
+      barrierTransitionToTransferQueue.buffer = bufferTransferInfo.dstBuffer;
+      barrierTransitionToTransferQueue.size = bufferTransferInfo.size;
+      barrierTransitionToTransferQueue.offset = bufferTransferInfo.dstOffset;
+
+      vkCmdPipelineBarrier(cmdRelease, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                           VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 1,
+                           &barrierTransitionToTransferQueue, 0, nullptr);
+    }
 
     VK_CHECK(vkEndCommandBuffer(cmdRelease));
 
@@ -1357,14 +1336,21 @@ void VulkanRHI::transferDataToBuffer(
     }
   }
 
-  vkCmdPipelineBarrier(cmdTransfer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                       VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 1,
-                       &barrierTransitionToTransferQueue, 0, nullptr);
-  VkBufferCopy const bufferCopy{.srcOffset = 0,
-                                .dstOffset = bufferTransferInfo.offset,
-                                .size = bufferTransferInfo.size};
+  for (BufferTransferInfo const& bufferTransferInfo : bufferTransferInfos) {
+    barrierTransitionToTransferQueue.buffer = bufferTransferInfo.dstBuffer;
+    barrierTransitionToTransferQueue.offset = bufferTransferInfo.dstOffset;
+    barrierTransitionToTransferQueue.size = bufferTransferInfo.size;
+    vkCmdPipelineBarrier(cmdTransfer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                         VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 1,
+                         &barrierTransitionToTransferQueue, 0, nullptr);
 
-  vkCmdCopyBuffer(cmdTransfer, stagingBuffer.buffer, dstBuffer, 1, &bufferCopy);
+    VkBufferCopy const bufferCopy{.srcOffset = bufferTransferInfo.srcOffset,
+                                  .dstOffset = bufferTransferInfo.dstOffset,
+                                  .size = bufferTransferInfo.size};
+
+    vkCmdCopyBuffer(cmdTransfer, stagingBuffer.buffer,
+                    bufferTransferInfo.dstBuffer, 1, &bufferCopy);
+  }
 
   VkSubmitInfo transferSubmitInfo = {};
   transferSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -1396,14 +1382,20 @@ void VulkanRHI::transferDataToBuffer(
     barrierTransitionToDstQueue.srcQueueFamilyIndex = _transferQueueFamilyIndex;
     barrierTransitionToDstQueue.dstQueueFamilyIndex =
         bufferTransferOptions.dstBufferQueueFamilyIdx;
-    barrierTransitionToDstQueue.buffer = dstBuffer;
-    barrierTransitionToDstQueue.offset = bufferTransferInfo.offset;
-    barrierTransitionToDstQueue.size = bufferTransferInfo.size;
 
-    // release queue ownership barrier
-    vkCmdPipelineBarrier(cmdTransfer, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                         VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, 0, nullptr, 1,
-                         &barrierTransitionToDstQueue, 0, nullptr);
+    for (BufferTransferInfo const& bufferTransferInfo : bufferTransferInfos) {
+      barrierTransitionToDstQueue.offset = bufferTransferInfo.dstOffset;
+      barrierTransitionToDstQueue.size = bufferTransferInfo.size;
+      barrierTransitionToDstQueue.buffer = bufferTransferInfo.dstBuffer;
+
+      // release queue ownership barrier
+      vkCmdPipelineBarrier(
+          cmdTransfer, VK_PIPELINE_STAGE_TRANSFER_BIT,
+          /*dstStageFlag should be ignored by the API in this case, but
+             validation layers complain if this isn't set to all commands*/
+          VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 1,
+          &barrierTransitionToDstQueue, 0, nullptr);
+    }
 
     VkSemaphore transitionToDstQueueSemaphore = VK_NULL_HANDLE;
 
@@ -1457,7 +1449,7 @@ void VulkanRHI::transferDataToBuffer(
     acquireSubmitInfo.waitSemaphoreCount = 1;
     acquireSubmitInfo.pWaitSemaphores = &transitionToDstQueueSemaphore;
     VkPipelineStageFlags waitSemaphoreStageFlags =
-        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
     acquireSubmitInfo.pWaitDstStageMask = &waitSemaphoreStageFlags;
 
     {
