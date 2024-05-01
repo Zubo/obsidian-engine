@@ -4,7 +4,6 @@
 #include <obsidian/window/window_backend.hpp>
 #include <obsidian/window/window_events.hpp>
 
-#include <cstdint>
 #include <memory>
 
 struct SDL_Window;

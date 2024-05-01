@@ -7,7 +7,6 @@
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 
-#include <string_view>
 #include <vector>
 
 namespace obsidian::vk_rhi {

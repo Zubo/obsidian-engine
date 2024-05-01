@@ -9,8 +9,6 @@
 #include <SDL2/SDL_stdinc.h>
 #include <SDL2/SDL_video.h>
 
-#include <cstdlib>
-#include <functional>
 #include <memory>
 
 using namespace obsidian;

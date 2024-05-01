@@ -1,4 +1,3 @@
-#include <iterator>
 #include <obsidian/asset/material_asset_info.hpp>
 #include <obsidian/core/light_types.hpp>
 #include <obsidian/core/logging.hpp>
@@ -19,9 +18,7 @@
 #include <vulkan/vulkan.h>
 
 #include <algorithm>
-#include <cmath>
 #include <thread>
-#include <utility>
 
 using namespace obsidian;
 

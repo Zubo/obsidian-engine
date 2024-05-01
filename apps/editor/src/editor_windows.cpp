@@ -54,10 +54,7 @@
 #include <cstring>
 #include <exception>
 #include <filesystem>
-#include <fstream>
-#include <iostream>
 #include <iterator>
-#include <memory>
 #include <vector>
 
 namespace obsidian::editor {

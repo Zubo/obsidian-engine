@@ -3,7 +3,6 @@
 #include <obsidian/core/keycode.hpp>
 
 #include <cstdint>
-#include <variant>
 
 namespace obsidian::window {
 
