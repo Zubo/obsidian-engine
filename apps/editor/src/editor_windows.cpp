@@ -1068,7 +1068,6 @@ void projectTab(ObsidianEngine& engine) {
         OBS_LOG_ERR("Cannot find sample project path.");
       } else {
         project.open(sampleProjectPath);
-        setLastOpenProject(sampleProjectPath);
         assetListDirty = true;
 
         if (!engine.isInitialized()) {
