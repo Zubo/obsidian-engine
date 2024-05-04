@@ -91,8 +91,10 @@ public:
 
   void releaseMaterial(rhi::ResourceIdRHI resourceIdRHI) override;
 
+  void applyResourceReleases();
   void
-  destroyUnusedResources(PendingResourcesToDestroy& pendingResourcesToDestroy);
+  destroyUnusedResources(PendingResourcesToDestroy& pendingResourcesToDestroy,
+                         bool destroyTransfersImmediately = false);
 
   void submitDrawCall(rhi::DrawCall const& drawCall) override;
 
@@ -223,6 +225,8 @@ private:
   std::unordered_map<rhi::ResourceIdRHI, VkMaterial> _materials;
   std::unordered_map<rhi::ResourceIdRHI, VkDescriptorSet> _objectDescriptorSets;
   std::unordered_map<rhi::ResourceIdRHI, EnvironmentMap> _environmentMaps;
+  std::vector<ReleaseResourceEntry> _releaseResourceEntries;
+  std::mutex _releaseResourcesMutex; // protects _releaseResourceEntries
   rhi::ResourceIdRHI _emptyFragShaderId;
   AllocatedBuffer _postProcessingQuadBuffer;
   std::optional<rhi::WindowExtentRHI> _pendingExtentUpdate = std::nullopt;

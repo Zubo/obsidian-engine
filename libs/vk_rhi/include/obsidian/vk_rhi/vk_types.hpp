@@ -19,6 +19,13 @@ static unsigned int const frameOverlap = 2;
 
 enum class ResourceState { pendingUpload, uploaded, unloaded };
 
+enum class ResourceType { texture, mesh, material, shader };
+
+struct ReleaseResourceEntry {
+  ResourceType type;
+  rhi::ResourceIdRHI resourceId;
+};
+
 struct VertexInputDescription {
   std::vector<VkVertexInputBindingDescription2EXT> bindings;
   std::vector<VkVertexInputAttributeDescription2EXT> attributes;
@@ -161,6 +168,7 @@ struct ImmediateSubmitContext {
 
 struct ResourceTransferContext {
   std::unordered_map<std::uint32_t, VkCommandPool> queueCommandPools;
+  std::mutex commandPoolsMutex;
   VkDevice device;
   bool initialized = false;
 };
@@ -175,6 +183,7 @@ struct ResourceTransfer {
   VkFence transferFence;
   std::vector<VkSemaphore> semaphores;
   std::vector<CmdBufferPoolPair> commandBuffers;
+  std::mutex* commandPoolMutex;
 };
 
 struct ImageTransferInfo {

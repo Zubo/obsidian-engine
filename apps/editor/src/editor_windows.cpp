@@ -253,8 +253,9 @@ void performImport(ObsidianEngine& engine, fs::path const& srcPath,
     static bool executorInitialized = false;
 
     if (!executorInitialized) {
-      executor.initAndRun({{obsidian::task::TaskType::general,
-                            std::thread::hardware_concurrency()}});
+      executor.initAndRun(
+          {{obsidian::task::TaskType::general,
+            std::max(std::thread::hardware_concurrency(), 2u)}});
       executorInitialized = true;
     }
 

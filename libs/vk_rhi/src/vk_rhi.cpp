@@ -21,6 +21,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <tracy/Tracy.hpp>
+#include <utility>
 #include <vk_mem_alloc.h>
 
 #include <cassert>
@@ -151,12 +152,9 @@ VulkanRHI::uploadTexture(rhi::ResourceIdRHI id,
 }
 
 void VulkanRHI::releaseTexture(rhi::ResourceIdRHI resourceIdRHI) {
-  Texture& tex = _textures[resourceIdRHI];
-  if (!--tex.resource.refCount) {
-    FrameData& prevFrameData = getPreviousFrameData();
-    prevFrameData.pendingResourcesToDestroy.texturesToDestroy.push_back(
-        resourceIdRHI);
-  }
+  std::scoped_lock l{_releaseResourcesMutex};
+
+  _releaseResourceEntries.push_back({ResourceType::texture, resourceIdRHI});
 }
 
 rhi::ResourceRHI& VulkanRHI::initMeshResource() {
@@ -261,12 +259,9 @@ rhi::ResourceTransferRHI VulkanRHI::uploadMesh(rhi::ResourceIdRHI id,
 }
 
 void VulkanRHI::releaseMesh(rhi::ResourceIdRHI resourceIdRHI) {
-  Mesh& mesh = _meshes[resourceIdRHI];
-  if (!--mesh.resource.refCount) {
-    FrameData& prevFrameData = getPreviousFrameData();
-    prevFrameData.pendingResourcesToDestroy.meshesToDestroy.push_back(
-        resourceIdRHI);
-  }
+  std::scoped_lock l{_releaseResourcesMutex};
+
+  _releaseResourceEntries.push_back({ResourceType::mesh, resourceIdRHI});
 }
 
 rhi::ResourceRHI& VulkanRHI::initShaderResource() {
@@ -337,12 +332,9 @@ VulkanRHI::uploadShader(rhi::ResourceIdRHI id,
 }
 
 void VulkanRHI::releaseShader(rhi::ResourceIdRHI resourceIdRHI) {
-  Shader& shader = _shaderModules.at(resourceIdRHI);
-  if (!--shader.resource.refCount) {
-    FrameData& prevFrameData = getPreviousFrameData();
-    prevFrameData.pendingResourcesToDestroy.shadersToDestroy.push_back(
-        resourceIdRHI);
-  }
+  std::scoped_lock l{_releaseResourcesMutex};
+
+  _releaseResourceEntries.push_back({ResourceType::shader, resourceIdRHI});
 }
 
 template <typename MaterialDataT>
@@ -685,42 +677,98 @@ VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
 }
 
 void VulkanRHI::releaseMaterial(rhi::ResourceIdRHI resourceIdRHI) {
-  VkMaterial& material = _materials[resourceIdRHI];
+  std::scoped_lock l{_releaseResourcesMutex};
 
-  if (!--material.resource.refCount) {
-    FrameData& prevFrameData = getPreviousFrameData();
-    prevFrameData.pendingResourcesToDestroy.materialsToDestroy.push_back(
-        resourceIdRHI);
+  _releaseResourceEntries.push_back({ResourceType::material, resourceIdRHI});
+}
 
-    Shader& vertexShaderDependency =
-        _shaderModules.at(material.vertexShaderResourceDependencyId);
+void VulkanRHI::applyResourceReleases() {
+  thread_local std::vector<ReleaseResourceEntry> entries;
+  entries.clear();
 
-    if (!--vertexShaderDependency.resource.refCount) {
-      prevFrameData.pendingResourcesToDestroy.shadersToDestroy.push_back(
-          material.vertexShaderResourceDependencyId);
-    }
+  {
+    std::scoped_lock l{_releaseResourcesMutex};
 
-    Shader& fragmentShaderDependency =
-        _shaderModules.at(material.fragmentShaderResourceDependencyId);
+    entries.swap(_releaseResourceEntries);
+  }
 
-    if (!--fragmentShaderDependency.resource.refCount) {
-      prevFrameData.pendingResourcesToDestroy.shadersToDestroy.push_back(
-          material.fragmentShaderResourceDependencyId);
-    }
+  for (ReleaseResourceEntry entry : entries) {
+    switch (entry.type) {
+    case ResourceType::material: {
+      VkMaterial& material = _materials.at(entry.resourceId);
 
-    for (rhi::ResourceIdRHI textureId : material.textureResourceDependencyIds) {
-      Texture& textureDependency = _textures.at(textureId);
+      if (!--material.resource.refCount) {
+        FrameData& prevFrameData = getPreviousFrameData();
+        prevFrameData.pendingResourcesToDestroy.materialsToDestroy.push_back(
+            entry.resourceId);
 
-      if (!--textureDependency.resource.refCount) {
-        prevFrameData.pendingResourcesToDestroy.texturesToDestroy.push_back(
-            textureId);
+        Shader& vertexShaderDependency =
+            _shaderModules.at(material.vertexShaderResourceDependencyId);
+
+        if (!--vertexShaderDependency.resource.refCount) {
+          prevFrameData.pendingResourcesToDestroy.shadersToDestroy.push_back(
+              material.vertexShaderResourceDependencyId);
+        }
+
+        Shader& fragmentShaderDependency =
+            _shaderModules.at(material.fragmentShaderResourceDependencyId);
+
+        if (!--fragmentShaderDependency.resource.refCount) {
+          prevFrameData.pendingResourcesToDestroy.shadersToDestroy.push_back(
+              material.fragmentShaderResourceDependencyId);
+        }
+
+        for (rhi::ResourceIdRHI textureId :
+             material.textureResourceDependencyIds) {
+          Texture& textureDependency = _textures.at(textureId);
+
+          if (!--textureDependency.resource.refCount) {
+            prevFrameData.pendingResourcesToDestroy.texturesToDestroy.push_back(
+                textureId);
+          }
+        }
       }
+
+      break;
+    }
+    case ResourceType::mesh: {
+      Mesh& mesh = _meshes.at(entry.resourceId);
+      if (!--mesh.resource.refCount) {
+        FrameData& prevFrameData = getPreviousFrameData();
+        prevFrameData.pendingResourcesToDestroy.meshesToDestroy.push_back(
+            entry.resourceId);
+      }
+
+      break;
+    }
+    case ResourceType::shader: {
+      Shader& shader = _shaderModules.at(entry.resourceId);
+      if (!--shader.resource.refCount) {
+        FrameData& prevFrameData = getPreviousFrameData();
+        prevFrameData.pendingResourcesToDestroy.shadersToDestroy.push_back(
+            entry.resourceId);
+      }
+
+      break;
+    }
+    case ResourceType::texture: {
+      Texture& tex = _textures.at(entry.resourceId);
+      if (!--tex.resource.refCount) {
+        FrameData& prevFrameData = getPreviousFrameData();
+        prevFrameData.pendingResourcesToDestroy.texturesToDestroy.push_back(
+            entry.resourceId);
+      }
+      break;
+    }
+    default:
+      assert(false && "Invalid ReleaseResourceEntry type.");
     }
   }
 }
 
 void VulkanRHI::destroyUnusedResources(
-    PendingResourcesToDestroy& pendingResourcesToDestroy) {
+    PendingResourcesToDestroy& pendingResourcesToDestroy,
+    bool destroyTransfersImmediately) {
   // clear materials
   for (rhi::ResourceIdRHI matId :
        pendingResourcesToDestroy.materialsToDestroy) {
@@ -732,7 +780,6 @@ void VulkanRHI::destroyUnusedResources(
     if (mat.vkPipelineEnvironmentRendering) {
       vkDestroyPipeline(_vkDevice, mat.vkPipelineEnvironmentRendering, nullptr);
     }
-
     _materials.erase(matId);
   }
 
@@ -817,17 +864,30 @@ void VulkanRHI::destroyUnusedResources(
     for (auto const& t : transfers) {
       VkResult const result = vkGetFenceStatus(_vkDevice, t.transferFence);
       if (result == VK_SUCCESS) {
-        vmaDestroyBuffer(_vmaAllocator, t.stagingBuffer.buffer,
-                         t.stagingBuffer.allocation);
+        auto cleanupTransferResources = [this, t] {
+          vmaDestroyBuffer(_vmaAllocator, t.stagingBuffer.buffer,
+                           t.stagingBuffer.allocation);
 
-        vkDestroyFence(_vkDevice, t.transferFence, nullptr);
+          vkDestroyFence(_vkDevice, t.transferFence, nullptr);
 
-        for (VkSemaphore s : t.semaphores) {
-          vkDestroySemaphore(_vkDevice, s, nullptr);
-        }
+          for (VkSemaphore s : t.semaphores) {
+            vkDestroySemaphore(_vkDevice, s, nullptr);
+          }
 
-        for (ResourceTransfer::CmdBufferPoolPair b : t.commandBuffers) {
-          vkFreeCommandBuffers(_vkDevice, b.pool, 1, &b.buffer);
+          {
+            std::scoped_lock l{*t.commandPoolMutex};
+
+            for (ResourceTransfer::CmdBufferPoolPair b : t.commandBuffers) {
+              vkFreeCommandBuffers(_vkDevice, b.pool, 1, &b.buffer);
+            }
+          }
+        };
+
+        if (destroyTransfersImmediately) {
+          cleanupTransferResources();
+        } else {
+          _taskExecutor.enqueue(task::TaskType::rhiTransfer,
+                                cleanupTransferResources);
         }
       } else if (result == VK_NOT_READY) {
         _resourceTransfers.push_back(t);
@@ -970,6 +1030,7 @@ void VulkanRHI::transferDataToImage(AllocatedBuffer stagingBuffer,
   ResourceTransferContext& ctx = getResourceTransferContextForCurrentThread();
   ResourceTransfer transfer = {};
   transfer.stagingBuffer = stagingBuffer;
+  transfer.commandPoolMutex = &ctx.commandPoolsMutex;
 
   VkFenceCreateInfo fenceCreateInfo = {.sType =
                                            VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
@@ -978,6 +1039,8 @@ void VulkanRHI::transferDataToImage(AllocatedBuffer stagingBuffer,
 
   VK_CHECK(vkCreateFence(ctx.device, &fenceCreateInfo, nullptr,
                          &transfer.transferFence));
+
+  std::scoped_lock l{ctx.commandPoolsMutex};
 
   VkSemaphore transitionToTransferQueueSemaphore = VK_NULL_HANDLE;
 
@@ -1234,6 +1297,7 @@ void VulkanRHI::transferDataToBuffer(
   ResourceTransferContext& ctx = getResourceTransferContextForCurrentThread();
   ResourceTransfer transfer = {};
   transfer.stagingBuffer = stagingBuffer;
+  transfer.commandPoolMutex = &ctx.commandPoolsMutex;
 
   VkFenceCreateInfo fenceCreateInfo = {.sType =
                                            VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
@@ -1243,8 +1307,9 @@ void VulkanRHI::transferDataToBuffer(
   VK_CHECK(vkCreateFence(ctx.device, &fenceCreateInfo, nullptr,
                          &transfer.transferFence));
 
-  VkSemaphore transitionToTransferQueueSemaphore = VK_NULL_HANDLE;
+  std::scoped_lock l{ctx.commandPoolsMutex};
 
+  VkSemaphore transitionToTransferQueueSemaphore = VK_NULL_HANDLE;
   VkCommandBuffer cmdTransfer = VK_NULL_HANDLE;
 
   VkCommandBufferAllocateInfo const cmdTransferAllocInfo =
