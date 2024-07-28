@@ -3,7 +3,7 @@
 layout(location = 0) out float outFragColor;
 
 layout(set = 1, binding = 0) uniform sampler2D inputTexture;
-layout(push_constant) uniform PushConstants { mat3x3 kernel; }
+layout(push_constant) uniform PushConstants { mat4x4 kernel; }
 pushConstants;
 
 void main() {

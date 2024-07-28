@@ -62,7 +62,7 @@ struct MeshPushConstants {
 };
 
 struct PostProcessingPushConstants {
-  glm::mat3 kernel;
+  glm::mat4 kernel;
 };
 
 struct GPUCameraData {

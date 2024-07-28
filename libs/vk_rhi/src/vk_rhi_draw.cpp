@@ -249,7 +249,7 @@ void VulkanRHI::ssaoPostProcessingPass(DrawPassParams const& params) {
   vkCmdBeginRenderPass(cmd, &ssaoPostProcessingRenderPassBeginInfo,
                        VK_SUBPASS_CONTENTS_INLINE);
 
-  glm::mat3x3 kernel;
+  glm::mat4x4 kernel;
   for (std::size_t i = 0; i < 3; ++i) {
     for (std::size_t j = 0; j < 3; ++j) {
       kernel[i][j] = 1.0f / 9.0f;
@@ -851,7 +851,7 @@ void VulkanRHI::drawNoMaterials(
 }
 
 void VulkanRHI::drawPostProcessing(VkCommandBuffer cmd,
-                                   glm::mat3x3 const& kernel,
+                                   glm::mat4x4 const& kernel,
                                    VkFramebuffer frameBuffer,
                                    VkDescriptorSet passDescriptorSet,
                                    std::optional<VkViewport> dynamicViewport,

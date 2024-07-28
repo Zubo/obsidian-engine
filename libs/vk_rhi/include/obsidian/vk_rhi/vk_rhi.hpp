@@ -368,7 +368,7 @@ private:
                        std::optional<VkViewport> dynamicViewport = std::nullopt,
                        std::optional<VkRect2D> dynamicScissor = std::nullopt);
   void
-  drawPostProcessing(VkCommandBuffer cmd, glm::mat3x3 const& kernel,
+  drawPostProcessing(VkCommandBuffer cmd, glm::mat4x4 const& kernel,
                      VkFramebuffer frameBuffer,
                      VkDescriptorSet passDescriptorSet,
                      std::optional<VkViewport> dynamicViewport = std::nullopt,
