@@ -9,6 +9,8 @@
 
 #include <glm/gtx/transform.hpp>
 
+#include <algorithm>
+
 using namespace obsidian::scene;
 
 void Scene::init(input::InputContext& inputContext, rhi::RHI& rhi,
