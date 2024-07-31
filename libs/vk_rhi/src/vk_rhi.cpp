@@ -30,6 +30,7 @@
 #include <mutex>
 #include <numeric>
 #include <optional>
+#include <utility>
 #include <variant>
 
 using namespace obsidian;

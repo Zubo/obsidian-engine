@@ -738,6 +738,8 @@ void VulkanRHI::initShadowPassPipeline() {
 
   _vkShadowPassPipeline =
       pipelineBuilder.buildPipeline(_vkDevice, _depthRenderPass.vkRenderPass);
+  setDbgResourceName(_vkDevice, (std::uint64_t)_vkShadowPassPipeline,
+                     VK_OBJECT_TYPE_PIPELINE, "Shadow pass pipeline");
 
   _deletionQueue.pushFunction([this]() {
     vkDestroyPipeline(_vkDevice, _vkShadowPassPipeline, nullptr);
@@ -781,6 +783,9 @@ void VulkanRHI::initDepthPrepassPipeline() {
 
   _vkDepthPrepassPipeline =
       pipelineBuilder.buildPipeline(_vkDevice, _depthRenderPass.vkRenderPass);
+
+  setDbgResourceName(_vkDevice, (std::uint64_t)_vkDepthPrepassPipeline,
+                     VK_OBJECT_TYPE_PIPELINE, "Depth prepass pipeline");
 
   _deletionQueue.pushFunction([this] {
     vkDestroyPipeline(_vkDevice, _vkDepthPrepassPipeline, nullptr);
@@ -855,6 +860,8 @@ void VulkanRHI::initSsaoPipeline() {
 
   _vkSsaoPipeline =
       pipelineBuilder.buildPipeline(_vkDevice, _ssaoRenderPass.vkRenderPass);
+  setDbgResourceName(_vkDevice, (std::uint64_t)_vkSsaoPipeline,
+                     VK_OBJECT_TYPE_PIPELINE, "SSAO pipeline");
 
   _deletionQueue.pushFunction(
       [this]() { vkDestroyPipeline(_vkDevice, _vkSsaoPipeline, nullptr); });
@@ -927,6 +934,8 @@ void VulkanRHI::initSsaoPostProcessingPipeline() {
 
   _vkSsaoPostProcessingPipeline = pipelineBuilder.buildPipeline(
       _vkDevice, _postProcessingRenderPass.vkRenderPass);
+  setDbgResourceName(_vkDevice, (std::uint64_t)_vkSsaoPostProcessingPipeline,
+                     VK_OBJECT_TYPE_PIPELINE, "Post processing SSAO pipeline");
 
   _deletionQueue.pushFunction([this]() {
     vkDestroyPipeline(_vkDevice, _vkSsaoPostProcessingPipeline, nullptr);
