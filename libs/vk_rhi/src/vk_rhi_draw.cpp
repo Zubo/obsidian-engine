@@ -672,6 +672,17 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   vkSubmitInfo.signalSemaphoreCount = 1;
   vkSubmitInfo.pSignalSemaphores = &params.currentFrameData.vkRenderSemaphore;
 
+  VkTimelineSemaphoreSubmitInfo timelineSemaphoreSubmitInfo = {};
+  timelineSemaphoreSubmitInfo.sType =
+      VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
+  timelineSemaphoreSubmitInfo.pNext = nullptr;
+  timelineSemaphoreSubmitInfo.signalSemaphoreValueCount = 1;
+
+  std::uint64_t currentFrameNumber = _frameNumber.load();
+  timelineSemaphoreSubmitInfo.pSignalSemaphoreValues = &currentFrameNumber;
+
+  vkSubmitInfo.pNext = &timelineSemaphoreSubmitInfo;
+
   {
     std::scoped_lock l{_gpuQueueMutexes.at(_graphicsQueueFamilyIndex)};
     VK_CHECK(vkQueueSubmit(_gpuQueues[_graphicsQueueFamilyIndex], 1,

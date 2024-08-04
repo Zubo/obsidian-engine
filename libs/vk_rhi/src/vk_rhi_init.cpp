@@ -43,6 +43,7 @@ void VulkanRHI::init(rhi::WindowExtentRHI extent,
     }
   });
 
+  initFrameNumberSemaphore();
   initSwapchain(extent);
   initCommands();
   initMainRenderPasses();
@@ -176,13 +177,14 @@ void VulkanRHI::initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider) {
   _maxSamplerAnisotropy =
       vkbPhysicalDevice.properties.limits.maxSamplerAnisotropy;
   vkb::DeviceBuilder vkbDeviceBuilder{vkbPhysicalDevice};
-  VkPhysicalDeviceVulkan12Features vkDeviceFeatures = {};
-  vkDeviceFeatures.sType =
+  VkPhysicalDeviceVulkan12Features vkPhysicalDeviceVulkan12Features = {};
+  vkPhysicalDeviceVulkan12Features.sType =
       VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-  vkDeviceFeatures.pNext = nullptr;
-  vkDeviceFeatures.descriptorBindingPartiallyBound = VK_TRUE;
+  vkPhysicalDeviceVulkan12Features.pNext = nullptr;
+  vkPhysicalDeviceVulkan12Features.descriptorBindingPartiallyBound = VK_TRUE;
+  vkPhysicalDeviceVulkan12Features.timelineSemaphore = VK_TRUE;
 
-  vkbDeviceBuilder.add_pNext(&vkDeviceFeatures);
+  vkbDeviceBuilder.add_pNext(&vkPhysicalDeviceVulkan12Features);
 
   VkPhysicalDeviceVertexInputDynamicStateFeaturesEXT
       vkVertexInputDynamicStateFeatures = {};
@@ -222,6 +224,26 @@ void VulkanRHI::initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider) {
   VK_CHECK(vmaCreateAllocator(&allocatorInfo, &_vmaAllocator));
 
   _deletionQueue.pushFunction([this] { vmaDestroyAllocator(_vmaAllocator); });
+}
+
+void VulkanRHI::initFrameNumberSemaphore() {
+  VkSemaphoreTypeCreateInfo semaphoreTypeCreateInfo = {};
+  semaphoreTypeCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO;
+  semaphoreTypeCreateInfo.pNext = nullptr;
+  semaphoreTypeCreateInfo.semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE;
+  semaphoreTypeCreateInfo.initialValue = 0;
+
+  VkSemaphoreCreateInfo semaphoreCreateInfo = {};
+  semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+  semaphoreCreateInfo.pNext = &semaphoreTypeCreateInfo;
+  semaphoreCreateInfo.flags = 0;
+
+  VK_CHECK(vkCreateSemaphore(_vkDevice, &semaphoreCreateInfo, nullptr,
+                             &_frameNumberSemaphore));
+
+  _deletionQueue.pushFunction([this]() {
+    vkDestroySemaphore(_vkDevice, _frameNumberSemaphore, nullptr);
+  });
 }
 
 void VulkanRHI::initSwapchain(rhi::WindowExtentRHI const& extent) {

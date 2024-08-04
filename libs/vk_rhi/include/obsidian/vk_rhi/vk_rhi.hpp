@@ -136,7 +136,8 @@ private:
   vkb::Swapchain _vkbSwapchain = {};
   std::vector<VkImage> _swapchainImages;
   std::vector<VkImageView> _swapchainImageViews;
-  std::uint32_t _frameNumber = 0;
+  std::atomic<std::uint32_t> _frameNumber = 1;
+  VkSemaphore _frameNumberSemaphore;
   PFN_vkCmdSetVertexInputEXT _vkCmdSetVertexInput;
   float _maxSamplerAnisotropy;
 
@@ -241,6 +242,7 @@ private:
   VkFormat _envMapFormat = VK_FORMAT_R8G8B8A8_SRGB;
 
   void initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider);
+  void initFrameNumberSemaphore();
   void initSwapchain(rhi::WindowExtentRHI const& extent);
   void initCommands();
   void initMainRenderPasses();
