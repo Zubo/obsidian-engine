@@ -569,7 +569,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
                              true, timeoutNanoseconds));
   }
 
-  destroyUnusedResources(currentFrameData.pendingResourcesToDestroy);
+  destroyUnusedResources();
 
   uint32_t swapchainImageIndex;
   {

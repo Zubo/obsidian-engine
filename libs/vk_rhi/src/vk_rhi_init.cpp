@@ -37,13 +37,14 @@ void VulkanRHI::init(rhi::WindowExtentRHI extent,
 
   initVulkan(surfaceProvider);
 
+  initFrameNumberSemaphore();
+
   _deletionQueue.pushFunction([this]() {
     for (FrameData& frameData : _frameDataArray) {
-      destroyUnusedResources(frameData.pendingResourcesToDestroy);
+      destroyUnusedResources(true);
     }
   });
 
-  initFrameNumberSemaphore();
   initSwapchain(extent);
   initCommands();
   initMainRenderPasses();

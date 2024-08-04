@@ -264,11 +264,16 @@ GPUCameraData getSpotlightCameraData(glm::vec3 const& position,
                                      float cutoffAngleRad);
 
 struct PendingResourcesToDestroy {
-  std::vector<rhi::ResourceIdRHI> materialsToDestroy;
-  std::vector<rhi::ResourceIdRHI> texturesToDestroy;
-  std::vector<rhi::ResourceIdRHI> shadersToDestroy;
-  std::vector<rhi::ResourceIdRHI> meshesToDestroy;
-  std::vector<rhi::ResourceIdRHI> environmentMapsToDestroy;
+  struct ResourceEntry {
+    rhi::ResourceIdRHI id;
+    std::size_t lastUsedFrame;
+  };
+
+  std::vector<ResourceEntry> materialsToDestroy;
+  std::vector<ResourceEntry> texturesToDestroy;
+  std::vector<ResourceEntry> shadersToDestroy;
+  std::vector<ResourceEntry> meshesToDestroy;
+  std::vector<ResourceEntry> environmentMapsToDestroy;
 };
 
 } /*namespace obsidian::vk_rhi*/

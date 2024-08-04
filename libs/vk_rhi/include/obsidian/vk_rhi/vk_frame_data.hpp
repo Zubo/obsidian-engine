@@ -31,8 +31,6 @@ struct FrameData {
 
   Framebuffer vkSsaoPostProcessingFramebuffer;
   VkDescriptorSet vkSsaoPostProcessingDescriptorSet;
-
-  PendingResourcesToDestroy pendingResourcesToDestroy;
 };
 
 } /*namespace obsidian::vk_rhi*/

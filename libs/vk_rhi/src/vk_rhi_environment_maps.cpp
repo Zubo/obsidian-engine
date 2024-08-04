@@ -1,3 +1,4 @@
+#include <mutex>
 #include <obsidian/core/logging.hpp>
 #include <obsidian/rhi/resource_rhi.hpp>
 #include <obsidian/vk_rhi/vk_initializers.hpp>
@@ -168,8 +169,12 @@ void VulkanRHI::releaseEnvironmentMap(rhi::ResourceIdRHI envMapId) {
   _environmentMaps.at(envMapId).released = true;
 
   FrameData& prevFrameData = getPreviousFrameData();
-  prevFrameData.pendingResourcesToDestroy.environmentMapsToDestroy.push_back(
-      envMapId);
+
+  {
+    std::scoped_lock l{_pendingResourcesToDestroyMutex};
+    _pendingResourcesToDestroy.environmentMapsToDestroy.push_back(
+        {envMapId, _frameNumber.load()});
+  }
   _envMapDescriptorSetPendingUpdate = true;
 }
 

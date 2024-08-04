@@ -32,6 +32,7 @@
 #include <optional>
 #include <utility>
 #include <variant>
+#include <vulkan/vulkan_core.h>
 
 using namespace obsidian;
 using namespace obsidian::vk_rhi;
@@ -154,9 +155,9 @@ VulkanRHI::uploadTexture(rhi::ResourceIdRHI id,
 void VulkanRHI::releaseTexture(rhi::ResourceIdRHI resourceIdRHI) {
   Texture& tex = _textures[resourceIdRHI];
   if (!--tex.resource.refCount) {
-    FrameData& prevFrameData = getPreviousFrameData();
-    prevFrameData.pendingResourcesToDestroy.texturesToDestroy.push_back(
-        resourceIdRHI);
+    std::scoped_lock l{_pendingResourcesToDestroyMutex};
+    _pendingResourcesToDestroy.texturesToDestroy.push_back(
+        {resourceIdRHI, _frameNumber.load()});
   }
 }
 
@@ -264,9 +265,9 @@ rhi::ResourceTransferRHI VulkanRHI::uploadMesh(rhi::ResourceIdRHI id,
 void VulkanRHI::releaseMesh(rhi::ResourceIdRHI resourceIdRHI) {
   Mesh& mesh = _meshes[resourceIdRHI];
   if (!--mesh.resource.refCount) {
-    FrameData& prevFrameData = getPreviousFrameData();
-    prevFrameData.pendingResourcesToDestroy.meshesToDestroy.push_back(
-        resourceIdRHI);
+    std::scoped_lock l{_pendingResourcesToDestroyMutex};
+    _pendingResourcesToDestroy.meshesToDestroy.push_back(
+        {resourceIdRHI, _frameNumber.load()});
   }
 }
 
@@ -340,9 +341,9 @@ VulkanRHI::uploadShader(rhi::ResourceIdRHI id,
 void VulkanRHI::releaseShader(rhi::ResourceIdRHI resourceIdRHI) {
   Shader& shader = _shaderModules.at(resourceIdRHI);
   if (!--shader.resource.refCount) {
-    FrameData& prevFrameData = getPreviousFrameData();
-    prevFrameData.pendingResourcesToDestroy.shadersToDestroy.push_back(
-        resourceIdRHI);
+    std::scoped_lock l{_pendingResourcesToDestroyMutex};
+    _pendingResourcesToDestroy.shadersToDestroy.push_back(
+        {resourceIdRHI, _frameNumber.load()});
   }
 }
 
@@ -689,124 +690,180 @@ void VulkanRHI::releaseMaterial(rhi::ResourceIdRHI resourceIdRHI) {
   VkMaterial& material = _materials[resourceIdRHI];
 
   if (!--material.resource.refCount) {
-    FrameData& prevFrameData = getPreviousFrameData();
-    prevFrameData.pendingResourcesToDestroy.materialsToDestroy.push_back(
-        resourceIdRHI);
+    std::size_t const frameNumber = _frameNumber.load();
+
+    std::scoped_lock l{_pendingResourcesToDestroyMutex};
+
+    _pendingResourcesToDestroy.materialsToDestroy.push_back(
+        {resourceIdRHI, frameNumber});
 
     Shader& vertexShaderDependency =
         _shaderModules.at(material.vertexShaderResourceDependencyId);
 
     if (!--vertexShaderDependency.resource.refCount) {
-      prevFrameData.pendingResourcesToDestroy.shadersToDestroy.push_back(
-          material.vertexShaderResourceDependencyId);
+      _pendingResourcesToDestroy.shadersToDestroy.push_back(
+          {material.vertexShaderResourceDependencyId, frameNumber});
     }
 
     Shader& fragmentShaderDependency =
         _shaderModules.at(material.fragmentShaderResourceDependencyId);
 
     if (!--fragmentShaderDependency.resource.refCount) {
-      prevFrameData.pendingResourcesToDestroy.shadersToDestroy.push_back(
-          material.fragmentShaderResourceDependencyId);
+      _pendingResourcesToDestroy.shadersToDestroy.push_back(
+          {material.fragmentShaderResourceDependencyId, frameNumber});
     }
 
     for (rhi::ResourceIdRHI textureId : material.textureResourceDependencyIds) {
       Texture& textureDependency = _textures.at(textureId);
 
       if (!--textureDependency.resource.refCount) {
-        prevFrameData.pendingResourcesToDestroy.texturesToDestroy.push_back(
-            textureId);
+        _pendingResourcesToDestroy.texturesToDestroy.push_back(
+            {textureId, frameNumber});
       }
     }
   }
 }
 
-void VulkanRHI::destroyUnusedResources(
-    PendingResourcesToDestroy& pendingResourcesToDestroy) {
+void VulkanRHI::destroyUnusedResources(bool forceDestroy) {
   // clear materials
-  for (rhi::ResourceIdRHI matId :
-       pendingResourcesToDestroy.materialsToDestroy) {
-    VkMaterial& mat = _materials.at(matId);
+  PendingResourcesToDestroy toDestroy = {};
+  PendingResourcesToDestroy persisted = {};
 
-    if (mat.vkPipelineReuseDepth) {
-      vkDestroyPipeline(_vkDevice, mat.vkPipelineReuseDepth, nullptr);
-    }
-    if (mat.vkPipelineEnvironmentRendering) {
-      vkDestroyPipeline(_vkDevice, mat.vkPipelineEnvironmentRendering, nullptr);
-    }
-
-    _materials.erase(matId);
+  {
+    std::scoped_lock l{_pendingResourcesToDestroyMutex};
+    std::swap(toDestroy, _pendingResourcesToDestroy);
   }
 
-  pendingResourcesToDestroy.materialsToDestroy.clear();
+  std::uint64_t lastRenderedFrame;
+  VK_CHECK(vkGetSemaphoreCounterValue(_vkDevice, _frameNumberSemaphore,
+                                      &lastRenderedFrame));
+
+  for (PendingResourcesToDestroy::ResourceEntry const& matEntry :
+       toDestroy.materialsToDestroy) {
+    if (forceDestroy || matEntry.lastUsedFrame <= lastRenderedFrame) {
+      VkMaterial& mat = _materials.at(matEntry.id);
+
+      if (mat.vkPipelineReuseDepth) {
+        vkDestroyPipeline(_vkDevice, mat.vkPipelineReuseDepth, nullptr);
+      }
+      if (mat.vkPipelineEnvironmentRendering) {
+        vkDestroyPipeline(_vkDevice, mat.vkPipelineEnvironmentRendering,
+                          nullptr);
+      }
+
+      _materials.erase(matEntry.id);
+    } else {
+      persisted.materialsToDestroy.push_back(matEntry);
+    }
+  }
 
   // clear textures
-  for (rhi::ResourceIdRHI texId : pendingResourcesToDestroy.texturesToDestroy) {
-    Texture& tex = _textures.at(texId);
+  for (PendingResourcesToDestroy::ResourceEntry const& texEntry :
+       toDestroy.texturesToDestroy) {
+    if (forceDestroy || texEntry.lastUsedFrame <= lastRenderedFrame) {
+      Texture& tex = _textures.at(texEntry.id);
 
-    vkDestroyImageView(_vkDevice, tex.imageView, nullptr);
-    vmaDestroyImage(_vmaAllocator, tex.image.vkImage, tex.image.allocation);
+      vkDestroyImageView(_vkDevice, tex.imageView, nullptr);
+      vmaDestroyImage(_vmaAllocator, tex.image.vkImage, tex.image.allocation);
 
-    _textures.erase(texId);
+      _textures.erase(texEntry.id);
+    } else {
+      persisted.texturesToDestroy.push_back(texEntry);
+    }
   }
-
-  pendingResourcesToDestroy.texturesToDestroy.clear();
 
   // clear shaders
-  for (rhi::ResourceIdRHI shaderId :
-       pendingResourcesToDestroy.shadersToDestroy) {
-    Shader& shader = _shaderModules.at(shaderId);
-    vkDestroyShaderModule(_vkDevice, shader.vkShaderModule, nullptr);
+  for (PendingResourcesToDestroy::ResourceEntry const& shaderEntry :
+       toDestroy.shadersToDestroy) {
+    if (forceDestroy || shaderEntry.lastUsedFrame <= lastRenderedFrame) {
+      Shader& shader = _shaderModules.at(shaderEntry.id);
+      vkDestroyShaderModule(_vkDevice, shader.vkShaderModule, nullptr);
 
-    _shaderModules.erase(shaderId);
+      _shaderModules.erase(shaderEntry.id);
+    } else {
+      persisted.shadersToDestroy.push_back(shaderEntry);
+    }
   }
-
-  pendingResourcesToDestroy.shadersToDestroy.clear();
 
   // clear meshes
-  for (rhi::ResourceIdRHI meshId : pendingResourcesToDestroy.meshesToDestroy) {
-    Mesh& mesh = _meshes.at(meshId);
+  for (PendingResourcesToDestroy::ResourceEntry const& meshEntry :
+       toDestroy.meshesToDestroy) {
+    if (forceDestroy || meshEntry.lastUsedFrame <= lastRenderedFrame) {
+      Mesh& mesh = _meshes.at(meshEntry.id);
 
-    vmaDestroyBuffer(_vmaAllocator, mesh.vertexBuffer.buffer,
-                     mesh.vertexBuffer.allocation);
+      vmaDestroyBuffer(_vmaAllocator, mesh.vertexBuffer.buffer,
+                       mesh.vertexBuffer.allocation);
 
-    vmaDestroyBuffer(_vmaAllocator, mesh.indexBuffer.buffer,
-                     mesh.indexBuffer.allocation);
+      vmaDestroyBuffer(_vmaAllocator, mesh.indexBuffer.buffer,
+                       mesh.indexBuffer.allocation);
 
-    _meshes.erase(meshId);
+      _meshes.erase(meshEntry.id);
+
+    } else {
+      persisted.meshesToDestroy.push_back(meshEntry);
+    }
   }
-
-  pendingResourcesToDestroy.meshesToDestroy.clear();
 
   // clear environment maps
+  for (PendingResourcesToDestroy::ResourceEntry const& envMapEntry :
+       toDestroy.environmentMapsToDestroy) {
+    assert(_environmentMaps.contains(envMapEntry.id));
 
-  for (rhi::ResourceIdRHI envMapId :
-       pendingResourcesToDestroy.environmentMapsToDestroy) {
-    assert(_environmentMaps.contains(envMapId));
+    if (envMapEntry.lastUsedFrame <= lastRenderedFrame || forceDestroy) {
+      EnvironmentMap& envMap = _environmentMaps.at(envMapEntry.id);
 
-    EnvironmentMap& envMap = _environmentMaps.at(envMapId);
+      for (std::size_t i = 0; i < envMap.framebuffers.size(); ++i) {
+        vkDestroyFramebuffer(_vkDevice, envMap.framebuffers[i], nullptr);
+        vkDestroyImageView(_vkDevice, envMap.colorAttachmentImageViews[i],
+                           nullptr);
+        vkDestroyImageView(_vkDevice, envMap.depthAttachmentImageViews[i],
+                           nullptr);
+      }
 
-    for (std::size_t i = 0; i < envMap.framebuffers.size(); ++i) {
-      vkDestroyFramebuffer(_vkDevice, envMap.framebuffers[i], nullptr);
-      vkDestroyImageView(_vkDevice, envMap.colorAttachmentImageViews[i],
-                         nullptr);
-      vkDestroyImageView(_vkDevice, envMap.depthAttachmentImageViews[i],
-                         nullptr);
+      vkDestroyImageView(_vkDevice, envMap.colorImageView, nullptr);
+      vmaDestroyImage(_vmaAllocator, envMap.colorImage.vkImage,
+                      envMap.colorImage.allocation);
+      vkDestroyImageView(_vkDevice, envMap.depthImageView, nullptr);
+      vmaDestroyImage(_vmaAllocator, envMap.depthImage.vkImage,
+                      envMap.depthImage.allocation);
+
+      vmaDestroyBuffer(_vmaAllocator, envMap.cameraBuffer.buffer,
+                       envMap.cameraBuffer.allocation);
+
+      _environmentMaps.erase(envMapEntry.id);
+    } else {
+      persisted.environmentMapsToDestroy.push_back(envMapEntry);
     }
-
-    vkDestroyImageView(_vkDevice, envMap.colorImageView, nullptr);
-    vmaDestroyImage(_vmaAllocator, envMap.colorImage.vkImage,
-                    envMap.colorImage.allocation);
-    vkDestroyImageView(_vkDevice, envMap.depthImageView, nullptr);
-    vmaDestroyImage(_vmaAllocator, envMap.depthImage.vkImage,
-                    envMap.depthImage.allocation);
-
-    vmaDestroyBuffer(_vmaAllocator, envMap.cameraBuffer.buffer,
-                     envMap.cameraBuffer.allocation);
-
-    _environmentMaps.erase(envMapId);
   }
 
-  pendingResourcesToDestroy.environmentMapsToDestroy.clear();
+  bool const persistedEmpty = persisted.texturesToDestroy.empty() &&
+                              persisted.meshesToDestroy.empty() &&
+                              persisted.environmentMapsToDestroy.empty() &&
+                              persisted.materialsToDestroy.empty() &&
+                              persisted.shadersToDestroy.empty();
+
+  if (!persistedEmpty) {
+    std::scoped_lock l{_pendingResourcesToDestroyMutex};
+
+    _pendingResourcesToDestroy.texturesToDestroy.insert(
+        _pendingResourcesToDestroy.texturesToDestroy.end(),
+        persisted.texturesToDestroy.cbegin(),
+        persisted.texturesToDestroy.cend());
+    _pendingResourcesToDestroy.meshesToDestroy.insert(
+        _pendingResourcesToDestroy.meshesToDestroy.end(),
+        persisted.meshesToDestroy.cbegin(), persisted.meshesToDestroy.cend());
+    _pendingResourcesToDestroy.environmentMapsToDestroy.insert(
+        _pendingResourcesToDestroy.environmentMapsToDestroy.end(),
+        persisted.environmentMapsToDestroy.cbegin(),
+        persisted.environmentMapsToDestroy.cend());
+    _pendingResourcesToDestroy.materialsToDestroy.insert(
+        _pendingResourcesToDestroy.materialsToDestroy.end(),
+        persisted.materialsToDestroy.cbegin(),
+        persisted.materialsToDestroy.cend());
+    _pendingResourcesToDestroy.shadersToDestroy.insert(
+        _pendingResourcesToDestroy.shadersToDestroy.end(),
+        persisted.shadersToDestroy.cbegin(), persisted.shadersToDestroy.cend());
+  }
 
   {
     std::scoped_lock l{_resourceTransfersMutex};

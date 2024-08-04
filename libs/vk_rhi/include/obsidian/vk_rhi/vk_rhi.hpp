@@ -89,8 +89,7 @@ public:
 
   void releaseMaterial(rhi::ResourceIdRHI resourceIdRHI) override;
 
-  void
-  destroyUnusedResources(PendingResourcesToDestroy& pendingResourcesToDestroy);
+  void destroyUnusedResources(bool forceDestroy = false);
 
   void submitDrawCall(rhi::DrawCall const& drawCall) override;
 
@@ -228,6 +227,8 @@ private:
   std::mutex _pendingExtentUpdateMutex;
   std::mutex _resourceTransfersMutex;
   std::vector<TransferResources> _resourceTransfers;
+  PendingResourcesToDestroy _pendingResourcesToDestroy;
+  std::mutex _pendingResourcesToDestroyMutex;
 
   // Timer
   AllocatedBuffer _timerBuffer;
