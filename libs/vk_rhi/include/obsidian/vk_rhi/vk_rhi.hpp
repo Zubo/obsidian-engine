@@ -48,8 +48,6 @@ public:
 
   void initResources(rhi::InitResourcesRHI const& initResources) override;
 
-  void initResources();
-
   void waitDeviceIdle() const override;
 
   void cleanup() override;
@@ -228,7 +226,7 @@ private:
   std::optional<rhi::WindowExtentRHI> _pendingExtentUpdate = std::nullopt;
   std::mutex _pendingExtentUpdateMutex;
   std::mutex _resourceTransfersMutex;
-  std::vector<ResourceTransfer> _resourceTransfers;
+  std::vector<TransferResources> _resourceTransfers;
 
   // Timer
   AllocatedBuffer _timerBuffer;
@@ -295,7 +293,6 @@ private:
   void initResourceTransferContext(ResourceTransferContext& ctx);
   void destroyResourceTransferCommandPools();
   ResourceTransferContext& getResourceTransferContextForCurrentThread();
-  void immediateUploadImage();
   void uploadMesh(Mesh& mesh);
   void applyPendingExtentUpdate();
   void updateTimerBuffer(VkCommandBuffer cmd);

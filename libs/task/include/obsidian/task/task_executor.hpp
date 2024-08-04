@@ -6,8 +6,8 @@
 #include <atomic>
 #include <cassert>
 #include <condition_variable>
-#include <cstdint>
-#include <future>
+#include <cstddef>
+#include <functional>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -18,8 +18,11 @@
 namespace obsidian::task {
 
 struct ThreadInitInfo {
+  using CallOnIntervalType = std::function<void(void)>;
   TaskType taskType;
   unsigned int threadCount;
+  CallOnIntervalType callOnInterval;
+  std::size_t intervalMilliseconds = 0;
 };
 
 struct TaskQueue {
@@ -55,7 +58,9 @@ public:
     return future;
   }
 
-  void workerFunc(TaskType taskType);
+  void workerFunc(TaskType taskType,
+                  ThreadInitInfo::CallOnIntervalType intervalFunc,
+                  std::size_t intervalMilliseconds);
 
   void waitIdle() const;
 

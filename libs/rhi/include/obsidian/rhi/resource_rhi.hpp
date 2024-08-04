@@ -28,7 +28,7 @@ struct ResourceRHI {
 };
 
 struct UploadTextureRHI {
-  core::TextureFormat format;
+  obsidian::core::TextureFormat format;
   std::uint32_t width;
   std::uint32_t height;
   std::uint32_t mipLevels;

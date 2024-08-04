@@ -165,7 +165,7 @@ struct ResourceTransferContext {
   bool initialized = false;
 };
 
-struct ResourceTransfer {
+struct TransferResources {
   struct CmdBufferPoolPair {
     VkCommandBuffer buffer;
     VkCommandPool pool;

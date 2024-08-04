@@ -811,11 +811,11 @@ void VulkanRHI::destroyUnusedResources(
   {
     std::scoped_lock l{_resourceTransfersMutex};
 
-    static std::vector<ResourceTransfer> transfers;
+    static std::vector<TransferResources> transferResources;
 
-    _resourceTransfers.swap(transfers);
+    _resourceTransfers.swap(transferResources);
 
-    for (auto const& t : transfers) {
+    for (auto const& t : transferResources) {
       VkResult const result = vkGetFenceStatus(_vkDevice, t.transferFence);
       if (result == VK_SUCCESS) {
         vmaDestroyBuffer(_vmaAllocator, t.stagingBuffer.buffer,
@@ -827,7 +827,7 @@ void VulkanRHI::destroyUnusedResources(
           vkDestroySemaphore(_vkDevice, s, nullptr);
         }
 
-        for (ResourceTransfer::CmdBufferPoolPair b : t.commandBuffers) {
+        for (TransferResources::CmdBufferPoolPair b : t.commandBuffers) {
           vkFreeCommandBuffers(_vkDevice, b.pool, 1, &b.buffer);
         }
       } else if (result == VK_NOT_READY) {
@@ -837,7 +837,7 @@ void VulkanRHI::destroyUnusedResources(
       }
     }
 
-    transfers.clear();
+    transferResources.clear();
   }
 }
 
@@ -969,8 +969,8 @@ void VulkanRHI::transferDataToImage(AllocatedBuffer stagingBuffer,
                                     std::uint32_t currentImgQueueFamilyIdx,
                                     ImageTransferDstState transferDstState) {
   ResourceTransferContext& ctx = getResourceTransferContextForCurrentThread();
-  ResourceTransfer transfer = {};
-  transfer.stagingBuffer = stagingBuffer;
+  TransferResources resources = {};
+  resources.stagingBuffer = stagingBuffer;
 
   VkFenceCreateInfo fenceCreateInfo = {.sType =
                                            VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
@@ -978,7 +978,7 @@ void VulkanRHI::transferDataToImage(AllocatedBuffer stagingBuffer,
                                        .flags = 0};
 
   VK_CHECK(vkCreateFence(ctx.device, &fenceCreateInfo, nullptr,
-                         &transfer.transferFence));
+                         &resources.transferFence));
 
   VkSemaphore transitionToTransferQueueSemaphore = VK_NULL_HANDLE;
 
@@ -990,7 +990,7 @@ void VulkanRHI::transferDataToImage(AllocatedBuffer stagingBuffer,
 
   VK_CHECK(vkAllocateCommandBuffers(ctx.device, &cmdTransferAllocInfo,
                                     &cmdTransfer));
-  transfer.commandBuffers.push_back(
+  resources.commandBuffers.push_back(
       {cmdTransfer, cmdTransferAllocInfo.commandPool});
 
   VkCommandBufferBeginInfo const cmdTransferBegininfo =
@@ -1038,7 +1038,7 @@ void VulkanRHI::transferDataToImage(AllocatedBuffer stagingBuffer,
 
     VK_CHECK(vkAllocateCommandBuffers(ctx.device, &cmdReleaseAllocInfo,
                                       &cmdRelease));
-    transfer.commandBuffers.push_back(
+    resources.commandBuffers.push_back(
         {cmdRelease, cmdReleaseAllocInfo.commandPool});
 
     VkSemaphoreCreateInfo const semaphoreCreateInfo =
@@ -1046,7 +1046,7 @@ void VulkanRHI::transferDataToImage(AllocatedBuffer stagingBuffer,
 
     VK_CHECK(vkCreateSemaphore(ctx.device, &semaphoreCreateInfo, nullptr,
                                &transitionToTransferQueueSemaphore));
-    transfer.semaphores.push_back(transitionToTransferQueueSemaphore);
+    resources.semaphores.push_back(transitionToTransferQueueSemaphore);
 
     VkCommandBufferBeginInfo cmdBufferBeginInfo =
         vkinit::commandBufferBeginInfo(
@@ -1154,7 +1154,7 @@ void VulkanRHI::transferDataToImage(AllocatedBuffer stagingBuffer,
 
     VK_CHECK(vkCreateSemaphore(ctx.device, &semaphoreCreateInfo, nullptr,
                                &transitionToDstQueueSemaphore));
-    transfer.semaphores.push_back(transitionToDstQueueSemaphore);
+    resources.semaphores.push_back(transitionToDstQueueSemaphore);
 
     transferSubmitInfo.signalSemaphoreCount = 1;
     transferSubmitInfo.pSignalSemaphores = &transitionToDstQueueSemaphore;
@@ -1174,7 +1174,7 @@ void VulkanRHI::transferDataToImage(AllocatedBuffer stagingBuffer,
 
     VK_CHECK(vkAllocateCommandBuffers(ctx.device, &cmdAcquireAllocInfo,
                                       &cmdAcquire));
-    transfer.commandBuffers.push_back(
+    resources.commandBuffers.push_back(
         {cmdAcquire, cmdAcquireAllocInfo.commandPool});
 
     VkCommandBufferBeginInfo cmdAcquireBeginInfo =
@@ -1209,7 +1209,7 @@ void VulkanRHI::transferDataToImage(AllocatedBuffer stagingBuffer,
           _gpuQueueMutexes.at(transferDstState.dstImgQueueFamilyIdx)};
       VK_CHECK(
           vkQueueSubmit(_gpuQueues.at(transferDstState.dstImgQueueFamilyIdx), 1,
-                        &acquireSubmitInfo, transfer.transferFence));
+                        &acquireSubmitInfo, resources.transferFence));
     }
   } else {
     VK_CHECK(vkEndCommandBuffer(cmdTransfer));
@@ -1217,13 +1217,13 @@ void VulkanRHI::transferDataToImage(AllocatedBuffer stagingBuffer,
     {
       std::scoped_lock l{_gpuQueueMutexes.at(_transferQueueFamilyIndex)};
       VK_CHECK(vkQueueSubmit(_gpuQueues[_transferQueueFamilyIndex], 1,
-                             &transferSubmitInfo, transfer.transferFence));
+                             &transferSubmitInfo, resources.transferFence));
     }
   }
 
   {
     std::scoped_lock l{_resourceTransfersMutex};
-    _resourceTransfers.push_back(transfer);
+    _resourceTransfers.push_back(resources);
   }
 }
 
@@ -1233,8 +1233,8 @@ void VulkanRHI::transferDataToBuffer(
     std::uint32_t currentBufferQeueueFamilyIdx,
     BufferTransferOptions bufferTransferOptions) {
   ResourceTransferContext& ctx = getResourceTransferContextForCurrentThread();
-  ResourceTransfer transfer = {};
-  transfer.stagingBuffer = stagingBuffer;
+  TransferResources transferResources = {};
+  transferResources.stagingBuffer = stagingBuffer;
 
   VkFenceCreateInfo fenceCreateInfo = {.sType =
                                            VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
@@ -1242,7 +1242,7 @@ void VulkanRHI::transferDataToBuffer(
                                        .flags = 0};
 
   VK_CHECK(vkCreateFence(ctx.device, &fenceCreateInfo, nullptr,
-                         &transfer.transferFence));
+                         &transferResources.transferFence));
 
   VkSemaphore transitionToTransferQueueSemaphore = VK_NULL_HANDLE;
 
@@ -1254,7 +1254,7 @@ void VulkanRHI::transferDataToBuffer(
 
   VK_CHECK(vkAllocateCommandBuffers(ctx.device, &cmdTransferAllocInfo,
                                     &cmdTransfer));
-  transfer.commandBuffers.push_back(
+  transferResources.commandBuffers.push_back(
       {cmdTransfer, cmdTransferAllocInfo.commandPool});
 
   VkCommandBufferBeginInfo const cmdTransferBegininfo =
@@ -1292,7 +1292,7 @@ void VulkanRHI::transferDataToBuffer(
 
     VK_CHECK(vkAllocateCommandBuffers(ctx.device, &cmdReleaseAllocInfo,
                                       &cmdRelease));
-    transfer.commandBuffers.push_back(
+    transferResources.commandBuffers.push_back(
         {cmdRelease, cmdReleaseAllocInfo.commandPool});
 
     VkSemaphoreCreateInfo const semaphoreCreateInfo =
@@ -1300,7 +1300,7 @@ void VulkanRHI::transferDataToBuffer(
 
     VK_CHECK(vkCreateSemaphore(ctx.device, &semaphoreCreateInfo, nullptr,
                                &transitionToTransferQueueSemaphore));
-    transfer.semaphores.push_back(transitionToTransferQueueSemaphore);
+    transferResources.semaphores.push_back(transitionToTransferQueueSemaphore);
 
     VkCommandBufferBeginInfo cmdBufferBeginInfo =
         vkinit::commandBufferBeginInfo(
@@ -1404,7 +1404,7 @@ void VulkanRHI::transferDataToBuffer(
 
     VK_CHECK(vkCreateSemaphore(ctx.device, &semaphoreCreateInfo, nullptr,
                                &transitionToDstQueueSemaphore));
-    transfer.semaphores.push_back(transitionToDstQueueSemaphore);
+    transferResources.semaphores.push_back(transitionToDstQueueSemaphore);
 
     transferSubmitInfo.signalSemaphoreCount = 1;
     transferSubmitInfo.pSignalSemaphores = &transitionToDstQueueSemaphore;
@@ -1424,7 +1424,7 @@ void VulkanRHI::transferDataToBuffer(
 
     VK_CHECK(vkAllocateCommandBuffers(ctx.device, &cmdAcquireAllocInfo,
                                       &cmdAcquire));
-    transfer.commandBuffers.push_back(
+    transferResources.commandBuffers.push_back(
         {cmdAcquire, cmdAcquireAllocInfo.commandPool});
 
     VkCommandBufferBeginInfo cmdAcquireBeginInfo =
@@ -1457,7 +1457,7 @@ void VulkanRHI::transferDataToBuffer(
           _gpuQueueMutexes.at(bufferTransferOptions.dstBufferQueueFamilyIdx)};
       VK_CHECK(vkQueueSubmit(
           _gpuQueues.at(bufferTransferOptions.dstBufferQueueFamilyIdx), 1,
-          &acquireSubmitInfo, transfer.transferFence));
+          &acquireSubmitInfo, transferResources.transferFence));
     }
   } else {
     VK_CHECK(vkEndCommandBuffer(cmdTransfer));
@@ -1465,15 +1465,17 @@ void VulkanRHI::transferDataToBuffer(
     {
       std::scoped_lock l{_gpuQueueMutexes.at(_transferQueueFamilyIndex)};
       VK_CHECK(vkQueueSubmit(_gpuQueues[_transferQueueFamilyIndex], 1,
-                             &transferSubmitInfo, transfer.transferFence));
+                             &transferSubmitInfo,
+                             transferResources.transferFence));
     }
   }
 
   {
     std::scoped_lock l{_resourceTransfersMutex};
-    _resourceTransfers.push_back(transfer);
+    _resourceTransfers.push_back(transferResources);
   }
 }
+
 FrameData& VulkanRHI::getCurrentFrameData() {
   std::size_t const currentFrameDataInd = _frameNumber % frameOverlap;
   return _frameDataArray[currentFrameDataInd];

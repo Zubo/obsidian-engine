@@ -1,6 +1,7 @@
 #include <obsidian/task/task.hpp>
 #include <obsidian/task/task_executor.hpp>
 
+#include <chrono>
 #include <condition_variable>
 #include <memory>
 #include <mutex>
@@ -18,8 +19,10 @@ void TaskExecutor::initAndRun(std::vector<ThreadInitInfo> threadInit) {
     assert(iter.second);
 
     for (std::size_t i = 0; i < initInfo.threadCount; ++i) {
-      _threads.emplace_back(
-          [this, taskType = initInfo.taskType]() { workerFunc(taskType); });
+      _threads.emplace_back([this, initInfo]() {
+        workerFunc(initInfo.taskType, initInfo.callOnInterval,
+                   initInfo.intervalMilliseconds);
+      });
     }
   }
 }
@@ -30,7 +33,17 @@ TaskExecutor::~TaskExecutor() {
   }
 }
 
-void TaskExecutor::workerFunc(TaskType taskType) {
+void TaskExecutor::workerFunc(TaskType taskType,
+                              ThreadInitInfo::CallOnIntervalType intervalFunc,
+                              std::size_t intervalMilliseconds) {
+  using namespace std::chrono;
+  using Clock = high_resolution_clock;
+  Clock::time_point lastTime = Clock::now();
+  duration<std::size_t, std::milli> const interval(
+      intervalFunc ? intervalMilliseconds : 10'000'000'000'000);
+
+  assert(!intervalFunc || intervalMilliseconds != 0);
+
   std::unique_lock lock{_taskQueueMutex};
 
   TaskQueue& taskQueue = _taskQueues.at(taskType);
@@ -40,32 +53,40 @@ void TaskExecutor::workerFunc(TaskType taskType) {
   while (true) {
     lock.lock();
 
-    taskQueue.taskQueueCondVar.wait(lock, [this, &taskQueue]() {
-      return !_running || taskQueue.tasks.size() > 0;
-    });
+    taskQueue.taskQueueCondVar.wait_until(
+        lock, lastTime + interval, [this, &taskQueue]() {
+          return !_running || taskQueue.tasks.size() > 0;
+        });
 
     if (!_running) {
       return;
     }
 
-    std::unique_ptr<TaskBase> task = std::move(taskQueue.tasks.back());
-    taskQueue.tasks.pop_back();
+    if (intervalFunc && Clock::now() > lastTime + interval) {
+      intervalFunc();
+      lastTime = Clock::now();
+    }
 
-    ++taskQueue.tasksInProgress;
+    if (!taskQueue.tasks.empty()) {
+      std::unique_ptr<TaskBase> task = std::move(taskQueue.tasks.back());
+      taskQueue.tasks.pop_back();
 
-    lock.unlock();
-    taskQueue.taskQueueCondVar.notify_one();
+      ++taskQueue.tasksInProgress;
 
-    task->execute();
+      lock.unlock();
+      taskQueue.taskQueueCondVar.notify_one();
 
-    lock.lock();
+      task->execute();
 
-    --taskQueue.tasksInProgress;
-    bool const notifyWait = !getPendingAndUncompletedTasksCount();
+      lock.lock();
 
-    lock.unlock();
+      --taskQueue.tasksInProgress;
+      bool const notifyWait = !getPendingAndUncompletedTasksCount();
 
-    _waitIdleCondVar.notify_all();
+      lock.unlock();
+
+      _waitIdleCondVar.notify_all();
+    }
   }
 }
 
