@@ -89,7 +89,7 @@ public:
 
   void releaseMaterial(rhi::ResourceIdRHI resourceIdRHI) override;
 
-  void destroyUnusedResources(bool forceDestroy = false);
+  void destroyUnusedResources(bool forceDestroy);
 
   void submitDrawCall(rhi::DrawCall const& drawCall) override;
 
@@ -139,10 +139,6 @@ private:
   VkSemaphore _frameNumberSemaphore;
   PFN_vkCmdSetVertexInputEXT _vkCmdSetVertexInput;
   float _maxSamplerAnisotropy;
-
-  // Resource transfer
-  std::vector<VkCommandPool> _resourceTransferCommandPools;
-  std::mutex _resourceTransferCommandPoolsMutex;
 
   // Default pass
   RenderPass _mainRenderPassReuseDepth;
@@ -221,12 +217,9 @@ private:
   std::unordered_map<rhi::ResourceIdRHI, VkMaterial> _materials;
   std::unordered_map<rhi::ResourceIdRHI, VkDescriptorSet> _objectDescriptorSets;
   std::unordered_map<rhi::ResourceIdRHI, EnvironmentMap> _environmentMaps;
-  rhi::ResourceIdRHI _emptyFragShaderId;
   AllocatedBuffer _postProcessingQuadBuffer;
   std::optional<rhi::WindowExtentRHI> _pendingExtentUpdate = std::nullopt;
   std::mutex _pendingExtentUpdateMutex;
-  std::mutex _resourceTransfersMutex;
-  std::vector<TransferResources> _resourceTransfers;
   PendingResourcesToDestroy _pendingResourcesToDestroy;
   std::mutex _pendingResourcesToDestroyMutex;
 
@@ -294,14 +287,14 @@ private:
       std::uint32_t currentBufferQeueueFamilyIdx,
       BufferTransferOptions bufferTransferOptions);
   void initResourceTransferContext(ResourceTransferContext& ctx);
-  void destroyResourceTransferCommandPools();
+  void cleanupFinishedTransfersForCurrentThread(bool waitToFinish);
   ResourceTransferContext& getResourceTransferContextForCurrentThread();
-  void uploadMesh(Mesh& mesh);
   void applyPendingExtentUpdate();
   void updateTimerBuffer(VkCommandBuffer cmd);
   ImmediateSubmitContext&
   getImmediateCtxForCurrentThread(std::uint32_t queueIdx);
   void destroyImmediateCtxForCurrentThread();
+  void cleanupResourceTransferCtxForCurrentThread();
   void updateGlobalSettingsBuffer(bool init);
 
   FrameData& getCurrentFrameData();

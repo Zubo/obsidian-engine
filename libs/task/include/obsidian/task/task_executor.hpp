@@ -18,10 +18,10 @@
 namespace obsidian::task {
 
 struct ThreadInitInfo {
-  using CallOnIntervalType = std::function<void(void)>;
+  using CallOnIntervalFunction = std::function<void(void)>;
   TaskType taskType;
   unsigned int threadCount;
-  CallOnIntervalType callOnInterval;
+  CallOnIntervalFunction callOnInterval;
   std::size_t intervalMilliseconds = 0;
 };
 
@@ -59,7 +59,7 @@ public:
   }
 
   void workerFunc(TaskType taskType,
-                  ThreadInitInfo::CallOnIntervalType intervalFunc,
+                  ThreadInitInfo::CallOnIntervalFunction intervalFunc,
                   std::size_t intervalMilliseconds);
 
   void waitIdle() const;

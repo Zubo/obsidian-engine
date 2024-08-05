@@ -32,10 +32,14 @@
 #include <optional>
 #include <utility>
 #include <variant>
-#include <vulkan/vulkan_core.h>
 
 using namespace obsidian;
 using namespace obsidian::vk_rhi;
+
+static thread_local std::unordered_map<std::uint32_t, ImmediateSubmitContext>
+    immediateSubmitContext;
+static thread_local bool immediateContextsInitialized = false;
+static thread_local ResourceTransferContext resourceTransferCtx;
 
 void VulkanRHI::waitDeviceIdle() const {
   std::scoped_lock l{_gpuQueueMutexes.at(_graphicsQueueFamilyIndex),
@@ -223,6 +227,9 @@ rhi::ResourceTransferRHI VulkanRHI::uploadMesh(rhi::ResourceIdRHI id,
             VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
             VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, 0,
             VK_MEMORY_PROPERTY_HOST_CACHED_BIT);
+
+        setDbgResourceName(_vkDevice, (std::uint64_t)stagingBuffer.buffer,
+                           VK_OBJECT_TYPE_BUFFER, "Mesh upload staging buffer");
 
         void* mappedMemory;
         vmaMapMemory(_vmaAllocator, stagingBuffer.allocation, &mappedMemory);
@@ -809,7 +816,7 @@ void VulkanRHI::destroyUnusedResources(bool forceDestroy) {
        toDestroy.environmentMapsToDestroy) {
     assert(_environmentMaps.contains(envMapEntry.id));
 
-    if (envMapEntry.lastUsedFrame <= lastRenderedFrame || forceDestroy) {
+    if (forceDestroy || envMapEntry.lastUsedFrame <= lastRenderedFrame) {
       EnvironmentMap& envMap = _environmentMaps.at(envMapEntry.id);
 
       for (std::size_t i = 0; i < envMap.framebuffers.size(); ++i) {
@@ -863,38 +870,6 @@ void VulkanRHI::destroyUnusedResources(bool forceDestroy) {
     _pendingResourcesToDestroy.shadersToDestroy.insert(
         _pendingResourcesToDestroy.shadersToDestroy.end(),
         persisted.shadersToDestroy.cbegin(), persisted.shadersToDestroy.cend());
-  }
-
-  {
-    std::scoped_lock l{_resourceTransfersMutex};
-
-    static std::vector<TransferResources> transferResources;
-
-    _resourceTransfers.swap(transferResources);
-
-    for (auto const& t : transferResources) {
-      VkResult const result = vkGetFenceStatus(_vkDevice, t.transferFence);
-      if (result == VK_SUCCESS) {
-        vmaDestroyBuffer(_vmaAllocator, t.stagingBuffer.buffer,
-                         t.stagingBuffer.allocation);
-
-        vkDestroyFence(_vkDevice, t.transferFence, nullptr);
-
-        for (VkSemaphore s : t.semaphores) {
-          vkDestroySemaphore(_vkDevice, s, nullptr);
-        }
-
-        for (TransferResources::CmdBufferPoolPair b : t.commandBuffers) {
-          vkFreeCommandBuffers(_vkDevice, b.pool, 1, &b.buffer);
-        }
-      } else if (result == VK_NOT_READY) {
-        _resourceTransfers.push_back(t);
-      } else {
-        VK_CHECK(result);
-      }
-    }
-
-    transferResources.clear();
   }
 }
 
@@ -979,6 +954,9 @@ void VulkanRHI::initResourceTransferContext(ResourceTransferContext& ctx) {
   assert(!ctx.initialized);
 
   ctx.device = _vkDevice;
+  ctx.cleanupFunction = [this]() {
+    cleanupFinishedTransfersForCurrentThread(true);
+  };
 
   for (std::uint32_t queueFamilyIdx : _queueFamilyIndices) {
     VkCommandPoolCreateInfo commandPoolCreateInfo =
@@ -987,10 +965,6 @@ void VulkanRHI::initResourceTransferContext(ResourceTransferContext& ctx) {
     VkCommandPool& pool = ctx.queueCommandPools[queueFamilyIdx];
 
     vkCreateCommandPool(ctx.device, &commandPoolCreateInfo, nullptr, &pool);
-    {
-      std::scoped_lock l{_resourceTransferCommandPoolsMutex};
-      _resourceTransferCommandPools.push_back(pool);
-    }
 
     setDbgResourceName(_vkDevice, (std::uint64_t)pool,
                        VK_OBJECT_TYPE_COMMAND_POOL, "Resource transfer pool");
@@ -999,25 +973,51 @@ void VulkanRHI::initResourceTransferContext(ResourceTransferContext& ctx) {
   ctx.initialized = true;
 }
 
-void VulkanRHI::destroyResourceTransferCommandPools() {
-  std::scoped_lock l{_resourceTransferCommandPoolsMutex};
+void VulkanRHI::cleanupFinishedTransfersForCurrentThread(bool waitToFinish) {
+  static thread_local std::vector<TransferResources> transferResources;
 
-  for (auto& pool : _resourceTransferCommandPools) {
-    vkDestroyCommandPool(_vkDevice, pool, nullptr);
+  ResourceTransferContext& ctx = getResourceTransferContextForCurrentThread();
+  transferResources.swap(ctx.transferResources);
+
+  for (auto const& t : transferResources) {
+    VkResult result;
+    if (waitToFinish) {
+      result = vkWaitForFences(_vkDevice, 1, &t.transferFence, VK_TRUE,
+                               1000'000'000);
+      VK_CHECK(result);
+    } else {
+      result = vkGetFenceStatus(_vkDevice, t.transferFence);
+    }
+    if (result == VK_SUCCESS) {
+      vmaDestroyBuffer(_vmaAllocator, t.stagingBuffer.buffer,
+                       t.stagingBuffer.allocation);
+
+      vkDestroyFence(_vkDevice, t.transferFence, nullptr);
+
+      for (VkSemaphore s : t.semaphores) {
+        vkDestroySemaphore(_vkDevice, s, nullptr);
+      }
+
+      for (TransferResources::CmdBufferPoolPair b : t.commandBuffers) {
+        vkFreeCommandBuffers(_vkDevice, b.pool, 1, &b.buffer);
+      }
+    } else if (result == VK_NOT_READY) {
+      ctx.transferResources.push_back(t);
+    } else {
+      VK_CHECK(result);
+    }
   }
 
-  _resourceTransferCommandPools.clear();
+  transferResources.clear();
 }
 
 ResourceTransferContext&
 VulkanRHI::getResourceTransferContextForCurrentThread() {
-  static thread_local ResourceTransferContext ctx;
-
-  if (!ctx.initialized) {
-    initResourceTransferContext(ctx);
+  if (!resourceTransferCtx.initialized) {
+    initResourceTransferContext(resourceTransferCtx);
   }
 
-  return ctx;
+  return resourceTransferCtx;
 }
 
 void VulkanRHI::transferDataToImage(AllocatedBuffer stagingBuffer,
@@ -1278,10 +1278,7 @@ void VulkanRHI::transferDataToImage(AllocatedBuffer stagingBuffer,
     }
   }
 
-  {
-    std::scoped_lock l{_resourceTransfersMutex};
-    _resourceTransfers.push_back(resources);
-  }
+  ctx.transferResources.push_back(resources);
 }
 
 void VulkanRHI::transferDataToBuffer(
@@ -1527,10 +1524,7 @@ void VulkanRHI::transferDataToBuffer(
     }
   }
 
-  {
-    std::scoped_lock l{_resourceTransfersMutex};
-    _resourceTransfers.push_back(transferResources);
-  }
+  ctx.transferResources.push_back(transferResources);
 }
 
 FrameData& VulkanRHI::getCurrentFrameData() {
@@ -1773,18 +1767,14 @@ void VulkanRHI::applyPendingExtentUpdate() {
   }
 }
 
-static thread_local std::unordered_map<std::uint32_t, ImmediateSubmitContext>
-    immediateSubmitContext;
-static thread_local bool contextsInitialized = false;
-
 ImmediateSubmitContext&
 VulkanRHI::getImmediateCtxForCurrentThread(std::uint32_t queueIdx) {
-  if (!contextsInitialized) {
+  if (!immediateContextsInitialized) {
     for (auto const& q : _gpuQueues) {
       initImmediateSubmitContext(immediateSubmitContext[q.first], q.first);
     }
 
-    contextsInitialized = true;
+    immediateContextsInitialized = true;
   }
 
   return immediateSubmitContext[queueIdx];
@@ -1793,7 +1783,12 @@ VulkanRHI::getImmediateCtxForCurrentThread(std::uint32_t queueIdx) {
 // used on main thread to manually destroy the context
 void VulkanRHI::destroyImmediateCtxForCurrentThread() {
   immediateSubmitContext = {};
-  contextsInitialized = false;
+  immediateContextsInitialized = false;
+}
+
+void VulkanRHI::cleanupResourceTransferCtxForCurrentThread() {
+  ResourceTransferContext& ctx = getResourceTransferContextForCurrentThread();
+  ctx.cleanup();
 }
 
 void VulkanRHI::updateGlobalSettingsBuffer(bool init) {

@@ -10,7 +10,6 @@
 #include <cstdint>
 #include <functional>
 #include <future>
-#include <optional>
 #include <variant>
 #include <vector>
 

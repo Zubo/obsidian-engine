@@ -33,9 +33,9 @@ TaskExecutor::~TaskExecutor() {
   }
 }
 
-void TaskExecutor::workerFunc(TaskType taskType,
-                              ThreadInitInfo::CallOnIntervalType intervalFunc,
-                              std::size_t intervalMilliseconds) {
+void TaskExecutor::workerFunc(
+    TaskType taskType, ThreadInitInfo::CallOnIntervalFunction intervalFunc,
+    std::size_t intervalMilliseconds) {
   using namespace std::chrono;
   using Clock = high_resolution_clock;
   Clock::time_point lastTime = Clock::now();
@@ -49,8 +49,11 @@ void TaskExecutor::workerFunc(TaskType taskType,
   TaskQueue& taskQueue = _taskQueues.at(taskType);
 
   lock.unlock();
+  bool notifyWait;
 
   while (true) {
+    notifyWait = false;
+
     lock.lock();
 
     taskQueue.taskQueueCondVar.wait_until(
@@ -81,10 +84,13 @@ void TaskExecutor::workerFunc(TaskType taskType,
       lock.lock();
 
       --taskQueue.tasksInProgress;
-      bool const notifyWait = !getPendingAndUncompletedTasksCount();
+    }
 
-      lock.unlock();
+    notifyWait = !getPendingAndUncompletedTasksCount();
 
+    lock.unlock();
+
+    if (notifyWait) {
       _waitIdleCondVar.notify_all();
     }
   }

@@ -560,6 +560,8 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
     return;
   }
 
+  cleanupFinishedTransfersForCurrentThread(false);
+
   FrameData& currentFrameData = getCurrentFrameData();
 
   constexpr std::uint64_t timeoutNanoseconds = 10000000000;
@@ -569,7 +571,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
                              true, timeoutNanoseconds));
   }
 
-  destroyUnusedResources();
+  destroyUnusedResources(false);
 
   uint32_t swapchainImageIndex;
   {
@@ -665,21 +667,27 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   VkPipelineStageFlags const vkPipelineStageFlags =
       VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
+  std::array<VkSemaphore, 2> signalSemaphores = {
+      params.currentFrameData.vkRenderSemaphore, _frameNumberSemaphore};
+
   vkSubmitInfo.pWaitDstStageMask = &vkPipelineStageFlags;
   vkSubmitInfo.waitSemaphoreCount = 1;
   vkSubmitInfo.pWaitSemaphores = &params.currentFrameData.vkPresentSemaphore;
 
-  vkSubmitInfo.signalSemaphoreCount = 1;
-  vkSubmitInfo.pSignalSemaphores = &params.currentFrameData.vkRenderSemaphore;
+  vkSubmitInfo.signalSemaphoreCount = signalSemaphores.size();
+  vkSubmitInfo.pSignalSemaphores = signalSemaphores.data();
 
   VkTimelineSemaphoreSubmitInfo timelineSemaphoreSubmitInfo = {};
   timelineSemaphoreSubmitInfo.sType =
       VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
   timelineSemaphoreSubmitInfo.pNext = nullptr;
-  timelineSemaphoreSubmitInfo.signalSemaphoreValueCount = 1;
 
   std::uint64_t currentFrameNumber = _frameNumber.load();
-  timelineSemaphoreSubmitInfo.pSignalSemaphoreValues = &currentFrameNumber;
+  std::array<std::uint64_t, 2> signalSemaphoreValues = {currentFrameNumber,
+                                                        currentFrameNumber};
+  timelineSemaphoreSubmitInfo.signalSemaphoreValueCount = signalSemaphores.size();
+  timelineSemaphoreSubmitInfo.pSignalSemaphoreValues = signalSemaphoreValues.data();
+
 
   vkSubmitInfo.pNext = &timelineSemaphoreSubmitInfo;
 

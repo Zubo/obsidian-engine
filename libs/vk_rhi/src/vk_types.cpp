@@ -15,6 +15,27 @@ ImmediateSubmitContext::~ImmediateSubmitContext() {
   }
 }
 
+void ResourceTransferContext::cleanup() {
+  if (!initialized) {
+    return;
+  }
+
+  if (cleanupFunction) {
+    cleanupFunction();
+    cleanupFunction = {};
+  }
+
+  for (auto const commandPoolKvp : queueCommandPools) {
+    vkDestroyCommandPool(device, commandPoolKvp.second, nullptr);
+  }
+
+  queueCommandPools.clear();
+
+  initialized = false;
+}
+
+ResourceTransferContext::~ResourceTransferContext() { cleanup(); }
+
 VkFormat getVkTextureFormat(core::TextureFormat format) {
   switch (format) {
   case core::TextureFormat::R8G8B8A8_SRGB:

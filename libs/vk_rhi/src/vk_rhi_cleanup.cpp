@@ -10,18 +10,17 @@ void VulkanRHI::cleanup() {
   if (IsInitialized) {
     renderdoc::deinitRenderdoc();
 
+    waitDeviceIdle();
+
     _taskExecutor.shutdown();
     while (!_taskExecutor.shutdownComplete())
       ;
 
-    waitDeviceIdle();
-
     destroyImmediateCtxForCurrentThread();
+    cleanupResourceTransferCtxForCurrentThread();
 
     _swapchainDeletionQueue.flush();
     _deletionQueue.flush();
-
-    destroyResourceTransferCommandPools();
 
     vkb::destroy_swapchain(_vkbSwapchain);
 

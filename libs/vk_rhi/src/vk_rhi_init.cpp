@@ -31,19 +31,20 @@ using namespace obsidian::vk_rhi;
 
 void VulkanRHI::init(rhi::WindowExtentRHI extent,
                      rhi::ISurfaceProviderRHI const& surfaceProvider) {
-  _taskExecutor.initAndRun({{task::TaskType::rhiTransfer, 4}});
 
   renderdoc::initRenderdoc();
 
   initVulkan(surfaceProvider);
-
   initFrameNumberSemaphore();
 
-  _deletionQueue.pushFunction([this]() {
-    for (FrameData& frameData : _frameDataArray) {
-      destroyUnusedResources(true);
-    }
-  });
+  constexpr std::size_t transferCleanupIntervalMs = 250;
+  
+  _taskExecutor.initAndRun(
+      {{task::TaskType::rhiTransfer, 4,
+        [this]() { cleanupFinishedTransfersForCurrentThread(false); },
+        transferCleanupIntervalMs}});
+
+  _deletionQueue.pushFunction([this]() { destroyUnusedResources(true); });
 
   initSwapchain(extent);
   initCommands();
@@ -1430,6 +1431,10 @@ void VulkanRHI::initSsaoSamplesAndNoise() {
       createBuffer(sampleBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                    VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
                    VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+
+  setDbgResourceName(_vkDevice, (std::uint64_t)stagingBuffer.buffer,
+                     VK_OBJECT_TYPE_BUFFER,
+                     "Ssao samples upload staging buffer");
   void* data;
 
   VK_CHECK(vmaMapMemory(_vmaAllocator, stagingBuffer.allocation, &data));

@@ -11,6 +11,7 @@
 
 #include <array>
 #include <cstdint>
+#include <functional>
 #include <vector>
 
 namespace obsidian::vk_rhi {
@@ -159,12 +160,6 @@ struct ImmediateSubmitContext {
   bool initialized = false;
 };
 
-struct ResourceTransferContext {
-  std::unordered_map<std::uint32_t, VkCommandPool> queueCommandPools;
-  VkDevice device;
-  bool initialized = false;
-};
-
 struct TransferResources {
   struct CmdBufferPoolPair {
     VkCommandBuffer buffer;
@@ -175,6 +170,17 @@ struct TransferResources {
   VkFence transferFence;
   std::vector<VkSemaphore> semaphores;
   std::vector<CmdBufferPoolPair> commandBuffers;
+};
+
+struct ResourceTransferContext {
+  std::unordered_map<std::uint32_t, VkCommandPool> queueCommandPools;
+  VkDevice device;
+  std::function<void(void)> cleanupFunction;
+  bool initialized = false;
+  std::vector<TransferResources> transferResources;
+
+  void cleanup();
+  ~ResourceTransferContext();
 };
 
 struct ImageTransferInfo {
