@@ -41,20 +41,16 @@ int main(int argc, char const** argv) {
 
   SDL_DisplayMode displayMode;
   SDL_GetCurrentDisplayMode(0, &displayMode);
-  Uint32 const screenCenterX = displayMode.w / 2;
-  Uint32 const screenCenterY = displayMode.h / 2;
 
   constexpr Uint32 editorWindowWidth = 400;
   constexpr Uint32 editorWindowHeight = 800;
-  Uint32 const editorWindowXPos = screenCenterX + 500 + 10;
-  Uint32 const editorWindowYPos = screenCenterY - editorWindowHeight / 2;
 
   // Create window with SDL_Renderer graphics context
   SDL_WindowFlags editorWindowFlags =
       (SDL_WindowFlags)(SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
   SDL_Window* editorWindow = SDL_CreateWindow(
-      "Obsidian Editor", editorWindowXPos, editorWindowYPos, editorWindowWidth,
-      editorWindowHeight, editorWindowFlags);
+      "Obsidian Editor", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+      editorWindowWidth, editorWindowHeight, editorWindowFlags);
   SDL_Renderer* editorUIRenderer = SDL_CreateRenderer(
       editorWindow, -1, SDL_RENDERER_PRESENTVSYNC | SDL_RENDERER_ACCELERATED);
   if (editorUIRenderer == nullptr) {
