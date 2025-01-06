@@ -371,14 +371,15 @@ void VulkanRHI::colorPass(DrawPassParams const& params, glm::vec3 ambientColor,
                           VkFramebuffer targetFramebuffer, VkExtent2D extent) {
   ZoneScoped;
 
-  std::array<VkClearValue, 2> clearValues;
+  std::array<VkClearValue, 3> clearValues;
   clearValues[0].color = environmentColor;
   clearValues[1].depthStencil.depth = 1.0f;
+  clearValues[2].color = environmentColor;
 
   VkRenderPassBeginInfo vkRenderPassBeginInfo = {};
   vkRenderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
   vkRenderPassBeginInfo.pNext = nullptr;
-  vkRenderPassBeginInfo.renderPass = _mainRenderPassReuseDepth.vkRenderPass;
+  vkRenderPassBeginInfo.renderPass = _mainRenderPass.vkRenderPass;
   vkRenderPassBeginInfo.framebuffer = targetFramebuffer;
   vkRenderPassBeginInfo.renderArea.offset = {0, 0};
   vkRenderPassBeginInfo.renderArea.extent = extent;
@@ -685,9 +686,10 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   std::uint64_t currentFrameNumber = _frameNumber.load();
   std::array<std::uint64_t, 2> signalSemaphoreValues = {currentFrameNumber,
                                                         currentFrameNumber};
-  timelineSemaphoreSubmitInfo.signalSemaphoreValueCount = signalSemaphores.size();
-  timelineSemaphoreSubmitInfo.pSignalSemaphoreValues = signalSemaphoreValues.data();
-
+  timelineSemaphoreSubmitInfo.signalSemaphoreValueCount =
+      signalSemaphores.size();
+  timelineSemaphoreSubmitInfo.pSignalSemaphoreValues =
+      signalSemaphoreValues.data();
 
   vkSubmitInfo.pNext = &timelineSemaphoreSubmitInfo;
 
@@ -740,7 +742,7 @@ void VulkanRHI::drawWithMaterials(
 
     if (&material != lastMaterial) {
       vkCmdBindPipeline(cmd, pipelineBindPoint,
-                        reusesDepth ? material.vkPipelineReuseDepth
+                        reusesDepth ? material.vkPipelineMainRenderPass
                                     : material.vkPipelineEnvironmentRendering);
 
       if (dynamicViewport) {

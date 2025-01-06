@@ -15,6 +15,8 @@ struct Framebuffer {
   VkImageView colorBufferImageView = VK_NULL_HANDLE;
   AllocatedImage depthBufferImage = {VK_NULL_HANDLE, VK_NULL_HANDLE};
   VkImageView depthBufferImageView = VK_NULL_HANDLE;
+  VkImageView resolveImageView = VK_NULL_HANDLE;
+  AllocatedImage resolvedImage = {VK_NULL_HANDLE, VK_NULL_HANDLE};
 };
 
 struct AttachmentImageUsage {
@@ -27,13 +29,16 @@ struct RenderPass {
   VkRenderPass vkRenderPass;
   std::optional<VkFormat> colorAttachmentFormat;
   std::optional<VkFormat> depthAttachmentFormat;
+  std::optional<VkFormat> resolveAttachmentFormat;
+  VkSampleCountFlagBits sampleCount = VK_SAMPLE_COUNT_1_BIT;
 
   // generates the images
   Framebuffer
   generateFramebuffer(VmaAllocator vmaAllocator, VkExtent2D extent,
                       AttachmentImageUsage attachmentUsages,
                       VkImageView overrideColorImageView = VK_NULL_HANDLE,
-                      VkImageView overrideDepthImageView = VK_NULL_HANDLE);
+                      VkImageView overrideDepthImageView = VK_NULL_HANDLE,
+                      VkImageView overrideResolveImageView = VK_NULL_HANDLE);
 };
 
 } /*namespace obsidian::vk_rhi*/

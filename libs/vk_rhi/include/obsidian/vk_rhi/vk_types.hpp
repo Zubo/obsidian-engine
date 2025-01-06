@@ -33,7 +33,7 @@ struct AllocatedBuffer {
 };
 
 struct VkMaterial {
-  VkPipeline vkPipelineReuseDepth;
+  VkPipeline vkPipelineMainRenderPass;
   VkPipeline vkPipelineEnvironmentRendering;
   VkPipelineLayout vkPipelineLayout;
   VkDescriptorSet vkDescriptorSet;

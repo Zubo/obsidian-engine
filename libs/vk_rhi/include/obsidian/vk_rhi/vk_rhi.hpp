@@ -141,7 +141,7 @@ private:
   float _maxSamplerAnisotropy;
 
   // Default pass
-  RenderPass _mainRenderPassReuseDepth;
+  RenderPass _mainRenderPass;
   std::vector<std::array<Framebuffer, frameOverlap>> _vkSwapchainFramebuffers;
   VkPipelineLayout _vkMeshPipelineLayout;
   VkPipelineLayout _vkLitMeshPipelineLayout;
@@ -234,6 +234,9 @@ private:
   AllocatedBuffer _envMapDataBuffer;
   bool _envMapDescriptorSetPendingUpdate = false;
   VkFormat _envMapFormat = VK_FORMAT_R8G8B8A8_SRGB;
+
+  // MSAA
+  VkSampleCountFlagBits _sampleCount = VK_SAMPLE_COUNT_4_BIT;
 
   void initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider);
   void initFrameNumberSemaphore();

@@ -296,32 +296,60 @@ void VulkanRHI::initCommands() {
 }
 
 void VulkanRHI::initMainRenderPasses() {
-  RenderPassBuilder::begin(_vkDevice)
-      .setColorAttachment(_vkbSwapchain.image_format,
-                          VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
-      .setDepthAttachment(_depthFormat, false)
-      .setColorSubpassReference(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
-      .setDepthSubpassReference(0,
-                                VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL)
-      .setSubpassPipelineBindPoint(0, VK_PIPELINE_BIND_POINT_GRAPHICS)
-      .build(_mainRenderPassReuseDepth)
+  bool const useMsaa = _sampleCount != VK_SAMPLE_COUNT_1_BIT;
 
+  RenderPassBuilder
+      mainRenderPassbuilder = RenderPassBuilder::
+                                  begin(_vkDevice)
+                                      .setSampleCount(_sampleCount)
+                                      .setColorAttachment(
+                                          _vkbSwapchain.image_format,
+                                          useMsaa
+                                              ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+                                              : VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                                          !useMsaa)
+                                      .setDepthAttachment(_depthFormat, useMsaa /*we have to render multisampled depth if we are using MSAA*/)
+                                      .setResolveAttachment(
+                                          _vkbSwapchain.image_format,
+                                          VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
+                                      .setColorSubpassReference(
+                                          0,
+                                          VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+                                      .setDepthSubpassReference(
+                                          0,
+                                          useMsaa
+                                              ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+                                              : VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL)
+                                      .setResolveSubpassReference(
+                                          0, VK_IMAGE_LAYOUT_UNDEFINED)
+                                      .setSubpassPipelineBindPoint(
+                                          0, VK_PIPELINE_BIND_POINT_GRAPHICS);
+
+  if (useMsaa) {
+    mainRenderPassbuilder.setResolveAttachment(_vkbSwapchain.image_format,
+                                               VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+  }
+
+  mainRenderPassbuilder.build(_mainRenderPass);
+
+  RenderPassBuilder::begin(_vkDevice)
       .setColorAttachment(_envMapFormat,
                           VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
       .setDepthAttachment(_depthFormat, true)
+      .setColorSubpassReference(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
       .setDepthSubpassReference(
           0, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+      .setSubpassPipelineBindPoint(0, VK_PIPELINE_BIND_POINT_GRAPHICS)
       .build(_envMapRenderPass);
 
-  setDbgResourceName(
-      _vkDevice, (std::uint64_t)_mainRenderPassReuseDepth.vkRenderPass,
-      VK_OBJECT_TYPE_RENDER_PASS, "Main render pass (reuse depth)");
+  setDbgResourceName(_vkDevice, (std::uint64_t)_mainRenderPass.vkRenderPass,
+                     VK_OBJECT_TYPE_RENDER_PASS,
+                     "Main render pass (reuse depth)");
   setDbgResourceName(_vkDevice, (std::uint64_t)_envMapRenderPass.vkRenderPass,
                      VK_OBJECT_TYPE_RENDER_PASS, "Env map render pass");
 
   _swapchainDeletionQueue.pushFunction([this]() {
-    vkDestroyRenderPass(_vkDevice, _mainRenderPassReuseDepth.vkRenderPass,
-                        nullptr);
+    vkDestroyRenderPass(_vkDevice, _mainRenderPass.vkRenderPass, nullptr);
     vkDestroyRenderPass(_vkDevice, _envMapRenderPass.vkRenderPass, nullptr);
   });
 }
@@ -380,13 +408,27 @@ void VulkanRHI::initPostProcessingRenderPass() {
 void VulkanRHI::initSwapchainFramebuffers() {
   _vkSwapchainFramebuffers.resize(_vkbSwapchain.image_count);
 
+  bool const useMsaa = _sampleCount != VK_SAMPLE_COUNT_1_BIT;
+
   for (int i = 0; i < _vkbSwapchain.image_count; ++i) {
+
+    VkImageView const overrideColorImageView =
+        useMsaa ? VK_NULL_HANDLE : _swapchainImageViews[i];
+    VkImageView const overrideResolveImageView =
+        useMsaa ? _swapchainImageViews[i] : VK_NULL_HANDLE;
+
     for (int j = 0; j < frameOverlap; ++j) {
-      _vkSwapchainFramebuffers[i][j] =
-          _mainRenderPassReuseDepth.generateFramebuffer(
-              _vmaAllocator, _vkbSwapchain.extent, {}, _swapchainImageViews[i],
-              _frameDataArray[j]
-                  .vkDepthPrepassFramebuffer.depthBufferImageView);
+      VkImageView const depthBufferImageView =
+          useMsaa ? VK_NULL_HANDLE
+                  : _frameDataArray[j]
+                        .vkDepthPrepassFramebuffer.depthBufferImageView;
+
+      _vkSwapchainFramebuffers[i][j] = _mainRenderPass.generateFramebuffer(
+          _vmaAllocator, _vkbSwapchain.extent,
+          {VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+           VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT},
+          overrideColorImageView, depthBufferImageView,
+          overrideResolveImageView);
 
       nameFramebufferResources(_vkDevice, _vkSwapchainFramebuffers[i][j],
                                "Post processing");
@@ -591,8 +633,6 @@ void VulkanRHI::initMainPipelineAndLayouts() {
       vkinit::rasterizationCreateInfo(VK_POLYGON_MODE_FILL);
   pipelineBuilder._vkColorBlendAttachmentState =
       vkinit::colorBlendAttachmentState();
-  pipelineBuilder._vkMultisampleStateCreateInfo =
-      vkinit::multisampleStateCreateInfo();
 
   VkPipelineLayoutCreateInfo meshPipelineLayoutInfo =
       vkinit::pipelineLayoutCreateInfo();
@@ -730,9 +770,6 @@ void VulkanRHI::initShadowPassPipeline() {
   pipelineBuilder._vkRasterizationCreateInfo =
       vkinit::rasterizationCreateInfo(VK_POLYGON_MODE_FILL);
 
-  pipelineBuilder._vkMultisampleStateCreateInfo =
-      vkinit::multisampleStateCreateInfo();
-
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VERTEX_INPUT_EXT);
 
   pipelineBuilder._vkViewport.x = 0.f;
@@ -761,7 +798,7 @@ void VulkanRHI::initShadowPassPipeline() {
   pipelineBuilder._vkPipelineLayout = _vkDepthPipelineLayout;
 
   _vkShadowPassPipeline =
-      pipelineBuilder.buildPipeline(_vkDevice, _depthRenderPass.vkRenderPass);
+      pipelineBuilder.buildPipeline(_vkDevice, _depthRenderPass);
   setDbgResourceName(_vkDevice, (std::uint64_t)_vkShadowPassPipeline,
                      VK_OBJECT_TYPE_PIPELINE, "Shadow pass pipeline");
 
@@ -781,9 +818,6 @@ void VulkanRHI::initDepthPrepassPipeline() {
 
   pipelineBuilder._vkRasterizationCreateInfo =
       vkinit::rasterizationCreateInfo(VK_POLYGON_MODE_FILL);
-
-  pipelineBuilder._vkMultisampleStateCreateInfo =
-      vkinit::multisampleStateCreateInfo();
 
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
@@ -806,7 +840,7 @@ void VulkanRHI::initDepthPrepassPipeline() {
   pipelineBuilder._vkColorBlendAttachmentState.blendEnable = VK_FALSE;
 
   _vkDepthPrepassPipeline =
-      pipelineBuilder.buildPipeline(_vkDevice, _depthRenderPass.vkRenderPass);
+      pipelineBuilder.buildPipeline(_vkDevice, _depthRenderPass);
 
   setDbgResourceName(_vkDevice, (std::uint64_t)_vkDepthPrepassPipeline,
                      VK_OBJECT_TYPE_PIPELINE, "Depth prepass pipeline");
@@ -841,9 +875,6 @@ void VulkanRHI::initSsaoPipeline() {
   pipelineBuilder._vkColorBlendAttachmentState.blendEnable = false;
   pipelineBuilder._vkColorBlendAttachmentState.colorWriteMask =
       VK_COLOR_COMPONENT_R_BIT;
-  pipelineBuilder._vkMultisampleStateCreateInfo =
-      vkinit::multisampleStateCreateInfo();
-
   VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {};
   pipelineLayoutCreateInfo.sType =
       VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -882,8 +913,7 @@ void VulkanRHI::initSsaoPipeline() {
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VERTEX_INPUT_EXT);
 
-  _vkSsaoPipeline =
-      pipelineBuilder.buildPipeline(_vkDevice, _ssaoRenderPass.vkRenderPass);
+  _vkSsaoPipeline = pipelineBuilder.buildPipeline(_vkDevice, _ssaoRenderPass);
   setDbgResourceName(_vkDevice, (std::uint64_t)_vkSsaoPipeline,
                      VK_OBJECT_TYPE_PIPELINE, "SSAO pipeline");
 
@@ -916,9 +946,6 @@ void VulkanRHI::initSsaoPostProcessingPipeline() {
   pipelineBuilder._vkColorBlendAttachmentState.blendEnable = VK_FALSE;
   pipelineBuilder._vkColorBlendAttachmentState.colorWriteMask =
       VK_COLOR_COMPONENT_R_BIT;
-
-  pipelineBuilder._vkMultisampleStateCreateInfo =
-      vkinit::multisampleStateCreateInfo();
 
   VkPipelineLayoutCreateInfo layoutCreateInfo =
       vkinit::pipelineLayoutCreateInfo();
@@ -956,8 +983,8 @@ void VulkanRHI::initSsaoPostProcessingPipeline() {
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VERTEX_INPUT_EXT);
 
-  _vkSsaoPostProcessingPipeline = pipelineBuilder.buildPipeline(
-      _vkDevice, _postProcessingRenderPass.vkRenderPass);
+  _vkSsaoPostProcessingPipeline =
+      pipelineBuilder.buildPipeline(_vkDevice, _postProcessingRenderPass);
   setDbgResourceName(_vkDevice, (std::uint64_t)_vkSsaoPostProcessingPipeline,
                      VK_OBJECT_TYPE_PIPELINE, "Post processing SSAO pipeline");
 

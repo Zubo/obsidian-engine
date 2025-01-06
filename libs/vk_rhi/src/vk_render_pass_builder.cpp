@@ -14,15 +14,26 @@ RenderPassBuilder RenderPassBuilder::begin(VkDevice vkDevice) {
 }
 
 RenderPassBuilder&
-RenderPassBuilder::setColorAttachment(VkFormat format,
-                                      VkImageLayout finalLayout) {
+RenderPassBuilder::setSampleCount(VkSampleCountFlagBits sampleCount) {
+  _sampleCount = sampleCount;
+  return *this;
+}
+
+RenderPassBuilder& RenderPassBuilder::setColorAttachment(
+    VkFormat format, VkImageLayout finalLayout, bool storeResult) {
   if (_colorAttachmentInd == attachmentIndexNone) {
     _colorAttachmentInd = _attachmentDescriptions.size();
     _attachmentDescriptions.emplace_back();
   }
 
-  _attachmentDescriptions[_colorAttachmentInd] =
-      vkinit::colorAttachmentDescription(format, finalLayout);
+  VkAttachmentDescription& colorAttachmentDescription =
+      _attachmentDescriptions[_colorAttachmentInd];
+
+  colorAttachmentDescription =
+      vkinit::colorAttachmentDescription(format, finalLayout, _sampleCount);
+  colorAttachmentDescription.storeOp = storeResult
+                                           ? colorAttachmentDescription.storeOp
+                                           : VK_ATTACHMENT_STORE_OP_DONT_CARE;
 
   return *this;
 }
@@ -32,7 +43,7 @@ RenderPassBuilder& RenderPassBuilder::setDepthAttachment(VkFormat format,
   if (_depthAttachmentInd == attachmentIndexNone) {
     _depthAttachmentInd = _attachmentDescriptions.size();
     _attachmentDescriptions.push_back(
-        vkinit::depthAttachmentDescription(format));
+        vkinit::depthAttachmentDescription(format, _sampleCount));
   }
 
   VkAttachmentDescription& depthAttachmentDescription =
@@ -40,7 +51,10 @@ RenderPassBuilder& RenderPassBuilder::setDepthAttachment(VkFormat format,
 
   depthAttachmentDescription.loadOp =
       storeResult ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
-  depthAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+  depthAttachmentDescription.storeOp = storeResult
+                                           ? VK_ATTACHMENT_STORE_OP_STORE
+                                           : VK_ATTACHMENT_STORE_OP_DONT_CARE;
+  depthAttachmentDescription.samples = _sampleCount;
 
   if (storeResult) {
     depthAttachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -51,6 +65,18 @@ RenderPassBuilder& RenderPassBuilder::setDepthAttachment(VkFormat format,
         VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
     depthAttachmentDescription.finalLayout =
         VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+  }
+
+  return *this;
+}
+
+RenderPassBuilder&
+RenderPassBuilder::setResolveAttachment(VkFormat format,
+                                        VkImageLayout finalLayout) {
+  if (_resolveAttachmentInd == attachmentIndexNone) {
+    _resolveAttachmentInd = _attachmentDescriptions.size();
+    _attachmentDescriptions.push_back(vkinit::colorAttachmentDescription(
+        format, finalLayout, VK_SAMPLE_COUNT_1_BIT));
   }
 
   return *this;
@@ -83,6 +109,26 @@ RenderPassBuilder::setColorSubpassReference(std::size_t subpassInd,
 
   colorAttachmentRef.attachment = _colorAttachmentInd;
   colorAttachmentRef.layout = layout;
+
+  return *this;
+}
+
+RenderPassBuilder&
+RenderPassBuilder::setResolveSubpassReference(std::size_t subpassInd,
+                                              VkImageLayout layout) {
+  assert(_resolveAttachmentInd != attachmentIndexNone);
+
+  if (subpassInd >= _subpasses.size()) {
+    _subpasses.resize(subpassInd + 1);
+  }
+
+  SubpassData& subpass = _subpasses[subpassInd];
+
+  VkAttachmentReference& resolveAttachmentRef =
+      subpass.resolveAttachmentRefs.emplace_back();
+
+  resolveAttachmentRef.attachment = _resolveAttachmentInd;
+  resolveAttachmentRef.layout = layout;
 
   return *this;
 }
@@ -127,6 +173,13 @@ RenderPassBuilder& RenderPassBuilder::build(RenderPass& outRenderPass) {
     subpassDescription.pColorAttachments =
         subpassData.colorAttachmentRefs.data();
 
+    if (subpassData.resolveAttachmentRefs.size()) {
+      assert(subpassData.resolveAttachmentRefs.size() ==
+             subpassData.colorAttachmentRefs.size());
+      subpassDescription.pResolveAttachments =
+          subpassData.resolveAttachmentRefs.data();
+    }
+
     if (subpassData.depthAttachmentRef) {
       subpassDescription.pDepthStencilAttachment =
           &subpassData.depthAttachmentRef.value();
@@ -149,6 +202,13 @@ RenderPassBuilder& RenderPassBuilder::build(RenderPass& outRenderPass) {
     outRenderPass.depthAttachmentFormat =
         _attachmentDescriptions[_depthAttachmentInd].format;
   }
+
+  if (_resolveAttachmentInd != attachmentIndexNone) {
+    outRenderPass.resolveAttachmentFormat =
+        _attachmentDescriptions[_resolveAttachmentInd].format;
+  }
+
+  outRenderPass.sampleCount = _sampleCount;
 
   return *this;
 }

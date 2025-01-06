@@ -1,11 +1,13 @@
 #include <obsidian/core/logging.hpp>
 #include <obsidian/vk_rhi/vk_check.hpp>
+#include <obsidian/vk_rhi/vk_framebuffer.hpp>
 #include <obsidian/vk_rhi/vk_initializers.hpp>
 #include <obsidian/vk_rhi/vk_pipeline_builder.hpp>
 
 using namespace obsidian::vk_rhi;
 
-VkPipeline PipelineBuilder::buildPipeline(VkDevice device, VkRenderPass pass) {
+VkPipeline PipelineBuilder::buildPipeline(VkDevice device,
+                                          RenderPass const& pass) {
   VkPipelineViewportStateCreateInfo viewportStateCreateInfo = {};
   viewportStateCreateInfo.sType =
       VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -35,6 +37,9 @@ VkPipeline PipelineBuilder::buildPipeline(VkDevice device, VkRenderPass pass) {
       VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
   graphicsPipelineCreateInfo.pNext = nullptr;
 
+  _vkMultisampleStateCreateInfo =
+      vkinit::multisampleStateCreateInfo(pass.sampleCount);
+
   graphicsPipelineCreateInfo.stageCount = _vkShaderStageCreateInfos.size();
   graphicsPipelineCreateInfo.pStages = _vkShaderStageCreateInfos.data();
   graphicsPipelineCreateInfo.pInputAssemblyState = &_vkInputAssemblyCreateInfo;
@@ -47,7 +52,7 @@ VkPipeline PipelineBuilder::buildPipeline(VkDevice device, VkRenderPass pass) {
   graphicsPipelineCreateInfo.pColorBlendState = &colorBlendingCreateInfo;
   graphicsPipelineCreateInfo.pDynamicState = &dynamicStateCreateInfo;
   graphicsPipelineCreateInfo.layout = _vkPipelineLayout;
-  graphicsPipelineCreateInfo.renderPass = pass;
+  graphicsPipelineCreateInfo.renderPass = pass.vkRenderPass;
   graphicsPipelineCreateInfo.subpass = 0;
   graphicsPipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE;
 

@@ -8,6 +8,8 @@
 
 namespace obsidian::vk_rhi {
 
+class RenderPass;
+
 class PipelineBuilder {
 public:
   std::vector<VkPipelineShaderStageCreateInfo> _vkShaderStageCreateInfos;
@@ -22,7 +24,7 @@ public:
   VertexInputDescription _vertexInputDescription;
   std::vector<VkDynamicState> _vkDynamicStates;
 
-  VkPipeline buildPipeline(VkDevice device, VkRenderPass pass);
+  VkPipeline buildPipeline(VkDevice device, RenderPass const& pass);
 };
 
 } /*namespace obsidian::vk_rhi*/

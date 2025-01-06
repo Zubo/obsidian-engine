@@ -13,6 +13,7 @@ struct RenderPass;
 struct SubpassData {
   VkPipelineBindPoint vkPipelineBindPoint;
   std::vector<VkAttachmentReference> colorAttachmentRefs;
+  std::vector<VkAttachmentReference> resolveAttachmentRefs;
   std::optional<VkAttachmentReference> depthAttachmentRef;
 };
 
@@ -20,11 +21,17 @@ class RenderPassBuilder {
 public:
   static RenderPassBuilder begin(VkDevice vkDevice);
 
+  RenderPassBuilder& setSampleCount(VkSampleCountFlagBits sampleCount);
+
   RenderPassBuilder& setColorAttachment(VkFormat format,
-                                        VkImageLayout finalLayout);
+                                        VkImageLayout finalLayout,
+                                        bool storeResult = true);
 
   RenderPassBuilder& setDepthAttachment(VkFormat format,
                                         bool storeResult = true);
+
+  RenderPassBuilder& setResolveAttachment(VkFormat format,
+                                          VkImageLayout finalLayout);
 
   RenderPassBuilder& setSubpassPipelineBindPoint(std::size_t subpassInd,
                                                  VkPipelineBindPoint bindPoint);
@@ -34,6 +41,9 @@ public:
 
   RenderPassBuilder& setDepthSubpassReference(std::size_t subpassInd,
                                               VkImageLayout layout);
+
+  RenderPassBuilder& setResolveSubpassReference(std::size_t subpassInd,
+                                                VkImageLayout layout);
 
   RenderPassBuilder& build(RenderPass& outRenderPass);
 
@@ -45,6 +55,8 @@ private:
   std::vector<SubpassData> _subpasses;
   int _colorAttachmentInd = attachmentIndexNone;
   int _depthAttachmentInd = attachmentIndexNone;
+  int _resolveAttachmentInd = attachmentIndexNone;
+  VkSampleCountFlagBits _sampleCount = VK_SAMPLE_COUNT_1_BIT;
 
   static constexpr int attachmentIndexNone = -1;
 };

@@ -87,7 +87,8 @@ rasterizationCreateInfo(VkPolygonMode polygonMode, VkCullModeFlags cullMode) {
   return rasterizationCreateInfo;
 }
 
-VkPipelineMultisampleStateCreateInfo multisampleStateCreateInfo() {
+VkPipelineMultisampleStateCreateInfo
+multisampleStateCreateInfo(VkSampleCountFlagBits sampleCount) {
   VkPipelineMultisampleStateCreateInfo multisampleStateCreateInfo = {};
   multisampleStateCreateInfo.sType =
       VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
@@ -98,7 +99,7 @@ VkPipelineMultisampleStateCreateInfo multisampleStateCreateInfo() {
   multisampleStateCreateInfo.pSampleMask = nullptr;
   multisampleStateCreateInfo.alphaToCoverageEnable = VK_FALSE;
   multisampleStateCreateInfo.alphaToOneEnable = VK_FALSE;
-  multisampleStateCreateInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+  multisampleStateCreateInfo.rasterizationSamples = sampleCount;
 
   return multisampleStateCreateInfo;
 }
@@ -151,11 +152,10 @@ VkSemaphoreCreateInfo semaphoreCreateInfo(VkSemaphoreCreateFlags const flags) {
   return info;
 }
 
-VkImageCreateInfo imageCreateInfo(VkImageUsageFlags const usageFlags,
-                                  VkExtent3D const extent,
-                                  VkFormat const format,
-                                  std::uint32_t mipLevels,
-                                  std::uint32_t arrayLayers) {
+VkImageCreateInfo
+imageCreateInfo(VkImageUsageFlags const usageFlags, VkExtent3D const extent,
+                VkFormat const format, std::uint32_t mipLevels,
+                std::uint32_t arrayLayers, VkSampleCountFlagBits sampleCount) {
   VkImageCreateInfo vkImageCreateInfo = {};
   vkImageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
   vkImageCreateInfo.pNext = nullptr;
@@ -164,7 +164,7 @@ VkImageCreateInfo imageCreateInfo(VkImageUsageFlags const usageFlags,
   vkImageCreateInfo.extent = extent;
   vkImageCreateInfo.mipLevels = mipLevels;
   vkImageCreateInfo.arrayLayers = arrayLayers;
-  vkImageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+  vkImageCreateInfo.samples = sampleCount;
   vkImageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
   vkImageCreateInfo.usage = usageFlags;
 
@@ -309,12 +309,13 @@ VkImageMemoryBarrier accessImageBarrier(VkImage image,
   return barrier;
 }
 
-VkAttachmentDescription colorAttachmentDescription(VkFormat format,
-                                                   VkImageLayout finalLayout) {
+VkAttachmentDescription
+colorAttachmentDescription(VkFormat format, VkImageLayout finalLayout,
+                           VkSampleCountFlagBits sampleCount) {
   VkAttachmentDescription attachmentDescription = {};
 
   attachmentDescription.format = format;
-  attachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
+  attachmentDescription.samples = sampleCount;
   attachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
   attachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
   attachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -323,11 +324,12 @@ VkAttachmentDescription colorAttachmentDescription(VkFormat format,
   return attachmentDescription;
 }
 
-VkAttachmentDescription depthAttachmentDescription(VkFormat format) {
+VkAttachmentDescription
+depthAttachmentDescription(VkFormat format, VkSampleCountFlagBits sampleCount) {
   VkAttachmentDescription attachmentDescription = {};
 
   attachmentDescription.format = format;
-  attachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
+  attachmentDescription.samples = sampleCount;
   attachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
   attachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
   attachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
