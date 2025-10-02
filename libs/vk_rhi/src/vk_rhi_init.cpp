@@ -19,6 +19,7 @@
 #include <obsidian/vk_rhi/vk_types.hpp>
 
 #include <glm/glm.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/transform.hpp>
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
@@ -38,7 +39,7 @@ void VulkanRHI::init(rhi::WindowExtentRHI extent,
   initFrameNumberSemaphore();
 
   constexpr std::size_t transferCleanupIntervalMs = 250;
-  
+
   _taskExecutor.initAndRun(
       {{task::TaskType::rhiTransfer, 4,
         [this]() { cleanupFinishedTransfersForCurrentThread(false); },
@@ -209,12 +210,21 @@ void VulkanRHI::initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider) {
   // init mutex
   _gpuQueueMutexes[_graphicsQueueFamilyIndex];
 
-  _transferQueueFamilyIndex =
-      vkbDevice.get_queue_index(vkb::QueueType::transfer).value();
-  _gpuQueues[_transferQueueFamilyIndex] =
-      vkbDevice.get_queue(vkb::QueueType::transfer).value();
-  // init mutex
-  _gpuQueueMutexes[_transferQueueFamilyIndex];
+  auto transferQueueResult =
+      vkbDevice.get_queue_index(vkb::QueueType::transfer);
+
+  if (transferQueueResult) {
+    _transferQueueFamilyIndex = transferQueueResult.value();
+    _gpuQueues[_transferQueueFamilyIndex] =
+        vkbDevice.get_queue(vkb::QueueType::transfer).value();
+
+    // init mutex
+    _gpuQueueMutexes[_transferQueueFamilyIndex];
+  } else {
+    _transferQueueFamilyIndex = _graphicsQueueFamilyIndex;
+    _gpuQueues[_transferQueueFamilyIndex] =
+        _gpuQueues[_graphicsQueueFamilyIndex];
+  }
 
   _queueFamilyIndices.emplace(_graphicsQueueFamilyIndex);
   _queueFamilyIndices.emplace(_transferQueueFamilyIndex);
@@ -320,14 +330,14 @@ void VulkanRHI::initMainRenderPasses() {
                                           useMsaa
                                               ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
                                               : VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL)
-                                      .setResolveSubpassReference(
-                                          0, VK_IMAGE_LAYOUT_UNDEFINED)
                                       .setSubpassPipelineBindPoint(
                                           0, VK_PIPELINE_BIND_POINT_GRAPHICS);
 
   if (useMsaa) {
-    mainRenderPassbuilder.setResolveAttachment(_vkbSwapchain.image_format,
-                                               VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+    mainRenderPassbuilder
+        .setResolveSubpassReference(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+        .setResolveAttachment(_vkbSwapchain.image_format,
+                              VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
   }
 
   mainRenderPassbuilder.build(_mainRenderPass);

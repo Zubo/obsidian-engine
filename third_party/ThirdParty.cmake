@@ -1,5 +1,8 @@
 
 find_package(Vulkan REQUIRED)
+set_target_properties(Vulkan::Vulkan PROPERTIES
+    IMPORTED_GLOBAL TRUE
+)
 
 set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
 
@@ -37,7 +40,7 @@ FetchContent_MakeAvailable(fetch_vulkan_memory_allocator)
 
 FetchContent_Declare(fetch_glm
     GIT_REPOSITORY https://github.com/g-truc/glm.git
-    GIT_TAG 0.9.9.8
+    GIT_TAG 1.0.1
     GIT_PROGRESS TRUE
     SYSTEM
 )
@@ -46,7 +49,7 @@ FetchContent_MakeAvailable(fetch_glm)
 
 FetchContent_Declare(fetch_tinyobjloader
     GIT_REPOSITORY https://github.com/tinyobjloader/tinyobjloader.git
-    GIT_TAG v2.0.0rc10
+    GIT_TAG v2.0.0rc13
     GIT_PROGRESS TRUE
     SYSTEM
 )
@@ -76,8 +79,8 @@ FetchContent_Declare(fetch_tracy
 FetchContent_MakeAvailable(fetch_tracy)
 
 FetchContent_Declare(fetch_hash_library
-    GIT_REPOSITORY https://github.com/stbrumme/hash-library.git
-    GIT_TAG hash_library_v8
+    GIT_REPOSITORY https://github.com/DarrenLevine/cppcrc.git
+    GIT_TAG 6360eee1c8966d32b2552ce156b135ec6a3235f1
     GIT_SHALLOW TRUE
     GIT_PROGRESS TRUE
     SYSTEM
@@ -85,14 +88,6 @@ FetchContent_Declare(fetch_hash_library
 
 FetchContent_MakeAvailable(fetch_hash_library)
 
-add_library(HashLibrary
-    ${fetch_hash_library_SOURCE_DIR}/crc32.cpp
-)
-
-target_include_directories(HashLibrary
-    PUBLIC
-     ${fetch_hash_library_SOURCE_DIR}
-)
 
 FetchContent_Declare(fetch_dear_imgui
     GIT_REPOSITORY https://github.com/ocornut/imgui.git
@@ -128,7 +123,7 @@ target_link_libraries(DearImgui
 
 FetchContent_Declare(fetch_lz4
     GIT_REPOSITORY https://github.com/lz4/lz4.git
-    GIT_TAG v1.9.4
+    GIT_TAG v1.10.0
     SOURCE_SUBDIR ./build/cmake
     GIT_PROGRESS TRUE
     SYSTEM
@@ -141,7 +136,7 @@ FetchContent_MakeAvailable(fetch_lz4)
 
 FetchContent_Declare(fetch_json
     GIT_REPOSITORY https://github.com/nlohmann/json.git
-    GIT_TAG v3.11.2
+    GIT_TAG v3.12.0
     GIT_PROGRESS TRUE
     SYSTEM
 )

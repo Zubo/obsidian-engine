@@ -8,12 +8,10 @@
 #include <condition_variable>
 #include <cstddef>
 #include <functional>
-#include <map>
-#include <memory>
 #include <mutex>
 #include <thread>
-#include <utility>
 #include <vector>
+#include <map>
 
 namespace obsidian::task {
 

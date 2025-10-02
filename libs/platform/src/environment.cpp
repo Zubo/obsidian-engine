@@ -5,6 +5,9 @@
 #include <unistd.h>
 #elif _WIN32
 #include <Windows.h>
+#elif __APPLE__
+#include <mach-o/dyld.h>
+#include <sys/syslimits.h>
 #endif
 
 #include <cstddef>
@@ -24,9 +27,13 @@ fs::path getExecutableFilePath() {
     buff[bytes] = '\0';
   }
 
-#else
+#elif _WIN32
   TCHAR buff[MAX_PATH];
   GetModuleFileName(NULL, buff, MAX_PATH);
+#elif __APPLE__
+  char buff[PATH_MAX];
+  std::uint32_t size = sizeof(buff);
+  _NSGetExecutablePath(buff, &size);
 #endif
 
   return buff;

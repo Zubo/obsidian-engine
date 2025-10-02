@@ -1,6 +1,7 @@
 #include <obsidian/core/texture_format.hpp>
 #include <obsidian/vk_rhi/vk_types.hpp>
 
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/transform.hpp>
 #include <glm/mat4x4.hpp>
 #include <glm/vec3.hpp>

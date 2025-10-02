@@ -1,7 +1,7 @@
 #ifndef _env_maps_
 #define _env_maps_
 
-const uint maxEnvMaps = 64;
+const uint maxEnvMaps = 3;
 
 struct EnviromentMapData {
   vec3 pos;

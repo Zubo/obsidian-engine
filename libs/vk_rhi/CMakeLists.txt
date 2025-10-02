@@ -44,7 +44,7 @@ target_link_libraries(VulkanRHI
         vk-bootstrap::vk-bootstrap
     PRIVATE
         Core
-        HashLibrary
+        cppcrc
         Renderdoc
         ThirdPartyImpl
         TracyClient

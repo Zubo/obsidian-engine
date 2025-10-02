@@ -1,7 +1,7 @@
 #include <obsidian/vk_rhi/vk_check.hpp>
 #include <obsidian/vk_rhi/vk_descriptors.hpp>
 
-#include <crc32.h>
+#include <cppcrc.h>
 #include <vulkan/vulkan.h>
 
 #include <algorithm>
@@ -205,22 +205,24 @@ std::size_t DescriptorLayoutCache::DescriptorLayoutInfoHash::operator()(
     DescriptorLayoutInfo const& descriptorLayoutInfo) const {
   // TODO: unit test this
 
-  CRC32 crc32;
-  crc32.add(static_cast<void const*>(&descriptorLayoutInfo),
-            sizeof(DescriptorLayoutInfo));
+  std::uint32_t result = 0;
+  result = CRC32::CRC32::calc(
+      reinterpret_cast<std::uint8_t const*>(
+          &descriptorLayoutInfo.descriptorLayoutCreateFlags),
+      sizeof(descriptorLayoutInfo.descriptorLayoutCreateFlags));
 
   for (VkDescriptorSetLayoutBinding const& layoutBinding :
        descriptorLayoutInfo.descriptorLayoutBindings) {
-    crc32.add(&layoutBinding, sizeof(layoutBinding));
+    result = CRC32::CRC32::calc(
+        reinterpret_cast<std::uint8_t const*>(&layoutBinding),
+        sizeof(layoutBinding), result);
   }
 
   for (VkDescriptorBindingFlags flags :
        descriptorLayoutInfo.descriptorBindingFlags) {
-    crc32.add(&flags, sizeof(flags));
+    result = CRC32::CRC32::calc(reinterpret_cast<std::uint8_t const*>(&flags),
+                                sizeof(flags), result);
   }
-
-  std::size_t result;
-  crc32.getHash(reinterpret_cast<unsigned char*>(&result));
 
   return result;
 }

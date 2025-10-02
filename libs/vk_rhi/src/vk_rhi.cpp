@@ -42,10 +42,15 @@ static thread_local bool immediateContextsInitialized = false;
 static thread_local ResourceTransferContext resourceTransferCtx;
 
 void VulkanRHI::waitDeviceIdle() const {
-  std::scoped_lock l{_gpuQueueMutexes.at(_graphicsQueueFamilyIndex),
-                     _gpuQueueMutexes.at(_transferQueueFamilyIndex)};
+  if (_graphicsQueueFamilyIndex != _transferQueueFamilyIndex) {
+    std::scoped_lock l{_gpuQueueMutexes.at(_graphicsQueueFamilyIndex),
+                       _gpuQueueMutexes.at(_transferQueueFamilyIndex)};
 
-  VK_CHECK(vkDeviceWaitIdle(_vkDevice));
+    VK_CHECK(vkDeviceWaitIdle(_vkDevice));
+  } else {
+    std::scoped_lock l{_gpuQueueMutexes.at(_graphicsQueueFamilyIndex)};
+    VK_CHECK(vkDeviceWaitIdle(_vkDevice));
+  }
 }
 
 rhi::ResourceRHI& VulkanRHI::initTextureResource() {

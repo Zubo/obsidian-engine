@@ -70,7 +70,7 @@ endif()
 add_custom_command(
     OUTPUT ${SHADER_OUTPUT_LIST}
     COMMAND ${CMAKE_COMMAND} -E remove file ${SHADER_OUTPUT_LIST}
-    COMMAND python ${PROJECT_SOURCE_DIR}/scripts/compile_shaders.py -o ${CMAKE_BINARY_DIR}/shaders ${SHADERS_DEBUG}
+    COMMAND python3 ${PROJECT_SOURCE_DIR}/scripts/compile_shaders.py -o ${CMAKE_BINARY_DIR}/shaders ${SHADERS_DEBUG}
     DEPENDS ${SHADER_INPUT_LIST}
 )
 

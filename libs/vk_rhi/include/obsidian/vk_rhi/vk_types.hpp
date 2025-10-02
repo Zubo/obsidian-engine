@@ -254,7 +254,7 @@ struct EnvironmentMapData {
   float radius;
 };
 
-constexpr std::size_t maxEnvironmentMaps = 64;
+constexpr std::size_t maxEnvironmentMaps = 3;
 
 struct GpuEnvironmentMapDataCollection {
   std::array<EnvironmentMapData, maxEnvironmentMaps> envMaps;

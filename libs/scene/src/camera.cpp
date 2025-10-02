@@ -1,6 +1,7 @@
 #include <obsidian/scene/camera.hpp>
 #include <obsidian/serialization/scene_data_serialization.hpp>
 
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/transform.hpp>
 
 using namespace obsidian::scene;

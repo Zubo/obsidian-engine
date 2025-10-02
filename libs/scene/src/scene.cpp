@@ -7,6 +7,7 @@
 #include <obsidian/serialization/game_object_data_serialization.hpp>
 #include <obsidian/serialization/scene_data_serialization.hpp>
 
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/transform.hpp>
 
 #include <algorithm>

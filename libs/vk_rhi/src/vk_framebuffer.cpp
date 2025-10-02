@@ -1,7 +1,6 @@
 #include <obsidian/vk_rhi/vk_check.hpp>
 #include <obsidian/vk_rhi/vk_framebuffer.hpp>
 #include <obsidian/vk_rhi/vk_initializers.hpp>
-#include <vulkan/vulkan_core.h>
 
 using namespace obsidian::vk_rhi;
 

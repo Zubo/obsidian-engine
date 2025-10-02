@@ -11,6 +11,7 @@
 
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/glm.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/transform.hpp>
 #include <tracy/Tracy.hpp>
 #include <vk_mem_alloc.h>
