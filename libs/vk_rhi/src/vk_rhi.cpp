@@ -172,7 +172,7 @@ void VulkanRHI::releaseTexture(rhi::ResourceIdRHI resourceIdRHI) {
 
 rhi::ResourceRHI& VulkanRHI::initMeshResource() {
   rhi::ResourceIdRHI const newResourceId = consumeNewResourceId();
-  Mesh& newMesh = _meshes[newResourceId];
+  VkMesh& newMesh = _meshes[newResourceId];
 
   assert(newMesh.resource.state == rhi::ResourceState::initial);
 
@@ -184,7 +184,7 @@ rhi::ResourceRHI& VulkanRHI::initMeshResource() {
 
 rhi::ResourceTransferRHI VulkanRHI::uploadMesh(rhi::ResourceIdRHI id,
                                                rhi::UploadMeshRHI meshInfo) {
-  Mesh& mesh = _meshes[id];
+  VkMesh& mesh = _meshes[id];
 
   rhi::ResourceState expected = rhi::ResourceState::initial;
 
@@ -275,7 +275,7 @@ rhi::ResourceTransferRHI VulkanRHI::uploadMesh(rhi::ResourceIdRHI id,
 }
 
 void VulkanRHI::releaseMesh(rhi::ResourceIdRHI resourceIdRHI) {
-  Mesh& mesh = _meshes[resourceIdRHI];
+  VkMesh& mesh = _meshes[resourceIdRHI];
   if (!--mesh.resource.refCount) {
     std::scoped_lock l{_pendingResourcesToDestroyMutex};
     _pendingResourcesToDestroy.meshesToDestroy.push_back(
@@ -285,7 +285,7 @@ void VulkanRHI::releaseMesh(rhi::ResourceIdRHI resourceIdRHI) {
 
 rhi::ResourceRHI& VulkanRHI::initShaderResource() {
   rhi::ResourceIdRHI newResourceId = consumeNewResourceId();
-  Shader& shader = _shaderModules[newResourceId];
+  VkShader& shader = _shaderModules[newResourceId];
 
   assert(shader.resource.state == rhi::ResourceState::initial);
 
@@ -298,7 +298,7 @@ rhi::ResourceRHI& VulkanRHI::initShaderResource() {
 rhi::ResourceTransferRHI
 VulkanRHI::uploadShader(rhi::ResourceIdRHI id,
                         rhi::UploadShaderRHI uploadShader) {
-  Shader& shader = _shaderModules.at(id);
+  VkShader& shader = _shaderModules.at(id);
 
   rhi::ResourceState expected = rhi::ResourceState::initial;
 
@@ -311,35 +311,78 @@ VulkanRHI::uploadShader(rhi::ResourceIdRHI id,
   return rhi::ResourceTransferRHI{_taskExecutor.enqueue(
       task::TaskType::rhiTransfer,
       [this, id, uploadShader = std::move(uploadShader)]() {
-        Shader& shader = _shaderModules.at(id);
-
-        std::vector<std::uint32_t> buffer(
-            (uploadShader.shaderDataSize + sizeof(std::uint32_t) - 1) /
-            sizeof(std::uint32_t));
-
-        {
-          ZoneScopedN("Unpack Shader");
-          uploadShader.unpackFunc(reinterpret_cast<char*>(buffer.data()));
-        }
+        VkShader& shader = _shaderModules.at(id);
 
         VkShaderModuleCreateInfo shaderModuleCreateInfo = {};
         shaderModuleCreateInfo.sType =
             VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
         shaderModuleCreateInfo.pNext = nullptr;
-        shaderModuleCreateInfo.codeSize = uploadShader.shaderDataSize;
-        shaderModuleCreateInfo.pCode = buffer.data();
 
-        VkShaderModule shaderModule;
+        // base module
+        shaderModuleCreateInfo.codeSize =
+            uploadShader.baseCode.size() * sizeof(uploadShader.baseCode[0]);
+        shaderModuleCreateInfo.pCode = uploadShader.baseCode.data();
+
         if (vkCreateShaderModule(_vkDevice, &shaderModuleCreateInfo, nullptr,
-                                 &shaderModule)) {
+                                 &shader.baseModule)) {
           assert(false && "Failed to load shader.");
         }
 
-        setDbgResourceName(_vkDevice, (std::uint64_t)shaderModule,
+        setDbgResourceName(_vkDevice, (std::uint64_t)shader.baseModule,
                            VK_OBJECT_TYPE_SHADER_MODULE,
                            uploadShader.debugName);
 
-        shader.vkShaderModule = shaderModule;
+        // vertex normal
+        if (uploadShader.vertexNormalCode.size()) {
+          shaderModuleCreateInfo.codeSize =
+              uploadShader.vertexNormalCode.size() *
+              sizeof(uploadShader.vertexNormalCode[0]);
+          shaderModuleCreateInfo.pCode = uploadShader.vertexNormalCode.data();
+
+          if (vkCreateShaderModule(_vkDevice, &shaderModuleCreateInfo, nullptr,
+                                   &shader.vertexNormalModule)) {
+            assert(false && "Failed to load shader.");
+          }
+
+          setDbgResourceName(
+              _vkDevice, (std::uint64_t)shader.vertexNormalModule,
+              VK_OBJECT_TYPE_SHADER_MODULE, uploadShader.debugName);
+        }
+
+        // vertex normal color
+        if (uploadShader.vertexNormalColorCode.size()) {
+          shaderModuleCreateInfo.codeSize =
+              uploadShader.vertexNormalColorCode.size() *
+              sizeof(uploadShader.vertexNormalColorCode[0]);
+          shaderModuleCreateInfo.pCode =
+              uploadShader.vertexNormalColorCode.data();
+
+          if (vkCreateShaderModule(_vkDevice, &shaderModuleCreateInfo, nullptr,
+                                   &shader.vertexNormalColorModule)) {
+            assert(false && "Failed to load shader.");
+          }
+
+          setDbgResourceName(
+              _vkDevice, (std::uint64_t)shader.vertexNormalColorModule,
+              VK_OBJECT_TYPE_SHADER_MODULE, uploadShader.debugName);
+        }
+
+        // vertex normal uv
+        if (uploadShader.vertexNormalUVCode.size()) {
+          shaderModuleCreateInfo.codeSize =
+              uploadShader.vertexNormalUVCode.size() *
+              sizeof(uploadShader.vertexNormalUVCode[0]);
+          shaderModuleCreateInfo.pCode = uploadShader.vertexNormalUVCode.data();
+
+          if (vkCreateShaderModule(_vkDevice, &shaderModuleCreateInfo, nullptr,
+                                   &shader.vertexNormalUVModule)) {
+            assert(false && "Failed to load shader.");
+          }
+
+          setDbgResourceName(
+              _vkDevice, (std::uint64_t)shader.vertexNormalUVModule,
+              VK_OBJECT_TYPE_SHADER_MODULE, uploadShader.debugName);
+        }
 
         rhi::ResourceState expected = rhi::ResourceState::uploading;
 
@@ -351,7 +394,7 @@ VulkanRHI::uploadShader(rhi::ResourceIdRHI id,
 }
 
 void VulkanRHI::releaseShader(rhi::ResourceIdRHI resourceIdRHI) {
-  Shader& shader = _shaderModules.at(resourceIdRHI);
+  VkShader& shader = _shaderModules.at(resourceIdRHI);
   if (!--shader.resource.refCount) {
     std::scoped_lock l{_pendingResourcesToDestroyMutex};
     _pendingResourcesToDestroy.shadersToDestroy.push_back(
@@ -418,7 +461,7 @@ VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
                      PipelineBuilder pipelineBuilder =
                          _pipelineBuilders.at(uploadMaterial.materialType);
 
-                     Shader& vertexShaderModule =
+                     VkShader& vertexShaderModule =
                          _shaderModules.at(uploadMaterial.vertexShaderId);
                      ++vertexShaderModule.resource.refCount;
                      newMaterial.vertexShaderResourceDependencyId =
@@ -430,7 +473,7 @@ VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
                              VK_SHADER_STAGE_VERTEX_BIT,
                              vertexShaderModule.vkShaderModule));
 
-                     Shader& fragmentShaderModule =
+                     VkShader& fragmentShaderModule =
                          _shaderModules.at(uploadMaterial.fragmentShaderId);
                      ++fragmentShaderModule.resource.refCount;
                      newMaterial.fragmentShaderResourceDependencyId =
@@ -748,7 +791,7 @@ void VulkanRHI::releaseMaterial(rhi::ResourceIdRHI resourceIdRHI) {
     _pendingResourcesToDestroy.materialsToDestroy.push_back(
         {resourceIdRHI, frameNumber});
 
-    Shader& vertexShaderDependency =
+    VkShader& vertexShaderDependency =
         _shaderModules.at(material.vertexShaderResourceDependencyId);
 
     if (!--vertexShaderDependency.resource.refCount) {
@@ -756,7 +799,7 @@ void VulkanRHI::releaseMaterial(rhi::ResourceIdRHI resourceIdRHI) {
           {material.vertexShaderResourceDependencyId, frameNumber});
     }
 
-    Shader& fragmentShaderDependency =
+    VkShader& fragmentShaderDependency =
         _shaderModules.at(material.fragmentShaderResourceDependencyId);
 
     if (!--fragmentShaderDependency.resource.refCount) {
@@ -827,8 +870,21 @@ void VulkanRHI::destroyUnusedResources(bool forceDestroy) {
   for (PendingResourcesToDestroy::ResourceEntry const& shaderEntry :
        toDestroy.shadersToDestroy) {
     if (forceDestroy || shaderEntry.lastUsedFrame <= lastRenderedFrame) {
-      Shader& shader = _shaderModules.at(shaderEntry.id);
-      vkDestroyShaderModule(_vkDevice, shader.vkShaderModule, nullptr);
+      VkShader& shader = _shaderModules.at(shaderEntry.id);
+      vkDestroyShaderModule(_vkDevice, shader.baseModule, nullptr);
+
+      if (shader.vertexNormalModule != VK_NULL_HANDLE) {
+        vkDestroyShaderModule(_vkDevice, shader.vertexNormalModule, nullptr);
+      }
+
+      if (shader.vertexNormalColorModule != VK_NULL_HANDLE) {
+        vkDestroyShaderModule(_vkDevice, shader.vertexNormalColorModule,
+                              nullptr);
+      }
+
+      if (shader.vertexNormalUVModule != VK_NULL_HANDLE) {
+        vkDestroyShaderModule(_vkDevice, shader.vertexNormalUVModule, nullptr);
+      }
 
       _shaderModules.erase(shaderEntry.id);
     } else {
@@ -840,7 +896,7 @@ void VulkanRHI::destroyUnusedResources(bool forceDestroy) {
   for (PendingResourcesToDestroy::ResourceEntry const& meshEntry :
        toDestroy.meshesToDestroy) {
     if (forceDestroy || meshEntry.lastUsedFrame <= lastRenderedFrame) {
-      Mesh& mesh = _meshes.at(meshEntry.id);
+      VkMesh& mesh = _meshes.at(meshEntry.id);
 
       vmaDestroyBuffer(_vmaAllocator, mesh.vertexBuffer.buffer,
                        mesh.vertexBuffer.allocation);
@@ -918,7 +974,7 @@ void VulkanRHI::destroyUnusedResources(bool forceDestroy) {
 }
 
 void VulkanRHI::submitDrawCall(rhi::DrawCall const& drawCall) {
-  Mesh& mesh = _meshes[drawCall.meshId];
+  VkMesh& mesh = _meshes[drawCall.meshId];
 
   VKDrawCall vkDrawCall;
   vkDrawCall.model = drawCall.transform;

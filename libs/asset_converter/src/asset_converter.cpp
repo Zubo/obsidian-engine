@@ -1,3 +1,4 @@
+#include "obsidian/asset_converter/glsl_to_spirv_compiler.hpp"
 #include <obsidian/asset/asset.hpp>
 #include <obsidian/asset/asset_info.hpp>
 #include <obsidian/asset/asset_io.hpp>
@@ -37,6 +38,7 @@
 #include <memory>
 #include <numeric>
 #include <optional>
+#include <regex>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -52,7 +54,8 @@ std::unordered_map<std::string, std::string> extensionMap = {
     {".bmp", globals::textureAssetExt}, {".jpeg", globals::textureAssetExt},
     {".jpg", globals::textureAssetExt}, {".png", globals::textureAssetExt},
     {".obj", globals::meshAssetExt},    {".gltf", globals::meshAssetExt},
-    {".glb", globals::meshAssetExt},    {".spv", globals::shaderAssetExt}};
+    {".glb", globals::meshAssetExt},    {".vert", globals::shaderAssetExt},
+    {".frag", globals::shaderAssetExt}, {".glsl", globals::shaderAssetExt}};
 
 bool saveAsset(fs::path const& srcPath, fs::path const& dstPath,
                asset::Asset const& textureAsset) {
@@ -580,9 +583,11 @@ bool AssetConverter::convertGltfToAsset(fs::path const& srcPath,
   return true;
 } // namespace obsidian::asset_converter
 
-bool AssetConverter::convertSpirvToAsset(fs::path const& srcPath,
-                                         fs::path const& dstPath) {
-  std::ifstream file{srcPath, std::ios::ate | std::ios::binary};
+bool AssetConverter::convertShaderToAsset(fs::path const& srcPath,
+                                          fs::path const& dstPath) {
+  static thread_local GLSLToSpirvCompiler compiler;
+
+  std::ifstream file{srcPath, std::ios::ate};
 
   if (!file.is_open()) {
     return false;
@@ -600,11 +605,79 @@ bool AssetConverter::convertSpirvToAsset(fs::path const& srcPath,
 
   asset::Asset shaderAsset;
   asset::ShaderAssetInfo shaderAssetInfo;
-  shaderAssetInfo.unpackedSize = buffer.size();
+  shaderAssetInfo.shaderType = srcPath.extension() == ".vert"
+                                   ? core::ShaderType::vertex
+                                   : core::ShaderType::fragment;
+
+  constexpr char const* permutationCheckPattern =
+      "(ifdef _HAS_COLOR|ifdef _HAS_UV)";
+  static std::regex re{permutationCheckPattern};
+
+  bool const hasInputPermutations = std::regex_search(buffer.data(), re);
+
+  std::array<char const*, 2> permutationDefines = {"#define _HAS_COLOR",
+                                                   "#define _HAS_UV"};
+
+  std::vector<char> compiledCode;
+  std::vector<std::uint32_t> compilationBuffer;
+  compiler.compileShader(buffer, srcPath.filename(), shaderAssetInfo.shaderType,
+                         {permutationDefines}, srcPath.parent_path(),
+                         compilationBuffer);
+
+  std::size_t totalSize =
+      compilationBuffer.size() * sizeof(compilationBuffer[0]);
+  compiledCode.resize(totalSize);
+  std::memcpy(compiledCode.data(), compilationBuffer.data(), totalSize);
+
+  if (hasInputPermutations) {
+    asset::ShaderPermutationInfo& permutationInfo =
+        shaderAssetInfo.permutationOffsets.emplace();
+    permutationInfo.baseSize = totalSize;
+
+    // vertex and normal version
+    compiler.compileShader(buffer, srcPath.filename(),
+                           shaderAssetInfo.shaderType, {},
+                           srcPath.parent_path(), compilationBuffer);
+
+    permutationInfo.vertexNormalSize =
+        compilationBuffer.size() * sizeof(compilationBuffer[0]);
+    compiledCode.resize(compiledCode.size() + permutationInfo.vertexNormalSize);
+    std::memcpy(compiledCode.data() + totalSize, compilationBuffer.data(),
+                permutationInfo.vertexNormalSize);
+    totalSize += permutationInfo.vertexNormalSize;
+
+    // vertex, normal, color
+    compiler.compileShader(
+        buffer, srcPath.filename(), shaderAssetInfo.shaderType,
+        {&permutationDefines[0], 1}, srcPath.parent_path(), compilationBuffer);
+
+    permutationInfo.vertexNormalColorSize =
+        compilationBuffer.size() * sizeof(compilationBuffer[0]);
+    compiledCode.resize(compiledCode.size() +
+                        permutationInfo.vertexNormalColorSize);
+    std::memcpy(compiledCode.data() + totalSize, compilationBuffer.data(),
+                permutationInfo.vertexNormalColorSize);
+    totalSize += permutationInfo.vertexNormalColorSize;
+
+    // vertex, normal, uv
+    compiler.compileShader(
+        buffer, srcPath.filename(), shaderAssetInfo.shaderType,
+        {&permutationDefines[1], 1}, srcPath.parent_path(), compilationBuffer);
+
+    permutationInfo.vertexNormalUVSize =
+        compilationBuffer.size() * sizeof(compilationBuffer[0]);
+    compiledCode.resize(compiledCode.size() +
+                        permutationInfo.vertexNormalUVSize);
+    std::memcpy(compiledCode.data() + totalSize, compilationBuffer.data(),
+                permutationInfo.vertexNormalUVSize);
+    totalSize += permutationInfo.vertexNormalUVSize;
+  }
+
+  shaderAssetInfo.unpackedSize = totalSize;
   shaderAssetInfo.compressionMode = asset::CompressionMode::none;
 
   bool const packResult =
-      asset::packShader(shaderAssetInfo, std::move(buffer), shaderAsset);
+      asset::packShader(shaderAssetInfo, std::move(compiledCode), shaderAsset);
 
   if (!packResult) {
     OBS_LOG_ERR("Failed to convert " + srcPath.string() + " to asset format.");
@@ -632,8 +705,9 @@ bool AssetConverter::convertAsset(fs::path const& srcFilePath,
     return convertObjToAsset(srcFilePath, dstFilePath);
   } else if (extension == ".gltf" || extension == ".glb") {
     return convertGltfToAsset(srcFilePath, dstFilePath);
-  } else if (extension == ".spv") {
-    return convertSpirvToAsset(srcFilePath, dstFilePath);
+  } else if (extension == ".frag" || extension == ".vert" ||
+             extension == ".glsl") {
+    return convertShaderToAsset(srcFilePath, dstFilePath);
   }
 
   OBS_LOG_ERR("Error: Unknown file extension.");

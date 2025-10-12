@@ -17,6 +17,7 @@
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
 
+#include <algorithm>
 #include <cstring>
 #include <mutex>
 #include <numeric>
@@ -731,7 +732,7 @@ void VulkanRHI::drawWithMaterials(
     VkMaterial const& material = *drawCall.material;
 
     assert(drawCall.mesh && "Error: Missing mesh");
-    Mesh const& mesh = *drawCall.mesh;
+    VkMesh const& mesh = *drawCall.mesh;
 
     if (!core::utils::isVisible(mesh.aabb,
                                 cameraData.viewProj * drawCall.model)) {
@@ -770,14 +771,6 @@ void VulkanRHI::drawWithMaterials(
                               dynamicOffsets.size(), dynamicOffsets.data());
       lastMaterial = &material;
     }
-
-    VertexInputDescription const vertInputDescr =
-        mesh.getVertexInputDescription({true, mesh.hasNormals, mesh.hasColors,
-                                        mesh.hasUV, mesh.hasTangents});
-
-    _vkCmdSetVertexInput(
-        cmd, vertInputDescr.bindings.size(), vertInputDescr.bindings.data(),
-        vertInputDescr.attributes.size(), vertInputDescr.attributes.data());
 
     VkDeviceSize const bufferOffset = 0;
     vkCmdBindVertexBuffers(cmd, 0, 1, &mesh.vertexBuffer.buffer, &bufferOffset);
@@ -835,18 +828,12 @@ void VulkanRHI::drawNoMaterials(
     VKDrawCall& drawCall = first[i];
     assert(drawCall.mesh && "Error: Missing mesh");
 
-    Mesh& mesh = *drawCall.mesh;
+    VkMesh& mesh = *drawCall.mesh;
 
     if (!core::utils::isVisible(mesh.aabb,
                                 cameraData.viewProj * drawCall.model)) {
       continue;
     }
-
-    VertexInputDescription const vertInputDescr =
-        mesh.getVertexInputDescription(vertexInputSpec);
-    _vkCmdSetVertexInput(
-        cmd, vertInputDescr.bindings.size(), vertInputDescr.bindings.data(),
-        vertInputDescr.attributes.size(), vertInputDescr.attributes.data());
 
     VkDeviceSize const vertBufferOffset = 0;
 
@@ -878,28 +865,6 @@ void VulkanRHI::drawPostProcessing(VkCommandBuffer cmd,
                                    VkDescriptorSet passDescriptorSet,
                                    std::optional<VkViewport> dynamicViewport,
                                    std::optional<VkRect2D> dynamicScissor) {
-  std::vector<VkVertexInputBindingDescription2EXT> bindings;
-  VkVertexInputBindingDescription2EXT& bindingDescr = bindings.emplace_back();
-  bindingDescr = {};
-  bindingDescr.sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_BINDING_DESCRIPTION_2_EXT;
-  bindingDescr.pNext = nullptr;
-  bindingDescr.binding = 0;
-  bindingDescr.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-  bindingDescr.stride = sizeof(glm::vec2);
-  bindingDescr.divisor = 1;
-
-  std::vector<VkVertexInputAttributeDescription2EXT> attributes;
-  VkVertexInputAttributeDescription2EXT& attrDescr = attributes.emplace_back();
-  attrDescr = {};
-  attrDescr.sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT;
-  attrDescr.pNext = nullptr;
-  attrDescr.location = 0;
-  attrDescr.binding = 0;
-  attrDescr.format = VK_FORMAT_R32G32_SFLOAT;
-  attrDescr.offset = 0;
-
-  _vkCmdSetVertexInput(cmd, bindings.size(), bindings.data(), attributes.size(),
-                       attributes.data());
 
   vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                     _vkSsaoPostProcessingPipeline);

@@ -1,7 +1,7 @@
 #pragma once
 
+#include <functional>
 #include <future>
-#include <type_traits>
 
 namespace obsidian::core {
 
@@ -14,7 +14,8 @@ template <typename R, typename... Args> constexpr bool returnsVoid(R(Args...)) {
 }
 
 template <typename F>
-using ResultOf = typename decltype(std::function(std::declval<F>()))::result_type;
+using ResultOf =
+    typename decltype(std::function(std::declval<F>()))::result_type;
 
 template <typename R, typename Arg>
 void invokeTask(std::packaged_task<R(Arg)>& task, void const* argP) {

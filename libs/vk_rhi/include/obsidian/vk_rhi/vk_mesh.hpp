@@ -27,7 +27,7 @@ struct VertexInputSpec {
   bool bindTangents = true;
 };
 
-struct Mesh {
+struct VkMesh {
   VkDeviceSize vertexCount;
   AllocatedBuffer vertexBuffer;
   VkDeviceSize indexCount;

@@ -4,9 +4,11 @@ add_library(RuntimeResource
     "src/runtime_resource_manager.cpp"
     "src/runtime_resource.cpp"
     "src/runtime_resource_loader.cpp"
+    "src/runtime_resource_util.cpp"
     "include/obsidian/runtime_resource/runtime_resource_manager.hpp"
     "include/obsidian/runtime_resource/runtime_resource.hpp"
     "include/obsidian/runtime_resource/runtime_resource_loader.hpp"
+    "include/obsidian/runtime_resource/runtime_resource_util.hpp"
 )
 
 target_include_directories(RuntimeResource

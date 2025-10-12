@@ -53,8 +53,8 @@ private:
   bool convertGltfToAsset(std::filesystem::path const& srcPath,
                           std::filesystem::path const& dstPath);
 
-  bool convertSpirvToAsset(std::filesystem::path const& srcPath,
-                           std::filesystem::path const& dstPath);
+  bool convertShaderToAsset(std::filesystem::path const& srcPath,
+                            std::filesystem::path const& dstPath);
 
   template <typename MaterialType>
   TextureAssetInfoMap

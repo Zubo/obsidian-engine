@@ -137,7 +137,6 @@ private:
   std::vector<VkImageView> _swapchainImageViews;
   std::atomic<std::uint32_t> _frameNumber = 1;
   VkSemaphore _frameNumberSemaphore;
-  PFN_vkCmdSetVertexInputEXT _vkCmdSetVertexInput;
   float _maxSamplerAnisotropy;
 
   // Default pass
@@ -211,8 +210,8 @@ private:
   // Resources
   std::atomic<rhi::ResourceIdRHI> _nextResourceId = 0;
   std::unordered_map<rhi::ResourceIdRHI, Texture> _textures;
-  std::unordered_map<rhi::ResourceIdRHI, Mesh> _meshes;
-  std::unordered_map<rhi::ResourceIdRHI, Shader> _shaderModules;
+  std::unordered_map<rhi::ResourceIdRHI, VkMesh> _meshes;
+  std::unordered_map<rhi::ResourceIdRHI, VkShader> _shaderModules;
   std::unordered_map<core::MaterialType, PipelineBuilder> _pipelineBuilders;
   std::unordered_map<rhi::ResourceIdRHI, VkMaterial> _materials;
   std::unordered_map<rhi::ResourceIdRHI, VkDescriptorSet> _objectDescriptorSets;
@@ -369,7 +368,7 @@ private:
                      VkDescriptorSet passDescriptorSet,
                      std::optional<VkViewport> dynamicViewport = std::nullopt,
                      std::optional<VkRect2D> dynamicScissor = std::nullopt);
-  Mesh* getMesh(std::string const& name);
+  VkMesh* getMesh(std::string const& name);
   AllocatedBuffer
   createBuffer(std::size_t bufferSize, VkBufferUsageFlags usage,
                VmaMemoryUsage memoryUsage,

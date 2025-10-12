@@ -56,6 +56,34 @@ FetchContent_Declare(fetch_tinyobjloader
 
 FetchContent_MakeAvailable(fetch_tinyobjloader)
 
+
+FetchContent_Declare(fetch_spirv_headers
+    GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Headers.git
+    GIT_TAG vulkan-sdk-1.4.321.0
+    GIT_PROGRESS TRUE
+    SYSTEM
+)
+
+FetchContent_MakeAvailable(fetch_spirv_headers)
+
+FetchContent_Declare(fetch_spirv_tools
+    GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Tools.git
+    GIT_TAG  vulkan-sdk-1.4.321.0
+    GIT_PROGRESS TRUE
+    SYSTEM
+)
+
+FetchContent_MakeAvailable(fetch_spirv_tools)
+
+FetchContent_Declare(fetch_glslang
+    GIT_REPOSITORY https://github.com/KhronosGroup/glslang.git
+    GIT_TAG vulkan-sdk-1.4.321.0
+    GIT_PROGRESS TRUE
+    SYSTEM
+)
+
+FetchContent_MakeAvailable(fetch_glslang)
+
 set(TINYGLTF_HEADER_ONLY ON)
 FetchContent_Declare(fetch_tinygltf
     GIT_REPOSITORY https://github.com/syoyo/tinygltf.git
@@ -215,7 +243,7 @@ if (WIN32)
         uninstall
         VulkanMemoryAllocator
         StbImage
-        HashLibrary
+        cppcrc
             PROPERTIES
                 FOLDER ThirdParty
     )

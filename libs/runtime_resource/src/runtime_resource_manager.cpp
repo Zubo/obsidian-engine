@@ -1,3 +1,4 @@
+#include <cstring>
 #include <obsidian/asset/asset.hpp>
 #include <obsidian/asset/asset_info.hpp>
 #include <obsidian/asset/asset_io.hpp>
@@ -8,6 +9,7 @@
 #include <obsidian/rhi/rhi.hpp>
 #include <obsidian/runtime_resource/runtime_resource.hpp>
 #include <obsidian/runtime_resource/runtime_resource_manager.hpp>
+#include <obsidian/runtime_resource/runtime_resource_util.hpp>
 
 #include <cassert>
 #include <filesystem>
@@ -37,17 +39,7 @@ void RuntimeResourceManager::uploadInitRHIResources() {
 
     assert(result && "Shader asset failed to load");
 
-    asset::ShaderAssetInfo assetInfo;
-    result = asset::readShaderAssetInfo(*asset.metadata, assetInfo);
-
-    assert(result && "Depth only shader asset info failed to load");
-
-    uploadRHI.shaderDataSize = assetInfo.unpackedSize;
-    uploadRHI.unpackFunc = [asset = std::move(asset),
-                            assetInfo = std::move(assetInfo)](char* dst) {
-      asset::unpackAsset(assetInfo, asset.binaryBlob.data(),
-                         asset.binaryBlob.size(), dst);
-    };
+    uploadRHI = getUploadShader(asset);
   };
 
   loadShaderFunc(initResources.shadowPassVertexShader,

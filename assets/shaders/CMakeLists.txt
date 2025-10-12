@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-set (SHADER_SRC_DIR "built-in")
+set (SHADER_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/built-in")
 
 set(SHADER_SRC_FILES
     "default-unlit.frag"
@@ -32,33 +32,21 @@ set(SHADER_SRC_FILES
     "include/unlit-material.glsl"
 )
 
-set(SHADER_OUTPUT_DIR "${CMAKE_BINARY_DIR}/shaders")
+set(SHADER_OUTPUT_DIR "${CMAKE_BINARY_DIR}/shaders/built-in")
 
 set(SHADER_INPUT_LIST)
 set(SHADER_OUTPUT_LIST)
 
 foreach(SHADER_SRC ${SHADER_SRC_FILES})
-    if (NOT ${SHADER_SRC} MATCHES "^include/")
-        list(APPEND
-            SHADER_INPUT_LIST
-                "src/${SHADER_SRC_DIR}/${SHADER_SRC}"
-        )
+    list(APPEND
+        SHADER_INPUT_LIST
+            "${SHADER_SRC_DIR}/${SHADER_SRC}"
+    )
 
-        string(REPLACE "." "-" SHADER_OUTPUT_FILE_NAME ${SHADER_SRC})
-        list(APPEND
-            SHADER_OUTPUT_LIST
-                "${SHADER_OUTPUT_DIR}/${SHADER_SRC_DIR}/${SHADER_OUTPUT_FILE_NAME}.spv"
-        )
-
-        if (${SHADER_OUTPUT_FILE_NAME} MATCHES "(^default)(-unlit)?((-frag)|(-vert))")
-            list(APPEND
-                SHADER_OUTPUT_LIST
-                    "${SHADER_OUTPUT_DIR}/${SHADER_SRC_DIR}/c-${SHADER_OUTPUT_FILE_NAME}.spv"
-                    "${SHADER_OUTPUT_DIR}/${SHADER_SRC_DIR}/u-${SHADER_OUTPUT_FILE_NAME}.spv"
-                    "${SHADER_OUTPUT_DIR}/${SHADER_SRC_DIR}/cu-${SHADER_OUTPUT_FILE_NAME}.spv"
-            )
-        endif()
-    endif()
+    list(APPEND
+        SHADER_OUTPUT_LIST
+            "${SHADER_OUTPUT_DIR}/${SHADER_SRC}"
+    )
 endforeach()
 
 option(DEBUG_SHADERS "Prevent shader optimization and add shader source metadata to the compiled spirv." OFF)
@@ -69,8 +57,7 @@ endif()
 
 add_custom_command(
     OUTPUT ${SHADER_OUTPUT_LIST}
-    COMMAND ${CMAKE_COMMAND} -E remove file ${SHADER_OUTPUT_LIST}
-    COMMAND python3 ${PROJECT_SOURCE_DIR}/scripts/compile_shaders.py -o ${CMAKE_BINARY_DIR}/shaders ${SHADERS_DEBUG}
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${SHADER_SRC_DIR} ${SHADER_OUTPUT_DIR}
     DEPENDS ${SHADER_INPUT_LIST}
 )
 

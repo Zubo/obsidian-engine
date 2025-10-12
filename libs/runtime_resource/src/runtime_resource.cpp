@@ -13,6 +13,7 @@
 #include <obsidian/runtime_resource/runtime_resource.hpp>
 #include <obsidian/runtime_resource/runtime_resource_loader.hpp>
 #include <obsidian/runtime_resource/runtime_resource_manager.hpp>
+#include <obsidian/runtime_resource/runtime_resource_util.hpp>
 
 #include <cassert>
 #include <memory>
@@ -431,9 +432,7 @@ void RuntimeResource::performUploadToRHI() {
       break;
     }
 
-    rhi::UploadShaderRHI uploadShader;
-    uploadShader.shaderDataSize = info.unpackedSize;
-    uploadShader.unpackFunc = getUnpackFunc(info);
+    rhi::UploadShaderRHI uploadShader = getUploadShader(*_asset);
 
     std::string const debugNameStr = _path.stem().string();
     uploadShader.debugName = debugNameStr.c_str();

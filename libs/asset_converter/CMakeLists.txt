@@ -3,9 +3,11 @@ cmake_minimum_required(VERSION 3.24)
 add_library(AssetConverter
     "src/asset_converter.cpp"
     "src/asset_converter_helpers.cpp"
+    "src/glsl_to_spirv_compiler.cpp"
     "include/obsidian/asset_converter/asset_converter.hpp"
     "include/obsidian/asset_converter/asset_converter_helpers.hpp"
     "include/obsidian/asset_converter/vertex_content_info.hpp"
+    "include/obsidian/asset_converter/glsl_to_spirv_compiler.hpp"
 )
 
 target_include_directories(AssetConverter
@@ -27,4 +29,6 @@ target_link_libraries(AssetConverter
         TracyClient
         Serialization
         nlohmann_json::nlohmann_json
+        glslang
+        glslang-default-resource-limits
 )

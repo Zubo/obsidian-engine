@@ -1,5 +1,6 @@
 #pragma once
 
+#include "vulkan/vulkan_core.h"
 #include <obsidian/core/texture_format.hpp>
 #include <obsidian/rhi/resource_rhi.hpp>
 #include <obsidian/rhi/rhi.hpp>
@@ -21,8 +22,8 @@ static unsigned int const frameOverlap = 2;
 enum class ResourceState { pendingUpload, uploaded, unloaded };
 
 struct VertexInputDescription {
-  std::vector<VkVertexInputBindingDescription2EXT> bindings;
-  std::vector<VkVertexInputAttributeDescription2EXT> attributes;
+  std::vector<VkVertexInputBindingDescription> bindings;
+  std::vector<VkVertexInputAttributeDescription> attributes;
 
   VkPipelineVertexInputStateCreateFlags flags = 0;
 };
@@ -45,15 +46,18 @@ struct VkMaterial {
   std::vector<rhi::ResourceIdRHI> textureResourceDependencyIds;
 };
 
-struct Shader {
-  VkShaderModule vkShaderModule;
+struct VkShader {
+  VkShaderModule baseModule = VK_NULL_HANDLE;
+  VkShaderModule vertexNormalModule = VK_NULL_HANDLE;
+  VkShaderModule vertexNormalColorModule = VK_NULL_HANDLE;
+  VkShaderModule vertexNormalUVModule = VK_NULL_HANDLE;
   rhi::ResourceRHI resource;
 };
 
-struct Mesh;
+struct VkMesh;
 
-struct RenderObject {
-  Mesh* mesh;
+struct VkRenderObject {
+  VkMesh* mesh;
   VkMaterial* material;
   glm::mat4 transformMatrix;
 };
@@ -138,7 +142,7 @@ struct GpuRenderPassData {
 
 struct VKDrawCall {
   glm::mat4 model;
-  Mesh* mesh;
+  VkMesh* mesh;
   VkMaterial* material;
   std::size_t indexBufferInd;
   rhi::ResourceIdRHI objectResourcesId;

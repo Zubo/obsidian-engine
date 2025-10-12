@@ -1,3 +1,4 @@
+#include <nlohmann/json_fwd.hpp>
 #include <obsidian/asset/asset.hpp>
 #include <obsidian/asset/shader_asset_info.hpp>
 #include <obsidian/asset/utility.hpp>
@@ -12,6 +13,11 @@
 namespace obsidian::asset {
 
 constexpr char const* shaderTypeJsonName = "shaderType";
+constexpr char const* shaderPermutationInfoJsonName = "permutationInfo";
+constexpr char const* shaderBaseSizeJsonName = "baseSize";
+constexpr char const* vertexNormalSizeJsonName = "vertexNormalSize";
+constexpr char const* vertexNormalColorSizeJsonName = "vertexNormalColorSize";
+constexpr char const* vertexNormalUVSizeJsonName = "vertexNormalUVSize";
 
 bool readShaderAssetInfo(AssetMetadata const& assetMetadata,
                          ShaderAssetInfo& outShaderAssetInfo) {
@@ -22,6 +28,19 @@ bool readShaderAssetInfo(AssetMetadata const& assetMetadata,
     outShaderAssetInfo.unpackedSize = json[unpackedSizeJsonName];
     outShaderAssetInfo.compressionMode = json[compressionModeJsonName];
     outShaderAssetInfo.shaderType = json[shaderTypeJsonName];
+
+    if (json.contains(shaderPermutationInfoJsonName)) {
+      nlohmann::json permutationInfoJson = json[shaderPermutationInfoJsonName];
+      ShaderPermutationInfo& permutationInfo =
+          outShaderAssetInfo.permutationOffsets.emplace();
+      permutationInfo.baseSize = permutationInfoJson[shaderBaseSizeJsonName];
+      permutationInfo.vertexNormalSize =
+          permutationInfoJson[vertexNormalSizeJsonName];
+      permutationInfo.vertexNormalColorSize =
+          permutationInfoJson[vertexNormalColorSizeJsonName];
+      permutationInfo.vertexNormalUVSize =
+          permutationInfoJson[vertexNormalUVSizeJsonName];
+    }
   } catch (std::exception const& e) {
     OBS_LOG_ERR(e.what());
     return false;
@@ -50,6 +69,18 @@ bool packShader(ShaderAssetInfo const& shaderAssetInfo,
     json[unpackedSizeJsonName] = shaderAssetInfo.unpackedSize;
     json[compressionModeJsonName] = shaderAssetInfo.compressionMode;
     json[shaderTypeJsonName] = shaderAssetInfo.shaderType;
+
+    if (shaderAssetInfo.permutationOffsets) {
+      json[shaderPermutationInfoJsonName] = nlohmann::json::object();
+      json[shaderPermutationInfoJsonName][shaderBaseSizeJsonName] =
+          shaderAssetInfo.permutationOffsets->baseSize;
+      json[shaderPermutationInfoJsonName][vertexNormalSizeJsonName] =
+          shaderAssetInfo.permutationOffsets->vertexNormalSize;
+      json[shaderPermutationInfoJsonName][vertexNormalColorSizeJsonName] =
+          shaderAssetInfo.permutationOffsets->vertexNormalColorSize;
+      json[shaderPermutationInfoJsonName][vertexNormalUVSizeJsonName] =
+          shaderAssetInfo.permutationOffsets->vertexNormalUVSize;
+    }
 
     outAsset.metadata->json = json.dump();
 

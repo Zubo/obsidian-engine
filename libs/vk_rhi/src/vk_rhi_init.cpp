@@ -82,9 +82,6 @@ void VulkanRHI::init(rhi::WindowExtentRHI extent,
   waitDeviceIdle();
 
   IsInitialized = true;
-
-  _vkCmdSetVertexInput = reinterpret_cast<PFN_vkCmdSetVertexInputEXT>(
-      vkGetDeviceProcAddr(_vkDevice, "vkCmdSetVertexInputEXT"));
 }
 
 void VulkanRHI::initResources(rhi::InitResourcesRHI const& initResources) {
@@ -169,10 +166,11 @@ void VulkanRHI::initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider) {
   vkb::PhysicalDevice vkbPhysicalDevice =
       vkbSelector.set_minimum_version(1, 2)
           .set_surface(_vkSurface)
-          .add_required_extension(
-              VK_EXT_VERTEX_INPUT_DYNAMIC_STATE_EXTENSION_NAME)
+          // .add_required_extension(
+          //     VK_EXT_VERTEX_INPUT_DYNAMIC_STATE_EXTENSION_NAME)
           .add_required_extension(
               VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME)
+          .add_required_extension("VK_KHR_portability_subset")
           .set_required_features(vkPhysicalDeviceFeatures)
           .select()
           .value();
@@ -637,7 +635,6 @@ void VulkanRHI::initMainPipelineAndLayouts() {
 
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
-  pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VERTEX_INPUT_EXT);
 
   pipelineBuilder._vkRasterizationCreateInfo =
       vkinit::rasterizationCreateInfo(VK_POLYGON_MODE_FILL);
@@ -780,8 +777,6 @@ void VulkanRHI::initShadowPassPipeline() {
   pipelineBuilder._vkRasterizationCreateInfo =
       vkinit::rasterizationCreateInfo(VK_POLYGON_MODE_FILL);
 
-  pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VERTEX_INPUT_EXT);
-
   pipelineBuilder._vkViewport.x = 0.f;
   pipelineBuilder._vkViewport.y = 0.f;
   pipelineBuilder._vkViewport.width = shadowPassAttachmentWidth;
@@ -794,13 +789,13 @@ void VulkanRHI::initShadowPassPipeline() {
                                        shadowPassAttachmentHeight};
 
   VkShaderModule const vertexShaderModule =
-      _shaderModules[_depthPassVertexShaderId].vkShaderModule;
+      _shaderModules[_depthPassVertexShaderId].baseModule;
   pipelineBuilder._vkShaderStageCreateInfos.push_back(
       vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT,
                                             vertexShaderModule));
 
   VkShaderModule const fragmentShaderModule =
-      _shaderModules[_depthPassFragmentShaderId].vkShaderModule;
+      _shaderModules[_depthPassFragmentShaderId].baseModule;
   pipelineBuilder._vkShaderStageCreateInfos.push_back(
       vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT,
                                             fragmentShaderModule));
@@ -831,16 +826,15 @@ void VulkanRHI::initDepthPrepassPipeline() {
 
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
-  pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VERTEX_INPUT_EXT);
 
   VkShaderModule const vertexShaderModule =
-      _shaderModules[_depthPassVertexShaderId].vkShaderModule;
+      _shaderModules[_depthPassVertexShaderId].baseModule;
   pipelineBuilder._vkShaderStageCreateInfos.push_back(
       vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT,
                                             vertexShaderModule));
 
   VkShaderModule const fragmentShaderModule =
-      _shaderModules[_depthPassFragmentShaderId].vkShaderModule;
+      _shaderModules[_depthPassFragmentShaderId].baseModule;
   pipelineBuilder._vkShaderStageCreateInfos.push_back(
       vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT,
                                             fragmentShaderModule));
@@ -866,13 +860,13 @@ void VulkanRHI::initSsaoPipeline() {
   pipelineBuilder._vkShaderStageCreateInfos.reserve(2);
 
   VkShaderModule const ssaoVertexShaderModule =
-      _shaderModules[_ssaoVertexShaderId].vkShaderModule;
+      _shaderModules[_ssaoVertexShaderId].baseModule;
   pipelineBuilder._vkShaderStageCreateInfos.push_back(
       vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT,
                                             ssaoVertexShaderModule));
 
   VkShaderModule const ssaoFragmentShaderModule =
-      _shaderModules[_ssaoFragmentShaderId].vkShaderModule;
+      _shaderModules[_ssaoFragmentShaderId].baseModule;
   pipelineBuilder._vkShaderStageCreateInfos.push_back(
       vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT,
                                             ssaoFragmentShaderModule));
@@ -921,7 +915,6 @@ void VulkanRHI::initSsaoPipeline() {
 
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
-  pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VERTEX_INPUT_EXT);
 
   _vkSsaoPipeline = pipelineBuilder.buildPipeline(_vkDevice, _ssaoRenderPass);
   setDbgResourceName(_vkDevice, (std::uint64_t)_vkSsaoPipeline,
@@ -937,11 +930,11 @@ void VulkanRHI::initSsaoPostProcessingPipeline() {
   pipelineBuilder._vkShaderStageCreateInfos.push_back(
       vkinit::pipelineShaderStageCreateInfo(
           VK_SHADER_STAGE_VERTEX_BIT,
-          _shaderModules[_postProcessingVertexShaderId].vkShaderModule));
+          _shaderModules[_postProcessingVertexShaderId].baseModule));
   pipelineBuilder._vkShaderStageCreateInfos.push_back(
       vkinit::pipelineShaderStageCreateInfo(
           VK_SHADER_STAGE_FRAGMENT_BIT,
-          _shaderModules[_postProcessingFragmentShaderId].vkShaderModule));
+          _shaderModules[_postProcessingFragmentShaderId].baseModule));
 
   pipelineBuilder._vkInputAssemblyCreateInfo =
       vkinit::inputAssemblyCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
@@ -991,7 +984,6 @@ void VulkanRHI::initSsaoPostProcessingPipeline() {
 
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
-  pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_VERTEX_INPUT_EXT);
 
   _vkSsaoPostProcessingPipeline =
       pipelineBuilder.buildPipeline(_vkDevice, _postProcessingRenderPass);

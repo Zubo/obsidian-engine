@@ -8,6 +8,19 @@ using namespace obsidian::vk_rhi;
 
 VkPipeline PipelineBuilder::buildPipeline(VkDevice device,
                                           RenderPass const& pass) {
+  VkPipelineVertexInputStateCreateInfo vertexInputState = {};
+  vertexInputState.sType =
+      VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+  vertexInputState.pNext = nullptr;
+  vertexInputState.pVertexBindingDescriptions =
+      _vertexInputDescription.bindings.data();
+  vertexInputState.vertexBindingDescriptionCount =
+      _vertexInputDescription.bindings.size();
+  vertexInputState.pVertexAttributeDescriptions =
+      _vertexInputDescription.attributes.data();
+  vertexInputState.vertexAttributeDescriptionCount =
+      _vertexInputDescription.attributes.size();
+
   VkPipelineViewportStateCreateInfo viewportStateCreateInfo = {};
   viewportStateCreateInfo.sType =
       VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -43,6 +56,7 @@ VkPipeline PipelineBuilder::buildPipeline(VkDevice device,
   graphicsPipelineCreateInfo.stageCount = _vkShaderStageCreateInfos.size();
   graphicsPipelineCreateInfo.pStages = _vkShaderStageCreateInfos.data();
   graphicsPipelineCreateInfo.pInputAssemblyState = &_vkInputAssemblyCreateInfo;
+  graphicsPipelineCreateInfo.pVertexInputState = &vertexInputState;
   graphicsPipelineCreateInfo.pTessellationState = nullptr;
   graphicsPipelineCreateInfo.pViewportState = &viewportStateCreateInfo;
   graphicsPipelineCreateInfo.pRasterizationState = &_vkRasterizationCreateInfo;

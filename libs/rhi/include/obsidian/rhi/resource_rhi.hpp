@@ -50,9 +50,12 @@ struct UploadMeshRHI {
 };
 
 struct UploadShaderRHI {
-  std::size_t shaderDataSize;
-  std::function<void(char*)> unpackFunc;
+  std::vector<std::uint32_t> baseCode;
+  std::vector<std::uint32_t> vertexNormalCode;
+  std::vector<std::uint32_t> vertexNormalColorCode;
+  std::vector<std::uint32_t> vertexNormalUVCode;
   char const* debugName = nullptr;
+  bool vertexInputVariants = false;
 };
 
 struct UploadUnlitMaterialRHI {

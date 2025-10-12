@@ -8,21 +8,17 @@
 using namespace obsidian::vk_rhi;
 
 VertexInputDescription
-Mesh::getVertexInputDescription(VertexInputSpec inputSpec) const {
+VkMesh::getVertexInputDescription(VertexInputSpec inputSpec) const {
   VertexInputDescription description;
 
-  VkVertexInputBindingDescription2EXT mainBinding = {};
-  mainBinding.sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_BINDING_DESCRIPTION_2_EXT;
+  VkVertexInputBindingDescription mainBinding = {};
   mainBinding.binding = 0;
   mainBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-  mainBinding.divisor = 1;
 
   mainBinding.stride = 0;
 
   if (inputSpec.bindPosition) {
-    VkVertexInputAttributeDescription2EXT positionAttribute = {};
-    positionAttribute.sType =
-        VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT;
+    VkVertexInputAttributeDescription positionAttribute = {};
     positionAttribute.binding = 0;
     positionAttribute.location = 0;
     positionAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
@@ -34,9 +30,7 @@ Mesh::getVertexInputDescription(VertexInputSpec inputSpec) const {
   mainBinding.stride += sizeof(VertexPropertiesSpec::position);
 
   if (inputSpec.bindNormals && hasNormals) {
-    VkVertexInputAttributeDescription2EXT normalAttribute = {};
-    normalAttribute.sType =
-        VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT;
+    VkVertexInputAttributeDescription normalAttribute = {};
     normalAttribute.binding = 0;
     normalAttribute.location = 1;
     normalAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
@@ -50,9 +44,7 @@ Mesh::getVertexInputDescription(VertexInputSpec inputSpec) const {
   }
 
   if (inputSpec.bindColors && hasColors) {
-    VkVertexInputAttributeDescription2EXT colorAttribute = {};
-    colorAttribute.sType =
-        VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT;
+    VkVertexInputAttributeDescription colorAttribute = {};
     colorAttribute.binding = 0;
     colorAttribute.location = 2;
     colorAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
@@ -66,9 +58,7 @@ Mesh::getVertexInputDescription(VertexInputSpec inputSpec) const {
   }
 
   if (inputSpec.bindUV && hasUV) {
-    VkVertexInputAttributeDescription2EXT uvAttribute = {};
-    uvAttribute.sType =
-        VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT;
+    VkVertexInputAttributeDescription uvAttribute = {};
     uvAttribute.binding = 0;
     uvAttribute.location = 3;
     uvAttribute.format = VK_FORMAT_R32G32_SFLOAT;
@@ -82,9 +72,7 @@ Mesh::getVertexInputDescription(VertexInputSpec inputSpec) const {
   }
 
   if (inputSpec.bindTangents && hasTangents) {
-    VkVertexInputAttributeDescription2EXT tangentAttribute = {};
-    tangentAttribute.sType =
-        VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT;
+    VkVertexInputAttributeDescription tangentAttribute = {};
     tangentAttribute.binding = 0;
     tangentAttribute.location = 4;
     tangentAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
