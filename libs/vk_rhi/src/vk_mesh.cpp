@@ -1,4 +1,6 @@
+#include <obsidian/rhi/resource_rhi.hpp>
 #include <obsidian/vk_rhi/vk_mesh.hpp>
+#include <obsidian/vk_rhi/vk_types.hpp>
 
 #include <vulkan/vulkan.h>
 
@@ -7,85 +9,33 @@
 
 using namespace obsidian::vk_rhi;
 
-VertexInputDescription
+VkVertexInputDescription
 VkMesh::getVertexInputDescription(VertexInputSpec inputSpec) const {
-  VertexInputDescription description;
 
-  VkVertexInputBindingDescription mainBinding = {};
-  mainBinding.binding = 0;
-  mainBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+  VkVertexInputDescription description;
+  bool const bindPosition = inputSpec.bindPosition;
+  bool const bindNormals = inputSpec.bindNormals && hasNormals;
+  bool const bindColors = inputSpec.bindColors && hasColors;
+  bool const bindUV = inputSpec.bindUV && hasUV;
+  bool const bindTangents = inputSpec.bindTangents && hasTangents;
 
-  mainBinding.stride = 0;
+  return obsidian::vk_rhi::getVertexInputDescription(
+      bindPosition, bindNormals, bindColors, bindUV, bindTangents);
+}
 
-  if (inputSpec.bindPosition) {
-    VkVertexInputAttributeDescription positionAttribute = {};
-    positionAttribute.binding = 0;
-    positionAttribute.location = 0;
-    positionAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
-    positionAttribute.offset = mainBinding.stride;
-
-    description.attributes.push_back(positionAttribute);
-  }
-
-  mainBinding.stride += sizeof(VertexPropertiesSpec::position);
-
-  if (inputSpec.bindNormals && hasNormals) {
-    VkVertexInputAttributeDescription normalAttribute = {};
-    normalAttribute.binding = 0;
-    normalAttribute.location = 1;
-    normalAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
-    normalAttribute.offset = mainBinding.stride;
-
-    description.attributes.push_back(normalAttribute);
-  }
-
-  if (hasNormals) {
-    mainBinding.stride += sizeof(VertexPropertiesSpec::normal);
-  }
-
-  if (inputSpec.bindColors && hasColors) {
-    VkVertexInputAttributeDescription colorAttribute = {};
-    colorAttribute.binding = 0;
-    colorAttribute.location = 2;
-    colorAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
-    colorAttribute.offset = mainBinding.stride;
-
-    description.attributes.push_back(colorAttribute);
+obsidian::rhi::ShaderPermutationRHI::Type
+VkMesh::getAttributePermutation() const {
+  if (hasNormals && hasColors) {
+    return rhi::ShaderPermutationRHI::base;
   }
 
   if (hasColors) {
-    mainBinding.stride += sizeof(VertexPropertiesSpec::color);
-  }
-
-  if (inputSpec.bindUV && hasUV) {
-    VkVertexInputAttributeDescription uvAttribute = {};
-    uvAttribute.binding = 0;
-    uvAttribute.location = 3;
-    uvAttribute.format = VK_FORMAT_R32G32_SFLOAT;
-    uvAttribute.offset = mainBinding.stride;
-
-    description.attributes.push_back(uvAttribute);
+    return rhi::ShaderPermutationRHI::vertexNormalColor;
   }
 
   if (hasUV) {
-    mainBinding.stride += sizeof(VertexPropertiesSpec::uv);
+    return rhi::ShaderPermutationRHI::vertexNormalUV;
   }
 
-  if (inputSpec.bindTangents && hasTangents) {
-    VkVertexInputAttributeDescription tangentAttribute = {};
-    tangentAttribute.binding = 0;
-    tangentAttribute.location = 4;
-    tangentAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
-    tangentAttribute.offset = mainBinding.stride;
-
-    description.attributes.push_back(tangentAttribute);
-  }
-
-  if (hasTangents) {
-    mainBinding.stride += sizeof(VertexPropertiesSpec::tangent);
-  }
-
-  description.bindings.push_back(mainBinding);
-
-  return description;
+  return rhi::ShaderPermutationRHI::vertexNormal;
 }

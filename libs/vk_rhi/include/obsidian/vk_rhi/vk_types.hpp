@@ -1,6 +1,5 @@
 #pragma once
 
-#include "vulkan/vulkan_core.h"
 #include <obsidian/core/texture_format.hpp>
 #include <obsidian/rhi/resource_rhi.hpp>
 #include <obsidian/rhi/rhi.hpp>
@@ -17,16 +16,41 @@
 
 namespace obsidian::vk_rhi {
 
-static unsigned int const frameOverlap = 2;
+struct VertexPropertiesSpec {
+  glm::vec3 position;
+  glm::vec3 normal;
+  glm::vec3 color;
+  glm::vec2 uv;
+  glm::vec3 tangent;
+};
+
+struct VertexInputSpec {
+  bool bindPosition = true;
+  bool bindNormals = true;
+  bool bindColors = true;
+  bool bindUV = true;
+  bool bindTangents = true;
+};
+
+static unsigned int const frameOverlap = 3;
 
 enum class ResourceState { pendingUpload, uploaded, unloaded };
 
-struct VertexInputDescription {
+struct VkVertexInputDescription {
   std::vector<VkVertexInputBindingDescription> bindings;
   std::vector<VkVertexInputAttributeDescription> attributes;
 
   VkPipelineVertexInputStateCreateFlags flags = 0;
 };
+
+VkVertexInputDescription getVertexInputDescriptionForPermutation(
+    rhi::ShaderPermutationRHI::Type permutation, bool isPbr);
+
+VkVertexInputDescription getVertexInputDescription(bool hasPosition = true,
+                                                   bool hasNormals = false,
+                                                   bool hasColors = false,
+                                                   bool hasUV = false,
+                                                   bool hasTangents = false);
 
 struct AllocatedBuffer {
   VkBuffer buffer;
@@ -34,8 +58,10 @@ struct AllocatedBuffer {
 };
 
 struct VkMaterial {
-  VkPipeline vkPipelineMainRenderPass;
-  VkPipeline vkPipelineEnvironmentRendering;
+  std::array<VkPipeline, rhi::ShaderPermutationRHI::count>
+      vkPipelineMainRenderPass;
+  std::array<VkPipeline, rhi::ShaderPermutationRHI::count>
+      vkPipelineEnvironmentRendering;
   VkPipelineLayout vkPipelineLayout;
   VkDescriptorSet vkDescriptorSet;
   rhi::ResourceRHI resource;
@@ -47,10 +73,8 @@ struct VkMaterial {
 };
 
 struct VkShader {
-  VkShaderModule baseModule = VK_NULL_HANDLE;
-  VkShaderModule vertexNormalModule = VK_NULL_HANDLE;
-  VkShaderModule vertexNormalColorModule = VK_NULL_HANDLE;
-  VkShaderModule vertexNormalUVModule = VK_NULL_HANDLE;
+  std::array<VkShaderModule, rhi::ShaderPermutationRHI::count> permutations =
+      {};
   rhi::ResourceRHI resource;
 };
 

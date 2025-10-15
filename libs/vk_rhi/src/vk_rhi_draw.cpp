@@ -1,6 +1,7 @@
 #include <obsidian/core/shapes.hpp>
 #include <obsidian/core/utils/aabb.hpp>
 #include <obsidian/core/vertex_type.hpp>
+#include <obsidian/rhi/resource_rhi.hpp>
 #include <obsidian/rhi/rhi.hpp>
 #include <obsidian/vk_rhi/vk_check.hpp>
 #include <obsidian/vk_rhi/vk_frame_data.hpp>
@@ -723,7 +724,7 @@ void VulkanRHI::drawWithMaterials(
     std::optional<VkRect2D> dynamicScissor, bool reusesDepth) {
   ZoneScoped;
 
-  VkMaterial const* lastMaterial = nullptr;
+  VkPipeline lastPipeline = VK_NULL_HANDLE;
   for (int i = 0; i < count; ++i) {
     ZoneScopedN("Draw Object");
     VKDrawCall const& drawCall = first[i];
@@ -742,10 +743,19 @@ void VulkanRHI::drawWithMaterials(
     constexpr VkPipelineBindPoint pipelineBindPoint =
         VK_PIPELINE_BIND_POINT_GRAPHICS;
 
-    if (&material != lastMaterial) {
-      vkCmdBindPipeline(cmd, pipelineBindPoint,
-                        reusesDepth ? material.vkPipelineMainRenderPass
-                                    : material.vkPipelineEnvironmentRendering);
+    rhi::ShaderPermutationRHI::Type attributePermutation =
+        mesh.getAttributePermutation();
+    auto const& permutations = reusesDepth
+                                   ? material.vkPipelineMainRenderPass
+                                   : material.vkPipelineEnvironmentRendering;
+    if (permutations[attributePermutation] == VK_NULL_HANDLE) {
+      attributePermutation = rhi::ShaderPermutationRHI::base;
+    }
+
+    VkPipeline const pipeline = permutations[attributePermutation];
+
+    if (lastPipeline != pipeline) {
+      vkCmdBindPipeline(cmd, pipelineBindPoint, pipeline);
 
       if (dynamicViewport) {
         vkCmdSetViewport(cmd, 0, 1, &dynamicViewport.value());
@@ -769,7 +779,7 @@ void VulkanRHI::drawWithMaterials(
       vkCmdBindDescriptorSets(cmd, pipelineBindPoint, material.vkPipelineLayout,
                               0, descriptorSets.size(), descriptorSets.data(),
                               dynamicOffsets.size(), dynamicOffsets.data());
-      lastMaterial = &material;
+      lastPipeline = pipeline;
     }
 
     VkDeviceSize const bufferOffset = 0;

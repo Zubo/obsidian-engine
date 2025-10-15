@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <obsidian/core/logging.hpp>
 #include <obsidian/core/material.hpp>
 #include <obsidian/core/texture_format.hpp>
@@ -25,6 +26,7 @@
 
 #include <cassert>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <mutex>
@@ -318,70 +320,24 @@ VulkanRHI::uploadShader(rhi::ResourceIdRHI id,
             VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
         shaderModuleCreateInfo.pNext = nullptr;
 
-        // base module
-        shaderModuleCreateInfo.codeSize =
-            uploadShader.baseCode.size() * sizeof(uploadShader.baseCode[0]);
-        shaderModuleCreateInfo.pCode = uploadShader.baseCode.data();
+        for (std::size_t i = 0; i < rhi::ShaderPermutationRHI::count; ++i) {
+          if (uploadShader.code[i].empty()) {
+            continue;
+          }
 
-        if (vkCreateShaderModule(_vkDevice, &shaderModuleCreateInfo, nullptr,
-                                 &shader.baseModule)) {
-          assert(false && "Failed to load shader.");
-        }
-
-        setDbgResourceName(_vkDevice, (std::uint64_t)shader.baseModule,
-                           VK_OBJECT_TYPE_SHADER_MODULE,
-                           uploadShader.debugName);
-
-        // vertex normal
-        if (uploadShader.vertexNormalCode.size()) {
           shaderModuleCreateInfo.codeSize =
-              uploadShader.vertexNormalCode.size() *
-              sizeof(uploadShader.vertexNormalCode[0]);
-          shaderModuleCreateInfo.pCode = uploadShader.vertexNormalCode.data();
+              uploadShader.code[i].size() * sizeof(uploadShader.code[i][0]);
+          shaderModuleCreateInfo.pCode = reinterpret_cast<std::uint32_t const*>(
+              uploadShader.code[i].data());
 
           if (vkCreateShaderModule(_vkDevice, &shaderModuleCreateInfo, nullptr,
-                                   &shader.vertexNormalModule)) {
+                                   &shader.permutations[i])) {
             assert(false && "Failed to load shader.");
           }
 
-          setDbgResourceName(
-              _vkDevice, (std::uint64_t)shader.vertexNormalModule,
-              VK_OBJECT_TYPE_SHADER_MODULE, uploadShader.debugName);
-        }
-
-        // vertex normal color
-        if (uploadShader.vertexNormalColorCode.size()) {
-          shaderModuleCreateInfo.codeSize =
-              uploadShader.vertexNormalColorCode.size() *
-              sizeof(uploadShader.vertexNormalColorCode[0]);
-          shaderModuleCreateInfo.pCode =
-              uploadShader.vertexNormalColorCode.data();
-
-          if (vkCreateShaderModule(_vkDevice, &shaderModuleCreateInfo, nullptr,
-                                   &shader.vertexNormalColorModule)) {
-            assert(false && "Failed to load shader.");
-          }
-
-          setDbgResourceName(
-              _vkDevice, (std::uint64_t)shader.vertexNormalColorModule,
-              VK_OBJECT_TYPE_SHADER_MODULE, uploadShader.debugName);
-        }
-
-        // vertex normal uv
-        if (uploadShader.vertexNormalUVCode.size()) {
-          shaderModuleCreateInfo.codeSize =
-              uploadShader.vertexNormalUVCode.size() *
-              sizeof(uploadShader.vertexNormalUVCode[0]);
-          shaderModuleCreateInfo.pCode = uploadShader.vertexNormalUVCode.data();
-
-          if (vkCreateShaderModule(_vkDevice, &shaderModuleCreateInfo, nullptr,
-                                   &shader.vertexNormalUVModule)) {
-            assert(false && "Failed to load shader.");
-          }
-
-          setDbgResourceName(
-              _vkDevice, (std::uint64_t)shader.vertexNormalUVModule,
-              VK_OBJECT_TYPE_SHADER_MODULE, uploadShader.debugName);
+          setDbgResourceName(_vkDevice, (std::uint64_t)shader.permutations[i],
+                             VK_OBJECT_TYPE_SHADER_MODULE,
+                             uploadShader.debugName);
         }
 
         rhi::ResourceState expected = rhi::ResourceState::uploading;
@@ -452,332 +408,302 @@ VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
     return {};
   }
 
-  return rhi::ResourceTransferRHI{
-      _taskExecutor
-          .enqueue(task::TaskType::rhiTransfer,
-                   [this, id, uploadMaterial = std::move(uploadMaterial)]() {
-                     VkMaterial& newMaterial = _materials[id];
+  auto uploadShaderFunc = [this, id,
+                           uploadMaterial = std::move(uploadMaterial)]() {
+    VkMaterial& newMaterial = _materials[id];
 
-                     PipelineBuilder pipelineBuilder =
-                         _pipelineBuilders.at(uploadMaterial.materialType);
+    PipelineBuilder pipelineBuilder =
+        _pipelineBuilders.at(uploadMaterial.materialType);
 
-                     VkShader& vertexShaderModule =
-                         _shaderModules.at(uploadMaterial.vertexShaderId);
-                     ++vertexShaderModule.resource.refCount;
-                     newMaterial.vertexShaderResourceDependencyId =
-                         vertexShaderModule.resource.id;
+    VkShader& vertexShaderModule =
+        _shaderModules.at(uploadMaterial.vertexShaderId);
+    ++vertexShaderModule.resource.refCount;
+    newMaterial.vertexShaderResourceDependencyId =
+        vertexShaderModule.resource.id;
 
-                     pipelineBuilder._vkShaderStageCreateInfos.clear();
-                     pipelineBuilder._vkShaderStageCreateInfos.push_back(
-                         vkinit::pipelineShaderStageCreateInfo(
-                             VK_SHADER_STAGE_VERTEX_BIT,
-                             vertexShaderModule.vkShaderModule));
+    VkShader& fragmentShaderModule =
+        _shaderModules.at(uploadMaterial.fragmentShaderId);
+    ++fragmentShaderModule.resource.refCount;
+    newMaterial.fragmentShaderResourceDependencyId =
+        fragmentShaderModule.resource.id;
 
-                     VkShader& fragmentShaderModule =
-                         _shaderModules.at(uploadMaterial.fragmentShaderId);
-                     ++fragmentShaderModule.resource.refCount;
-                     newMaterial.fragmentShaderResourceDependencyId =
-                         fragmentShaderModule.resource.id;
+    newMaterial.vkPipelineLayout = pipelineBuilder._vkPipelineLayout;
 
-                     pipelineBuilder._vkShaderStageCreateInfos.push_back(
-                         vkinit::pipelineShaderStageCreateInfo(
-                             VK_SHADER_STAGE_FRAGMENT_BIT,
-                             fragmentShaderModule.vkShaderModule));
+    pipelineBuilder._vkDepthStencilStateCreateInfo =
+        vkinit::
+            depthStencilStateCreateInfo(true,
+                                        _sampleCount != VK_SAMPLE_COUNT_1_BIT /*we don't reuse depth in case of multisampling*/);
 
-                     newMaterial.vkPipelineLayout =
-                         pipelineBuilder._vkPipelineLayout;
+    for (std::size_t i = 0; i < rhi::ShaderPermutationRHI::count; ++i) {
+      if (vertexShaderModule.permutations[i] == VK_NULL_HANDLE ||
+          fragmentShaderModule.permutations[i] == VK_NULL_HANDLE) {
+        continue;
+      }
 
-                     pipelineBuilder._vkDepthStencilStateCreateInfo =
-                         vkinit::
-                             depthStencilStateCreateInfo(
-                                 true, _sampleCount != VK_SAMPLE_COUNT_1_BIT /*we don't reuse depth in case of multisampling*/);
-                     newMaterial.vkPipelineMainRenderPass =
-                         pipelineBuilder.buildPipeline(_vkDevice,
-                                                       _mainRenderPass);
+      pipelineBuilder._vertexInputDescription =
+          getVertexInputDescriptionForPermutation(
+              static_cast<rhi::ShaderPermutationRHI::Type>(i),
+              uploadMaterial.materialType == core::MaterialType::pbr);
 
-                     setDbgResourceName(
-                         _vkDevice,
-                         (std::uint64_t)newMaterial.vkPipelineMainRenderPass,
+      pipelineBuilder._vkShaderStageCreateInfos.clear();
+      pipelineBuilder._vkShaderStageCreateInfos.push_back(
+          vkinit::pipelineShaderStageCreateInfo(
+              VK_SHADER_STAGE_VERTEX_BIT, vertexShaderModule.permutations[i]));
+
+      pipelineBuilder._vkShaderStageCreateInfos.push_back(
+          vkinit::pipelineShaderStageCreateInfo(
+              VK_SHADER_STAGE_FRAGMENT_BIT,
+              fragmentShaderModule.permutations[i]));
+
+      newMaterial.vkPipelineMainRenderPass[i] =
+          pipelineBuilder.buildPipeline(_vkDevice, _mainRenderPass);
+
+      setDbgResourceName(_vkDevice,
+                         (std::uint64_t)newMaterial.vkPipelineMainRenderPass[i],
                          VK_OBJECT_TYPE_PIPELINE, uploadMaterial.debugName,
                          "Reuse depth pipeline");
 
-                     pipelineBuilder._vkDepthStencilStateCreateInfo =
-                         vkinit::depthStencilStateCreateInfo(true, true);
-                     pipelineBuilder._vkRasterizationCreateInfo.frontFace =
-                         VK_FRONT_FACE_CLOCKWISE;
-                     newMaterial.vkPipelineEnvironmentRendering =
-                         pipelineBuilder.buildPipeline(_vkDevice,
-                                                       _envMapRenderPass);
-                     pipelineBuilder._vkRasterizationCreateInfo.frontFace =
-                         VK_FRONT_FACE_COUNTER_CLOCKWISE;
+      pipelineBuilder._vkDepthStencilStateCreateInfo =
+          vkinit::depthStencilStateCreateInfo(true, true);
+      pipelineBuilder._vkRasterizationCreateInfo.frontFace =
+          VK_FRONT_FACE_CLOCKWISE;
+      newMaterial.vkPipelineEnvironmentRendering[i] =
+          pipelineBuilder.buildPipeline(_vkDevice, _envMapRenderPass);
+      pipelineBuilder._vkRasterizationCreateInfo.frontFace =
+          VK_FRONT_FACE_COUNTER_CLOCKWISE;
 
-                     setDbgResourceName(
-                         _vkDevice,
-                         (std::uint64_t)
-                             newMaterial.vkPipelineEnvironmentRendering,
-                         VK_OBJECT_TYPE_PIPELINE, uploadMaterial.debugName,
-                         "Environment rendering pipeline");
+      setDbgResourceName(
+          _vkDevice,
+          (std::uint64_t)newMaterial.vkPipelineEnvironmentRendering[i],
+          VK_OBJECT_TYPE_PIPELINE, uploadMaterial.debugName,
+          "Environment rendering pipeline");
+    }
 
-                     newMaterial.transparent = uploadMaterial.transparent;
+    newMaterial.transparent = uploadMaterial.transparent;
 
-                     DescriptorBuilder descriptorBuilder =
-                         DescriptorBuilder::begin(_vkDevice,
-                                                  _descriptorAllocator,
-                                                  _descriptorLayoutCache);
+    DescriptorBuilder descriptorBuilder = DescriptorBuilder::begin(
+        _vkDevice, _descriptorAllocator, _descriptorLayoutCache);
 
-                     VkDescriptorBufferInfo materialDataBufferInfo;
+    VkDescriptorBufferInfo materialDataBufferInfo;
 
-                     if (uploadMaterial.materialType ==
-                         core::MaterialType::lit) {
-                       rhi::UploadLitMaterialRHI const& uploadLitMaterial =
-                           std::get<rhi::UploadLitMaterialRHI>(
-                               uploadMaterial.uploadMaterialSubtype);
+    if (uploadMaterial.materialType == core::MaterialType::lit) {
+      rhi::UploadLitMaterialRHI const& uploadLitMaterial =
+          std::get<rhi::UploadLitMaterialRHI>(
+              uploadMaterial.uploadMaterialSubtype);
 
-                       newMaterial.reflection = uploadLitMaterial.reflection;
+      newMaterial.reflection = uploadLitMaterial.reflection;
 
-                       GPULitMaterialData materialData;
-                       materialData.hasDiffuseTex =
-                           uploadLitMaterial.diffuseTextureId !=
-                           rhi::rhiIdUninitialized;
-                       materialData.hasNormalMap =
-                           uploadLitMaterial.normalTextureId !=
-                           rhi::rhiIdUninitialized;
-                       materialData.reflection = uploadLitMaterial.reflection;
-                       materialData.ambientColor =
-                           uploadLitMaterial.ambientColor;
-                       materialData.diffuseColor =
-                           uploadLitMaterial.diffuseColor;
-                       materialData.specularColor =
-                           uploadLitMaterial.specularColor;
-                       materialData.shininess = uploadLitMaterial.shininess;
+      GPULitMaterialData materialData;
+      materialData.hasDiffuseTex =
+          uploadLitMaterial.diffuseTextureId != rhi::rhiIdUninitialized;
+      materialData.hasNormalMap =
+          uploadLitMaterial.normalTextureId != rhi::rhiIdUninitialized;
+      materialData.reflection = uploadLitMaterial.reflection;
+      materialData.ambientColor = uploadLitMaterial.ambientColor;
+      materialData.diffuseColor = uploadLitMaterial.diffuseColor;
+      materialData.specularColor = uploadLitMaterial.specularColor;
+      materialData.shininess = uploadLitMaterial.shininess;
 
-                       createAndBindMaterialDataBuffer(materialData,
-                                                       descriptorBuilder,
-                                                       materialDataBufferInfo);
+      createAndBindMaterialDataBuffer(materialData, descriptorBuilder,
+                                      materialDataBufferInfo);
 
-                       bool const hasDiffuseTex =
-                           uploadLitMaterial.diffuseTextureId !=
-                           rhi::rhiIdUninitialized;
+      bool const hasDiffuseTex =
+          uploadLitMaterial.diffuseTextureId != rhi::rhiIdUninitialized;
 
-                       if (hasDiffuseTex) {
-                         Texture& diffuseTexture =
-                             _textures[uploadLitMaterial.diffuseTextureId];
+      if (hasDiffuseTex) {
+        Texture& diffuseTexture = _textures[uploadLitMaterial.diffuseTextureId];
 
-                         ++diffuseTexture.resource.refCount;
-                         newMaterial.textureResourceDependencyIds.push_back(
-                             diffuseTexture.resource.id);
+        ++diffuseTexture.resource.refCount;
+        newMaterial.textureResourceDependencyIds.push_back(
+            diffuseTexture.resource.id);
 
-                         VkDescriptorImageInfo diffuseTexImageInfo;
-                         diffuseTexImageInfo.imageLayout =
-                             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-                         diffuseTexImageInfo.imageView =
-                             diffuseTexture.imageView;
-                         diffuseTexImageInfo.sampler = _vkLinearRepeatSampler;
+        VkDescriptorImageInfo diffuseTexImageInfo;
+        diffuseTexImageInfo.imageLayout =
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        diffuseTexImageInfo.imageView = diffuseTexture.imageView;
+        diffuseTexImageInfo.sampler = _vkLinearRepeatSampler;
 
-                         descriptorBuilder.bindImage(
-                             1, diffuseTexImageInfo,
-                             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                             VK_SHADER_STAGE_FRAGMENT_BIT, nullptr, true);
-                       } else {
-                         descriptorBuilder.declareUnusedImage(
-                             1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                             VK_SHADER_STAGE_FRAGMENT_BIT);
-                       }
+        descriptorBuilder.bindImage(
+            1, diffuseTexImageInfo, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            VK_SHADER_STAGE_FRAGMENT_BIT, nullptr, true);
+      } else {
+        descriptorBuilder.declareUnusedImage(
+            1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            VK_SHADER_STAGE_FRAGMENT_BIT);
+      }
 
-                       bool const hasNormalMap =
-                           uploadLitMaterial.normalTextureId !=
-                           rhi::rhiIdUninitialized;
+      bool const hasNormalMap =
+          uploadLitMaterial.normalTextureId != rhi::rhiIdUninitialized;
 
-                       if (hasNormalMap) {
-                         VkDescriptorImageInfo normalMapTexImageInfo;
-                         normalMapTexImageInfo.imageLayout =
-                             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-                         normalMapTexImageInfo.sampler = _vkLinearRepeatSampler;
-                         Texture& normalMapTexture =
-                             _textures[uploadLitMaterial.normalTextureId];
+      if (hasNormalMap) {
+        VkDescriptorImageInfo normalMapTexImageInfo;
+        normalMapTexImageInfo.imageLayout =
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        normalMapTexImageInfo.sampler = _vkLinearRepeatSampler;
+        Texture& normalMapTexture =
+            _textures[uploadLitMaterial.normalTextureId];
 
-                         ++normalMapTexture.resource.refCount;
-                         newMaterial.textureResourceDependencyIds.push_back(
-                             normalMapTexture.resource.id);
+        ++normalMapTexture.resource.refCount;
+        newMaterial.textureResourceDependencyIds.push_back(
+            normalMapTexture.resource.id);
 
-                         normalMapTexImageInfo.imageView =
-                             normalMapTexture.imageView;
+        normalMapTexImageInfo.imageView = normalMapTexture.imageView;
 
-                         descriptorBuilder.bindImage(
-                             2, normalMapTexImageInfo,
-                             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                             VK_SHADER_STAGE_FRAGMENT_BIT, nullptr, true);
-                       } else {
-                         descriptorBuilder.declareUnusedImage(
-                             2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                             VK_SHADER_STAGE_FRAGMENT_BIT);
-                       }
-                     } else if (uploadMaterial.materialType ==
-                                core::MaterialType::unlit) {
-                       rhi::UploadUnlitMaterialRHI const& uploadUnlitMaterial =
-                           std::get<rhi::UploadUnlitMaterialRHI>(
-                               uploadMaterial.uploadMaterialSubtype);
-                       GPUUnlitMaterialData materialData;
-                       materialData.hasColorTex =
-                           uploadUnlitMaterial.colorTextureId !=
-                           rhi::rhiIdUninitialized;
-                       materialData.color = uploadUnlitMaterial.color;
+        descriptorBuilder.bindImage(
+            2, normalMapTexImageInfo, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            VK_SHADER_STAGE_FRAGMENT_BIT, nullptr, true);
+      } else {
+        descriptorBuilder.declareUnusedImage(
+            2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            VK_SHADER_STAGE_FRAGMENT_BIT);
+      }
+    } else if (uploadMaterial.materialType == core::MaterialType::unlit) {
+      rhi::UploadUnlitMaterialRHI const& uploadUnlitMaterial =
+          std::get<rhi::UploadUnlitMaterialRHI>(
+              uploadMaterial.uploadMaterialSubtype);
+      GPUUnlitMaterialData materialData;
+      materialData.hasColorTex =
+          uploadUnlitMaterial.colorTextureId != rhi::rhiIdUninitialized;
+      materialData.color = uploadUnlitMaterial.color;
 
-                       createAndBindMaterialDataBuffer(materialData,
-                                                       descriptorBuilder,
-                                                       materialDataBufferInfo);
+      createAndBindMaterialDataBuffer(materialData, descriptorBuilder,
+                                      materialDataBufferInfo);
 
-                       bool const hasColorTex =
-                           uploadUnlitMaterial.colorTextureId !=
-                           rhi::rhiIdUninitialized;
-                       if (hasColorTex) {
-                         Texture& colorTexture =
-                             _textures[uploadUnlitMaterial.colorTextureId];
+      bool const hasColorTex =
+          uploadUnlitMaterial.colorTextureId != rhi::rhiIdUninitialized;
+      if (hasColorTex) {
+        Texture& colorTexture = _textures[uploadUnlitMaterial.colorTextureId];
 
-                         ++colorTexture.resource.refCount;
-                         newMaterial.textureResourceDependencyIds.push_back(
-                             colorTexture.resource.id);
+        ++colorTexture.resource.refCount;
+        newMaterial.textureResourceDependencyIds.push_back(
+            colorTexture.resource.id);
 
-                         VkDescriptorImageInfo colorTexImageInfo;
-                         colorTexImageInfo.imageLayout =
-                             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-                         colorTexImageInfo.imageView = colorTexture.imageView;
-                         colorTexImageInfo.sampler = _vkLinearRepeatSampler;
+        VkDescriptorImageInfo colorTexImageInfo;
+        colorTexImageInfo.imageLayout =
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        colorTexImageInfo.imageView = colorTexture.imageView;
+        colorTexImageInfo.sampler = _vkLinearRepeatSampler;
 
-                         descriptorBuilder.bindImage(
-                             1, colorTexImageInfo,
-                             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                             VK_SHADER_STAGE_FRAGMENT_BIT, nullptr, true);
-                       } else {
-                         descriptorBuilder.declareUnusedImage(
-                             1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                             VK_SHADER_STAGE_FRAGMENT_BIT);
-                       }
-                     } else if (uploadMaterial.materialType ==
-                                core::MaterialType::pbr) {
-                       rhi::UploadPBRMaterialRHI const& uploadPbrMaterial =
-                           std::get<rhi::UploadPBRMaterialRHI>(
-                               uploadMaterial.uploadMaterialSubtype);
+        descriptorBuilder.bindImage(
+            1, colorTexImageInfo, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            VK_SHADER_STAGE_FRAGMENT_BIT, nullptr, true);
+      } else {
+        descriptorBuilder.declareUnusedImage(
+            1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            VK_SHADER_STAGE_FRAGMENT_BIT);
+      }
+    } else if (uploadMaterial.materialType == core::MaterialType::pbr) {
+      rhi::UploadPBRMaterialRHI const& uploadPbrMaterial =
+          std::get<rhi::UploadPBRMaterialRHI>(
+              uploadMaterial.uploadMaterialSubtype);
 
-                       GPUPbrMaterialData pbrMaterialData;
-                       pbrMaterialData.metalnessAndRoughnessSeparate =
-                           uploadPbrMaterial.roughnessTextureId !=
-                           rhi::rhiIdUninitialized;
+      GPUPbrMaterialData pbrMaterialData;
+      pbrMaterialData.metalnessAndRoughnessSeparate =
+          uploadPbrMaterial.roughnessTextureId != rhi::rhiIdUninitialized;
 
-                       createAndBindMaterialDataBuffer(pbrMaterialData,
-                                                       descriptorBuilder,
-                                                       materialDataBufferInfo);
+      createAndBindMaterialDataBuffer(pbrMaterialData, descriptorBuilder,
+                                      materialDataBufferInfo);
 
-                       Texture& albedoTexture =
-                           _textures[uploadPbrMaterial.albedoTextureId];
+      Texture& albedoTexture = _textures[uploadPbrMaterial.albedoTextureId];
 
-                       ++albedoTexture.resource.refCount;
-                       newMaterial.textureResourceDependencyIds.push_back(
-                           albedoTexture.resource.id);
+      ++albedoTexture.resource.refCount;
+      newMaterial.textureResourceDependencyIds.push_back(
+          albedoTexture.resource.id);
 
-                       VkDescriptorImageInfo albedoTexImageInfo;
-                       albedoTexImageInfo.imageLayout =
-                           VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-                       albedoTexImageInfo.imageView = albedoTexture.imageView;
-                       albedoTexImageInfo.sampler = _vkLinearRepeatSampler;
+      VkDescriptorImageInfo albedoTexImageInfo;
+      albedoTexImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+      albedoTexImageInfo.imageView = albedoTexture.imageView;
+      albedoTexImageInfo.sampler = _vkLinearRepeatSampler;
 
-                       descriptorBuilder.bindImage(
-                           1, albedoTexImageInfo,
-                           VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                           VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
+      descriptorBuilder.bindImage(1, albedoTexImageInfo,
+                                  VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                  VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
 
-                       Texture& normalTexture =
-                           _textures[uploadPbrMaterial.normalTextureId];
+      Texture& normalTexture = _textures[uploadPbrMaterial.normalTextureId];
 
-                       ++normalTexture.resource.refCount;
-                       newMaterial.textureResourceDependencyIds.push_back(
-                           normalTexture.resource.id);
+      ++normalTexture.resource.refCount;
+      newMaterial.textureResourceDependencyIds.push_back(
+          normalTexture.resource.id);
 
-                       VkDescriptorImageInfo normalTexImageInfo;
-                       normalTexImageInfo.imageLayout =
-                           VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-                       normalTexImageInfo.imageView = normalTexture.imageView;
-                       normalTexImageInfo.sampler = _vkLinearRepeatSampler;
+      VkDescriptorImageInfo normalTexImageInfo;
+      normalTexImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+      normalTexImageInfo.imageView = normalTexture.imageView;
+      normalTexImageInfo.sampler = _vkLinearRepeatSampler;
 
-                       descriptorBuilder.bindImage(
-                           2, normalTexImageInfo,
-                           VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                           VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
+      descriptorBuilder.bindImage(2, normalTexImageInfo,
+                                  VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                  VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
 
-                       Texture& metalnessTexture =
-                           _textures[uploadPbrMaterial.metalnessTextureId];
+      Texture& metalnessTexture =
+          _textures[uploadPbrMaterial.metalnessTextureId];
 
-                       ++metalnessTexture.resource.refCount;
-                       newMaterial.textureResourceDependencyIds.push_back(
-                           metalnessTexture.resource.id);
+      ++metalnessTexture.resource.refCount;
+      newMaterial.textureResourceDependencyIds.push_back(
+          metalnessTexture.resource.id);
 
-                       VkDescriptorImageInfo metalnessTexImageInfo;
-                       metalnessTexImageInfo.imageLayout =
-                           VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-                       metalnessTexImageInfo.imageView =
-                           metalnessTexture.imageView;
-                       metalnessTexImageInfo.sampler = _vkLinearRepeatSampler;
+      VkDescriptorImageInfo metalnessTexImageInfo;
+      metalnessTexImageInfo.imageLayout =
+          VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+      metalnessTexImageInfo.imageView = metalnessTexture.imageView;
+      metalnessTexImageInfo.sampler = _vkLinearRepeatSampler;
 
-                       descriptorBuilder.bindImage(
-                           3, metalnessTexImageInfo,
-                           VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                           VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
+      descriptorBuilder.bindImage(3, metalnessTexImageInfo,
+                                  VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                  VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
 
-                       if (pbrMaterialData.metalnessAndRoughnessSeparate) {
-                         Texture& roughnessTexture =
-                             _textures[uploadPbrMaterial.roughnessTextureId];
+      if (pbrMaterialData.metalnessAndRoughnessSeparate) {
+        Texture& roughnessTexture =
+            _textures[uploadPbrMaterial.roughnessTextureId];
 
-                         ++roughnessTexture.resource.refCount;
-                         newMaterial.textureResourceDependencyIds.push_back(
-                             roughnessTexture.resource.id);
+        ++roughnessTexture.resource.refCount;
+        newMaterial.textureResourceDependencyIds.push_back(
+            roughnessTexture.resource.id);
 
-                         VkDescriptorImageInfo roughnessTexImageInfo;
-                         roughnessTexImageInfo.imageLayout =
-                             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-                         roughnessTexImageInfo.imageView =
-                             metalnessTexture.imageView;
-                         roughnessTexImageInfo.sampler = _vkLinearRepeatSampler;
+        VkDescriptorImageInfo roughnessTexImageInfo;
+        roughnessTexImageInfo.imageLayout =
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        roughnessTexImageInfo.imageView = metalnessTexture.imageView;
+        roughnessTexImageInfo.sampler = _vkLinearRepeatSampler;
 
-                         descriptorBuilder.bindImage(
-                             4, roughnessTexImageInfo,
-                             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                             VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
-                       } else {
-                         descriptorBuilder.declareUnusedImage(
-                             4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                             VK_SHADER_STAGE_FRAGMENT_BIT);
-                       }
-                     }
+        descriptorBuilder.bindImage(4, roughnessTexImageInfo,
+                                    VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                    VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
+      } else {
+        descriptorBuilder.declareUnusedImage(
+            4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            VK_SHADER_STAGE_FRAGMENT_BIT);
+      }
+    }
 
-                     if (uploadMaterial.hasTimer) {
-                       VkDescriptorBufferInfo bufferInfo = {};
-                       bufferInfo.buffer = _timerBuffer.buffer;
-                       bufferInfo.offset = 0;
-                       bufferInfo.range = VK_WHOLE_SIZE;
-                       descriptorBuilder.bindBuffer(
-                           10, bufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                           VK_SHADER_STAGE_FRAGMENT_BIT, nullptr, true);
-                     } else {
-                       descriptorBuilder.declareUnusedBuffer(
-                           10, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                           VK_SHADER_STAGE_FRAGMENT_BIT);
-                     }
+    if (uploadMaterial.hasTimer) {
+      VkDescriptorBufferInfo bufferInfo = {};
+      bufferInfo.buffer = _timerBuffer.buffer;
+      bufferInfo.offset = 0;
+      bufferInfo.range = VK_WHOLE_SIZE;
+      descriptorBuilder.bindBuffer(10, bufferInfo,
+                                   VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                                   VK_SHADER_STAGE_FRAGMENT_BIT, nullptr, true);
+    } else {
+      descriptorBuilder.declareUnusedBuffer(
+          10, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    }
 
-                     if (!descriptorBuilder.build(
-                             newMaterial.vkDescriptorSet)) {
-                       OBS_LOG_ERR("Failed to build descriptor set when "
-                                   "uploading material");
-                       newMaterial.resource.state = rhi::ResourceState::invalid;
-                     } else {
-                       rhi::ResourceState expected =
-                           rhi::ResourceState::uploading;
+    if (!descriptorBuilder.build(newMaterial.vkDescriptorSet)) {
+      OBS_LOG_ERR("Failed to build descriptor set when "
+                  "uploading material");
+      newMaterial.resource.state = rhi::ResourceState::invalid;
+    } else {
+      rhi::ResourceState expected = rhi::ResourceState::uploading;
 
-                       if (!newMaterial.resource.state.compare_exchange_strong(
-                               expected, rhi::ResourceState::uploaded)) {
-                         assert(false && "Material resource in invalid state");
-                       }
-                     }
-                   })};
+      if (!newMaterial.resource.state.compare_exchange_strong(
+              expected, rhi::ResourceState::uploaded)) {
+        assert(false && "Material resource in invalid state");
+      }
+    }
+  };
+
+  return rhi::ResourceTransferRHI{_taskExecutor.enqueue(
+      task::TaskType::rhiTransfer, std::move(uploadShaderFunc))};
 }
 
 void VulkanRHI::releaseMaterial(rhi::ResourceIdRHI resourceIdRHI) {
@@ -837,12 +763,15 @@ void VulkanRHI::destroyUnusedResources(bool forceDestroy) {
     if (forceDestroy || matEntry.lastUsedFrame <= lastRenderedFrame) {
       VkMaterial& mat = _materials.at(matEntry.id);
 
-      if (mat.vkPipelineMainRenderPass) {
-        vkDestroyPipeline(_vkDevice, mat.vkPipelineMainRenderPass, nullptr);
-      }
-      if (mat.vkPipelineEnvironmentRendering) {
-        vkDestroyPipeline(_vkDevice, mat.vkPipelineEnvironmentRendering,
-                          nullptr);
+      for (std::size_t i = 0; i < mat.vkPipelineMainRenderPass.size(); ++i) {
+        if (mat.vkPipelineMainRenderPass[i]) {
+          vkDestroyPipeline(_vkDevice, mat.vkPipelineMainRenderPass[i],
+                            nullptr);
+        }
+        if (mat.vkPipelineEnvironmentRendering[i]) {
+          vkDestroyPipeline(_vkDevice, mat.vkPipelineEnvironmentRendering[i],
+                            nullptr);
+        }
       }
 
       _materials.erase(matEntry.id);
@@ -871,19 +800,10 @@ void VulkanRHI::destroyUnusedResources(bool forceDestroy) {
        toDestroy.shadersToDestroy) {
     if (forceDestroy || shaderEntry.lastUsedFrame <= lastRenderedFrame) {
       VkShader& shader = _shaderModules.at(shaderEntry.id);
-      vkDestroyShaderModule(_vkDevice, shader.baseModule, nullptr);
-
-      if (shader.vertexNormalModule != VK_NULL_HANDLE) {
-        vkDestroyShaderModule(_vkDevice, shader.vertexNormalModule, nullptr);
-      }
-
-      if (shader.vertexNormalColorModule != VK_NULL_HANDLE) {
-        vkDestroyShaderModule(_vkDevice, shader.vertexNormalColorModule,
-                              nullptr);
-      }
-
-      if (shader.vertexNormalUVModule != VK_NULL_HANDLE) {
-        vkDestroyShaderModule(_vkDevice, shader.vertexNormalUVModule, nullptr);
+      for (std::size_t i = 0; i < shader.permutations.size(); ++i) {
+        if (shader.permutations[i] != VK_NULL_HANDLE) {
+          vkDestroyShaderModule(_vkDevice, shader.permutations[i], nullptr);
+        }
       }
 
       _shaderModules.erase(shaderEntry.id);

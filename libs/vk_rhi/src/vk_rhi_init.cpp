@@ -768,6 +768,8 @@ void VulkanRHI::initDepthPassPipelineLayout() {
 void VulkanRHI::initShadowPassPipeline() {
   PipelineBuilder pipelineBuilder;
 
+  pipelineBuilder._vertexInputDescription = getVertexInputDescription();
+
   pipelineBuilder._vkInputAssemblyCreateInfo =
       vkinit::inputAssemblyCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 
@@ -789,13 +791,15 @@ void VulkanRHI::initShadowPassPipeline() {
                                        shadowPassAttachmentHeight};
 
   VkShaderModule const vertexShaderModule =
-      _shaderModules[_depthPassVertexShaderId].baseModule;
+      _shaderModules[_depthPassVertexShaderId]
+          .permutations[rhi::ShaderPermutationRHI::base];
   pipelineBuilder._vkShaderStageCreateInfos.push_back(
       vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT,
                                             vertexShaderModule));
 
   VkShaderModule const fragmentShaderModule =
-      _shaderModules[_depthPassFragmentShaderId].baseModule;
+      _shaderModules[_depthPassFragmentShaderId]
+          .permutations[rhi::ShaderPermutationRHI::base];
   pipelineBuilder._vkShaderStageCreateInfos.push_back(
       vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT,
                                             fragmentShaderModule));
@@ -815,6 +819,8 @@ void VulkanRHI::initShadowPassPipeline() {
 void VulkanRHI::initDepthPrepassPipeline() {
   PipelineBuilder pipelineBuilder;
 
+  pipelineBuilder._vertexInputDescription = getVertexInputDescription();
+
   pipelineBuilder._vkInputAssemblyCreateInfo =
       vkinit::inputAssemblyCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 
@@ -828,13 +834,15 @@ void VulkanRHI::initDepthPrepassPipeline() {
   pipelineBuilder._vkDynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
 
   VkShaderModule const vertexShaderModule =
-      _shaderModules[_depthPassVertexShaderId].baseModule;
+      _shaderModules[_depthPassVertexShaderId]
+          .permutations[rhi::ShaderPermutationRHI::base];
   pipelineBuilder._vkShaderStageCreateInfos.push_back(
       vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT,
                                             vertexShaderModule));
 
   VkShaderModule const fragmentShaderModule =
-      _shaderModules[_depthPassFragmentShaderId].baseModule;
+      _shaderModules[_depthPassFragmentShaderId]
+          .permutations[rhi::ShaderPermutationRHI::base];
   pipelineBuilder._vkShaderStageCreateInfos.push_back(
       vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT,
                                             fragmentShaderModule));
@@ -857,16 +865,21 @@ void VulkanRHI::initDepthPrepassPipeline() {
 void VulkanRHI::initSsaoPipeline() {
   PipelineBuilder pipelineBuilder = {};
 
+  pipelineBuilder._vertexInputDescription =
+      getVertexInputDescription(true, true, false, true);
+
   pipelineBuilder._vkShaderStageCreateInfos.reserve(2);
 
   VkShaderModule const ssaoVertexShaderModule =
-      _shaderModules[_ssaoVertexShaderId].baseModule;
+      _shaderModules[_ssaoVertexShaderId]
+          .permutations[rhi::ShaderPermutationRHI::base];
   pipelineBuilder._vkShaderStageCreateInfos.push_back(
       vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT,
                                             ssaoVertexShaderModule));
 
   VkShaderModule const ssaoFragmentShaderModule =
-      _shaderModules[_ssaoFragmentShaderId].baseModule;
+      _shaderModules[_ssaoFragmentShaderId]
+          .permutations[rhi::ShaderPermutationRHI::base];
   pipelineBuilder._vkShaderStageCreateInfos.push_back(
       vkinit::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT,
                                             ssaoFragmentShaderModule));
@@ -927,14 +940,31 @@ void VulkanRHI::initSsaoPipeline() {
 void VulkanRHI::initSsaoPostProcessingPipeline() {
   PipelineBuilder pipelineBuilder = {};
 
+  VkVertexInputBindingDescription& bindingDescr =
+      pipelineBuilder._vertexInputDescription.bindings.emplace_back();
+  bindingDescr = {};
+  bindingDescr.binding = 0;
+  bindingDescr.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+  bindingDescr.stride = sizeof(glm::vec2);
+
+  VkVertexInputAttributeDescription& attrDescr =
+      pipelineBuilder._vertexInputDescription.attributes.emplace_back();
+  attrDescr = {};
+  attrDescr.location = 0;
+  attrDescr.binding = 0;
+  attrDescr.format = VK_FORMAT_R32G32_SFLOAT;
+  attrDescr.offset = 0;
+
   pipelineBuilder._vkShaderStageCreateInfos.push_back(
       vkinit::pipelineShaderStageCreateInfo(
           VK_SHADER_STAGE_VERTEX_BIT,
-          _shaderModules[_postProcessingVertexShaderId].baseModule));
+          _shaderModules[_postProcessingVertexShaderId]
+              .permutations[rhi::ShaderPermutationRHI::base]));
   pipelineBuilder._vkShaderStageCreateInfos.push_back(
       vkinit::pipelineShaderStageCreateInfo(
           VK_SHADER_STAGE_FRAGMENT_BIT,
-          _shaderModules[_postProcessingFragmentShaderId].baseModule));
+          _shaderModules[_postProcessingFragmentShaderId]
+              .permutations[rhi::ShaderPermutationRHI::base]));
 
   pipelineBuilder._vkInputAssemblyCreateInfo =
       vkinit::inputAssemblyCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);

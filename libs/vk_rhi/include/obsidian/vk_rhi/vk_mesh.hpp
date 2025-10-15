@@ -11,22 +11,6 @@
 
 namespace obsidian::vk_rhi {
 
-struct VertexPropertiesSpec {
-  glm::vec3 position;
-  glm::vec3 normal;
-  glm::vec3 color;
-  glm::vec2 uv;
-  glm::vec3 tangent;
-};
-
-struct VertexInputSpec {
-  bool bindPosition = true;
-  bool bindNormals = true;
-  bool bindColors = true;
-  bool bindUV = true;
-  bool bindTangents = true;
-};
-
 struct VkMesh {
   VkDeviceSize vertexCount;
   AllocatedBuffer vertexBuffer;
@@ -40,7 +24,9 @@ struct VkMesh {
   bool hasTangents;
   core::Box3D aabb;
 
-  VertexInputDescription getVertexInputDescription(
+  rhi::ShaderPermutationRHI::Type getAttributePermutation() const;
+
+  VkVertexInputDescription getVertexInputDescription(
       VertexInputSpec inputSpec = VertexInputSpec()) const;
 };
 

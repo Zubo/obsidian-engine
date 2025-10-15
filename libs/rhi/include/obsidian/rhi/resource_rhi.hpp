@@ -49,11 +49,18 @@ struct UploadMeshRHI {
   char const* debugName = nullptr;
 };
 
+struct ShaderPermutationRHI {
+  enum Type {
+    base, // has position, normals, color and UV
+    vertexNormal,
+    vertexNormalColor,
+    vertexNormalUV,
+    count
+  };
+};
+
 struct UploadShaderRHI {
-  std::vector<std::uint32_t> baseCode;
-  std::vector<std::uint32_t> vertexNormalCode;
-  std::vector<std::uint32_t> vertexNormalColorCode;
-  std::vector<std::uint32_t> vertexNormalUVCode;
+  std::array<std::vector<char>, ShaderPermutationRHI::count> code = {};
   char const* debugName = nullptr;
   bool vertexInputVariants = false;
 };

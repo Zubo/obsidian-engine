@@ -12,6 +12,7 @@ class RenderPass;
 
 class PipelineBuilder {
 public:
+  VkVertexInputDescription _vertexInputDescription;
   std::vector<VkPipelineShaderStageCreateInfo> _vkShaderStageCreateInfos;
   VkPipelineInputAssemblyStateCreateInfo _vkInputAssemblyCreateInfo;
   VkPipelineDepthStencilStateCreateInfo _vkDepthStencilStateCreateInfo;
@@ -21,7 +22,6 @@ public:
   VkPipelineColorBlendAttachmentState _vkColorBlendAttachmentState;
   VkPipelineMultisampleStateCreateInfo _vkMultisampleStateCreateInfo;
   VkPipelineLayout _vkPipelineLayout;
-  VertexInputDescription _vertexInputDescription;
   std::vector<VkDynamicState> _vkDynamicStates;
 
   VkPipeline buildPipeline(VkDevice device, RenderPass const& pass);
