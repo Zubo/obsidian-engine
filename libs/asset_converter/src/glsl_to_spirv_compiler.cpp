@@ -95,7 +95,7 @@ bool GLSLToSpirvCompiler::compileShader(
   shader.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_5);
 
   DirStackFileIncluder includer;
-  includer.pushExternalLocalDirectory(shaderDir);
+  includer.pushExternalLocalDirectory(shaderDir.string());
 
   if (!shader.parse(GetDefaultResources(), 0, false, EShMsgDefault, includer)) {
     OBS_LOG_ERR(getErrOutput(shader.getInfoLog(), shader.getInfoDebugLog()));

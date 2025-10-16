@@ -6,6 +6,7 @@
 
 #include <glm/glm.hpp>
 
+#include <array>
 #include <atomic>
 #include <cstdint>
 #include <functional>

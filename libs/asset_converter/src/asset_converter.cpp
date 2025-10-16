@@ -591,7 +591,7 @@ bool AssetConverter::convertShaderToAsset(fs::path const& srcPath,
                                           fs::path const& dstPath) {
   static thread_local GLSLToSpirvCompiler compiler;
 
-  std::ifstream file{srcPath, std::ios::ate};
+  std::ifstream file{srcPath, std::ios::binary | std::ios::ate};
 
   if (!file.is_open()) {
     return false;
@@ -625,9 +625,9 @@ bool AssetConverter::convertShaderToAsset(fs::path const& srcPath,
 
   std::vector<char> compiledCode;
   std::vector<std::uint32_t> compilationBuffer;
-  compiler.compileShader(buffer, srcPath.filename(), shaderAssetInfo.shaderType,
-                         {permutationDefines}, srcPath.parent_path(),
-                         compilationBuffer);
+  compiler.compileShader(buffer, srcPath.filename().string(),
+                         shaderAssetInfo.shaderType, {permutationDefines},
+                         srcPath.parent_path(), compilationBuffer);
 
   std::size_t totalSize =
       compilationBuffer.size() * sizeof(compilationBuffer[0]);
@@ -640,7 +640,7 @@ bool AssetConverter::convertShaderToAsset(fs::path const& srcPath,
     permutationInfo.baseSize = totalSize;
 
     // position and normal version
-    compiler.compileShader(buffer, srcPath.filename(),
+    compiler.compileShader(buffer, srcPath.filename().string(),
                            shaderAssetInfo.shaderType, {},
                            srcPath.parent_path(), compilationBuffer);
 
@@ -653,7 +653,7 @@ bool AssetConverter::convertShaderToAsset(fs::path const& srcPath,
 
     // position, normal, color
     compiler.compileShader(
-        buffer, srcPath.filename(), shaderAssetInfo.shaderType,
+        buffer, srcPath.filename().string(), shaderAssetInfo.shaderType,
         {&permutationDefines[0], 1}, srcPath.parent_path(), compilationBuffer);
 
     permutationInfo.vertexNormalColorSize =
@@ -666,7 +666,7 @@ bool AssetConverter::convertShaderToAsset(fs::path const& srcPath,
 
     // position, normal, uv
     compiler.compileShader(
-        buffer, srcPath.filename(), shaderAssetInfo.shaderType,
+        buffer, srcPath.filename().string(), shaderAssetInfo.shaderType,
         {&permutationDefines[1], 1}, srcPath.parent_path(), compilationBuffer);
 
     permutationInfo.vertexNormalUVSize =

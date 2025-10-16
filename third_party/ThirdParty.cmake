@@ -75,6 +75,10 @@ FetchContent_Declare(fetch_spirv_tools
 
 FetchContent_MakeAvailable(fetch_spirv_tools)
 
+if (MSVC)
+    target_compile_definitions(${SPIRV_TOOLS} PRIVATE _CRT_SECURE_NO_WARNINGS)
+endif()
+
 FetchContent_Declare(fetch_glslang
     GIT_REPOSITORY https://github.com/KhronosGroup/glslang.git
     GIT_TAG vulkan-sdk-1.4.321.0
