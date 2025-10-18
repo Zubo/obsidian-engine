@@ -599,7 +599,7 @@ bool AssetConverter::convertShaderToAsset(fs::path const& srcPath,
 
   file.seekg(0);
 
-  file.read(reinterpret_cast<char*>(buffer.data()), fileSize);
+  file.read(buffer.data(), fileSize);
 
   file.close();
 
@@ -613,7 +613,8 @@ bool AssetConverter::convertShaderToAsset(fs::path const& srcPath,
       "(ifdef _HAS_COLOR|ifdef _HAS_UV)";
   static std::regex re{permutationCheckPattern};
 
-  bool const hasInputPermutations = std::regex_search(buffer.data(), re);
+  bool const hasInputPermutations =
+      std::regex_search(buffer.cbegin(), buffer.cend(), re);
 
   std::array<char const*, 2> permutationDefines = {"#define _HAS_COLOR",
                                                    "#define _HAS_UV"};
