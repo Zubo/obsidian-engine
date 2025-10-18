@@ -13,8 +13,6 @@ void VulkanRHI::cleanup() {
     waitDeviceIdle();
 
     _taskExecutor.shutdown();
-    while (!_taskExecutor.shutdownComplete())
-      ;
 
     destroyImmediateCtxForCurrentThread();
     cleanupResourceTransferCtxForCurrentThread();

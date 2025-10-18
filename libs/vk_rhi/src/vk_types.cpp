@@ -160,8 +160,6 @@ void ResourceTransferContext::cleanup() {
   }
 
   queueCommandPools.clear();
-
-  initialized = false;
 }
 
 ResourceTransferContext::~ResourceTransferContext() { cleanup(); }

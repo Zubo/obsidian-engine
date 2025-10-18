@@ -31,6 +31,10 @@ Framebuffer RenderPass::generateFramebuffer(
         &outFramebuffer.colorBufferImage.vkImage,
         &outFramebuffer.colorBufferImage.allocation, nullptr));
 
+    vmaSetAllocationName(vmaAllocator,
+                         outFramebuffer.colorBufferImage.allocation,
+                         "Framebuffer color image allocation");
+
     VkImageViewCreateInfo colorImageViewCreateInfo =
         vkinit::imageViewCreateInfo(outFramebuffer.colorBufferImage.vkImage,
                                     *colorAttachmentFormat,
@@ -55,6 +59,10 @@ Framebuffer RenderPass::generateFramebuffer(
         &outFramebuffer.depthBufferImage.vkImage,
         &outFramebuffer.depthBufferImage.allocation, nullptr));
 
+    vmaSetAllocationName(vmaAllocator,
+                         outFramebuffer.depthBufferImage.allocation,
+                         "Framebuffer depth image allocation");
+
     VkImageViewCreateInfo depthImageViewCreateInfo =
         vkinit::imageViewCreateInfo(outFramebuffer.depthBufferImage.vkImage,
                                     *depthAttachmentFormat,
@@ -77,6 +85,9 @@ Framebuffer RenderPass::generateFramebuffer(
                             &allocationCreateInfo,
                             &outFramebuffer.resolvedImage.vkImage,
                             &outFramebuffer.resolvedImage.allocation, nullptr));
+
+    vmaSetAllocationName(vmaAllocator, outFramebuffer.resolvedImage.allocation,
+                         "Framebuffer resolve image allocation");
 
     VkImageViewCreateInfo const imageViewCreateInfo =
         vkinit::imageViewCreateInfo(outFramebuffer.resolvedImage.vkImage,

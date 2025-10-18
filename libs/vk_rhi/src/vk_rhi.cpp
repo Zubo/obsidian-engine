@@ -100,6 +100,8 @@ VulkanRHI::uploadTexture(rhi::ResourceIdRHI id,
 
   setDbgResourceName(_vkDevice, (std::uint64_t)newTexture.image.vkImage,
                      VK_OBJECT_TYPE_IMAGE, uploadTextureInfoRHI.debugName);
+  vmaSetAllocationName(_vmaAllocator, newTexture.image.allocation,
+                       uploadTextureInfoRHI.debugName);
 
   VkImageViewCreateInfo imageViewCreateInfo = vkinit::imageViewCreateInfo(
       newTexture.image.vkImage, getVkTextureFormat(uploadTextureInfoRHI.format),
@@ -337,7 +339,7 @@ VulkanRHI::uploadShader(rhi::ResourceIdRHI id,
 
           setDbgResourceName(_vkDevice, (std::uint64_t)shader.permutations[i],
                              VK_OBJECT_TYPE_SHADER_MODULE,
-                             uploadShader.debugName);
+                             uploadShader.debugName.c_str());
         }
 
         rhi::ResourceState expected = rhi::ResourceState::uploading;
@@ -763,11 +765,11 @@ void VulkanRHI::destroyUnusedResources(bool forceDestroy) {
       VkMaterial& mat = _materials.at(matEntry.id);
 
       for (std::size_t i = 0; i < mat.vkPipelineMainRenderPass.size(); ++i) {
-        if (mat.vkPipelineMainRenderPass[i]) {
+        if (mat.vkPipelineMainRenderPass[i] != VK_NULL_HANDLE) {
           vkDestroyPipeline(_vkDevice, mat.vkPipelineMainRenderPass[i],
                             nullptr);
         }
-        if (mat.vkPipelineEnvironmentRendering[i]) {
+        if (mat.vkPipelineEnvironmentRendering[i] != VK_NULL_HANDLE) {
           vkDestroyPipeline(_vkDevice, mat.vkPipelineEnvironmentRendering[i],
                             nullptr);
         }
@@ -993,7 +995,7 @@ void VulkanRHI::initResourceTransferContext(ResourceTransferContext& ctx) {
 }
 
 void VulkanRHI::cleanupFinishedTransfersForCurrentThread(bool waitToFinish) {
-  static thread_local std::vector<TransferResources> transferResources;
+  std::vector<TransferResources> transferResources;
 
   ResourceTransferContext& ctx = getResourceTransferContextForCurrentThread();
   transferResources.swap(ctx.transferResources);

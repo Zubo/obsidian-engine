@@ -444,6 +444,13 @@ void VulkanRHI::initSwapchainFramebuffers() {
       _swapchainDeletionQueue.pushFunction(
           [this, &framebuffer = _vkSwapchainFramebuffers[i][j]]() {
             vkDestroyFramebuffer(_vkDevice, framebuffer.vkFramebuffer, nullptr);
+
+            if (framebuffer.resolvedImage.vkImage != VK_NULL_HANDLE) {
+              vmaDestroyImage(_vmaAllocator, framebuffer.resolvedImage.vkImage,
+                              framebuffer.resolvedImage.allocation);
+              vkDestroyImageView(_vkDevice, framebuffer.resolveImageView,
+                                 nullptr);
+            }
           });
     }
   }

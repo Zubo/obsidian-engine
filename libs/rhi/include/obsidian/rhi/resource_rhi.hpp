@@ -55,7 +55,7 @@ struct ShaderPermutationRHI {
 
 struct UploadShaderRHI {
   std::array<std::vector<char>, ShaderPermutationRHI::count> code = {};
-  char const* debugName = nullptr;
+  std::string debugName;
   bool vertexInputVariants = false;
 };
 
