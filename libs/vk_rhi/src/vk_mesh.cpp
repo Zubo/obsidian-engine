@@ -13,14 +13,21 @@ VkVertexInputDescription
 VkMesh::getVertexInputDescription(VertexInputSpec inputSpec) const {
 
   VkVertexInputDescription description;
-  bool const bindPosition = inputSpec.bindPosition;
-  bool const bindNormals = inputSpec.bindNormals && hasNormals;
-  bool const bindColors = inputSpec.bindColors && hasColors;
-  bool const bindUV = inputSpec.bindUV && hasUV;
-  bool const bindTangents = inputSpec.bindTangents && hasTangents;
+  bool const bindPosition = inputSpec.position;
+  bool const bindNormals = inputSpec.normals && hasNormals;
+  bool const bindColors = inputSpec.colors && hasColors;
+  bool const bindUV = inputSpec.UV && hasUV;
+  bool const bindTangents = inputSpec.tangents && hasTangents;
+
+  std::uint32_t const stride =
+      getStride(VertexInputSpec{.position = true,
+                                .normals = hasNormals,
+                                .colors = hasColors,
+                                .UV = hasUV,
+                                .tangents = hasTangents});
 
   return obsidian::vk_rhi::getVertexInputDescription(
-      bindPosition, bindNormals, bindColors, bindUV, bindTangents);
+      stride, bindPosition, bindNormals, bindColors, bindUV, bindTangents);
 }
 
 obsidian::rhi::ShaderPermutationRHI::Type

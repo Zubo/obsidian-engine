@@ -799,9 +799,9 @@ void materialCreatorTab() {
       asset::MaterialAssetInfo newMatAssetInfo = {};
       newMatAssetInfo.materialType = core::MaterialType::lit;
       newMatAssetInfo.vertexShaderPath =
-          "obsidian/shaders/default-vert.obsshad";
+          "obsidian/shaders/default.vert.obsshad";
       newMatAssetInfo.fragmentShaderPath =
-          "obsidian/shaders/default-frag.obsshad";
+          "obsidian/shaders/default.frag.obsshad";
       asset::LitMaterialAssetData& litMaterialData =
           newMatAssetInfo.materialSubtypeData
               .emplace<asset::LitMaterialAssetData>();

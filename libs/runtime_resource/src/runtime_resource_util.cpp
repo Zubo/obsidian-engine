@@ -16,11 +16,10 @@ rhi::UploadShaderRHI obsidian::runtime_resource::getUploadShader(
 
   assert(result && "Depth only shader asset info failed to load");
 
-  std::vector<std::uint32_t> shaderData;
+  std::vector<char> shaderData;
   shaderData.resize(assetInfo.unpackedSize);
   asset::unpackAsset(assetInfo, asset.binaryBlob.data(),
-                     asset.binaryBlob.size(),
-                     reinterpret_cast<char*>(shaderData.data()));
+                     asset.binaryBlob.size(), shaderData.data());
   if (assetInfo.permutationOffsets) {
     asset::ShaderPermutationInfo const& permutationInfo =
         *assetInfo.permutationOffsets;

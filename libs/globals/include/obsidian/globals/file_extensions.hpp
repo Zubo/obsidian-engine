@@ -4,6 +4,8 @@ namespace obsidian::globals {
 
 constexpr char const* textureAssetExt = ".obstex";
 constexpr char const* meshAssetExt = ".obsmesh";
+constexpr char const* vertShaderAssetExt = ".vert.obsshad";
+constexpr char const* fragShaderAssetExt = ".frag.obsshad";
 constexpr char const* shaderAssetExt = ".obsshad";
 constexpr char const* materialAssetExt = ".obsmat";
 constexpr char const* prefabAssetExt = ".obspref";

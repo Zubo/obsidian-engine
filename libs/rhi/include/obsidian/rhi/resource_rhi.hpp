@@ -50,13 +50,7 @@ struct UploadMeshRHI {
 };
 
 struct ShaderPermutationRHI {
-  enum Type {
-    base, // has position, normals, color and UV
-    vertexNormal,
-    vertexNormalColor,
-    vertexNormalUV,
-    count
-  };
+  enum Type { base, vertexNormal, vertexNormalColor, vertexNormalUV, count };
 };
 
 struct UploadShaderRHI {

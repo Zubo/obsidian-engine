@@ -18,23 +18,11 @@
 
 namespace obsidian::asset_converter {
 
-std::string shaderPicker(VertexContentInfo const& vertexInfo,
-                         core::MaterialType materialType,
+std::string shaderPicker(core::MaterialType materialType,
                          core::ShaderType shaderType) {
   std::string result = "obsidian/shaders/";
 
   bool hasVariants = materialType != core::MaterialType::pbr;
-
-  if (hasVariants && vertexInfo.hasColor) {
-    result += "c";
-  }
-  if (hasVariants && vertexInfo.hasUV) {
-    result += "u";
-  }
-
-  if (hasVariants && (vertexInfo.hasColor || vertexInfo.hasUV)) {
-    result += "-";
-  }
 
   switch (materialType) {
   case core::MaterialType::unlit:
@@ -54,30 +42,16 @@ std::string shaderPicker(VertexContentInfo const& vertexInfo,
 
   switch (shaderType) {
   case core::ShaderType::vertex:
-    result += "-vert";
+    result += globals::vertShaderAssetExt;
     break;
   case core::ShaderType::fragment:
-    result += "-frag";
+    result += globals::fragShaderAssetExt;
     break;
   default:
     assert(false && "The shaderType argument has invalid value.");
   }
 
-  result += globals::shaderAssetExt;
-
   return result;
-}
-
-std::string shaderPicker(GltfMaterialWrapper const& m,
-                         core::MaterialType materialType,
-                         core::ShaderType shaderType) {
-  return shaderPicker(m.vertexInfo, materialType, shaderType);
-}
-
-std::string shaderPicker(ObjMaterialWrapper const& m,
-                         core::MaterialType materialType,
-                         core::ShaderType shaderType) {
-  return shaderPicker(m.vertexInfo, materialType, shaderType);
 }
 
 inline glm::vec3 calculateTangent(std::array<glm::vec3, 3> const& facePositions,

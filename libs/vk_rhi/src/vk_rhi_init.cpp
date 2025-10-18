@@ -865,8 +865,13 @@ void VulkanRHI::initDepthPrepassPipeline() {
 void VulkanRHI::initSsaoPipeline() {
   PipelineBuilder pipelineBuilder = {};
 
+  std::uint32_t const stride = getStride(VertexInputSpec{.position = true,
+                                                         .normals = true,
+                                                         .colors = false,
+                                                         .UV = true,
+                                                         .tangents = false});
   pipelineBuilder._vertexInputDescription =
-      getVertexInputDescription(true, true, false, true);
+      getVertexInputDescription(stride, true, true, false, true);
 
   pipelineBuilder._vkShaderStageCreateInfos.reserve(2);
 

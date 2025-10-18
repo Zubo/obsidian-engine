@@ -64,7 +64,8 @@ bool GLSLToSpirvCompiler::compileShader(
   outSpirvCode.clear();
 
   auto const shaderStage = getShaderStage(shaderType);
-  if (!shaderStage) {
+
+  if (shaderStage == EShLangCount) {
     return false;
   }
 
@@ -91,7 +92,7 @@ bool GLSLToSpirvCompiler::compileShader(
   shader.setEnvClient(glslang::EShClientVulkan,
                       glslang::EShTargetVulkan_1_2); // TODO: Vulkan version
                                                      // should not be hardcoded
-  shader.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_6);
+  shader.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_5);
 
   DirStackFileIncluder includer;
   includer.pushExternalLocalDirectory(shaderDir);

@@ -51,11 +51,15 @@ AssetConverter::AssetConverter(task::TaskExecutor& taskExecutor)
     : _taskExecutor{taskExecutor} {}
 
 std::unordered_map<std::string, std::string> extensionMap = {
-    {".bmp", globals::textureAssetExt}, {".jpeg", globals::textureAssetExt},
-    {".jpg", globals::textureAssetExt}, {".png", globals::textureAssetExt},
-    {".obj", globals::meshAssetExt},    {".gltf", globals::meshAssetExt},
-    {".glb", globals::meshAssetExt},    {".vert", globals::shaderAssetExt},
-    {".frag", globals::shaderAssetExt}, {".glsl", globals::shaderAssetExt}};
+    {".bmp", globals::textureAssetExt},
+    {".jpeg", globals::textureAssetExt},
+    {".jpg", globals::textureAssetExt},
+    {".png", globals::textureAssetExt},
+    {".obj", globals::meshAssetExt},
+    {".gltf", globals::meshAssetExt},
+    {".glb", globals::meshAssetExt},
+    {".vert", globals::vertShaderAssetExt},
+    {".frag", globals::fragShaderAssetExt}};
 
 bool saveAsset(fs::path const& srcPath, fs::path const& dstPath,
                asset::Asset const& textureAsset) {
@@ -635,7 +639,7 @@ bool AssetConverter::convertShaderToAsset(fs::path const& srcPath,
         shaderAssetInfo.permutationOffsets.emplace();
     permutationInfo.baseSize = totalSize;
 
-    // vertex and normal version
+    // position and normal version
     compiler.compileShader(buffer, srcPath.filename(),
                            shaderAssetInfo.shaderType, {},
                            srcPath.parent_path(), compilationBuffer);
@@ -647,7 +651,7 @@ bool AssetConverter::convertShaderToAsset(fs::path const& srcPath,
                 permutationInfo.vertexNormalSize);
     totalSize += permutationInfo.vertexNormalSize;
 
-    // vertex, normal, color
+    // position, normal, color
     compiler.compileShader(
         buffer, srcPath.filename(), shaderAssetInfo.shaderType,
         {&permutationDefines[0], 1}, srcPath.parent_path(), compilationBuffer);
@@ -660,7 +664,7 @@ bool AssetConverter::convertShaderToAsset(fs::path const& srcPath,
                 permutationInfo.vertexNormalColorSize);
     totalSize += permutationInfo.vertexNormalColorSize;
 
-    // vertex, normal, uv
+    // position, normal, uv
     compiler.compileShader(
         buffer, srcPath.filename(), shaderAssetInfo.shaderType,
         {&permutationDefines[1], 1}, srcPath.parent_path(), compilationBuffer);
@@ -983,10 +987,10 @@ AssetConverter::extractMaterials(fs::path const& srcDirPath,
     }
 
     newMatAssetInfo.transparent = isMaterialTransparent(mat);
-    newMatAssetInfo.vertexShaderPath = shaderPicker(
-        mat, newMatAssetInfo.materialType, core::ShaderType::vertex);
-    newMatAssetInfo.fragmentShaderPath = shaderPicker(
-        mat, newMatAssetInfo.materialType, core::ShaderType::fragment);
+    newMatAssetInfo.vertexShaderPath =
+        shaderPicker(newMatAssetInfo.materialType, core::ShaderType::vertex);
+    newMatAssetInfo.fragmentShaderPath =
+        shaderPicker(newMatAssetInfo.materialType, core::ShaderType::fragment);
 
     asset::Asset matAsset;
     if (asset::packMaterial(newMatAssetInfo, {}, matAsset)) {

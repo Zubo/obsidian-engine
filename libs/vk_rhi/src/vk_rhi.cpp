@@ -408,8 +408,8 @@ VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
     return {};
   }
 
-  auto uploadShaderFunc = [this, id,
-                           uploadMaterial = std::move(uploadMaterial)]() {
+  auto uploadMaterialFunc = [this, id,
+                             uploadMaterial = std::move(uploadMaterial)]() {
     VkMaterial& newMaterial = _materials[id];
 
     PipelineBuilder pipelineBuilder =
@@ -429,16 +429,15 @@ VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
 
     newMaterial.vkPipelineLayout = pipelineBuilder._vkPipelineLayout;
 
-    pipelineBuilder._vkDepthStencilStateCreateInfo =
-        vkinit::
-            depthStencilStateCreateInfo(true,
-                                        _sampleCount != VK_SAMPLE_COUNT_1_BIT /*we don't reuse depth in case of multisampling*/);
-
     for (std::size_t i = 0; i < rhi::ShaderPermutationRHI::count; ++i) {
       if (vertexShaderModule.permutations[i] == VK_NULL_HANDLE ||
           fragmentShaderModule.permutations[i] == VK_NULL_HANDLE) {
         continue;
       }
+
+      pipelineBuilder._vkDepthStencilStateCreateInfo =
+          vkinit::depthStencilStateCreateInfo(true, _sampleCount !=
+                                                        VK_SAMPLE_COUNT_1_BIT /*we don't reuse depth in case of multisampling*/);
 
       pipelineBuilder._vertexInputDescription =
           getVertexInputDescriptionForPermutation(
@@ -703,7 +702,7 @@ VulkanRHI::uploadMaterial(rhi::ResourceIdRHI id,
   };
 
   return rhi::ResourceTransferRHI{_taskExecutor.enqueue(
-      task::TaskType::rhiTransfer, std::move(uploadShaderFunc))};
+      task::TaskType::rhiTransfer, std::move(uploadMaterialFunc))};
 }
 
 void VulkanRHI::releaseMaterial(rhi::ResourceIdRHI resourceIdRHI) {

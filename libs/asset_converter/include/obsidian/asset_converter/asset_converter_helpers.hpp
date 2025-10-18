@@ -266,16 +266,7 @@ inline bool isMaterialTransparent(GltfMaterialWrapper const& m) {
   return mat.alphaMode != "OPAQUE";
 }
 
-std::string shaderPicker(VertexContentInfo const& vertexInfo,
-                         core::MaterialType materialType,
-                         core::ShaderType shaderType);
-
-std::string shaderPicker(GltfMaterialWrapper const& m,
-                         core::MaterialType materialType,
-                         core::ShaderType shaderType);
-
-std::string shaderPicker(ObjMaterialWrapper const& m,
-                         core::MaterialType materialType,
+std::string shaderPicker(core::MaterialType materialType,
                          core::ShaderType shaderType);
 
 } /*namespace obsidian::asset_converter */

@@ -17,97 +17,96 @@ VkVertexInputDescription getVertexInputDescriptionForPermutation(
       isPbr || (permutation == rhi::ShaderPermutationRHI::base ||
                 permutation == rhi::ShaderPermutationRHI::vertexNormalUV);
   bool const hasColors =
-      !isPbr && (permutation == rhi::ShaderPermutationRHI::vertexNormalColor);
+      !isPbr && (permutation == rhi::ShaderPermutationRHI::base ||
+                 permutation == rhi::ShaderPermutationRHI::vertexNormalColor);
 
   bool const hasTangents =
       isPbr || (permutation == rhi::ShaderPermutationRHI::base ||
                 permutation == rhi::ShaderPermutationRHI::vertexNormalUV);
 
-  return getVertexInputDescription(hasPosition, hasNormals, hasColors, hasUV,
-                                   hasTangents);
+  std::uint32_t const stride =
+      getStride(VertexInputSpec{.position = hasPosition,
+                                .normals = hasNormals,
+                                .colors = hasColors,
+                                .UV = hasUV,
+                                .tangents = hasTangents});
+
+  return getVertexInputDescription(stride, hasPosition, hasNormals, hasColors,
+                                   hasUV, hasTangents);
 }
 
-VkVertexInputDescription getVertexInputDescription(bool hasPosition,
+VkVertexInputDescription getVertexInputDescription(std::uint32_t stride,
+                                                   bool hasPosition,
                                                    bool hasNormals,
                                                    bool hasColors, bool hasUV,
                                                    bool hasTangents) {
   VkVertexInputDescription description;
-
-  VkVertexInputBindingDescription mainBinding = {};
-  mainBinding.binding = 0;
-  mainBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-  mainBinding.stride = 0;
+  std::uint32_t offset = 0;
+  VkVertexInputBindingDescription& binding =
+      description.bindings.emplace_back();
+  binding.binding = 0;
+  binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+  binding.stride = stride;
 
   if (hasPosition) {
+
     VkVertexInputAttributeDescription positionAttribute = {};
     positionAttribute.binding = 0;
     positionAttribute.location = 0;
     positionAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
-    positionAttribute.offset = mainBinding.stride;
-
+    positionAttribute.offset = offset;
     description.attributes.push_back(positionAttribute);
+
+    offset += sizeof(VertexPropertiesSpec::position);
   }
 
-  mainBinding.stride += sizeof(VertexPropertiesSpec::position);
-
   if (hasNormals) {
+
     VkVertexInputAttributeDescription normalAttribute = {};
     normalAttribute.binding = 0;
     normalAttribute.location = 1;
     normalAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
-    normalAttribute.offset = mainBinding.stride;
-
+    normalAttribute.offset = offset;
     description.attributes.push_back(normalAttribute);
-  }
 
-  if (hasNormals) {
-    mainBinding.stride += sizeof(VertexPropertiesSpec::normal);
+    offset += sizeof(VertexPropertiesSpec::normal);
   }
 
   if (hasColors) {
+
     VkVertexInputAttributeDescription colorAttribute = {};
     colorAttribute.binding = 0;
     colorAttribute.location = 2;
     colorAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
-    colorAttribute.offset = mainBinding.stride;
-
+    colorAttribute.offset = offset;
     description.attributes.push_back(colorAttribute);
-  }
 
-  if (hasColors) {
-    mainBinding.stride += sizeof(VertexPropertiesSpec::color);
+    offset += sizeof(VertexPropertiesSpec::color);
   }
 
   if (hasUV) {
+
     VkVertexInputAttributeDescription uvAttribute = {};
     uvAttribute.binding = 0;
     uvAttribute.location = 3;
     uvAttribute.format = VK_FORMAT_R32G32_SFLOAT;
-    uvAttribute.offset = mainBinding.stride;
-
+    uvAttribute.offset = offset;
     description.attributes.push_back(uvAttribute);
-  }
 
-  if (hasUV) {
-    mainBinding.stride += sizeof(VertexPropertiesSpec::uv);
+    offset += sizeof(VertexPropertiesSpec::uv);
   }
 
   if (hasTangents) {
+
     VkVertexInputAttributeDescription tangentAttribute = {};
     tangentAttribute.binding = 0;
     tangentAttribute.location = 4;
     tangentAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
-    tangentAttribute.offset = mainBinding.stride;
-
+    tangentAttribute.offset = offset;
     description.attributes.push_back(tangentAttribute);
-  }
 
-  if (hasTangents) {
-    mainBinding.stride += sizeof(VertexPropertiesSpec::tangent);
+    offset += sizeof(VertexPropertiesSpec::tangent);
   }
-
-  description.bindings.push_back(mainBinding);
 
   return description;
 }
@@ -118,6 +117,32 @@ ImmediateSubmitContext::~ImmediateSubmitContext() {
     vkDestroyFence(device, vkFence, nullptr);
     initialized = false;
   }
+}
+
+std::uint32_t getStride(VertexInputSpec const& vertInputSpec) {
+  std::uint32_t stride = 0;
+
+  if (vertInputSpec.position) {
+    stride += sizeof(VertexPropertiesSpec::position);
+  }
+
+  if (vertInputSpec.normals) {
+    stride += sizeof(VertexPropertiesSpec::normal);
+  }
+
+  if (vertInputSpec.colors) {
+    stride += sizeof(VertexPropertiesSpec::color);
+  }
+
+  if (vertInputSpec.UV) {
+    stride += sizeof(VertexPropertiesSpec::uv);
+  }
+
+  if (vertInputSpec.tangents) {
+    stride += sizeof(VertexPropertiesSpec::tangent);
+  }
+
+  return stride;
 }
 
 void ResourceTransferContext::cleanup() {
@@ -160,8 +185,8 @@ glm::vec3 getUpVectorForLookAt(glm::vec3 direction) {
   constexpr glm::vec3 leftVector = {1.0f, 0.0f, 0.0f};
   constexpr float epsilon = 0.0001f;
 
-  // If up vector is aligned with direction, we have to fallback to left vector
-  // for projection matrix to be valid
+  // If up vector is aligned with direction, we have to fallback to left
+  // vector for projection matrix to be valid
   if (std::abs(glm::dot(glm::normalize(direction), upVector)) <
       1.0f - epsilon) {
     return upVector;

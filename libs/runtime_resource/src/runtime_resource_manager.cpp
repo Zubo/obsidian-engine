@@ -43,19 +43,19 @@ void RuntimeResourceManager::uploadInitRHIResources() {
   };
 
   loadShaderFunc(initResources.shadowPassVertexShader,
-                 "obsidian/shaders/depth-only-vert.obsshad");
+                 "obsidian/shaders/depth-only.vert.obsshad");
   loadShaderFunc(initResources.shadowPassFragmentShader,
-                 "obsidian/shaders/depth-only-frag.obsshad");
+                 "obsidian/shaders/depth-only.frag.obsshad");
 
   loadShaderFunc(initResources.ssaoVertexShader,
-                 "obsidian/shaders/ssao-vert.obsshad");
+                 "obsidian/shaders/ssao.vert.obsshad");
   loadShaderFunc(initResources.ssaoFragmentShader,
-                 "obsidian/shaders/ssao-frag.obsshad");
+                 "obsidian/shaders/ssao.frag.obsshad");
 
   loadShaderFunc(initResources.postProcessingVertexShader,
-                 "obsidian/shaders/post-processing-vert.obsshad");
+                 "obsidian/shaders/post-processing.vert.obsshad");
   loadShaderFunc(initResources.postProcessingFragmentShader,
-                 "obsidian/shaders/post-processing-frag.obsshad");
+                 "obsidian/shaders/post-processing.frag.obsshad");
 
   _rhi->initResources(initResources);
 }

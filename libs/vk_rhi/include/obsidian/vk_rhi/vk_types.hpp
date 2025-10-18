@@ -25,11 +25,11 @@ struct VertexPropertiesSpec {
 };
 
 struct VertexInputSpec {
-  bool bindPosition = true;
-  bool bindNormals = true;
-  bool bindColors = true;
-  bool bindUV = true;
-  bool bindTangents = true;
+  bool position = true;
+  bool normals = true;
+  bool colors = true;
+  bool UV = true;
+  bool tangents = true;
 };
 
 static unsigned int const frameOverlap = 3;
@@ -46,11 +46,12 @@ struct VkVertexInputDescription {
 VkVertexInputDescription getVertexInputDescriptionForPermutation(
     rhi::ShaderPermutationRHI::Type permutation, bool isPbr);
 
-VkVertexInputDescription getVertexInputDescription(bool hasPosition = true,
-                                                   bool hasNormals = false,
-                                                   bool hasColors = false,
-                                                   bool hasUV = false,
-                                                   bool hasTangents = false);
+VkVertexInputDescription getVertexInputDescription(
+    std::uint32_t stride = sizeof(VertexPropertiesSpec::position),
+    bool hasPosition = true, bool hasNormals = false, bool hasColors = false,
+    bool hasUV = false, bool hasTangents = false);
+
+std::uint32_t getStride(VertexInputSpec const& vertInputSpec);
 
 struct AllocatedBuffer {
   VkBuffer buffer;

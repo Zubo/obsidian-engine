@@ -426,12 +426,6 @@ void RuntimeResource::performUploadToRHI() {
     break;
   }
   case asset::AssetType::shader: {
-    asset::ShaderAssetInfo info;
-    if (!asset::readShaderAssetInfo(*_asset->metadata, info)) {
-      OBS_LOG_ERR("Failed to read shader asset info");
-      break;
-    }
-
     rhi::UploadShaderRHI uploadShader = getUploadShader(*_asset);
 
     std::string const debugNameStr = _path.stem().string();
