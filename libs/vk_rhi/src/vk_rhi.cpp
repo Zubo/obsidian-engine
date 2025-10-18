@@ -1288,6 +1288,31 @@ void VulkanRHI::transferDataToImage(AllocatedBuffer stagingBuffer,
                         &acquireSubmitInfo, resources.transferFence));
     }
   } else {
+    VkImageMemoryBarrier barrierTransitionToDstLayout = {};
+    barrierTransitionToDstLayout.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrierTransitionToDstLayout.pNext = nullptr;
+    barrierTransitionToDstLayout.srcAccessMask = VK_ACCESS_NONE;
+    barrierTransitionToDstLayout.dstAccessMask = VK_ACCESS_NONE;
+    barrierTransitionToDstLayout.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrierTransitionToDstLayout.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrierTransitionToDstLayout.oldLayout =
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrierTransitionToDstLayout.newLayout = transferDstState.dstLayout;
+    barrierTransitionToDstLayout.image = dstImg;
+    barrierTransitionToDstLayout.subresourceRange.aspectMask =
+        imgTransferInfo.aspectMask;
+    barrierTransitionToDstLayout.subresourceRange.baseMipLevel = 0;
+    barrierTransitionToDstLayout.subresourceRange.levelCount =
+        VK_REMAINING_MIP_LEVELS;
+    barrierTransitionToDstLayout.subresourceRange.baseArrayLayer = 0;
+    barrierTransitionToDstLayout.subresourceRange.layerCount =
+        imgTransferInfo.layerCount;
+
+    // convert layout to dst
+    vkCmdPipelineBarrier(cmdTransfer, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                         VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, 0, nullptr, 0,
+                         nullptr, 1, &barrierTransitionToDstLayout);
+
     VK_CHECK(vkEndCommandBuffer(cmdTransfer));
 
     {
