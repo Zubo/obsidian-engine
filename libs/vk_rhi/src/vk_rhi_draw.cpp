@@ -576,6 +576,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   }
 
   destroyUnusedResources(false);
+  bool updateAfterDraw = false;
 
   uint32_t swapchainImageIndex;
   {
@@ -588,6 +589,8 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
       applyPendingExtentUpdate();
       return;
     } else {
+      updateAfterDraw = acquireImgResult == VK_SUBOPTIMAL_KHR;
+
       VK_CHECK(vkResetFences(_vkDevice, 1, &currentFrameData.vkRenderFence));
     }
   }
@@ -710,6 +713,9 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
   _drawCallQueue.clear();
   _transparentDrawCallQueue.clear();
   _ssaoDrawCallQueue.clear();
+  if (updateAfterDraw) {
+    applyPendingExtentUpdate();
+  }
   ++_frameNumber;
 
   FrameMark;
