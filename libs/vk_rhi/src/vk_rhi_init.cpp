@@ -1,3 +1,4 @@
+#include "vulkan/vulkan_core.h"
 #include <obsidian/core/logging.hpp>
 #include <obsidian/core/material.hpp>
 #include <obsidian/renderdoc/renderdoc.hpp>
@@ -445,11 +446,27 @@ void VulkanRHI::initSwapchainFramebuffers() {
           [this, &framebuffer = _vkSwapchainFramebuffers[i][j]]() {
             vkDestroyFramebuffer(_vkDevice, framebuffer.vkFramebuffer, nullptr);
 
+            if (framebuffer.colorBufferImage.vkImage != VK_NULL_HANDLE) {
+              vkDestroyImageView(_vkDevice, framebuffer.colorBufferImageView,
+                                 nullptr);
+              vmaDestroyImage(_vmaAllocator,
+                              framebuffer.colorBufferImage.vkImage,
+                              framebuffer.colorBufferImage.allocation);
+            }
+
+            if (framebuffer.depthBufferImage.vkImage != VK_NULL_HANDLE) {
+              vkDestroyImageView(_vkDevice, framebuffer.depthBufferImageView,
+                                 nullptr);
+              vmaDestroyImage(_vmaAllocator,
+                              framebuffer.depthBufferImage.vkImage,
+                              framebuffer.depthBufferImage.allocation);
+            }
+
             if (framebuffer.resolvedImage.vkImage != VK_NULL_HANDLE) {
-              vmaDestroyImage(_vmaAllocator, framebuffer.resolvedImage.vkImage,
-                              framebuffer.resolvedImage.allocation);
               vkDestroyImageView(_vkDevice, framebuffer.resolveImageView,
                                  nullptr);
+              vmaDestroyImage(_vmaAllocator, framebuffer.resolvedImage.vkImage,
+                              framebuffer.resolvedImage.allocation);
             }
           });
     }
