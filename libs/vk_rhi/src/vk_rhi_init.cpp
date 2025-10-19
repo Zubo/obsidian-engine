@@ -167,11 +167,11 @@ void VulkanRHI::initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider) {
   vkb::PhysicalDevice vkbPhysicalDevice =
       vkbSelector.set_minimum_version(1, 2)
           .set_surface(_vkSurface)
-          // .add_required_extension(
-          //     VK_EXT_VERTEX_INPUT_DYNAMIC_STATE_EXTENSION_NAME)
           .add_required_extension(
               VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME)
+#ifdef __APPLE__
           .add_required_extension("VK_KHR_portability_subset")
+#endif
           .set_required_features(vkPhysicalDeviceFeatures)
           .select()
           .value();
