@@ -31,8 +31,12 @@ void SDLWindowBackend::provideSurface(rhi::RHI& rhi) const {
   assert(vulkanRhi);
 
   VkSurfaceKHR surface;
-  SDL_Vulkan_CreateSurface(_sdlWindowUnique.get(), vulkanRhi->getInstance(),
-                           &surface);
+  if (!SDL_Vulkan_CreateSurface(_sdlWindowUnique.get(),
+                                vulkanRhi->getInstance(), &surface)) {
+    OBS_LOG_ERR(std::string{"Failed to create surface. Error: "} +
+                SDL_GetError());
+  }
+
   vulkanRhi->setSurface(surface);
 }
 

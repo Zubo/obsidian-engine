@@ -57,7 +57,7 @@ VkCommandBufferBeginInfo commandBufferBeginInfo(
     VkCommandBufferUsageFlags flags,
     VkCommandBufferInheritanceInfo const* inheritanceInfo = nullptr);
 
-VkSubmitInfo commandBufferSubmitInfo(VkCommandBuffer const* cmd);
+VkSubmitInfo commandBufferSubmitInfo(VkCommandBuffer const& cmd);
 
 VkSamplerCreateInfo
 samplerCreateInfo(VkFilter filter, VkSamplerMipmapMode mipmapMode,

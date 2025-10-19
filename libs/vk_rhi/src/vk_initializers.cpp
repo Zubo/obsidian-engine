@@ -222,7 +222,7 @@ commandBufferBeginInfo(VkCommandBufferUsageFlags flags,
   return commandBufferBeginInfo;
 }
 
-VkSubmitInfo commandBufferSubmitInfo(VkCommandBuffer const* cmd) {
+VkSubmitInfo commandBufferSubmitInfo(VkCommandBuffer const& cmd) {
   VkSubmitInfo submitInfo = {};
   submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
   submitInfo.pNext = nullptr;
@@ -233,7 +233,7 @@ VkSubmitInfo commandBufferSubmitInfo(VkCommandBuffer const* cmd) {
   submitInfo.pWaitDstStageMask = nullptr;
 
   submitInfo.commandBufferCount = 1;
-  submitInfo.pCommandBuffers = cmd;
+  submitInfo.pCommandBuffers = &cmd;
 
   submitInfo.signalSemaphoreCount = 0;
   submitInfo.pSignalSemaphores = nullptr;

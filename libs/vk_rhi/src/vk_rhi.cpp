@@ -952,7 +952,7 @@ void VulkanRHI::immediateSubmit(
   VK_CHECK(vkEndCommandBuffer(immediateSubmitContext.vkCommandBuffer));
 
   VkSubmitInfo submit =
-      vkinit::commandBufferSubmitInfo(&immediateSubmitContext.vkCommandBuffer);
+      vkinit::commandBufferSubmitInfo(immediateSubmitContext.vkCommandBuffer);
 
   {
     std::scoped_lock l{_gpuQueueMutexes.at(queueInd)};
@@ -1789,6 +1789,16 @@ void VulkanRHI::applyPendingExtentUpdate() {
   std::scoped_lock l{_pendingExtentUpdateMutex};
   if (_pendingExtentUpdate) {
     waitDeviceIdle();
+
+    VkSurfaceCapabilitiesKHR capabilities;
+    VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
+        _vkPhysicalDevice, _vkSurface, &capabilities));
+    _pendingExtentUpdate->width = std::clamp(_pendingExtentUpdate->width,
+                                             capabilities.minImageExtent.width,
+                                             capabilities.maxImageExtent.width);
+    _pendingExtentUpdate->width = std::clamp(
+        _pendingExtentUpdate->height, capabilities.minImageExtent.height,
+        capabilities.maxImageExtent.height);
 
     _vkbSwapchain.extent.width = _pendingExtentUpdate->width;
     _vkbSwapchain.extent.height = _pendingExtentUpdate->height;

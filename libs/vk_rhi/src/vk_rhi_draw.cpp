@@ -669,7 +669,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
 
   VK_CHECK(vkEndCommandBuffer(cmd));
 
-  VkSubmitInfo vkSubmitInfo = vkinit::commandBufferSubmitInfo(&cmd);
+  VkSubmitInfo vkSubmitInfo = vkinit::commandBufferSubmitInfo(cmd);
 
   VkPipelineStageFlags const vkPipelineStageFlags =
       VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
