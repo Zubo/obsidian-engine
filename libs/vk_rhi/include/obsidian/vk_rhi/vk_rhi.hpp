@@ -235,7 +235,7 @@ private:
   VkFormat _envMapFormat = VK_FORMAT_R8G8B8A8_SRGB;
 
   // MSAA
-  VkSampleCountFlagBits _sampleCount = VK_SAMPLE_COUNT_4_BIT;
+  VkSampleCountFlagBits _sampleCount = VK_SAMPLE_COUNT_1_BIT;
 
   void initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider);
   void initFrameNumberSemaphore();

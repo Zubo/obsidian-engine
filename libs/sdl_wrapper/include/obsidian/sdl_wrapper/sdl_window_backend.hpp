@@ -4,7 +4,6 @@
 #include <obsidian/window/window_backend.hpp>
 
 #include <cstddef>
-#include <cstdint>
 #include <memory>
 
 struct SDL_Window;
@@ -22,6 +21,7 @@ public:
   virtual ~SDLWindowBackend() = default;
 
   void provideSurface(rhi::RHI& rhi) const override;
+  bool showWindow() const override;
 
   void
   pollEvents(std::vector<window::WindowEvent>& outWindowEvents) const override;

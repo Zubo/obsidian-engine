@@ -146,7 +146,6 @@ void VulkanRHI::initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider) {
 
   auto builderReturn = builder.set_app_name("Obsidian Engine")
                            .request_validation_layers(enable_validation_layers)
-                           .enable_extension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)
                            .require_api_version(1, 2, 0)
                            .use_default_debug_messenger()
                            .build();
@@ -169,6 +168,8 @@ void VulkanRHI::initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider) {
           .set_surface(_vkSurface)
           .add_required_extension(
               VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME)
+          .add_required_extension(VK_KHR_SWAPCHAIN_EXTENSION_NAME)
+          .add_required_extension(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME)
 #ifdef __APPLE__
           .add_required_extension("VK_KHR_portability_subset")
 #endif
@@ -187,14 +188,6 @@ void VulkanRHI::initVulkan(rhi::ISurfaceProviderRHI const& surfaceProvider) {
   vkPhysicalDeviceVulkan12Features.timelineSemaphore = VK_TRUE;
 
   vkbDeviceBuilder.add_pNext(&vkPhysicalDeviceVulkan12Features);
-
-  VkPhysicalDeviceVertexInputDynamicStateFeaturesEXT
-      vkVertexInputDynamicStateFeatures = {};
-  vkVertexInputDynamicStateFeatures.sType =
-      VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VERTEX_INPUT_DYNAMIC_STATE_FEATURES_EXT;
-  vkVertexInputDynamicStateFeatures.vertexInputDynamicState = true;
-
-  vkbDeviceBuilder.add_pNext(&vkVertexInputDynamicStateFeatures);
 
   vkb::Device vkbDevice = vkbDeviceBuilder.build().value();
 

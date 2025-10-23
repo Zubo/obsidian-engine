@@ -40,10 +40,11 @@
 #include <obsidian/task/task_type.hpp>
 
 #include <ImGuiFileDialog.h>
-#include <SDL2/SDL.h>
-#include <backends/imgui_impl_sdl2.h>
-#include <backends/imgui_impl_sdlrenderer2.h>
+#include <SDL3/SDL.h>
+#include <backends/imgui_impl_sdl3.h>
+#include <backends/imgui_impl_sdlrenderer3.h>
 #include <glm/ext/vector_int3.hpp>
+#define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <nlohmann/json.hpp>
@@ -1121,8 +1122,8 @@ void begnEditorFrame(ImGuiIO& imguiIO) {
     assetListDirty = false;
   }
 
-  ImGui_ImplSDLRenderer2_NewFrame();
-  ImGui_ImplSDL2_NewFrame();
+  ImGui_ImplSDLRenderer3_NewFrame();
+  ImGui_ImplSDL3_NewFrame();
   ImGui::NewFrame();
 
   ImGui::SetNextWindowSize(imguiIO.DisplaySize);
@@ -1136,7 +1137,7 @@ void endEditorFrame(SDL_Renderer& renderer, ImGuiIO& imguiIO) {
   ImGui::Render();
   ImGui::UpdatePlatformWindows();
   ImGui::RenderPlatformWindowsDefault();
-  SDL_RenderSetScale(&renderer, imguiIO.DisplayFramebufferScale.x,
+  SDL_SetRenderScale(&renderer, imguiIO.DisplayFramebufferScale.x,
                      imguiIO.DisplayFramebufferScale.y);
 
   ImVec4 const clearColor = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
@@ -1146,8 +1147,8 @@ void endEditorFrame(SDL_Renderer& renderer, ImGuiIO& imguiIO) {
   SDL_RenderClear(&renderer);
 
   {
-    ZoneScopedN("ImGui_ImplSDLRenderer2_RenderDrawData");
-    ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData());
+    ZoneScopedN("ImGui_ImplSDLRenderer3_RenderDrawData");
+    ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), &renderer);
   }
 
   {

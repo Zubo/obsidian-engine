@@ -4,10 +4,10 @@
 #include <obsidian/sdl_wrapper/sdl_window_backend.hpp>
 #include <obsidian/window/window_backend.hpp>
 
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_events.h>
-#include <SDL2/SDL_stdinc.h>
-#include <SDL2/SDL_video.h>
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_video.h>
 
 #include <memory>
 
@@ -27,7 +27,12 @@ SDLBackend& SDLBackend::instance() {
 SDLBackend::~SDLBackend() { SDL_Quit(); }
 
 void SDLBackend::init() {
-  if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) != 0) {
+  if (SDL_WasInit(SDL_INIT_VIDEO)) {
+    OBS_LOG_MSG("SDL with flag SDL_INIT_VIDEO already initialized.");
+    return;
+  }
+
+  if (!SDL_Init(SDL_INIT_VIDEO)) {
     OBS_LOG_ERR(std::string("Error: ") + SDL_GetError());
   }
 
@@ -57,18 +62,13 @@ SDLBackend::createWindow(const CreateWindowParams& params,
          "Currently only Vulkan backend is supported.");
 
   SDL_WindowFlags const flags = static_cast<SDL_WindowFlags>(
-      SDL_WINDOW_VULKAN | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
+      SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN |
+      SDL_WINDOW_HIGH_PIXEL_DENSITY);
 
-  Uint32 const posX = params.posX == CreateWindowParams::windowCenetered
-                          ? SDL_WINDOWPOS_CENTERED
-                          : params.posX;
-  Uint32 const posY = params.posY == CreateWindowParams::windowCenetered
-                          ? SDL_WINDOWPOS_CENTERED
-                          : params.posY;
   using UniquePtr =
       std::unique_ptr<SDL_Window, SDLWindowBackend::SDLWindowDeleter>;
   UniquePtr sdlWindowUnique =
-      UniquePtr(SDL_CreateWindow(params.title.c_str(), posX, posY, params.width,
+      UniquePtr(SDL_CreateWindow(params.title.c_str(), params.width,
                                  params.height, flags),
                 [](SDL_Window* w) {
                   if (w)

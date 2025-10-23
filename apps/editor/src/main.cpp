@@ -12,24 +12,24 @@
 
 #define SDL_MAIN_HANDLED
 
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_video.h>
-#include <SDL_events.h>
-#include <backends/imgui_impl_sdl2.h>
-#include <backends/imgui_impl_sdlrenderer2.h>
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_video.h>
+#include <backends/imgui_impl_sdl3.h>
+#include <backends/imgui_impl_sdlrenderer3.h>
 #include <imgui.h>
 #include <tracy/Tracy.hpp>
 
 #include <atomic>
 
-#if !SDL_VERSION_ATLEAST(2, 0, 17)
-#error This backend requires SDL 2.0.17+ because of SDL_RenderGeometry() function
+#if !SDL_VERSION_ATLEAST(3, 0, 0)
+#error This backend requires SDL 3.0.0+ because of SDL_RenderGeometry() function
 #endif
 
 int main(int argc, char const** argv) {
   // Setup SDL
-  if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_EVENTS |
-               SDL_INIT_GAMECONTROLLER) != 0) {
+  SDL_SetHint(SDL_HINT_VIDEO_ALLOW_SCREENSAVER, "1");
+  if (!SDL_Init(SDL_INIT_VIDEO)) {
     OBS_LOG_ERR(SDL_GetError());
     return -1;
   }
@@ -39,20 +39,16 @@ int main(int argc, char const** argv) {
   SDL_SetHint(SDL_HINT_IME_SHOW_UI, "1");
 #endif
 
-  SDL_DisplayMode displayMode;
-  SDL_GetCurrentDisplayMode(0, &displayMode);
-
   constexpr Uint32 editorWindowWidth = 400;
   constexpr Uint32 editorWindowHeight = 800;
 
   // Create window with SDL_Renderer graphics context
   SDL_WindowFlags editorWindowFlags =
-      (SDL_WindowFlags)(SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
-  SDL_Window* editorWindow = SDL_CreateWindow(
-      "Obsidian Editor", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-      editorWindowWidth, editorWindowHeight, editorWindowFlags);
-  SDL_Renderer* editorUIRenderer = SDL_CreateRenderer(
-      editorWindow, -1, SDL_RENDERER_PRESENTVSYNC | SDL_RENDERER_ACCELERATED);
+      (SDL_WindowFlags)(SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+  SDL_Window* editorWindow =
+      SDL_CreateWindow("Obsidian Editor", editorWindowWidth, editorWindowHeight,
+                       editorWindowFlags);
+  SDL_Renderer* editorUIRenderer = SDL_CreateRenderer(editorWindow, NULL);
   if (editorUIRenderer == nullptr) {
     SDL_Log("Error creating SDL_Renderer!");
     return 0;
@@ -67,8 +63,8 @@ int main(int argc, char const** argv) {
 
   ImGui::StyleColorsDark();
 
-  ImGui_ImplSDL2_InitForSDLRenderer(editorWindow, editorUIRenderer);
-  ImGui_ImplSDLRenderer2_Init(editorUIRenderer);
+  ImGui_ImplSDL3_InitForSDLRenderer(editorWindow, editorUIRenderer);
+  ImGui_ImplSDLRenderer3_Init(editorUIRenderer);
 
   using namespace obsidian;
   ObsidianEngine engine;
@@ -87,17 +83,17 @@ int main(int argc, char const** argv) {
     std::vector<SDL_Event> const& polledEvenets = sdlBackend.getPolledEvents();
 
     for (SDL_Event const& e : polledEvenets) {
-      ImGui_ImplSDL2_ProcessEvent(&e);
+      ImGui_ImplSDL3_ProcessEvent(&e);
 
-      if (e.type == SDL_QUIT || (e.type == SDL_WINDOWEVENT &&
-                                 e.window.event == SDL_WINDOWEVENT_CLOSE)) {
+      if (e.type == SDL_EVENT_QUIT ||
+          e.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED) {
         shouldQuit.test_and_set();
         engine.requestShutdown();
       }
 
-      if (e.type == SDL_DROPFILE) {
+      if (e.type == SDL_EVENT_DROP_FILE) {
         if (e.drop.windowID == SDL_GetWindowID(editorWindow)) {
-          editor::fileDropped(e.drop.file, engine);
+          editor::fileDropped(e.drop.data, engine);
         }
       }
     }
@@ -123,8 +119,8 @@ int main(int argc, char const** argv) {
     engine.cleanup();
   }
 
-  ImGui_ImplSDLRenderer2_Shutdown();
-  ImGui_ImplSDL2_Shutdown();
+  ImGui_ImplSDLRenderer3_Shutdown();
+  ImGui_ImplSDL3_Shutdown();
   ImGui::DestroyContext();
 
   SDL_DestroyRenderer(editorUIRenderer);

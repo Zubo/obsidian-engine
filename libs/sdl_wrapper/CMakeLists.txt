@@ -17,7 +17,7 @@ target_link_libraries(SDLWrapper
         Window
         Core
         RHI
-        SDL2::SDL2-static
+        SDL3::SDL3
     PRIVATE
         VulkanRHI
 )

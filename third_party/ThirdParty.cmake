@@ -11,10 +11,13 @@ include(FetchContent)
 FetchContent_Declare(
     fetch_sdl
     GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-    GIT_TAG SDL2
+    GIT_TAG release-3.2.8
     GIT_PROGRESS TRUE
     SYSTEM
 )
+
+set(SDL_STATIC ON CACHE BOOL "" FORCE)
+set(SDL_SHARED OFF CACHE BOOL "" FORCE)
 
 FetchContent_MakeAvailable(fetch_sdl)
 
@@ -123,7 +126,7 @@ FetchContent_MakeAvailable(fetch_hash_library)
 
 FetchContent_Declare(fetch_dear_imgui
     GIT_REPOSITORY https://github.com/ocornut/imgui.git
-    GIT_TAG v1.89.8-docking
+    GIT_TAG v1.92.1-docking
     GIT_PROGRESS TRUE
     SYSTEM
 )
@@ -137,8 +140,8 @@ add_library(DearImgui STATIC
     ${fetch_dear_imgui_SOURCE_DIR}/imgui_demo.cpp
     ${fetch_dear_imgui_SOURCE_DIR}/imgui_widgets.cpp
     ${fetch_dear_imgui_SOURCE_DIR}/imgui_tables.cpp
-    ${fetch_dear_imgui_SOURCE_DIR}/backends/imgui_impl_sdlrenderer2.cpp
-    ${fetch_dear_imgui_SOURCE_DIR}/backends/imgui_impl_sdl2.cpp
+    ${fetch_dear_imgui_SOURCE_DIR}/backends/imgui_impl_sdlrenderer3.cpp
+    ${fetch_dear_imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
 )
 
 target_include_directories(DearImgui
@@ -149,7 +152,7 @@ target_include_directories(DearImgui
 target_link_libraries(DearImgui
     PUBLIC
         ${Vulkan_LIBRARIES}
-        SDL2::SDL2-static
+        SDL3::SDL3
 )
 
 
@@ -232,10 +235,9 @@ if (WIN32)
         gtest_main
         gmock
         gmock_main
-        SDL2
-        SDL2_test
-        SDL2main
-        SDL2-static
+        SDL3_test
+        SDL3main
+        SDL3::SDL3
         sdl_headers_copy
         TracyClient
         tinyobjloader

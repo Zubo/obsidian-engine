@@ -109,6 +109,8 @@ bool ObsidianEngine::init(IWindowBackendProvider const& windowBackendProvider,
   _context.scene.init(_context.inputContext, _context.vulkanRHI,
                       _context.resourceManager);
 
+  _context.window.getWindowBackend().showWindow();
+
   _isInitialized = true;
   return _isInitialized;
 }

@@ -16,6 +16,8 @@ public:
 
   virtual ~IWindowBackend() = default;
 
+  virtual bool showWindow() const = 0;
+
   IWindowBackend& operator=(IWindowBackend const& other) = delete;
 
   virtual void pollEvents(std::vector<WindowEvent>& outWindowEvents) const = 0;
