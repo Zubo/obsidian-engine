@@ -11,7 +11,6 @@
 namespace obsidian::vk_rhi {
 
 struct FrameData {
-  VkSemaphore vkRenderSemaphore;
   VkSemaphore vkPresentSemaphore;
   VkFence vkRenderFence;
   VkCommandPool vkCommandPool;

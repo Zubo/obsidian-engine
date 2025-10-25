@@ -675,7 +675,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
       VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
   std::array<VkSemaphore, 2> signalSemaphores = {
-      params.currentFrameData.vkRenderSemaphore, _frameNumberSemaphore};
+      _swapchainImageSemaphores[swapchainImageIndex], _frameNumberSemaphore};
 
   vkSubmitInfo.pWaitDstStageMask = &vkPipelineStageFlags;
   vkSubmitInfo.waitSemaphoreCount = 1;
@@ -706,7 +706,7 @@ void VulkanRHI::draw(rhi::SceneGlobalParams const& sceneParams) {
                            params.currentFrameData.vkRenderFence));
   }
 
-  present(params.currentFrameData.vkRenderSemaphore, swapchainImageIndex);
+  present(_swapchainImageSemaphores[swapchainImageIndex], swapchainImageIndex);
 
   _submittedDirectionalLights.clear();
   _submittedSpotlights.clear();

@@ -31,11 +31,6 @@ void SDLWindowBackend::provideSurface(rhi::RHI& rhi) const {
 
   assert(vulkanRhi);
 
-  SDL_Vulkan_LoadLibrary(nullptr);
-
-  Uint32 count;
-  char const* const* ext = SDL_Vulkan_GetInstanceExtensions(&count);
-
   VkSurfaceKHR surface;
   if (!SDL_Vulkan_CreateSurface(_sdlWindowUnique.get(),
                                 vulkanRhi->getInstance(), nullptr, &surface)) {

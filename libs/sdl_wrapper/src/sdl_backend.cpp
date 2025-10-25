@@ -74,7 +74,6 @@ SDLBackend::createWindow(const CreateWindowParams& params,
                   if (w)
                     SDL_DestroyWindow(w);
                 });
-
   return std::make_unique<SDLWindowBackend>(std::move(sdlWindowUnique),
                                             rhi::RHIBackends::vulkan);
 }

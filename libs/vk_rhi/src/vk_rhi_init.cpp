@@ -248,6 +248,10 @@ void VulkanRHI::initFrameNumberSemaphore() {
   _deletionQueue.pushFunction([this]() {
     vkDestroySemaphore(_vkDevice, _frameNumberSemaphore, nullptr);
   });
+
+  setDbgResourceName(_vkDevice, (std::uint64_t)(_frameNumberSemaphore),
+                     VK_OBJECT_TYPE_SEMAPHORE,
+                     "Frame Number Timeline Semaphore");
 }
 
 void VulkanRHI::initSwapchain(rhi::WindowExtentRHI const& extent) {
@@ -265,9 +269,21 @@ void VulkanRHI::initSwapchain(rhi::WindowExtentRHI const& extent) {
 
   _swapchainImages = _vkbSwapchain.get_images().value();
   _swapchainImageViews = _vkbSwapchain.get_image_views().value();
+
   _swapchainDeletionQueue.pushFunction(
       [this]() { _vkbSwapchain.destroy_image_views(_swapchainImageViews); });
 
+  _swapchainImageSemaphores.resize(_swapchainImages.size());
+
+  VkSemaphoreCreateInfo const vkSemaphoreCreateInfo =
+      vkinit::semaphoreCreateInfo(0);
+
+  for (VkSemaphore& sem : _swapchainImageSemaphores) {
+    VK_CHECK(
+        vkCreateSemaphore(_vkDevice, &vkSemaphoreCreateInfo, nullptr, &sem));
+    _swapchainDeletionQueue.pushFunction(
+        [this, &sem] { vkDestroySemaphore(_vkDevice, sem, nullptr); });
+  }
   vkb::destroy_swapchain(oldSwapchain);
 }
 
@@ -633,12 +649,9 @@ void VulkanRHI::initSyncStructures() {
         vkinit::semaphoreCreateInfo(0);
 
     VK_CHECK(vkCreateSemaphore(_vkDevice, &vkSemaphoreCreateInfo, nullptr,
-                               &frameData.vkRenderSemaphore));
-    VK_CHECK(vkCreateSemaphore(_vkDevice, &vkSemaphoreCreateInfo, nullptr,
                                &frameData.vkPresentSemaphore));
 
     _deletionQueue.pushFunction([this, frameData]() {
-      vkDestroySemaphore(_vkDevice, frameData.vkRenderSemaphore, nullptr);
       vkDestroySemaphore(_vkDevice, frameData.vkPresentSemaphore, nullptr);
     });
   }

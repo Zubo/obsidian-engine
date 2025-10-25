@@ -1,5 +1,6 @@
 #pragma once
 
+#include "vulkan/vulkan_core.h"
 #include <obsidian/core/material.hpp>
 #include <obsidian/rhi/resource_rhi.hpp>
 #include <obsidian/rhi/rhi.hpp>
@@ -135,6 +136,7 @@ private:
   vkb::Swapchain _vkbSwapchain = {};
   std::vector<VkImage> _swapchainImages;
   std::vector<VkImageView> _swapchainImageViews;
+  std::vector<VkSemaphore> _swapchainImageSemaphores;
   std::atomic<std::uint32_t> _frameNumber = 1;
   VkSemaphore _frameNumberSemaphore;
   float _maxSamplerAnisotropy;
